@@ -1,0 +1,8 @@
+*~
+*.py[cod]
+.~*
+__pycache__
+doc/_build/
+build/
+dist/
+atlite.egg-info/
