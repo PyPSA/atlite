@@ -22,8 +22,14 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 
 from __future__ import absolute_import
 
+import pandas as pd
 import numpy as np
 import xarray as xr
+from six import iteritems
+import os
+import glob
+
+from .config import ncep_dir
 
 def convert_lons_lats_ncep(ds, lons, lats):
     if not isinstance(lons, slice):
@@ -141,20 +147,20 @@ def tasks_roughness_ncep(lons, lats, yearmonths, prepare_func, template):
 weather_data_config = {
     'influx': dict(tasks_func=tasks_monthly_ncep,
                    prepare_func=prepare_influx_ncep,
-                   template='/home/vres/data/rda_ncep/{year}{month:0>2}/dswsfc.*.grb2'),
+                   template=os.path.join(ncep_dir, '{year}{month:0>2}/dswsfc.*.grb2')),
     'outflux': dict(tasks_func=tasks_monthly_ncep,
                     prepare_func=prepare_outflux_ncep,
-                    template='/home/vres/data/rda_ncep/{year}{month:0>2}/uswsfc.*.grb2'),
+                    template=os.path.join(ncep_dir, '{year}{month:0>2}/uswsfc.*.grb2')),
     'temperature': dict(tasks_func=tasks_monthly_ncep,
                         prepare_func=prepare_temperature_ncep,
-                        template='/home/vres/data/rda_ncep/{year}{month:0>2}/tmp2m.*.grb2'),
+                        template=os.path.join(ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2')),
     'wnd10m': dict(tasks_func=tasks_monthly_ncep,
                    prepare_func=prepare_wnd10m_ncep,
-                   template='/home/vres/data/rda_ncep/{year}{month:0>2}/wnd10m.*.grb2'),
+                   template=os.path.join(ncep_dir, '{year}{month:0>2}/wnd10m.*.grb2')),
     'roughness': dict(tasks_func=tasks_roughness_ncep,
                       prepare_func=prepare_roughness_ncep,
-                      template='/home/vres/data/rda_ncep/roughness/flxf01.gdas.SFC_R.SFC.grb2')
+                      template=os.path.join(ncep_dir, 'roughness/flxf01.gdas.SFC_R.SFC.grb2'))
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_ncep,
-                        template='/home/vres/data/rda_ncep/{year}{month:0>2}/tmp2m.*.grb2')
+                        template=os.path.join(ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2'))
