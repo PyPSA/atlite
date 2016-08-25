@@ -28,11 +28,30 @@ import os
 
 ## heat demand
 
-def convert_heat_demand(ds, a = -0.1, b = 28.9, c = 0.1):
+def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0.):
+    """
+    Convert outside temperature into heat demand using the degree-day
+    approximation.
+
+    Parameters
+    ----------
+    threshold : float
+        Outside temperature in degrees Celsius above which there is no heat demand.
+    a : float
+        Linear factor relating heat demand to outside temperature.
+    constant : float
+        Constant part of heat demand that does not depend on outside temperature (e.g. due to water heating).
+    """
+
+    #Temperature is in Kelvin
     T = ds['temperature']
-    heat_demand = a * T + b
-    heat_demand.values[heat_demand.values < c] = c
-    return heat_demand
+    threshold += 273.15
+    heat_demand = a*(threshold - T)
+
+    heat_demand.values[heat_demand.values < 0.] = 0.
+
+    return constant + heat_demand
+
 
 def heat_demand(cutout, matrix=None, index=None, **params):
     return cutout.convert_and_aggregate(convert_func=convert_heat_demand,
