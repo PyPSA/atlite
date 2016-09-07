@@ -211,8 +211,10 @@ class Cutout(object):
         assert self.prepared, "The cutout has to be prepared first."
 
         if matrix is not None:
+            if index is None:
+                index = pd.RangeIndex(matrix.shape[0])
             aggregate_func = aggregate_matrix
-            aggregate_kwds = dict(matrix=matrix, index=index or pd.RangeIndex(matrix.shape[0]))
+            aggregate_kwds = dict(matrix=matrix, index=index)
         else:
             aggregate_func = aggregate_sum
             aggregate_kwds = {}
