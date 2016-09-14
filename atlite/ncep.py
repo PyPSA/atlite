@@ -113,11 +113,11 @@ def prepare_temperature_ncep(fn, yearmonth, lons, lats):
 def prepare_roughness_ncep(fn, lons, lats, yearmonths):
     with xr.open_dataset(fn, engine="pynio") as ds:
         # there are 3 different grids in the dataset, the one in use since 2011 is in lon_2, lat_2
-        ds = ds.drop(['lon_2', 'lat_2', 'initial_time2_hours', 'lon_1', 'lat_1', 'initial_time1_hours',
-                      'initial_time0_encoded', 'initial_time0'])
-        ds = ds.rename({'initial_time0_hours': 'time'})
+        ds = ds.drop(['lon_0', 'lat_0', 'initial_time0_hours', 'lon_1', 'lat_1', 'initial_time1_hours',
+                      'initial_time2_encoded', 'initial_time2'])
+        ds = ds.rename({'initial_time2_hours': 'time', 'lon_2': 'lon_0', 'lat_2': 'lat_0'})
         ds = convert_lons_lats_ncep(ds, lons, lats)
-        ds = ds.rename({'SFCR_P8_L1_GGA0':'roughness'})
+        ds = ds.rename({'SFCR_P8_L1_GGA2': 'roughness'})
         # split time into months
         dt = pd.to_datetime(ds.coords['time'].values)
         ds = (ds.assign_coords(time=pd.MultiIndex.from_arrays([dt.year, dt.month], names=['year', 'month']))
