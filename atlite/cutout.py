@@ -42,8 +42,9 @@ def cutout_preparation_do_task(task):
     task = task.copy()
     prepare_func = task.pop('prepare_func')
     datasetfns = task.pop('datasetfns')
-    for yearmonth, ds in (prepare_func(**task) or []):
-        try:
+
+    try:
+        for yearmonth, ds in (prepare_func(**task) or []):
             fn = datasetfns[yearmonth]
             ds = ds.load() # Don't loose time waiting for the lock, but increases the mem consumption to just about 2gb
             with filelock.SoftFileLock(fn + '.lock'):
@@ -52,11 +53,10 @@ def cutout_preparation_do_task(task):
                          ", ".join('`' + x + '`' for x in ds.data_vars),
                          os.path.basename(fn),
                          prepare_func.__name__)
-        except Exception as e:
-            logger.exception("Exception occured, while saving the result "
-                             " of %s for %s to %s: %s",
-                             prepare_func.__name__, '%d/%d' % yearmonth, fn, e.args[0])
-            raise e
+    except Exception as e:
+        logger.exception("Exception occured in the task with prepare_func `%s`: %s",
+                         prepare_func.__name__, e.args[0])
+        raise e
 
 class Cutout(object):
     def __init__(self, name=None, nprocesses=None,
