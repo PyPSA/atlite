@@ -190,8 +190,11 @@ class Cutout(object):
         for t in tasks:
             t['datasetfns'] = datasetfns
 
-        logger.info("%d tasks have been collected. Starting running them on %d processes.",
-                    len(tasks), self.nprocesses or 0)
+        logger.info("%d tasks have been collected. Starting running them on %s.",
+                    len(tasks),
+                    ("%d processes" % self.nprocesses)
+                    if self.nprocesses is not None
+                    else "all processors")
 
         pool = Pool(processes=self.nprocesses)
         try:
