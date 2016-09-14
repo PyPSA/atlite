@@ -221,7 +221,7 @@ class Cutout(object):
         logger.info("Cutout '%s' has been successfully prepared", self.name)
         self.prepared = True
 
-    def produce_specific_dataset(self, yearmonth, series_name):
+    def produce_specific_dataseries(self, yearmonth, series_name):
         lons = self.coords['lon']
         lats = self.coords['lat']
         series = self.weather_data_config[series_name].copy()
