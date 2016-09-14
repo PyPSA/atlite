@@ -33,9 +33,11 @@ from .config import ncep_dir
 
 def convert_lons_lats_ncep(ds, lons, lats):
     if not isinstance(lons, slice):
-        lons = slice(*lons.values[[0,-1]])
+        first, second, last = lons.values[[0,1,-1]]
+        lons = slice(first - 0.1*(second - first), last + 0.1*(second - first))
     if not isinstance(lats, slice):
-        lats = slice(*lats.values[[0,-1]])
+        first, second, last = lats.values[[0,1,-1]]
+        lats = slice(first - 0.1*(second - first), last + 0.1*(second - first))
 
     ds = ds.sel(lat_0=lats)
 
