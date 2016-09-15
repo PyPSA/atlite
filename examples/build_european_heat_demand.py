@@ -68,12 +68,9 @@ nlat = len(cutout.meta.lat)
 
 #%%time
 pop_matrix = sp.sparse.csr_matrix(pop_map.T)
+index = pd.Index(countries,name="countries")
 
 #%%time
-hd = cutout.heat_demand(pop_matrix)
+hd = cutout.heat_demand(matrix=pop_matrix,index=index)
 
-hd
-
-hd.coords["dim_0"] = countries
-
-hd.T.to_pandas().to_pickle("heat_demand-test.pkl")
+hd.T.to_pandas().to_pickle("heat_demand.pkl")
