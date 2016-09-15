@@ -11,9 +11,13 @@
 
 import atlite
 
-cutout = atlite.Cutout(name="my_new_europe_cutout",
+cutout = atlite.Cutout(name="europe-2011-2014",
                        weather_dataset="ncep",
                        lons=slice(-12.18798349, 41.56244222),
                        lats=slice(71.65648314, 33.56459975),
-                       years=slice(2012, 2013),
+                       years=slice(2011, 2014),
                        cutout_dir='/home/vres/data/cutouts')
+
+#this is where all the work happens - it took 105 minutes on FIAS'
+#beast resi, with 16 cores; the resulting cutout takes 57 GB
+cutout.prepare()
