@@ -33,7 +33,7 @@ from multiprocessing import Pool
 import logging
 logger = logging.getLogger(__name__)
 
-from . import ncep
+from . import ncep, cordex
 from .convert import heat_demand, wind
 from .aggregate import aggregate_sum, aggregate_matrix
 from .config import weather_dataset, cutout_dir
@@ -123,11 +123,19 @@ class Cutout(object):
         offset_end = (pd.Timestamp(ds.coords['time'].values[-1]) -
                       (pd.Timestamp("{}-{}".format(years.stop, months.stop)) +
                        pd.offsets.MonthBegin()))
+
+	if weather_dataset is 'ncep':
+            freq = 'h'
+        else if weather_dataset is 'cordex':
+            freq = '3h'
+        else:
+            raise NameError("'weather_dataset' need to be specified as 'ncep' or 'cordex'")
+
         ds.coords["time"] = pd.date_range(
             start=pd.Timestamp("{}-{}".format(years.start, months.start)) + offset_start,
             end=(pd.Timestamp("{}-{}".format(years.stop, months.stop))
                  + pd.offsets.MonthBegin() + offset_end),
-            freq='h')
+            freq=freq)
 
         ds.coords["year"] = range(years.start, years.stop+1)
         ds.coords["month"] = range(months.start, months.stop+1)
@@ -176,8 +184,16 @@ class Cutout(object):
 
         cutout_dir = self.cutout_dir
         yearmonths = self.coords['year-month'].to_index()
+	years = cutout.coords['year'].to_index()
         lons = self.coords['lon']
         lats = self.coords['lat']
+
+        if weather_dataset is 'ncep':
+            yearmonths = yearmonths
+        else if weather_dataset is 'cordex':
+            yearmonths = years
+        else:
+            raise NameError("weather_dataset need to be specified as 'ncep' or 'cordex'")
 
         # Delete cutout_dir
         if os.path.isdir(cutout_dir):
