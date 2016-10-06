@@ -126,3 +126,13 @@ def wind(cutout, matrix=None, index=None, **params):
         params['hub_height'] = turbineconfig['HUB_HEIGHT']
     return cutout.convert_and_aggregate(convert_func=convert_wind,
                                         matrix=matrix, index=index, **params)
+
+## hydro
+
+def convert_runoff(ds):
+    runoff = ds['runoff'] * ds['height']
+    return runoff
+
+def runoff(cutout, matrix=None):
+    return cutout.convert_and_aggregate(convert_func=convert_runoff,
+                                       matrix=matrix, index=index, **params)

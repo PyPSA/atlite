@@ -127,6 +127,21 @@ def prepare_roughness_ncep(fn, lons, lats, yearmonths):
         return [(ym, ds.sel(year=ym[0], month=ym[1]).load())
                 for ym in yearmonths]
 
+def prepare_runoff_ncep(fn, yearmonth, lons, lats):
+    with xr.open_dataset(fn, engine="pynio") as ds:
+        ds = convert_lons_lats_ncep(ds, lons, lats)
+        ds = convert_time_hourly_ncep(ds)
+
+        ds = ds.rename({'WATR_P8_L1_GGA0_acc': 'runoff'})
+        return [(yearmonth, ds.load())]
+
+def prepare_height_ncep(fn, yearmonth, lons, lats):
+    with xr.open_dataset(fn, engine="pynio") as ds:
+        ds = convert_lons_lats_ncep(ds, lons, lats)
+
+        ds = ds.rename({'HGT_P0_L105_GGA0': 'height'})
+        return [(yearmonth, ds.load())]
+
 def prepare_meta_ncep(lons, lats, year, month, template):
     fn = next(glob.iglob(template.format(year=year, month=month)))
     with xr.open_dataset(fn, engine="pynio") as ds:
@@ -163,7 +178,13 @@ weather_data_config = {
                    template=os.path.join(ncep_dir, '{year}{month:0>2}/wnd10m.*.grb2')),
     'roughness': dict(tasks_func=tasks_roughness_ncep,
                       prepare_func=prepare_roughness_ncep,
-                      template=os.path.join(ncep_dir, 'roughness/flxf01.gdas.SFC_R.SFC.grb2'))
+                      template=os.path.join(ncep_dir, 'roughness/flxf01.gdas.SFC_R.SFC.grb2')),
+    'runoff': dict(tasks_func=tasks_monthly_ncep,
+                    prepare_func=prepare_runoff_ncep,
+                    template=os.path.join(ncep_dir, '{year}{month:0>2}/runoff.*.grb2')),
+    'height': dict(tasks_func=tasks_monthly_ncep,
+                    prepare_func=prepare_height_ncep,
+                    template=os.path.join(ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'))
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_ncep,
