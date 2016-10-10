@@ -96,16 +96,30 @@ class Cutout(object):
             self.meta = self.get_meta(**cutoutparams)
 
     def datasetfn(self, *args):
-        if len(args) == 2:
-            dataset = args
-        elif len(args) == 1:
-            dataset = args[0]
+	if weather_dataset is 'ncep':
+	    if len(args) == 2:
+            		dataset = args
+            elif len(args) == 1:
+            		dataset = args[0]
+       	    else:
+            		dataset = None
+            setting = os.path.join(self.cutout_dir, "meta.nc"
+                                            	    if dataset is None
+                                            	    else "{}{:0>2}.nc".format(*dataset))
+        elif weather_dataset is 'cordex':
+	    if len(args) == 2:
+            		dataset = args
+            elif len(args) == 1:
+            		dataset = args
+            else:
+            		dataset = None
+	    setting = os.path.join(self.cutout_dir, "meta.nc"
+                                            	    if dataset is None
+                                            	    else "{}.nc".format(*dataset))
         else:
-            dataset = None
+            raise NameError("'weather_dataset' need to be specified as 'ncep' or 'cordex'")
 
-        return os.path.join(self.cutout_dir, "meta.nc"
-                                            if dataset is None
-                                            else "{}{:0>2}.nc".format(*dataset))
+        return setting
 
     @property
     def coords(self):
@@ -140,6 +154,8 @@ class Cutout(object):
         ds.coords["year"] = range(years.start, years.stop+1)
         ds.coords["month"] = range(months.start, months.stop+1)
         ds = ds.stack(**{'year-month': ('year', 'month')})
+
+        ds.coords["year"] = range(years.start, years.stop+1)
 
         return ds
 
@@ -184,7 +200,7 @@ class Cutout(object):
 
         cutout_dir = self.cutout_dir
         yearmonths = self.coords['year-month'].to_index()
-	years = cutout.coords['year'].to_index()
+	years = self.coords['year'].to_index()
         lons = self.coords['lon']
         lats = self.coords['lat']
 
