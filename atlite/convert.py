@@ -133,6 +133,6 @@ def convert_runoff(ds):
     runoff = ds['runoff'] * ds['height']
     return runoff
 
-def runoff(cutout, matrix=None):
+def runoff(cutout, matrix=None, index=None, **params):
     return cutout.convert_and_aggregate(convert_func=convert_runoff,
                                        matrix=matrix, index=index, **params)
