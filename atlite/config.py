@@ -1,6 +1,7 @@
 #Cordex Settings
 name = 'CNRM-CERFACS_CNRM_CM5'
 cutout_dir = '/home/vres/data/markus/cutouts'
+ncep_dir = '/home/vres/data/rda_ucar'
 cordex_dir = '/home/vres/data/markus/cordex'
 weather_dataset = 'cordex'
 

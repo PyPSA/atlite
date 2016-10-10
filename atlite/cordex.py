@@ -78,7 +78,7 @@ def prepare_meta_cordex(lons, lats, year, month, template):
 def tasks_yearly_cordex(lons, lats, yearmonths, prepare_func, template):
     return [dict(prepare_func=prepare_func,
                  lons=lons, lats=lats,
-                 fn=next(glob.iglob(template.format(year=ym)))
+                 fn=next(glob.iglob(template.format(year=ym))),
                  yearmonth=ym)
             for ym in yearmonths]
 

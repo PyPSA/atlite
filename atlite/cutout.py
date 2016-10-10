@@ -126,7 +126,7 @@ class Cutout(object):
 
 	if weather_dataset is 'ncep':
             freq = 'h'
-        else if weather_dataset is 'cordex':
+        elif weather_dataset is 'cordex':
             freq = '3h'
         else:
             raise NameError("'weather_dataset' need to be specified as 'ncep' or 'cordex'")
@@ -190,7 +190,7 @@ class Cutout(object):
 
         if weather_dataset is 'ncep':
             yearmonths = yearmonths
-        else if weather_dataset is 'cordex':
+        elif weather_dataset is 'cordex':
             yearmonths = years
         else:
             raise NameError("weather_dataset need to be specified as 'ncep' or 'cordex'")
