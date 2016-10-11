@@ -78,6 +78,24 @@ def convert_unaverage_ncep(ds):
 
     return ds
 
+def convert_unaccumulate_ncep(ds):
+    # the fields ending in _acc contain values that are accumulated over the
+    # forecast_time which have to be unaccumulated by using:
+    # \begin{equation}
+    # \tilde x_1 = x_1
+    # \tilde x_i = x_i - x_{i-1} \forall 1 < i <= 6
+    # \end{equation}
+    # Source: http://rda.ucar.edu/datasets/ds094.1/#docs/FAQs_hrly_timeseries.html
+
+    def unaccumulate(da, dim='forecast_time0'):
+        return da - da.shift(**{dim: 1}).fillna(0.)
+    for k, da in iteritems(ds):
+        if k.endswith('_acc'):
+            ds[k[:-len('_acc')]] = unaccumulate(da)
+            ds = ds.drop(k)
+
+    return ds
+
 def prepare_wnd10m_ncep(fn, yearmonth, lons, lats):
     with xr.open_dataset(fn, engine="pynio") as ds:
         ds = convert_lons_lats_ncep(ds, lons, lats)
@@ -130,9 +148,12 @@ def prepare_roughness_ncep(fn, lons, lats, yearmonths):
 def prepare_runoff_ncep(fn, yearmonth, lons, lats):
     with xr.open_dataset(fn, engine="pynio") as ds:
         ds = convert_lons_lats_ncep(ds, lons, lats)
+        # runoff has missing values: set nans to 0
+        ds = ds.fillna(0.)
+        ds = convert_unaccumulate_ncep(ds)
         ds = convert_time_hourly_ncep(ds)
 
-        ds = ds.rename({'WATR_P8_L1_GGA0_acc': 'runoff'})
+        ds = ds.rename({'WATR_P8_L1_GGA0': 'runoff'})
         return [(yearmonth, ds.load())]
 
 def prepare_height_ncep(fn, yearmonth, lons, lats):
