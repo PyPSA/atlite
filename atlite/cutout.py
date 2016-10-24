@@ -37,6 +37,8 @@ from . import ncep, cordex
 from .convert import heat_demand, wind
 from .aggregate import aggregate_sum, aggregate_matrix
 from .config import weather_dataset, cutout_dir
+from .config import transformation, proj, o_proj, lon_0, o_lon_p, o_lat_p, inverse
+
 
 def cutout_preparation_do_task(task, write_to_file=True):
     task = task.copy()
@@ -72,6 +74,7 @@ def cutout_preparation_do_task(task, write_to_file=True):
 class Cutout(object):
     def __init__(self, name=None, nprocesses=None,
                  weather_dataset=weather_dataset, cutout_dir=cutout_dir,
+		 transformation=transformation, proj=proj, o_proj=o_proj, lon_0=lon_0, o_lon_p=o_lon_p, o_lat_p=o_lat_p, inverse=inverse,
                  **cutoutparams):
         self.name = name
         self.nprocesses = nprocesses
@@ -82,6 +85,21 @@ class Cutout(object):
 
         self.cutout_dir = os.path.join(cutout_dir, name)
         self.prepared = False
+
+	# Collect information about projection settings
+	class ProjSettings(object):
+    	    def __init__(self, transformation, proj, o_proj, lon_0, o_lon_p, o_lat_p, inverse):
+	        self.transformation = transformation
+                self.proj = proj
+	        self.o_proj = o_proj
+                self.lon_0 = lon_0
+                self.o_lon_p = o_lon_p
+                self.o_lat_p = o_lat_p
+	        self.inverse = inverse
+	self.proj_settings = ProjSettings(transformation=transformation, proj=proj, o_proj=o_proj, lon_0=lon_0,
+					o_lon_p=o_lon_p, o_lat_p=o_lat_p, inverse=inverse)
+
+
         if os.path.isdir(self.cutout_dir):
 
 
