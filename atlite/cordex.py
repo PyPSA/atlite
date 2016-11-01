@@ -32,46 +32,46 @@ import glob
 from .config import cordex_dir, name
 
 def rename_coords(ds):
-	ds = ds.rename({'lon': 'glon'})
-	ds = ds.rename({'lat': 'glat'})
-	ds = ds.rename({'rlon': 'lon'})
-	ds = ds.rename({'rlat': 'lat'})
-	return ds
+    ds = ds.rename({'lon': 'glon'})
+    ds = ds.rename({'lat': 'glat'})
+    ds = ds.rename({'rlon': 'lon'})
+    ds = ds.rename({'rlat': 'lat'})
+    return ds
 
 def prepare_wnd10m_cordex(fn, yearmonth, lons, lats):
     with xr.open_dataset(fn, engine="pynio") as ds:
-	ds = rename_coords(ds)
+        ds = rename_coords(ds)
         ds = ds.rename({'sfcWind': 'wnd10m'})
         return [(yearmonth, ds.load())]
 
 def prepare_influx_cordex(fn, yearmonth, lons, lats):
     with xr.open_dataset(fn, engine="pynio") as ds:
-	ds = rename_coords(ds)
+        ds = rename_coords(ds)
         ds = ds.rename({'rsds': 'influx'})
         return [(yearmonth, ds.load())]
 
 def prepare_outflux_cordex(fn, yearmonth, lons, lats):
     with xr.open_dataset(fn, engine="pynio") as ds:
-	ds = rename_coords(ds)
+        ds = rename_coords(ds)
         ds = ds.rename({'rsus': 'outflux'})
         return [(yearmonth, ds.load())]
 
 def prepare_temperature_cordex(fn, yearmonth, lons, lats):
     with xr.open_dataset(fn, engine="pynio") as ds:
-	ds = rename_coords(ds)
+        ds = rename_coords(ds)
         ds = ds.rename({'tas': 'temperature'})
         return [(yearmonth, ds.load())]
 
 def prepare_roughness_cordex(fn, yearmonth, lons, lats):
     with xr.open_dataset(fn, engine="pynio") as ds:
-	ds = rename_coords(ds)
+        ds = rename_coords(ds)
         ds = ds.rename({'': 'roughness'})
         return [(yearmonth, ds.load())]
 
 def prepare_meta_cordex(lons, lats, year, month, template):
     fn = next(glob.iglob(template.format(year=year, month=month)))
     with xr.open_dataset(fn, engine="pynio") as ds:
-	ds = rename_coords(ds)
+        ds = rename_coords(ds)
         ds = ds.coords.to_dataset()
         return ds.load()
 

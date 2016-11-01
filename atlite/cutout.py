@@ -74,7 +74,7 @@ def cutout_preparation_do_task(task, write_to_file=True):
 class Cutout(object):
     def __init__(self, name=None, nprocesses=None,
                  weather_dataset=weather_dataset, cutout_dir=cutout_dir,
-		 transformation=transformation, proj=proj, o_proj=o_proj, lon_0=lon_0, o_lon_p=o_lon_p, o_lat_p=o_lat_p, inverse=inverse,
+                 transformation=transformation, proj=proj, o_proj=o_proj, lon_0=lon_0, o_lon_p=o_lon_p, o_lat_p=o_lat_p, inverse=inverse,
                  **cutoutparams):
         self.name = name
         self.nprocesses = nprocesses
@@ -86,41 +86,41 @@ class Cutout(object):
         self.cutout_dir = os.path.join(cutout_dir, name)
         self.prepared = False
 
-	# Collect information about projection settings
-	class ProjSettings(object):
-    	    def __init__(self, transformation, proj, o_proj, lon_0, o_lon_p, o_lat_p, inverse):
-	        self.transformation = transformation
+        # Collect information about projection settings
+        class ProjSettings(object):
+            def __init__(self, transformation, proj, o_proj, lon_0, o_lon_p, o_lat_p, inverse):
+                self.transformation = transformation
                 self.proj = proj
-	        self.o_proj = o_proj
+                self.o_proj = o_proj
                 self.lon_0 = lon_0
                 self.o_lon_p = o_lon_p
                 self.o_lat_p = o_lat_p
-	        self.inverse = inverse
-	self.proj_settings = ProjSettings(transformation=transformation, proj=proj, o_proj=o_proj, lon_0=lon_0,
-					o_lon_p=o_lon_p, o_lat_p=o_lat_p, inverse=inverse)
+                self.inverse = inverse
+        self.proj_settings = ProjSettings(transformation=transformation, proj=proj, o_proj=o_proj, lon_0=lon_0,
+                                        o_lon_p=o_lon_p, o_lat_p=o_lat_p, inverse=inverse)
 
 
         if os.path.isdir(self.cutout_dir):
 
 
-	    # Check for weather_dataset
-	    if weather_dataset is 'ncep':
+            # Check for weather_dataset
+            if weather_dataset is 'ncep':
                 self.meta = meta = xr.open_dataset(self.datasetfn()).stack(**{'year-month': ('year', 'month')})
                 # check datasets very rudimentarily, series and coordinates should be checked as well
                 if all(os.path.isfile(self.datasetfn(ym)) for ym in meta.coords['year-month'].to_index()):
                     self.prepared = True
                 else:
                     assert False
-	    elif weather_dataset is 'cordex':
+            elif weather_dataset is 'cordex':
                 self.meta = meta = xr.open_dataset(self.datasetfn())
-		self.years = self.coords['year']
-		self.meta = meta = meta.stack(**{'year-month': ('year', 'month')})
+                self.years = self.coords['year']
+                self.meta = meta = meta.stack(**{'year-month': ('year', 'month')})
                 # check datasets very rudimentarily, series and coordinates should be checked as well
                 if all(os.path.isfile(self.datasetfn(ym)) for ym in self.years['year'].to_index()):
                     self.prepared = True
                 else:
                     assert False
-	    else:
+            else:
                 raise NameError("'weather_dataset' needs to be specified as 'ncep' or 'cordex'")
 
 
@@ -130,30 +130,30 @@ class Cutout(object):
             self.meta = self.get_meta(**cutoutparams)
 
     def datasetfn(self, *args):
-	dataset = None
+        dataset = None
 
 
-	# Check for weather_dataset
-	if weather_dataset is 'ncep':
-	    if len(args) == 2:
-            	dataset = args
+        # Check for weather_dataset
+        if weather_dataset is 'ncep':
+            if len(args) == 2:
+                dataset = args
             elif len(args) == 1:
-            	dataset = args[0]
-       	    else:
-            	dataset = None
+                dataset = args[0]
+            else:
+                dataset = None
             setting = os.path.join(self.cutout_dir, "meta.nc"
-                                            	    	if dataset is None
-                                            	    	else "{}{:0>2}.nc".format(*dataset))
+                                                        if dataset is None
+                                                        else "{}{:0>2}.nc".format(*dataset))
         elif weather_dataset is 'cordex':
-	    if len(args) == 2:
-            	dataset = args
+            if len(args) == 2:
+                dataset = args
             elif len(args) == 1:
-            	dataset = args
+                dataset = args
             elif args == None:
-            	dataset = None
-	    setting = os.path.join(self.cutout_dir, "meta.nc"
-                                            	    	if dataset is None
-                                            	    	else "{}.nc".format(*dataset))
+                dataset = None
+            setting = os.path.join(self.cutout_dir, "meta.nc"
+                                                        if dataset is None
+                                                        else "{}.nc".format(*dataset))
         else:
             raise NameError("'weather_dataset' needs to be specified as 'ncep' or 'cordex'")
 
@@ -178,8 +178,8 @@ class Cutout(object):
                        pd.offsets.MonthBegin()))
 
 
-	# Check for weather_dataset
-	if weather_dataset is 'ncep':
+        # Check for weather_dataset
+        if weather_dataset is 'ncep':
             freq = 'h'
         elif weather_dataset is 'cordex':
             freq = '3h'
@@ -242,12 +242,12 @@ class Cutout(object):
 
         cutout_dir = self.cutout_dir
         yearmonths = self.coords['year-month'].to_index()
-	years = self.coords['year'].to_index()
+        years = self.coords['year'].to_index()
         lons = self.coords['lon']
         lats = self.coords['lat']
 
 
-	# Check for weather_dataset
+        # Check for weather_dataset
         if weather_dataset is 'ncep':
             yearmonths = yearmonths
         elif weather_dataset is 'cordex':
@@ -323,11 +323,11 @@ class Cutout(object):
         results = []
 
 
-	# Check for weather_dataset
-	if weather_dataset is 'ncep':
+        # Check for weather_dataset
+        if weather_dataset is 'ncep':
             yearmonths = self.coords['year-month'].to_index()
         elif weather_dataset is 'cordex':
-	    yearmonths = self.years['year'].to_index()
+            yearmonths = self.years['year'].to_index()
         else:
             raise NameError("'weather_dataset' needs to be specified as 'ncep' or 'cordex'")
 
