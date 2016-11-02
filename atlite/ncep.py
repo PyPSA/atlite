@@ -135,16 +135,18 @@ def prepare_meta_ncep(lons, lats, year, month, template):
         ds = convert_time_hourly_ncep(ds, drop_time_vars=False)
         return ds.load()
 
-def tasks_monthly_ncep(lons, lats, yearmonths, prepare_func, template):
+def tasks_monthly_ncep(lons, lats, yearmonths, prepare_func, template, meta_attrs):
     return [dict(prepare_func=prepare_func,
                  lons=lons, lats=lats,
                  fn=next(glob.iglob(template.format(year=ym[0], month=ym[1]))),
                  yearmonth=ym)
             for ym in yearmonths]
 
-def tasks_roughness_ncep(lons, lats, yearmonths, prepare_func, template):
+def tasks_roughness_ncep(lons, lats, yearmonths, prepare_func, template, meta_attrs):
     return [dict(prepare_func=prepare_func,
                  lons=lons, lats=lats, yearmonths=yearmonths, fn=template)]
+
+projection = 'latlong'
 
 weather_data_config = {
     'influx': dict(tasks_func=tasks_monthly_ncep,

@@ -28,17 +28,16 @@ import numpy as np
 import os, sys, shutil
 import filelock
 from six import itervalues
+from six.moves import map
 from multiprocessing import Pool
 
 import logging
 logger = logging.getLogger(__name__)
 
-from . import ncep, cordex
+from . import config, ncep, cordex
 from .convert import heat_demand, wind
 from .aggregate import aggregate_sum, aggregate_matrix
-from .config import weather_dataset, cutout_dir
-from .config import transformation, proj, o_proj, lon_0, o_lon_p, o_lat_p, inverse
-
+from .shapes import spdiag, compute_indicatormatrix
 
 def cutout_preparation_do_task(task, write_to_file=True):
     task = task.copy()
@@ -72,57 +71,30 @@ def cutout_preparation_do_task(task, write_to_file=True):
         return data
 
 class Cutout(object):
-    def __init__(self, name=None, nprocesses=None,
-                 weather_dataset=weather_dataset, cutout_dir=cutout_dir,
-                 transformation=transformation, proj=proj, o_proj=o_proj, lon_0=lon_0, o_lon_p=o_lon_p, o_lat_p=o_lat_p, inverse=inverse,
-                 **cutoutparams):
+    def __init__(self, name=None, nprocesses=None, weather_dataset=None,
+                 cutout_dir=config.cutout_dir, **cutoutparams):
         self.name = name
         self.nprocesses = nprocesses
-
-        weather_dataset_m = sys.modules['atlite.' + weather_dataset]
-        self.weather_data_config = weather_dataset_m.weather_data_config.copy()
-        self.meta_data_config = weather_dataset_m.meta_data_config.copy()
 
         self.cutout_dir = os.path.join(cutout_dir, name)
         self.prepared = False
 
-        # Collect information about projection settings
-        class ProjSettings(object):
-            def __init__(self, transformation, proj, o_proj, lon_0, o_lon_p, o_lat_p, inverse):
-                self.transformation = transformation
-                self.proj = proj
-                self.o_proj = o_proj
-                self.lon_0 = lon_0
-                self.o_lon_p = o_lon_p
-                self.o_lat_p = o_lat_p
-                self.inverse = inverse
-        self.proj_settings = ProjSettings(transformation=transformation, proj=proj, o_proj=o_proj, lon_0=lon_0,
-                                        o_lon_p=o_lon_p, o_lat_p=o_lat_p, inverse=inverse)
-
-
         if os.path.isdir(self.cutout_dir):
-
-
-            # Check for weather_dataset
-            if weather_dataset is 'ncep':
-                self.meta = meta = xr.open_dataset(self.datasetfn()).stack(**{'year-month': ('year', 'month')})
-                # check datasets very rudimentarily, series and coordinates should be checked as well
-                if all(os.path.isfile(self.datasetfn(ym)) for ym in meta.coords['year-month'].to_index()):
-                    self.prepared = True
-                else:
-                    assert False
-            elif weather_dataset is 'cordex':
-                self.meta = meta = xr.open_dataset(self.datasetfn())
-                self.years = self.coords['year']
-                self.meta = meta = meta.stack(**{'year-month': ('year', 'month')})
-                # check datasets very rudimentarily, series and coordinates should be checked as well
-                if all(os.path.isfile(self.datasetfn(ym)) for ym in self.years['year'].to_index()):
-                    self.prepared = True
-                else:
-                    assert False
+            self.meta = meta = xr.open_dataset(self.datasetfn()).stack(**{'year-month': ('year', 'month')})
+            # check datasets very rudimentarily, series and coordinates should be checked as well
+            if all(os.path.isfile(self.datasetfn(ym)) for ym in meta.coords['year-month'].to_index()):
+                self.prepared = True
             else:
-                raise NameError("'weather_dataset' needs to be specified as 'ncep' or 'cordex'")
+                assert False
+            module = meta.attrs['atlite_module']
 
+        if weather_dataset is None:
+            d = config.weather_dataset.copy()
+            d.update(cutoutparams)
+            cutoutparams = d
+            module = cutoutparams['atlite_module']
+
+        self.dataset_module = sys.modules['atlite.' + module]
 
         if not self.prepared:
             if {"lons", "lats", "years"}.difference(cutoutparams):
@@ -132,72 +104,57 @@ class Cutout(object):
     def datasetfn(self, *args):
         dataset = None
 
-
-        # Check for weather_dataset
-        if weather_dataset is 'ncep':
-            if len(args) == 2:
-                dataset = args
-            elif len(args) == 1:
-                dataset = args[0]
-            else:
-                dataset = None
-            setting = os.path.join(self.cutout_dir, "meta.nc"
-                                                        if dataset is None
-                                                        else "{}{:0>2}.nc".format(*dataset))
-        elif weather_dataset is 'cordex':
-            if len(args) == 2:
-                dataset = args
-            elif len(args) == 1:
-                dataset = args
-            elif args == None:
-                dataset = None
-            setting = os.path.join(self.cutout_dir, "meta.nc"
-                                                        if dataset is None
-                                                        else "{}.nc".format(*dataset))
+        if len(args) == 2:
+            dataset = args
+        elif len(args) == 1:
+            dataset = args[0]
         else:
-            raise NameError("'weather_dataset' needs to be specified as 'ncep' or 'cordex'")
+            dataset = None
+        return os.path.join(self.cutout_dir, ("meta.nc"
+                                              if dataset is None
+                                              else "{}{:0>2}.nc".format(*dataset)))
 
+    @property
+    def meta_data_config(self):
+        self.dataset_module.meta_data_config
 
-        return setting
+    @property
+    def weather_data_config(self):
+        self.dataset_module.weather_data_config
+
+    @property
+    def projection(self):
+        self.dataset_module.projection
 
     @property
     def coords(self):
         return self.meta.coords
 
-    def get_meta(self, lons, lats, years, months=None):
+    def get_meta(self, lons, lats, years, months=None, **dataset_params):
         if months is None:
             months = slice(1, 12)
         meta_kwds = self.meta_data_config.copy()
+        meta_kwds.update(dataset_params)
+
         prepare_func = meta_kwds.pop('prepare_func')
         ds = prepare_func(lons=lons, lats=lats, year=years.stop, month=months.stop, **meta_kwds)
+        ds.attrs.update(dataset_params)
 
-        offset_start = (pd.Timestamp(ds.coords['time'].values[0]) -
-                        pd.Timestamp("{}-{}".format(years.stop, months.stop)))
-        offset_end = (pd.Timestamp(ds.coords['time'].values[-1]) -
-                      (pd.Timestamp("{}-{}".format(years.stop, months.stop)) +
-                       pd.offsets.MonthBegin()))
+        start, second, end = map(pd.Timestamp, ds.coords['time'].values[[0, 1, -1]])
+        month_start = pd.Timestamp("{}-{}".format(years.stop, months.stop))
 
-
-        # Check for weather_dataset
-        if weather_dataset is 'ncep':
-            freq = 'h'
-        elif weather_dataset is 'cordex':
-            freq = '3h'
-        else:
-            raise NameError("'weather_dataset' needs to be specified as 'ncep' or 'cordex'")
-
+        offset_start = (start - month_start)
+        offset_end = (end - (month_start + pd.offsets.MonthBegin()))
+        step = (second - start).components.hours
 
         ds.coords["time"] = pd.date_range(
             start=pd.Timestamp("{}-{}".format(years.start, months.start)) + offset_start,
-            end=(pd.Timestamp("{}-{}".format(years.stop, months.stop))
-                 + pd.offsets.MonthBegin() + offset_end),
-            freq=freq)
+            end=(month_start + pd.offsets.MonthBegin() + offset_end),
+            freq='h' if step == 1 else ('%dh' % step))
 
         ds.coords["year"] = range(years.start, years.stop+1)
         ds.coords["month"] = range(months.start, months.stop+1)
         ds = ds.stack(**{'year-month': ('year', 'month')})
-
-        ds.coords["year"] = range(years.start, years.stop+1)
 
         return ds
 
@@ -205,12 +162,9 @@ class Cutout(object):
     def shape(self):
         return len(self.coords["lon"]), len(self.coords["lat"])
 
-    def grid_coordinates(self, latlon=False):
+    def grid_coordinates(self):
         lats, lons = np.meshgrid(self.coords["lat"], self.coords["lon"])
-        if latlon:
-            return np.asarray((np.ravel(lats), np.ravel(lons))).T
-        else:
-            return np.asarray((np.ravel(lons), np.ravel(lats))).T
+        return np.asarray((np.ravel(lons), np.ravel(lats))).T
 
     def grid_cells(self):
         from shapely.geometry import box
@@ -242,18 +196,8 @@ class Cutout(object):
 
         cutout_dir = self.cutout_dir
         yearmonths = self.coords['year-month'].to_index()
-        years = self.coords['year'].to_index()
         lons = self.coords['lon']
         lats = self.coords['lat']
-
-
-        # Check for weather_dataset
-        if weather_dataset is 'ncep':
-            yearmonths = yearmonths
-        elif weather_dataset is 'cordex':
-            yearmonths = years
-        else:
-            raise NameError("'weather_dataset' needs to be specified as 'ncep' or 'cordex'")
 
         # Delete cutout_dir
         if os.path.isdir(cutout_dir):
@@ -272,6 +216,7 @@ class Cutout(object):
         tasks = []
         for series in itervalues(self.weather_data_config):
             series = series.copy()
+            series['meta_attrs'] = self.meta.attrs
             tasks_func = series.pop('tasks_func')
             tasks += tasks_func(lons=lons, lats=lats, yearmonths=yearmonths, **series)
         for t in tasks:
@@ -301,17 +246,33 @@ class Cutout(object):
         lons = self.coords['lon']
         lats = self.coords['lat']
         series = self.weather_data_config[series_name].copy()
+        series['meta_attrs'] = self.meta.attrs
         tasks_func = series.pop('tasks_func')
         tasks = tasks_func(lons=lons, lats=lats, yearmonths=[yearmonth], **series)
+
         assert len(tasks) == 1
         data = cutout_preparation_do_task(tasks[0], write_to_file=False)
         assert len(data) == 1 and data[0][0] == yearmonth
         return data[0][1]
 
-    def convert_and_aggregate(self, convert_func, matrix=None, index=None, **convert_kwds):
+    def convert_and_aggregate(self, convert_func, matrix=None,
+                              index=None, layout=None,
+                              shapes=None, shapes_proj='latlong',
+                              **convert_kwds):
         assert self.prepared, "The cutout has to be prepared first."
 
+        if shapes is not None:
+            if isinstance(shapes, pd.Series) and index is None:
+                index = shapes.index
+
+            matrix = compute_indicatormatrix(self.grid_cells(), shapes, self.projection, shapes_proj)
+
         if matrix is not None:
+            matrix = matrix.to_csr()
+
+            if layout is not None:
+                matrix = matrix.dot(spdiag(layout.ravel()))
+
             if index is None:
                 index = pd.RangeIndex(matrix.shape[0])
             aggregate_func = aggregate_matrix
@@ -322,15 +283,7 @@ class Cutout(object):
 
         results = []
 
-
-        # Check for weather_dataset
-        if weather_dataset is 'ncep':
-            yearmonths = self.coords['year-month'].to_index()
-        elif weather_dataset is 'cordex':
-            yearmonths = self.years['year'].to_index()
-        else:
-            raise NameError("'weather_dataset' needs to be specified as 'ncep' or 'cordex'")
-
+        yearmonths = self.coords['year-month'].to_index()
 
         for ym in yearmonths:
             with xr.open_dataset(self.datasetfn(ym)) as ds:

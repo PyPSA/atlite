@@ -1,4 +1,5 @@
-## Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)
+## Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas
+## Hoersch (FIAS), Tom Brown (FIAS), Markus Schlott (FIAS)
 
 ## This program is free software; you can redistribute it and/or
 ## modify it under the terms of the GNU General Public License as
@@ -25,79 +26,69 @@ from __future__ import absolute_import
 import pandas as pd
 import numpy as np
 import xarray as xr
+import pyproj
 from six import iteritems
+from itertools import groupby
+from operator import itemgetter
 import os
 import glob
 
-from .config import cordex_dir, name
+from .config import cordex_dir
+from .shapes import RotProj
 
-def rename_coords(ds):
-    ds = ds.rename({'lon': 'glon'})
-    ds = ds.rename({'lat': 'glat'})
-    ds = ds.rename({'rlon': 'lon'})
-    ds = ds.rename({'rlat': 'lat'})
+def rename_and_clean_coords(ds):
+    ds = ds.rename({'lon': 'glon', 'lat': 'glat'})
+    ds = ds.rename({'rlon': 'lon', 'rlat': 'lat'})
+    # drop some coordinates and variables we do not use
+    ds = ds.drop((set(ds.coords) | set(ds.data_vars))
+                 & {'bnds', 'height', 'rotated_pole'})
     return ds
 
-def prepare_wnd10m_cordex(fn, yearmonth, lons, lats):
+def prepare_data_cordex(fn, year, months, oldname, newname, lons, lats):
     with xr.open_dataset(fn, engine="pynio") as ds:
-        ds = rename_coords(ds)
-        ds = ds.rename({'sfcWind': 'wnd10m'})
-        return [(yearmonth, ds.load())]
+        ds = rename_and_clean_coords(ds)
+        ds = ds.rename({oldname: newname})
+        return [((year, m), ds.sel(time="{}-{}".format(year, m)).load())
+                for m in months]
 
-def prepare_influx_cordex(fn, yearmonth, lons, lats):
+def prepare_meta_cordex(lons, lats, year, month, template, model=model):
+    fn = next(glob.iglob(template.format(year=year, model=model)))
     with xr.open_dataset(fn, engine="pynio") as ds:
-        ds = rename_coords(ds)
-        ds = ds.rename({'rsds': 'influx'})
-        return [(yearmonth, ds.load())]
-
-def prepare_outflux_cordex(fn, yearmonth, lons, lats):
-    with xr.open_dataset(fn, engine="pynio") as ds:
-        ds = rename_coords(ds)
-        ds = ds.rename({'rsus': 'outflux'})
-        return [(yearmonth, ds.load())]
-
-def prepare_temperature_cordex(fn, yearmonth, lons, lats):
-    with xr.open_dataset(fn, engine="pynio") as ds:
-        ds = rename_coords(ds)
-        ds = ds.rename({'tas': 'temperature'})
-        return [(yearmonth, ds.load())]
-
-def prepare_roughness_cordex(fn, yearmonth, lons, lats):
-    with xr.open_dataset(fn, engine="pynio") as ds:
-        ds = rename_coords(ds)
-        ds = ds.rename({'': 'roughness'})
-        return [(yearmonth, ds.load())]
-
-def prepare_meta_cordex(lons, lats, year, month, template):
-    fn = next(glob.iglob(template.format(year=year, month=month)))
-    with xr.open_dataset(fn, engine="pynio") as ds:
-        ds = rename_coords(ds)
+        ds = rename_and_clean_coords(ds)
         ds = ds.coords.to_dataset()
-        return ds.load()
+        return ds.sel(time="{}-{}".format(year, month)).load()
 
-def tasks_yearly_cordex(lons, lats, yearmonths, prepare_func, template):
+def tasks_yearly_cordex(lons, lats, yearmonths, prepare_func, template, oldname, newname, meta_attrs):
+    model = meta_attrs['model']
     return [dict(prepare_func=prepare_func,
-                 lons=lons, lats=lats,
-                 fn=next(glob.iglob(template.format(year=ym))),
-                 yearmonth=ym)
-            for ym in yearmonths]
+                 lons=lons, lats=lats, oldname=oldname, newname=newname,
+                 fn=next(glob.iglob(template.format(year=year, model=model))),
+                 year=year, months=list(map(itemgetter(1), yearmonths)))
+            for year, yearmonths in groupby(yearmonths, itemgetter(0))]
 
-cordex_dir = os.path.join(cordex_dir, name)
+#Projection Settings
+
+model = 'CNRM-CERFACS_CNRM_CM5'
+projection = RotProj(dict(proj='ob_tran', o_proj='longlat', lon_0=180,
+                          o_lon_p=-162, o_lat_p=39.25))
 
 weather_data_config = {
     'influx': dict(tasks_func=tasks_yearly_cordex,
-                   prepare_func=prepare_influx_cordex,
-                   template=os.path.join(cordex_dir, 'influx/rsds_*_{year}*.nc')),
+                   prepare_func=prepare_data_cordex,
+                   oldname='rsds', newname='influx',
+                   template=os.path.join(cordex_dir, '{model}', 'influx', 'rsds_*_{year}*.nc')),
     # Not yet available
     #'outflux': dict(tasks_func=tasks_yearly_cordex,
                     #prepare_func=prepare_outflux_cordex,
                     #template=os.path.join(cordex_dir, 'outflux/rsus_*_{year}*.nc')),
     'temperature': dict(tasks_func=tasks_yearly_cordex,
-                        prepare_func=prepare_temperature_cordex,
-                        template=os.path.join(cordex_dir, 'temperature/tas_*_{year}*.nc')),
+                        prepare_func=prepare_data_cordex,
+                        oldname='tas', newname='temperature',
+                        template=os.path.join(cordex_dir, '{model}', 'temperature', 'tas_*_{year}*.nc')),
     'wnd10m': dict(tasks_func=tasks_yearly_cordex,
-                   prepare_func=prepare_wnd10m_cordex,
-                   template=os.path.join(cordex_dir, 'wind/sfcWind_*_{year}*.nc')),
+                   prepare_func=prepare_data_cordex,
+                   oldname='sfcWind', newname='wnd10m',
+                   template=os.path.join(cordex_dir, '{model}', 'wind', 'sfcWind_*_{year}*.nc')),
     # Not yet available
     #'roughness': dict(tasks_func=tasks_yearly_cordex,
                       #prepare_func=prepare_roughness_cordex,
@@ -105,4 +96,4 @@ weather_data_config = {
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_cordex,
-                        template=os.path.join(cordex_dir, 'temperature/tas_*_{year}*.nc'))
+                        template=os.path.join(cordex_dir, '{model}', 'temperature', 'tas_*_{year}*.nc'))
