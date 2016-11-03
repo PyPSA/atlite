@@ -26,6 +26,46 @@ import xarray as xr
 import numpy as np
 import os
 
+def convert_and_aggregate(cutout, convert_func, matrix=None,
+                          index=None, layout=None,
+                          shapes=None, shapes_proj='latlong',
+                          **convert_kwds):
+    assert cutout.prepared, "The cutout has to be prepared first."
+
+    if shapes is not None:
+        if isinstance(shapes, pd.Series) and index is None:
+            index = shapes.index
+
+        matrix = compute_indicatormatrix(cutout.grid_cells(), shapes, cutout.projection, shapes_proj)
+
+    if matrix is not None:
+        matrix = matrix.to_csr()
+
+        if layout is not None:
+            matrix = matrix.dot(spdiag(layout.ravel()))
+
+        if index is None:
+            index = pd.RangeIndex(matrix.shape[0])
+        aggregate_func = aggregate_matrix
+        aggregate_kwds = dict(matrix=matrix, index=index)
+    else:
+        aggregate_func = aggregate_sum
+        aggregate_kwds = {}
+
+    results = []
+
+    yearmonths = cutout.coords['year-month'].to_index()
+
+    for ym in yearmonths:
+        with xr.open_dataset(cutout.datasetfn(ym)) as ds:
+            da = convert_func(ds, **convert_kwds).load()
+        results.append(aggregate_func(da, **aggregate_kwds))
+    if 'time' in results[0]:
+        results = xr.concat(results, dim='time')
+    else:
+        results = sum(results)
+    return results
+
 ## heat demand
 
 def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0.):
