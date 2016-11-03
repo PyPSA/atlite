@@ -40,6 +40,8 @@ from .shapes import RotProj
 model = 'CNRM-CERFACS_CNRM_CM5'
 projection = RotProj(dict(proj='ob_tran', o_proj='longlat', lon_0=180,
                           o_lon_p=-162, o_lat_p=39.25))
+engine = None
+
 def rename_and_clean_coords(ds):
     ds = ds.rename({'lon': 'glon', 'lat': 'glat'})
     ds = ds.rename({'rlon': 'lon', 'rlat': 'lat'})

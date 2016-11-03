@@ -16,7 +16,7 @@ import scipy as sp
 
 import atlite
 
-cutout = atlite.Cutout('europe')
+cutout = atlite.Cutout('europe-2011-2014')
 
 #list of grid cells
 grid_cells = cutout.grid_cells()
@@ -55,7 +55,7 @@ pop_map = pd.DataFrame()
 for country in countries:
     print(country)
     country_nuts = mapping.index[mapping == country]
-    trans_matrix = vtransfer.Shapes2Shapes(np.asarray(nuts3[country_nuts]), grid_cells)
+    trans_matrix = cutout.indicatormatrix(np.asarray(nuts3[country_nuts]))
     #CH has missing bits
     country_pop = pop[country_nuts].fillna(0.)
     pop_map[country] = np.array(trans_matrix.multiply(np.asarray(country_pop)).sum(axis=1))[:,0]
@@ -71,6 +71,6 @@ pop_matrix = sp.sparse.csr_matrix(pop_map.T)
 index = pd.Index(countries,name="countries")
 
 #%%time
-hd = cutout.heat_demand(matrix=pop_matrix,index=index)
+hd = cutout.heat_demand(matrix=pop_matrix, index=index)
 
 hd.T.to_pandas().to_pickle("heat_demand.pkl")

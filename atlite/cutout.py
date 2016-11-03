@@ -34,6 +34,7 @@ from . import config, ncep, cordex
 from .convert import convert_and_aggregate, heat_demand, wind
 from .preparation import (cutout_do_task, cutout_prepare,
                           cutout_produce_specific_dataseries, cutout_get_meta)
+from .shapes import compute_indicatormatrix
 
 class Cutout(object):
     def __init__(self, name=None, nprocesses=None,
@@ -123,6 +124,9 @@ class Cutout(object):
                         yearmonths[0][0],  yearmonths[0][1],
                         yearmonths[-1][0], yearmonths[-1][1],
                         "" if self.prepared else "UN"))
+
+    def indicatormatrix(self, shapes, shapes_proj='latlong'):
+        return compute_indicatormatrix(self.grid_cells(), shapes, self.projection, shapes_proj)
 
     ## Preparation functions
 

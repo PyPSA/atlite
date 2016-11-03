@@ -31,6 +31,9 @@ import glob
 
 from .config import ncep_dir
 
+engine = None
+projection = 'latlong'
+
 def convert_lons_lats_ncep(ds, lons, lats):
     if not isinstance(lons, slice):
         first, second, last = lons.values[[0,1,-1]]
@@ -145,8 +148,6 @@ def tasks_monthly_ncep(lons, lats, yearmonths, prepare_func, template, meta_attr
 def tasks_roughness_ncep(lons, lats, yearmonths, prepare_func, template, meta_attrs):
     return [dict(prepare_func=prepare_func,
                  lons=lons, lats=lats, yearmonths=yearmonths, fn=template)]
-
-projection = 'latlong'
 
 weather_data_config = {
     'influx': dict(tasks_func=tasks_monthly_ncep,

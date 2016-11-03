@@ -5,7 +5,7 @@
 # 44
 
 # It assumes you have already created a cutout for Europe called
-# "my_new_europe_cutout" in the directory "/home/vres/data/cutouts"
+# "europe-2011-2014" in the directory "/home/vres/data/cutouts"
 
 
 
@@ -15,8 +15,7 @@ from scipy import sparse
 import atlite
 
 
-#cutout = atlite.Cutout('europe')
-
+cutout = atlite.Cutout('europe-2011-2014')
 
 # A sparse matrix describing the city relative to the grid coordinates
 matrix = sparse.csr_matrix(([0.5,0.5], ([0,1],[43,44])), shape=(2, len(cutout.grid_coordinates())))
