@@ -23,26 +23,20 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 from __future__ import absolute_import
 
 import xarray as xr
-import pandas as pd
 import numpy as np
-import os, sys, shutil
-import filelock
-from six import itervalues
-from six.moves import map
-from multiprocessing import Pool
+import os, sys
+from six import string_types
 
 import logging
 logger = logging.getLogger(__name__)
 
 from . import config, ncep, cordex
 from .convert import convert_and_aggregate, heat_demand, wind
-from .aggregate import aggregate_sum, aggregate_matrix
-from .shapes import spdiag, compute_indicatormatrix
 from .preparation import (cutout_do_task, cutout_prepare,
                           cutout_produce_specific_dataseries, cutout_get_meta)
 
 class Cutout(object):
-    def __init__(self, name=None, nprocesses=None, weather_dataset=None,
+    def __init__(self, name=None, nprocesses=None,
                  cutout_dir=config.cutout_dir, **cutoutparams):
         self.name = name
         self.nprocesses = nprocesses
@@ -57,15 +51,14 @@ class Cutout(object):
                 self.prepared = True
             else:
                 assert False
-            module = meta.attrs['atlite_module']
 
-        if weather_dataset is None:
+            cutoutparams['module'] = meta.attrs['module']
+        elif 'module' not in cutoutparams:
             d = config.weather_dataset.copy()
             d.update(cutoutparams)
             cutoutparams = d
-            module = cutoutparams['atlite_module']
 
-        self.dataset_module = sys.modules['atlite.' + module]
+        self.dataset_module = sys.modules['atlite.' + cutoutparams['module']]
 
         if not self.prepared:
             if {"lons", "lats", "years"}.difference(cutoutparams):
@@ -87,15 +80,15 @@ class Cutout(object):
 
     @property
     def meta_data_config(self):
-        self.dataset_module.meta_data_config
+        return self.dataset_module.meta_data_config
 
     @property
     def weather_data_config(self):
-        self.dataset_module.weather_data_config
+        return self.dataset_module.weather_data_config
 
     @property
     def projection(self):
-        self.dataset_module.projection
+        return self.dataset_module.projection
 
     @property
     def coords(self):

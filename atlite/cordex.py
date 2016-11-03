@@ -36,6 +36,10 @@ import glob
 from .config import cordex_dir
 from .shapes import RotProj
 
+# Model and Projection Settings
+model = 'CNRM-CERFACS_CNRM_CM5'
+projection = RotProj(dict(proj='ob_tran', o_proj='longlat', lon_0=180,
+                          o_lon_p=-162, o_lat_p=39.25))
 def rename_and_clean_coords(ds):
     ds = ds.rename({'lon': 'glon', 'lat': 'glat'})
     ds = ds.rename({'rlon': 'lon', 'rlat': 'lat'})
@@ -51,7 +55,7 @@ def prepare_data_cordex(fn, year, months, oldname, newname, lons, lats):
         return [((year, m), ds.sel(time="{}-{}".format(year, m)).load())
                 for m in months]
 
-def prepare_meta_cordex(lons, lats, year, month, template, model=model):
+def prepare_meta_cordex(lons, lats, year, month, template, module, model=model):
     fn = next(glob.iglob(template.format(year=year, model=model)))
     with xr.open_dataset(fn, engine="pynio") as ds:
         ds = rename_and_clean_coords(ds)
@@ -65,12 +69,6 @@ def tasks_yearly_cordex(lons, lats, yearmonths, prepare_func, template, oldname,
                  fn=next(glob.iglob(template.format(year=year, model=model))),
                  year=year, months=list(map(itemgetter(1), yearmonths)))
             for year, yearmonths in groupby(yearmonths, itemgetter(0))]
-
-#Projection Settings
-
-model = 'CNRM-CERFACS_CNRM_CM5'
-projection = RotProj(dict(proj='ob_tran', o_proj='longlat', lon_0=180,
-                          o_lon_p=-162, o_lat_p=39.25))
 
 weather_data_config = {
     'influx': dict(tasks_func=tasks_yearly_cordex,

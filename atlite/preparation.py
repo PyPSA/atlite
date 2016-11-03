@@ -1,6 +1,11 @@
-import os
+import xarray as xr
+import pandas as pd
+import os, shutil
 import filelock
 import logging
+from six import itervalues
+from six.moves import map
+from multiprocessing import Pool
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +83,7 @@ def cutout_prepare(cutout, overwrite=False):
 
     pool = Pool(processes=cutout.nprocesses)
     try:
-        pool.map(cutout_preparation_do_task, tasks)
+        pool.map(cutout_do_task, tasks)
     except Exception as e:
         pool.terminate()
         logger.info("Preparation of cutout '%s' has been interrupted by an exception. "
@@ -99,7 +104,7 @@ def cutout_produce_specific_dataseries(cutout, yearmonth, series_name):
     tasks = tasks_func(lons=lons, lats=lats, yearmonths=[yearmonth], **series)
 
     assert len(tasks) == 1
-    data = cutout_preparation_do_task(tasks[0], write_to_file=False)
+    data = cutout_do_task(tasks[0], write_to_file=False)
     assert len(data) == 1 and data[0][0] == yearmonth
     return data[0][1]
 

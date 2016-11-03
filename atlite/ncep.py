@@ -127,7 +127,7 @@ def prepare_roughness_ncep(fn, lons, lats, yearmonths):
         return [(ym, ds.sel(year=ym[0], month=ym[1]).load())
                 for ym in yearmonths]
 
-def prepare_meta_ncep(lons, lats, year, month, template):
+def prepare_meta_ncep(lons, lats, year, month, template, module):
     fn = next(glob.iglob(template.format(year=year, month=month)))
     with xr.open_dataset(fn, engine="pynio") as ds:
         ds = ds.coords.to_dataset()

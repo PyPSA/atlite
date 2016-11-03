@@ -22,9 +22,14 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 
 from __future__ import absolute_import
 
+import os
 import xarray as xr
 import numpy as np
-import os
+import pandas as pd
+import scipy as sp, scipy.sparse
+
+from .aggregate import aggregate_sum, aggregate_matrix
+from .shapes import spdiag, compute_indicatormatrix
 
 def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None,
@@ -39,7 +44,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         matrix = compute_indicatormatrix(cutout.grid_cells(), shapes, cutout.projection, shapes_proj)
 
     if matrix is not None:
-        matrix = matrix.to_csr()
+        matrix = sp.sparse.csr_matrix(matrix)
 
         if layout is not None:
             matrix = matrix.dot(spdiag(layout.ravel()))
@@ -93,9 +98,8 @@ def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0.):
     return constant + heat_demand
 
 
-def heat_demand(cutout, matrix=None, index=None, **params):
-    return cutout.convert_and_aggregate(convert_func=convert_heat_demand,
-                                        matrix=matrix, index=index, **params)
+def heat_demand(cutout, **params):
+    return cutout.convert_and_aggregate(convert_func=convert_heat_demand, **params)
 
 ## wind
 
@@ -115,7 +119,7 @@ def convert_wind(ds, V, POW, hub_height):
     wind_energy = xr.DataArray(np.interp(wnd_hub,V,POW), coords=wnd_hub.coords)
     return wind_energy
 
-def wind(cutout, matrix=None, index=None, **params):
+def wind(cutout, **params):
     if 'turbine' in params:
         assert have_reatlas, "REatlas client is necessary for loading turbine configs"
 
@@ -124,5 +128,4 @@ def wind(cutout, matrix=None, index=None, **params):
         params['V'] = turbineconfig['V']
         params['POW'] = turbineconfig['POW']
         params['hub_height'] = turbineconfig['HUB_HEIGHT']
-    return cutout.convert_and_aggregate(convert_func=convert_wind,
-                                        matrix=matrix, index=index, **params)
+    return cutout.convert_and_aggregate(convert_func=convert_wind, **params)
