@@ -122,6 +122,11 @@ def prepare_roughness_ncep(fn, lons, lats, yearmonths):
                       'initial_time2_encoded', 'initial_time2'])
         ds = ds.rename({'initial_time2_hours': 'time', 'lon_2': 'lon_0', 'lat_2': 'lat_0'})
         ds = convert_lons_lats_ncep(ds, lons, lats)
+        # roughness does not come on exactly the same grid as the
+        # other data, so we interpolate with nearest grid point
+        # selection
+        ds = (ds.sel(lon=lons, lat=lats, method='nearest')
+                .assign_coords(lon=lons, lat=lats))
         ds = ds.rename({'SFCR_P8_L1_GGA2': 'roughness'})
         # split time into months
         dt = pd.to_datetime(ds.coords['time'].values)
