@@ -50,16 +50,15 @@ def rename_and_clean_coords(ds):
                  & {'bnds', 'height', 'rotated_pole'})
     return ds
 
-def prepare_data_cordex(fn, year, months, oldname, newname, lons, lats):
-    with xr.open_dataset(fn, engine="pynio") as ds:
-        ds = rename_and_clean_coords(ds)
-        ds = ds.rename({oldname: newname})
-        return [((year, m), ds.sel(time="{}-{}".format(year, m)).load())
-                for m in months]
+def prepare_data_cordex(ds, year, months, oldname, newname, lons, lats):
+    ds = rename_and_clean_coords(ds)
+    ds = ds.rename({oldname: newname})
+    return [((year, m), ds.sel(time="{}-{}".format(year, m)))
+            for m in months]
 
 def prepare_meta_cordex(lons, lats, year, month, template, module, model=model):
     fn = next(glob.iglob(template.format(year=year, model=model)))
-    with xr.open_dataset(fn, engine="pynio") as ds:
+    with xr.open_dataset(fn, engine=engine) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.coords.to_dataset()
         return ds.sel(time="{}-{}".format(year, month)).load()
@@ -69,6 +68,7 @@ def tasks_yearly_cordex(lons, lats, yearmonths, prepare_func, template, oldname,
     return [dict(prepare_func=prepare_func,
                  lons=lons, lats=lats, oldname=oldname, newname=newname,
                  fn=next(glob.iglob(template.format(year=year, model=model))),
+                 engine=engine,
                  year=year, months=list(map(itemgetter(1), yearmonths)))
             for year, yearmonths in groupby(yearmonths, itemgetter(0))]
 

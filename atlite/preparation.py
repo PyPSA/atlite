@@ -38,6 +38,10 @@ def cutout_do_task(task, write_to_file=True):
         datasetfns = task.pop('datasetfns')
 
     try:
+        if 'fn' in task:
+            fn = task.pop('fn')
+            engine = task.pop('engine')
+            task['ds'] = xr.open_dataset(fn, engine=engine)
         data = prepare_func(**task)
         if data is None:
             data = []
@@ -58,6 +62,9 @@ def cutout_do_task(task, write_to_file=True):
         logger.exception("Exception occured in the task with prepare_func `%s`: %s",
                          prepare_func.__name__, e.args[0])
         raise e
+    finally:
+        if 'ds' in task:
+            task['ds'].close()
 
     if not write_to_file:
         return data
