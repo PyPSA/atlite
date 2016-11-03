@@ -41,7 +41,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         if isinstance(shapes, pd.Series) and index is None:
             index = shapes.index
 
-        matrix = compute_indicatormatrix(cutout.grid_cells(), shapes, cutout.projection, shapes_proj)
+        matrix = cutout.indicatormatrix(shapes, shapes_proj)
 
     if matrix is not None:
         matrix = sp.sparse.csr_matrix(matrix)
@@ -97,7 +97,6 @@ def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0.):
 
     return constant + heat_demand
 
-
 def heat_demand(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_heat_demand, **params)
 
@@ -128,4 +127,14 @@ def wind(cutout, **params):
         params['V'] = turbineconfig['V']
         params['POW'] = turbineconfig['POW']
         params['hub_height'] = turbineconfig['HUB_HEIGHT']
+
     return cutout.convert_and_aggregate(convert_func=convert_wind, **params)
+
+## hydro
+
+def convert_runoff(ds):
+    runoff = ds['runoff'] * ds['height']
+    return runoff
+
+def runoff(cutout, **params):
+    return cutout.convert_and_aggregate(convert_func=convert_runoff, **params)

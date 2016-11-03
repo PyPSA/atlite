@@ -81,6 +81,24 @@ def convert_unaverage_ncep(ds):
 
     return ds
 
+def convert_unaccumulate_ncep(ds):
+    # the fields ending in _acc contain values that are accumulated over the
+    # forecast_time which have to be unaccumulated by using:
+    # \begin{equation}
+    # \tilde x_1 = x_1
+    # \tilde x_i = x_i - x_{i-1} \forall 1 < i <= 6
+    # \end{equation}
+    # Source: http://rda.ucar.edu/datasets/ds094.1/#docs/FAQs_hrly_timeseries.html
+
+    def unaccumulate(da, dim='forecast_time0'):
+        return da - da.shift(**{dim: 1}).fillna(0.)
+    for k, da in iteritems(ds):
+        if k.endswith('_acc'):
+            ds[k[:-len('_acc')]] = unaccumulate(da)
+            ds = ds.drop(k)
+
+    return ds
+
 def prepare_wnd10m_ncep(ds, yearmonth, lons, lats):
     ds = convert_lons_lats_ncep(ds, lons, lats)
     ds = convert_time_hourly_ncep(ds)
@@ -110,6 +128,21 @@ def prepare_temperature_ncep(ds, yearmonth, lons, lats):
 
     ds = ds.rename({'TMP_P0_L103_GGA0': 'temperature'})
     return [(yearmonth, ds)]
+
+def prepare_runoff_ncep(ds, yearmonth, lons, lats):
+    ds = convert_lons_lats_ncep(ds, lons, lats)
+    # runoff has missing values: set nans to 0
+    ds = ds.fillna(0.)
+    ds = convert_unaccumulate_ncep(ds)
+    ds = convert_time_hourly_ncep(ds)
+
+    ds = ds.rename({'WATR_P8_L1_GGA0': 'runoff'})
+    return [(yearmonth, ds)]
+
+def prepare_height_ncep(ds, lons, lats, yearmonths):
+    ds = convert_lons_lats_ncep(ds, lons, lats)
+    ds = ds.rename({'HGT_P0_L105_GGA0': 'height'})
+    return [(ym, ds) for ym in yearmonths]
 
 def prepare_roughness_ncep(ds, lons, lats, yearmonths):
     # there are 3 different grids in the dataset, the one in use since 2011 is in lon_2, lat_2
@@ -146,7 +179,7 @@ def tasks_monthly_ncep(lons, lats, yearmonths, prepare_func, template, meta_attr
                  yearmonth=ym)
             for ym in yearmonths]
 
-def tasks_roughness_ncep(lons, lats, yearmonths, prepare_func, template, meta_attrs):
+def tasks_constant_ncep(lons, lats, yearmonths, prepare_func, template, meta_attrs):
     return [dict(prepare_func=prepare_func,
                  lons=lons, lats=lats, yearmonths=yearmonths,
                  fn=template, engine=engine)]
@@ -164,9 +197,15 @@ weather_data_config = {
     'wnd10m': dict(tasks_func=tasks_monthly_ncep,
                    prepare_func=prepare_wnd10m_ncep,
                    template=os.path.join(ncep_dir, '{year}{month:0>2}/wnd10m.*.grb2')),
-    'roughness': dict(tasks_func=tasks_roughness_ncep,
+    'runoff': dict(tasks_func=tasks_monthly_ncep,
+                   prepare_func=prepare_runoff_ncep,
+                   template=os.path.join(ncep_dir, '{year}{month:0>2}/runoff.*.grb2')),
+    'roughness': dict(tasks_func=tasks_constant_ncep,
                       prepare_func=prepare_roughness_ncep,
-                      template=os.path.join(ncep_dir, 'roughness/flxf01.gdas.SFC_R.SFC.grb2'))
+                      template=os.path.join(ncep_dir, 'roughness/flxf01.gdas.SFC_R.SFC.grb2')),
+    'height': dict(tasks_func=tasks_constant_ncep,
+                   prepare_func=prepare_height_ncep,
+                   template=os.path.join(ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'))
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_ncep,
