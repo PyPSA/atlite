@@ -27,5 +27,5 @@ from . import ncep
 from .cutout import Cutout
 
 __version__ = "0.0.1"
-__author__ = "Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)"
-__copyright__ = "Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS), GNU GPL 3"
+__author__ = "Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS), Markus Schlott (FIAS), David Schlachtberger (FIAS)"
+__copyright__ = "Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS), Markus Schlott (FIAS), David Schlachtberger (FIAS), GNU GPL 3"
