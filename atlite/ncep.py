@@ -59,7 +59,7 @@ def convert_time_hourly_ncep(ds, drop_time_vars=True):
     # Combine initial_time0 and forecast_time0
     ds = (ds
           .stack(time=("initial_time0_hours", "forecast_time0"))
-          .assign_coords(time=np.ravel(ds.coords['initial_time0_hours'] + ds.coords['forecast_time0'])))
+          .assign_coords(time=np.ravel(ds.coords['initial_time0_hours'] + ds.coords['forecast_time0'] - pd.Timedelta('1h'))))
     if drop_time_vars:
         ds = ds.drop(['initial_time0', 'initial_time0_encoded'])
     return ds
