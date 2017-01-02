@@ -117,15 +117,21 @@ def cutout_prepare(cutout, overwrite=False):
     pool.close()
 
     logger.info("Merging variables into monthly compound files")
+    def clear_coords_attributes(ds):
+        for c in ds.coords.itervalues(): c.attrs.clear()
+        return ds
+    def merge_file_into(ds1, fn):
+        with open_dataset(fn) as ds2:
+            ds2 = clear_coords_attributes(ds2)
+            return ds1.merge(ds2, compat='identical')
     for fn in map(cutout.datasetfn, yearmonths.tolist()):
         basefn, ext = os.path.splitext(fn)
         varfns = ["{}_{}{}".format(basefn, var, ext)
                   for var in cutout.weather_data_config]
         datasets = [xr.open_dataset(varfn) for varfn in varfns]
-        (reduce(lambda ds1, ds2: ds1.merge(ds2, compat='identical'),
-                datasets[1:], datasets[0])
-         .to_netcdf(fn))
-        for ds in datasets: ds.close()
+        with open_dataset(varfns[0]) as ds:
+            ds = clear_coords_attributes(ds)
+            (reduce(merge_file_into, varfns[1:], ds).to_netcdf(fn))
         for varfn in varfns: os.unlink(varfn)
         logger.debug("Completed file %s", os.path.basename(fn))
 
