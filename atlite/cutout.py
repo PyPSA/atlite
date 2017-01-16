@@ -53,7 +53,12 @@ class Cutout(object):
             else:
                 assert False
 
-            cutoutparams['module'] = meta.attrs.get('module', 'ncep')
+            if 'module' in meta.attrs:
+                cutoutparams['module'] = meta.attrs['module']
+            else:
+                print('Warning: module not given in meta file of cutout, assuming it is NCEP')
+                cutoutparams['module'] = 'ncep'
+
         elif 'module' not in cutoutparams:
             d = config.weather_dataset.copy()
             d.update(cutoutparams)
