@@ -31,7 +31,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from . import config, ncep, cordex
-from .convert import convert_and_aggregate, heat_demand, wind, runoff
+from .convert import convert_and_aggregate, heat_demand, wind, runoff, solar_thermal
 from .preparation import (cutout_do_task, cutout_prepare,
                           cutout_produce_specific_dataseries, cutout_get_meta)
 from .shapes import compute_indicatormatrix
@@ -141,6 +141,8 @@ class Cutout(object):
     convert_and_aggregate = convert_and_aggregate
 
     heat_demand = heat_demand
+
+    solar_thermal = solar_thermal
 
     wind = wind
 

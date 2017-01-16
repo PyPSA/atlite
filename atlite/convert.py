@@ -100,6 +100,54 @@ def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0.):
 def heat_demand(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_heat_demand, **params)
 
+
+## solar thermal
+
+def convert_solar_thermal(ds,c0=0.8,c1=3.,t_store=80.,angle=45.):
+    """
+    Convert downward short-wave radiation flux and outside temperature into
+    time series for solar thermal collectors.
+
+    Mathematical model and defaults for c0, c1 based on model in Henning and Palzer,
+    Renewable and Sustainable Energy Reviews 30 (2014) 1003-1018
+
+    Parameters
+    ----------
+    c0 : float
+        Optical efficiency
+    c1 : float
+        Heat loss coefficient (units of W/(m^2 K))
+    t_store : float
+        Storage temperature (units of degrees Celsius)
+    angle : float
+        Placeholder for angle with horizontal facing south
+    """
+
+    #convert storage temperature to Kelvin in line with reanalysis data
+    t_store += 273.15
+
+    #Downward shortwave radiation flux is in W/m^2
+    #http://rda.ucar.edu/datasets/ds094.0/#metadata/detailed.html?_do=y
+    influx = ds['influx']
+
+    #small negative values were causing large positive values in
+    #the following expression
+    influx.values[influx.values < 0.] = 0.
+
+    #overall efficiency; this will contain -inf's from division by zero influx
+    eta = c0 - c1*((t_store - ds['temperature'])/influx)
+
+    #this will replace -inf's with zeros too
+    eta.values[eta.values<0.] = 0.
+
+    return influx*eta
+
+
+def solar_thermal(cutout, **params):
+    return cutout.convert_and_aggregate(convert_func=convert_solar_thermal, **params)
+
+
+
 ## wind
 
 try:
