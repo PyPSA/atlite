@@ -77,8 +77,8 @@ def cutout_prepare(cutout, overwrite=False, nprocesses=None):
 
     cutout_dir = cutout.cutout_dir
     yearmonths = cutout.coords['year-month'].to_index()
-    lons = cutout.coords['lon']
-    lats = cutout.coords['lat']
+    xs = cutout.coords['x']
+    ys = cutout.coords['y']
 
     # Delete cutout_dir
     if os.path.isdir(cutout_dir):
@@ -94,7 +94,7 @@ def cutout_prepare(cutout, overwrite=False, nprocesses=None):
         series = series.copy()
         series['meta_attrs'] = cutout.meta.attrs
         tasks_func = series.pop('tasks_func')
-        tasks += tasks_func(lons=lons, lats=lats, yearmonths=yearmonths, **series)
+        tasks += tasks_func(xs=xs, ys=ys, yearmonths=yearmonths, **series)
     for t in tasks:
         t['datasetfns'] = {ym: cutout.datasetfn(ym) for ym in [None] + yearmonths.tolist()}
 
@@ -142,26 +142,26 @@ def cutout_prepare(cutout, overwrite=False, nprocesses=None):
     cutout.prepared = True
 
 def cutout_produce_specific_dataseries(cutout, yearmonth, series_name):
-    lons = cutout.coords['lon']
-    lats = cutout.coords['lat']
+    xs = cutout.coords['x']
+    ys = cutout.coords['y']
     series = cutout.weather_data_config[series_name].copy()
     series['meta_attrs'] = cutout.meta.attrs
     tasks_func = series.pop('tasks_func')
-    tasks = tasks_func(lons=lons, lats=lats, yearmonths=[yearmonth], **series)
+    tasks = tasks_func(xs=xs, ys=ys, yearmonths=[yearmonth], **series)
 
     assert len(tasks) == 1
     data = cutout_do_task(tasks[0], write_to_file=False)
     assert len(data) == 1 and data[0][0] == yearmonth
     return data[0][1]
 
-def cutout_get_meta(cutout, lons, lats, years, months=None, **dataset_params):
+def cutout_get_meta(cutout, xs, ys, years, months=None, **dataset_params):
     if months is None:
         months = slice(1, 12)
     meta_kwds = cutout.meta_data_config.copy()
     meta_kwds.update(dataset_params)
 
     prepare_func = meta_kwds.pop('prepare_func')
-    ds = prepare_func(lons=lons, lats=lats, year=years.stop, month=months.stop, **meta_kwds)
+    ds = prepare_func(xs=xs, ys=ys, year=years.stop, month=months.stop, **meta_kwds)
     ds.attrs.update(dataset_params)
 
     start, second, end = map(pd.Timestamp, ds.coords['time'].values[[0, 1, -1]])

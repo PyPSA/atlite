@@ -60,8 +60,8 @@ class Cutout(object):
         self.dataset_module = sys.modules['atlite.' + cutoutparams['module']]
 
         if not self.prepared:
-            if {"lons", "lats", "years"}.difference(cutoutparams):
-                raise TypeError("Arguments `lons`, `lats` and `years` need to be specified")
+            if {"xs", "ys", "years"}.difference(cutoutparams):
+                raise TypeError("Arguments `xs`, `ys` and `years` need to be specified")
             self.meta = self.get_meta(**cutoutparams)
 
     def datasetfn(self, *args):
@@ -95,17 +95,17 @@ class Cutout(object):
 
     @property
     def shape(self):
-        return len(self.coords["lon"]), len(self.coords["lat"])
+        return len(self.coords["x"]), len(self.coords["y"])
 
     @property
     def extent(self):
-        return (list(self.coords["lon"].values[[0, -1]]) +
-                list(self.coords["lat"].values[[-1, 0]]))
+        return (list(self.coords["x"].values[[0, -1]]) +
+                list(self.coords["y"].values[[-1, 0]]))
 
 
     def grid_coordinates(self):
-        lats, lons = np.meshgrid(self.coords["lat"], self.coords["lon"])
-        return np.asarray((np.ravel(lons), np.ravel(lats))).T
+        ys, xs = np.meshgrid(self.coords["y"], self.coords["x"])
+        return np.asarray((np.ravel(xs), np.ravel(ys))).T
 
     def grid_cells(self):
         from shapely.geometry import box
@@ -115,10 +115,10 @@ class Cutout(object):
 
     def __repr__(self):
         yearmonths = self.coords['year-month'].to_index()
-        return ('<Cutout {} lon={:.2f}-{:.2f} lat={:.2f}-{:.2f} time={}/{}-{}/{} {}prepared>'
+        return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}/{}-{}/{} {}prepared>'
                 .format(self.name,
-                        self.coords['lon'].values[0], self.coords['lon'].values[-1],
-                        self.coords['lat'].values[0], self.coords['lat'].values[-1],
+                        self.coords['x'].values[0], self.coords['x'].values[-1],
+                        self.coords['y'].values[0], self.coords['y'].values[-1],
                         yearmonths[0][0],  yearmonths[0][1],
                         yearmonths[-1][0], yearmonths[-1][1],
                         "" if self.prepared else "UN"))

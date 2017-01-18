@@ -43,30 +43,39 @@ projection = RotProj(dict(proj='ob_tran', o_proj='longlat', lon_0=180,
 engine = None
 
 def rename_and_clean_coords(ds):
-    ds = ds.rename({'lon': 'glon', 'lat': 'glat'})
-    ds = ds.rename({'rlon': 'lon', 'rlat': 'lat'})
+    ds = ds.rename({'rlon': 'x', 'rlat': 'y'})
     # drop some coordinates and variables we do not use
     ds = ds.drop((set(ds.coords) | set(ds.data_vars))
                  & {'bnds', 'height', 'rotated_pole'})
     return ds
 
-def prepare_data_cordex(ds, year, months, oldname, newname, lons, lats):
+def prepare_data_cordex(ds, year, months, oldname, newname, xs, ys):
     ds = rename_and_clean_coords(ds)
     ds = ds.rename({oldname: newname})
+    ds = ds.sel(x=xs, y=ys)
     return [((year, m), ds.sel(time="{}-{}".format(year, m)))
             for m in months]
 
-def prepare_meta_cordex(lons, lats, year, month, template, module, model=model):
+def prepare_meta_cordex(xs, ys, year, month, template, module, model=model):
     fn = next(glob.iglob(template.format(year=year, model=model)))
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.coords.to_dataset()
-        return ds.sel(time="{}-{}".format(year, month)).load()
+        return ds.sel(time="{}-{}".format(year, month),
+                      x=xs, y=ys).load()
 
-def tasks_yearly_cordex(lons, lats, yearmonths, prepare_func, template, oldname, newname, meta_attrs):
+def tasks_yearly_cordex(xs, ys, yearmonths, prepare_func, template, oldname, newname, meta_attrs):
     model = meta_attrs['model']
+
+    if not isinstance(xs, slice):
+        first, second, last = xs.values[[0,1,-1]]
+        xs = slice(first - 0.1*(second - first), last + 0.1*(second - first))
+    if not isinstance(ys, slice):
+        first, second, last = ys.values[[0,1,-1]]
+        ys = slice(first - 0.1*(second - first), last + 0.1*(second - first))
+
     return [dict(prepare_func=prepare_func,
-                 lons=lons, lats=lats, oldname=oldname, newname=newname,
+                 xs=xs, ys=ys, oldname=oldname, newname=newname,
                  fn=next(glob.iglob(template.format(year=year, model=model))),
                  engine=engine,
                  year=year, months=list(map(itemgetter(1), yearmonths)))

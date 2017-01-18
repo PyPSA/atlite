@@ -34,28 +34,29 @@ from .config import ncep_dir
 engine = 'pynio'
 projection = 'latlong'
 
-def convert_lons_lats_ncep(ds, lons, lats):
-    if not isinstance(lons, slice):
-        first, second, last = lons.values[[0,1,-1]]
-        lons = slice(first - 0.1*(second - first), last + 0.1*(second - first))
-    if not isinstance(lats, slice):
-        first, second, last = lats.values[[0,1,-1]]
-        lats = slice(first - 0.1*(second - first), last + 0.1*(second - first))
+def convert_lons_lats_ncep(ds, xs, ys):
+    if not isinstance(xs, slice):
+        first, second, last = xs.values[[0,1,-1]]
+        xs = slice(first - 0.1*(second - first), last + 0.1*(second - first))
+    if not isinstance(ys, slice):
+        first, second, last = ys.values[[0,1,-1]]
+        ys = slice(first - 0.1*(second - first), last + 0.1*(second - first))
 
-    ds = ds.sel(lat_0=lats)
+    ds = ds.sel(lat_0=ys)
 
     # Lons should go from -180. to +180.
-    if ds.coords['lon_0'].sel(lon_0=slice(lons.start + 360., lons.stop + 360.)):
-        ds = xr.concat([ds.sel(lon_0=slice(lons.start + 360., lons.stop + 360.)),
-                        ds.sel(lon_0=lons)],
+    if ds.coords['lon_0'].sel(lon_0=slice(xs.start + 360., xs.stop + 360.)):
+        ds = xr.concat([ds.sel(lon_0=slice(xs.start + 360., xs.stop + 360.)),
+                        ds.sel(lon_0=xs)],
                        dim="lon_0")
         ds = ds.assign_coords(lon_0=np.where(ds.coords['lon_0'].values <= 180,
                                              ds.coords['lon_0'].values,
                                              ds.coords['lon_0'].values - 360.))
     else:
-        ds = ds.sel(lon_0=lons)
+        ds = ds.sel(lon_0=xs)
 
-    ds = ds.rename({'lon_0': 'lon', 'lat_0': 'lat'})
+    ds = ds.rename({'lon_0': 'x', 'lat_0': 'y'})
+    ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     return ds
 
 def convert_time_hourly_ncep(ds, drop_time_vars=True):
@@ -102,38 +103,38 @@ def convert_unaccumulate_ncep(ds):
 
     return ds
 
-def prepare_wnd10m_ncep(ds, yearmonth, lons, lats):
-    ds = convert_lons_lats_ncep(ds, lons, lats)
+def prepare_wnd10m_ncep(ds, yearmonth, xs, ys):
+    ds = convert_lons_lats_ncep(ds, xs, ys)
     ds = convert_time_hourly_ncep(ds)
     ds['wnd10m'] = np.sqrt(ds['VGRD_P0_L103_GGA0']**2 + ds['UGRD_P0_L103_GGA0']**2)
     ds = ds.drop(['VGRD_P0_L103_GGA0', 'UGRD_P0_L103_GGA0'])
     return [(yearmonth, ds)]
 
-def prepare_influx_ncep(ds, yearmonth, lons, lats):
-    ds = convert_lons_lats_ncep(ds, lons, lats)
+def prepare_influx_ncep(ds, yearmonth, xs, ys):
+    ds = convert_lons_lats_ncep(ds, xs, ys)
     ds = convert_unaverage_ncep(ds)
     ds = convert_time_hourly_ncep(ds)
 
     ds = ds.rename({'DSWRF_P8_L1_GGA0': 'influx'})
     return [(yearmonth, ds)]
 
-def prepare_outflux_ncep(ds, yearmonth, lons, lats):
-    ds = convert_lons_lats_ncep(ds, lons, lats)
+def prepare_outflux_ncep(ds, yearmonth, xs, ys):
+    ds = convert_lons_lats_ncep(ds, xs, ys)
     ds = convert_unaverage_ncep(ds)
     ds = convert_time_hourly_ncep(ds)
 
     ds = ds.rename({'USWRF_P8_L1_GGA0': 'outflux'})
     return [(yearmonth, ds)]
 
-def prepare_temperature_ncep(ds, yearmonth, lons, lats):
-    ds = convert_lons_lats_ncep(ds, lons, lats)
+def prepare_temperature_ncep(ds, yearmonth, xs, ys):
+    ds = convert_lons_lats_ncep(ds, xs, ys)
     ds = convert_time_hourly_ncep(ds)
 
     ds = ds.rename({'TMP_P0_L103_GGA0': 'temperature'})
     return [(yearmonth, ds)]
 
-def prepare_runoff_ncep(ds, yearmonth, lons, lats):
-    ds = convert_lons_lats_ncep(ds, lons, lats)
+def prepare_runoff_ncep(ds, yearmonth, xs, ys):
+    ds = convert_lons_lats_ncep(ds, xs, ys)
     # runoff has missing values: set nans to 0
     ds = ds.fillna(0.)
     ds = convert_unaccumulate_ncep(ds)
@@ -142,50 +143,50 @@ def prepare_runoff_ncep(ds, yearmonth, lons, lats):
     ds = ds.rename({'WATR_P8_L1_GGA0': 'runoff'})
     return [(yearmonth, ds)]
 
-def prepare_height_ncep(ds, lons, lats, yearmonths):
-    ds = convert_lons_lats_ncep(ds, lons, lats)
+def prepare_height_ncep(ds, xs, ys, yearmonths):
+    ds = convert_lons_lats_ncep(ds, xs, ys)
     ds = ds.rename({'HGT_P0_L105_GGA0': 'height'})
     return [(ym, ds) for ym in yearmonths]
 
-def prepare_roughness_ncep(ds, lons, lats, yearmonths):
+def prepare_roughness_ncep(ds, xs, ys, yearmonths):
     # there are 3 different grids in the dataset, the one in use since 2011 is in lon_2, lat_2
     ds = ds.drop(['lon_0', 'lat_0', 'initial_time0_hours', 'lon_1', 'lat_1', 'initial_time1_hours',
                   'initial_time2_encoded', 'initial_time2'])
     ds = ds.rename({'initial_time2_hours': 'time', 'lon_2': 'lon_0', 'lat_2': 'lat_0'})
-    ds = convert_lons_lats_ncep(ds, lons, lats)
+    ds = convert_lons_lats_ncep(ds, xs, ys)
     # roughness does not come on exactly the same grid as the
     # other data, so we interpolate with nearest grid point
     # selection
     ds = (ds.load()
-            .sel(lon=lons, lat=lats, method='nearest')
-            .assign_coords(lon=lons, lat=lats))
+            .sel(x=xs, y=ys, method='nearest')
+            .assign_coords(x=xs, y=ys))
     ds = ds.rename({'SFCR_P8_L1_GGA2': 'roughness'})
     # split time into months
     dt = pd.to_datetime(ds.coords['time'].values)
     ds = (ds.assign_coords(time=pd.MultiIndex.from_arrays([dt.year, dt.month], names=['year', 'month']))
             .unstack('time'))
-    return [(ym, ds.sel(year=ym[0], month=ym[1]).load())
+    return [(ym, ds.sel(year=ym[0], month=ym[1]))
             for ym in yearmonths]
 
-def prepare_meta_ncep(lons, lats, year, month, template, module):
+def prepare_meta_ncep(xs, ys, year, month, template, module):
     fn = next(glob.iglob(template.format(year=year, month=month)))
     with xr.open_dataset(fn, engine="pynio") as ds:
         ds = ds.coords.to_dataset()
-        ds = convert_lons_lats_ncep(ds, lons, lats)
+        ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = convert_time_hourly_ncep(ds, drop_time_vars=False)
         return ds.load()
 
-def tasks_monthly_ncep(lons, lats, yearmonths, prepare_func, template, meta_attrs):
+def tasks_monthly_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs):
     return [dict(prepare_func=prepare_func,
-                 lons=lons, lats=lats,
+                 xs=xs, ys=ys,
                  fn=next(glob.iglob(template.format(year=ym[0], month=ym[1]))),
                  engine=engine,
                  yearmonth=ym)
             for ym in yearmonths]
 
-def tasks_constant_ncep(lons, lats, yearmonths, prepare_func, template, meta_attrs):
+def tasks_constant_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs):
     return [dict(prepare_func=prepare_func,
-                 lons=lons, lats=lats, yearmonths=yearmonths,
+                 xs=xs, ys=ys, yearmonths=yearmonths,
                  fn=template, engine=engine)]
 
 weather_data_config = {
