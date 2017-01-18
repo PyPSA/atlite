@@ -62,10 +62,6 @@ for country in countries:
 
 print(pop_map.sum())
 
-nlon = len(cutout.meta.lon)
-nlat = len(cutout.meta.lat)
-
-
 #%%time
 pop_matrix = sp.sparse.csr_matrix(pop_map.T)
 index = pd.Index(countries,name="countries")
