@@ -26,6 +26,7 @@ import os
 import xarray as xr
 import numpy as np
 import pandas as pd
+import datetime as dt
 import scipy as sp, scipy.sparse
 
 from .aggregate import aggregate_sum, aggregate_matrix
@@ -71,12 +72,39 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         results = sum(results)
     return results
 
+
+## temperature
+
+
+def convert_temperature(ds):
+    """Return outside temperature (useful for e.g. heat pump T-dependent
+    coefficient of performance).
+    """
+
+    #Temperature is in Kelvin
+    return ds['temperature'] - 273.15
+
+
+def temperature(cutout, **params):
+    return cutout.convert_and_aggregate(convert_func=convert_temperature, **params)
+
+
+
 ## heat demand
 
-def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0.):
+def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0., hour_shift = 0.):
     """
-    Convert outside temperature into heat demand using the degree-day
+    Convert outside temperature into daily heat demand using the degree-day
     approximation.
+
+    Since "daily average temperature" means different things in different time zones and since
+    xarray coordinates do not handle time zones gracefully like pd.DateTimeIndex, you can provide
+    an hour_shift to redefine when the day starts.
+    
+    E.g. for Moscow in winter, hour_shift = 4, for New York in winter, hour_shift = -5
+
+    This time shift applies across the entire spatial scope of ds for all times. More fine-grained
+    control will be built in a some point, i.e. space- and time-dependent time zones.
 
     Parameters
     ----------
@@ -86,10 +114,15 @@ def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0.):
         Linear factor relating heat demand to outside temperature.
     constant : float
         Constant part of heat demand that does not depend on outside temperature (e.g. due to water heating).
+    hour_shift : float
+        Time shift relative to UTC for taking daily average
     """
 
-    #Temperature is in Kelvin
+    #Temperature is in Kelvin; take daily average
     T = ds['temperature']
+    T.coords['time'].values += np.timedelta64(dt.timedelta(hours=hour_shift))
+
+    T = ds['temperature'].resample("D", dim="time", how="mean")
     threshold += 273.15
     heat_demand = a*(threshold - T)
 
