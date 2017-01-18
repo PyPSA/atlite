@@ -114,7 +114,7 @@ except ImportError:
 
 def convert_wind(ds, V, POW, hub_height):
     ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002
-    wnd_hub = ds['wnd10m'] * np.log(hub_height/ds['roughness']) / np.log((10.0)/ds['roughness'])
+    wnd_hub = ds['wnd10m'] * (np.log(hub_height/ds['roughness']) / np.log((10.0)/ds['roughness']))
     wind_energy = xr.DataArray(np.interp(wnd_hub,V,POW), coords=wnd_hub.coords)
     return wind_energy
 
