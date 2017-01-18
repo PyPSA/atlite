@@ -153,7 +153,8 @@ def prepare_roughness_ncep(ds, lons, lats, yearmonths):
     # roughness does not come on exactly the same grid as the
     # other data, so we interpolate with nearest grid point
     # selection
-    ds = (ds.sel(lon=lons, lat=lats, method='nearest')
+    ds = (ds.load()
+            .sel(lon=lons, lat=lats, method='nearest')
             .assign_coords(lon=lons, lat=lats))
     ds = ds.rename({'SFCR_P8_L1_GGA2': 'roughness'})
     # split time into months

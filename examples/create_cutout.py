@@ -7,7 +7,8 @@
 
 # 'ncep_dir/{year}{month:0>2}/tmp2m.*.grb2'
 
-
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 import atlite
 

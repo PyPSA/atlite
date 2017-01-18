@@ -37,10 +37,8 @@ from .preparation import (cutout_do_task, cutout_prepare,
 from .shapes import compute_indicatormatrix
 
 class Cutout(object):
-    def __init__(self, name=None, nprocesses=None,
-                 cutout_dir=config.cutout_dir, **cutoutparams):
+    def __init__(self, name=None, cutout_dir=config.cutout_dir, **cutoutparams):
         self.name = name
-        self.nprocesses = nprocesses
 
         self.cutout_dir = os.path.join(cutout_dir, name)
         self.prepared = False

@@ -58,6 +58,8 @@ def cutout_do_task(task, write_to_file=True):
                              var,
                              os.path.basename(fn),
                              prepare_func.__name__)
+        else:
+            return [(ym,ds.load()) for ym, ds in data]
     except Exception as e:
         logger.exception("Exception occured in the task with prepare_func `%s`: %s",
                          prepare_func.__name__, e.args[0])
@@ -66,10 +68,7 @@ def cutout_do_task(task, write_to_file=True):
         if 'ds' in task:
             task['ds'].close()
 
-    if not write_to_file:
-        return data
-
-def cutout_prepare(cutout, overwrite=False):
+def cutout_prepare(cutout, overwrite=False, nprocesses=None):
     if cutout.prepared and not overwrite:
         raise ArgumentError("The cutout is already prepared. If you want to recalculate it, "
                             "anyway, then you must supply an `overwrite=True` argument.")
@@ -87,6 +86,7 @@ def cutout_prepare(cutout, overwrite=False):
         shutil.rmtree(cutout_dir)
 
     os.mkdir(cutout_dir)
+    cutout.meta.unstack('year-month').to_netcdf(cutout.datasetfn())
 
     # Compute data and fill files
     tasks = []
@@ -100,36 +100,39 @@ def cutout_prepare(cutout, overwrite=False):
 
     logger.info("%d tasks have been collected. Starting running them on %s.",
                 len(tasks),
-                ("%d processes" % cutout.nprocesses)
-                if cutout.nprocesses is not None
+                ("%d processes" % nprocesses)
+                if nprocesses is not None
                 else "all processors")
 
-    pool = Pool(processes=cutout.nprocesses)
-    try:
-        pool.map(cutout_do_task, tasks)
-    except Exception as e:
-        pool.terminate()
-        logger.info("Preparation of cutout '%s' has been interrupted by an exception. "
-                    "Purging the incomplete cutout_dir.",
-                    cutout.name)
-        shutil.rmtree(cutout_dir)
-        raise e
-    pool.close()
+    if nprocesses > 1:
+        pool = Pool(processes=nprocesses)
+        try:
+            pool.map(cutout_do_task, tasks)
+        except Exception as e:
+            pool.terminate()
+            logger.info("Preparation of cutout '%s' has been interrupted by an exception. "
+                        "Purging the incomplete cutout_dir.",
+                        cutout.name)
+            shutil.rmtree(cutout_dir)
+            raise e
+        pool.close()
+    else:
+        for task in tasks:
+            cutout_do_task(task)
 
     logger.info("Merging variables into monthly compound files")
     def clear_coords_attributes(ds):
         for c in ds.coords.itervalues(): c.attrs.clear()
         return ds
     def merge_file_into(ds1, fn):
-        with open_dataset(fn) as ds2:
+        with xr.open_dataset(fn) as ds2:
             ds2 = clear_coords_attributes(ds2)
-            return ds1.merge(ds2, compat='identical')
+            return ds1.merge(ds2, compat='identical').load()
     for fn in map(cutout.datasetfn, yearmonths.tolist()):
         basefn, ext = os.path.splitext(fn)
         varfns = ["{}_{}{}".format(basefn, var, ext)
                   for var in cutout.weather_data_config]
-        datasets = [xr.open_dataset(varfn) for varfn in varfns]
-        with open_dataset(varfns[0]) as ds:
+        with xr.open_dataset(varfns[0]) as ds:
             ds = clear_coords_attributes(ds)
             (reduce(merge_file_into, varfns[1:], ds).to_netcdf(fn))
         for varfn in varfns: os.unlink(varfn)
