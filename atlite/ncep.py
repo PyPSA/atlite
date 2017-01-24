@@ -45,7 +45,7 @@ def convert_lons_lats_ncep(ds, xs, ys):
     ds = ds.sel(lat_0=ys)
 
     # Lons should go from -180. to +180.
-    if ds.coords['lon_0'].sel(lon_0=slice(xs.start + 360., xs.stop + 360.)):
+    if len(ds.coords['lon_0'].sel(lon_0=slice(xs.start + 360., xs.stop + 360.))):
         ds = xr.concat([ds.sel(lon_0=slice(xs.start + 360., xs.stop + 360.)),
                         ds.sel(lon_0=xs)],
                        dim="lon_0")
