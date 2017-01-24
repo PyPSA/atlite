@@ -104,21 +104,17 @@ def cutout_prepare(cutout, overwrite=False, nprocesses=None):
                 if nprocesses is not None
                 else "all processors")
 
-    if nprocesses > 1:
-        pool = Pool(processes=nprocesses)
-        try:
-            pool.map(cutout_do_task, tasks)
-        except Exception as e:
-            pool.terminate()
-            logger.info("Preparation of cutout '%s' has been interrupted by an exception. "
-                        "Purging the incomplete cutout_dir.",
-                        cutout.name)
-            shutil.rmtree(cutout_dir)
-            raise e
-        pool.close()
-    else:
-        for task in tasks:
-            cutout_do_task(task)
+    pool = Pool(processes=nprocesses)
+    try:
+        pool.map(cutout_do_task, tasks)
+    except Exception as e:
+        pool.terminate()
+        logger.info("Preparation of cutout '%s' has been interrupted by an exception. "
+                    "Purging the incomplete cutout_dir.",
+                    cutout.name)
+        shutil.rmtree(cutout_dir)
+        raise e
+    pool.close()
 
     logger.info("Merging variables into monthly compound files")
     def clear_coords_attributes(ds):
