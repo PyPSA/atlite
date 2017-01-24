@@ -31,6 +31,10 @@ import scipy as sp, scipy.sparse
 from .aggregate import aggregate_sum, aggregate_matrix
 from .shapes import spdiag, compute_indicatormatrix
 
+from .pv.solar_position import SolarPosition
+from .pv.irradiation import TiltedTotalIrradiation
+from .pv.solar_panel_model import SolarPanelModel
+
 def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None,
                           shapes=None, shapes_proj='latlong',
@@ -100,7 +104,8 @@ def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0.):
 def heat_demand(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_heat_demand, **params)
 
-## wind
+
+## turbine and panel data can be read in from reatlas
 
 try:
     from REatlas_client import reatlas_client
@@ -108,9 +113,15 @@ try:
         fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'TurbineConfig', turbine + '.cfg')
         return reatlas_client.turbineconf_to_powercurve_object(fn)
 
+    def get_solarpanelconfig_from_reatlas(panel):
+        fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'SolarPanelData', panel + '.cfg')
+        return reatlas_client.solarpanelconf_to_solar_panel_config_object(fn)
+
     have_reatlas = True
 except ImportError:
     have_reatlas = False
+
+## wind
 
 def convert_wind(ds, V, POW, hub_height):
     ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002
@@ -129,6 +140,41 @@ def wind(cutout, **params):
         params['hub_height'] = turbineconfig['HUB_HEIGHT']
 
     return cutout.convert_and_aggregate(convert_func=convert_wind, **params)
+
+def convert_pv(ds, settings, panelconfig):
+    solar_position = SolarPosition(ds, settings)
+    irradiation = TiltedTotalIrradiation(ds, solar_position, settings)
+    solar_panel = SolarPanelModel(ds, irradiation, panelconfig)
+    ac_power = solar_panel['AC power']
+    return ac_power
+
+def pv(cutout, **params):
+    '''
+    Example for the <settings> keyword argument:
+
+    settings = {'panel' : 'Scheuten215IG',
+                'surface slope' : 0.0,
+                'surface azimuth' : 0.0,
+                'simulate REatlas' : True,
+                'clearsky model' : 'Simple'}
+
+    Simulate REatlas option:
+        True : Simulates the REatlas routines, clearsky model is ignored
+        False : Executes debugged code, make sure to specify a clearsky model
+
+    Reindl clearsky model options for diffuse irradiation component:
+        'Simple'   - clearness of sky index required
+        'Enhanced' - clearness of sky index, ambient air temperature, relative humidity required
+    '''
+
+    if 'settings' in params:
+        assert have_reatlas, "REatlas client is necessary for loading solar panel configs"
+
+        settings = params.pop('settings')
+        panelconfig = get_solarpanelconfig_from_reatlas(settings['panel'])
+        params['settings'] = settings
+        params['panelconfig'] = panelconfig
+    return cutout.convert_and_aggregate(convert_func=convert_pv, **params)
 
 ## hydro
 

@@ -86,10 +86,9 @@ weather_data_config = {
                    prepare_func=prepare_data_cordex,
                    oldname='rsds', newname='influx',
                    template=os.path.join(cordex_dir, '{model}', 'influx', 'rsds_*_{year}*.nc')),
-    # Not yet available
-    #'outflux': dict(tasks_func=tasks_yearly_cordex,
-                    #prepare_func=prepare_outflux_cordex,
-                    #template=os.path.join(cordex_dir, 'outflux/rsus_*_{year}*.nc')),
+    'outflux': dict(tasks_func=tasks_yearly_cordex,
+                    prepare_func=prepare_data_cordex,
+                    template=os.path.join(cordex_dir, 'outflux/rsus_*_{year}*.nc')),
     'temperature': dict(tasks_func=tasks_yearly_cordex,
                         prepare_func=prepare_data_cordex,
                         oldname='tas', newname='temperature',
