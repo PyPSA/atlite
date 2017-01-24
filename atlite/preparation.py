@@ -126,6 +126,9 @@ def cutout_prepare(cutout, overwrite=False, nprocesses=None):
         return ds
     def merge_file_into(ds1, fn):
         with xr.open_dataset(fn) as ds2:
+            logger.debug("Collecting and merging variable(s) %s from %s",
+                         ", ".join(ds2.data_vars),
+                         os.path.basename(fn))
             ds2 = clear_coords_attributes(ds2)
             return ds1.merge(ds2, compat='identical').load()
     for fn in map(cutout.datasetfn, yearmonths.tolist()):
@@ -134,6 +137,9 @@ def cutout_prepare(cutout, overwrite=False, nprocesses=None):
                   for var in cutout.weather_data_config]
         with xr.open_dataset(varfns[0]) as ds:
             ds = clear_coords_attributes(ds)
+            logger.debug("Collecting variable(s) %s from %s",
+                         ", ".join(ds.data_vars),
+                         os.path.basename(varfns[0]))
             (reduce(merge_file_into, varfns[1:], ds).to_netcdf(fn))
         for varfn in varfns: os.unlink(varfn)
         logger.debug("Completed file %s", os.path.basename(fn))
