@@ -159,7 +159,8 @@ def prepare_roughness_ncep(ds, xs, ys, yearmonths):
     # selection
     ds = (ds.load()
             .sel(x=xs, y=ys, method='nearest')
-            .assign_coords(x=xs, y=ys, lon=xs, lat=ys))
+            .assign_coords(x=xs.values, y=ys.values))
+    ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     ds = ds.rename({'SFCR_P8_L1_GGA2': 'roughness'})
     # split time into months
     dt = pd.to_datetime(ds.coords['time'].values)
