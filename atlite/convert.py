@@ -185,8 +185,6 @@ def solar_thermal(cutout, **params):
 
 
 ## turbine and panel data can be read in from reatlas
-## wind
-
 
 try:
     from REatlas_client import reatlas_client
@@ -221,6 +219,9 @@ def wind(cutout, **params):
         params['hub_height'] = turbineconfig['HUB_HEIGHT']
 
     return cutout.convert_and_aggregate(convert_func=convert_wind, **params)
+
+
+## solar PV
 
 def convert_pv(ds, settings, panelconfig):
     solar_position = SolarPosition(ds, settings)
