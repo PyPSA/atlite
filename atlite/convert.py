@@ -110,6 +110,11 @@ def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0., hour_shift =
     This time shift applies across the entire spatial scope of ds for all times. More fine-grained
     control will be built in a some point, i.e. space- and time-dependent time zones.
 
+    WARNING: Because the original data is provided every month, at the month boundaries there is
+    untidiness if you use a time shift. The resulting xarray will have duplicates in the index for
+    the parts of the day in each month at the boundary. You will have to re-average these based on
+    the number of hours in each month for the duplicated day.
+
     Parameters
     ----------
     threshold : float
@@ -138,7 +143,7 @@ def heat_demand(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_heat_demand, **params)
 
 
-## solar thermal
+## solar thermal collectors
 
 def convert_solar_thermal(ds,c0=0.8,c1=3.,t_store=80.,angle=45.):
     """
@@ -147,6 +152,8 @@ def convert_solar_thermal(ds,c0=0.8,c1=3.,t_store=80.,angle=45.):
 
     Mathematical model and defaults for c0, c1 based on model in Henning and Palzer,
     Renewable and Sustainable Energy Reviews 30 (2014) 1003-1018
+
+    WARNING: Angles with Earth's surface are not yet implemented.
 
     Parameters
     ----------
