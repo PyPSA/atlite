@@ -42,9 +42,9 @@ It can process the following weather data fields:
 The following power-system relevant time series can be produced for
 all possible spatial distributions of assets:
 
-* Wind power production for a given turbine type
-* Solar PV power production for a given panel type
-* Solar thermal collector production
+* Wind power generation for a given turbine type
+* Solar PV power generation for a given panel type
+* Solar thermal collector heat output
 * Hydroelectric inflow (simplified)
 * Heating demand (based on the degree-day approximation)
 
@@ -71,8 +71,14 @@ Getting started
 
 * Install atlite from this repository with all its library dependencies
 * Download one of the weather datasets listed above
-* Adjust the atlite/config.py file paths to point to the directory where you downloaded the dataset
-
+* Adjust the `atlite/config.py <atlite/config.py>`_ directory paths to
+  point to the directory where you downloaded the dataset
+* Create a cutout, i.e. a geographical rectangle and a selection of
+  times, e.g. all hours in 2011 and 2012, to narrow down the scope -
+  see `examples/create_cutout.py <examples/create_cutout.py>`_
+* Select a sparse matrix of the geographical points inside the cutout
+  you want to aggregate for your time series, and pass it to the
+  appropriate converter function - see `examples/ <examples/>`_
 
 Licence
 =======
