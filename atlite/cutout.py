@@ -31,7 +31,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 from . import config, ncep, cordex
-from .convert import convert_and_aggregate, heat_demand, wind, pv, runoff
+
+from .convert import convert_and_aggregate, heat_demand, temperature, wind, pv, runoff, solar_thermal
+
 from .preparation import (cutout_do_task, cutout_prepare,
                           cutout_produce_specific_dataseries, cutout_get_meta)
 from .shapes import compute_indicatormatrix
@@ -51,7 +53,12 @@ class Cutout(object):
             else:
                 assert False
 
-            cutoutparams['module'] = meta.attrs['module']
+            if 'module' in meta.attrs:
+                cutoutparams['module'] = meta.attrs['module']
+            else:
+                print('Warning: module not given in meta file of cutout, assuming it is NCEP')
+                cutoutparams['module'] = 'ncep'
+
         elif 'module' not in cutoutparams:
             d = config.weather_dataset.copy()
             d.update(cutoutparams)
@@ -139,6 +146,10 @@ class Cutout(object):
     convert_and_aggregate = convert_and_aggregate
 
     heat_demand = heat_demand
+
+    temperature = temperature
+
+    solar_thermal = solar_thermal
 
     wind = wind
 

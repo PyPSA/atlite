@@ -2,24 +2,63 @@
  Atlite
 ========
 
-Atlite is the light-weight version of Aarhus RE Atlas for converting
-weather data to power systems data.
-
 Atlite is a `free software
-<http://www.gnu.org/philosophy/free-sw.en.html>`_ library to easily
-generate renewable energy time-series from historical reanalysis
-weather data like the cfsr rda ucar data set using python. 
+<http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
+<http://xarray.pydata.org/en/stable/>`_-based Python library for
+converting weather data (such as wind speeds, solar radiation,
+temperature and precipitation) into power systems data (such as wind
+power, solar power, hydro power and heating demand time series). It is
+designed to work with big datasets, such as hourly global weather data
+over several years at spatial resolutions down to e.g. 0.1 x 0.1
+degree resolution.
 
-As of 2016 REAtlite is under heavy development and therefore it is
+Atlite was originally conceived as a light-weight version of the Aarhus
+University RE Atlas, which produces wind and solar generation time
+series from historical reanalysis data. It has since been extended to
+use weather datasets simulated with projected climate change and to compute
+other time series, such as hydro power, solar thermal collectors and
+heating demand.
+
+Atlite is designed to be modular, so that it can work with any weather
+datasets. It currently has modules for the following datasets:
+
+* `NCEP Climate Forecast System
+  <http://rda.ucar.edu/datasets/ds094.1/>`_ hourly historical
+  reanalysis weather data available on a 0.2 x 0.2 degree global grid
+* `EURO-CORDEX Climate Change Projection
+  <http://www.euro-cordex.net/>`_ three-hourly up until 2100, available
+  on a 0.11 x 0.11 degree grid for Europe
+
+It can process the following weather data fields:
+
+* Temperature
+* Downward short-wave radiation
+* Upward short-wave radiation
+* Wind speeds
+* Precipitation
+* Surface roughness
+* Height maps
+
+The following power-system relevant time series can be produced for
+all possible spatial distributions of assets:
+
+* Wind power production for a given turbine type
+* Solar PV power production for a given panel type
+* Solar thermal collector production
+* Hydroelectric inflow (simplified)
+* Heating demand (based on the degree-day approximation)
+
+As of 2017 REAtlite is under heavy development and therefore it is
 recommended to use caution when using it in a production environment.
 
-Citation: G. B. Andresen, A. A. Søndergaard, M. Greiner, "Validation of 
-danish wind time series from a new global renewable energy atlas for 
-energy system analysis," Energy 93, Part 1 (2015) 1074 – 1088. 
+Citation for Aarhus University RE
+Atlas: G. B. Andresen, A. A. Søndergaard, M. Greiner, "Validation of
+danish wind time series from a new global renewable energy atlas for
+energy system analysis," Energy 93, Part 1 (2015) 1074 – 1088.
 doi:http://dx.doi.org/10.1016/j.energy.2015.09.071.
 
 Atlite was initially developed by the `Renewable Energy Group
-<https://fias.uni-frankfurt.de/physics/schramm/complex-renewable-energy-networks/>`_
+<https://fias.uni-frankfurt.de/physics/schramm/renewable-energy-system-and-network-analysis/>`_
 at `FIAS <https://fias.uni-frankfurt.de/>`_ to carry out simulations
 for the `CoNDyNet project <http://condynet.de/>`_, financed by the
 `German Federal Ministry for Education and Research (BMBF)
@@ -27,9 +66,27 @@ for the `CoNDyNet project <http://condynet.de/>`_, financed by the
 Research Initiative
 <http://forschung-stromnetze.info/projekte/grundlagen-und-konzepte-fuer-effiziente-dezentrale-stromnetze/>`_.
 
+Getting started
+===============
+
+* Install atlite from this repository with all its library dependencies
+* Download one of the weather datasets listed above
+* Adjust the atlite/config.py file paths to point to the directory where you downloaded the dataset
+
+
 Licence
 =======
 
-Atlite is released as free software under the `GPLv3
-<http://www.gnu.org/licenses/gpl-3.0.en.html>`_, see `LICENSE.txt
-<LICENSE.txt>`_.
+
+Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hörsch (FIAS), Tom Brown (FIAS), Markus Schlott (FIAS), David Schlachtberger (FIAS)
+
+
+This program (atlite) is free software: you can redistribute it and/or
+modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either `version 3 of the
+License <LICENSE.txt>`_, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+`GNU General Public License <LICENSE.txt>`_ for more details.
