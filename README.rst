@@ -3,31 +3,31 @@
 ========
 
 Atlite is a `free software
-<http://www.gnu.org/philosophy/free-sw.en.html>`_ `xarray
+<http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
 <http://xarray.pydata.org/en/stable/>`_-based Python library for
 converting weather data (such as wind speeds, solar radiation,
 temperature and precipitation) into power systems data (such as wind
-power, solar power, hydro power and heat demand time series). It is
+power, solar power, hydro power and heating demand time series). It is
 designed to work with big datasets, such as hourly global weather data
 over several years at spatial resolutions down to e.g. 0.1 x 0.1
 degree resolution.
 
-Atlite was originally conceived as a light-weight version of Aarhus
+Atlite was originally conceived as a light-weight version of the Aarhus
 University RE Atlas, which produces wind and solar generation time
 series from historical reanalysis data. It has since been extended to
-use weather datasets simulated with climate change and to compute
+use weather datasets simulated with projected climate change and to compute
 other time series, such as hydro power, solar thermal collectors and
-heat demand using the degree-day approximation.
+heating demand.
 
 Atlite is designed to be modular, so that it can work with any weather
 datasets. It currently has modules for the following datasets:
 
 * `NCEP Climate Forecast System
-  <http://rda.ucar.edu/datasets/ds094.1/>` hourly historical
+  <http://rda.ucar.edu/datasets/ds094.1/>`_ hourly historical
   reanalysis weather data available on a 0.2 x 0.2 degree global grid
 * `EURO-CORDEX Climate Change Projection
-  <http://www.euro-cordex.net/>` three-hourly up until 2100, available
-  on a 0.11 x 0.11 degree grid for Europe.
+  <http://www.euro-cordex.net/>`_ three-hourly up until 2100, available
+  on a 0.11 x 0.11 degree grid for Europe
 
 It can process the following weather data fields:
 
@@ -46,7 +46,7 @@ all possible spatial distributions of assets:
 * Solar PV power production for a given panel type
 * Solar thermal collector production
 * Hydroelectric inflow (simplified)
-* Heat demand (based on the degree-day approximation)
+* Heating demand (based on the degree-day approximation)
 
 As of 2017 REAtlite is under heavy development and therefore it is
 recommended to use caution when using it in a production environment.
@@ -58,13 +58,21 @@ energy system analysis," Energy 93, Part 1 (2015) 1074 – 1088.
 doi:http://dx.doi.org/10.1016/j.energy.2015.09.071.
 
 Atlite was initially developed by the `Renewable Energy Group
-<https://fias.uni-frankfurt.de/physics/schramm/complex-renewable-energy-networks/>`_
+<https://fias.uni-frankfurt.de/physics/schramm/renewable-energy-system-and-network-analysis/>`_
 at `FIAS <https://fias.uni-frankfurt.de/>`_ to carry out simulations
 for the `CoNDyNet project <http://condynet.de/>`_, financed by the
 `German Federal Ministry for Education and Research (BMBF)
 <https://www.bmbf.de/en/index.html>`_ as part of the `Stromnetze
 Research Initiative
 <http://forschung-stromnetze.info/projekte/grundlagen-und-konzepte-fuer-effiziente-dezentrale-stromnetze/>`_.
+
+Getting started
+===============
+
+* Install atlite from this repository with all its library dependencies
+* Download one of the weather datasets listed above
+* Adjust the atlite/config.py file paths to point to the directory where you downloaded the dataset
+
 
 Licence
 =======
