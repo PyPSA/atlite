@@ -50,7 +50,7 @@ def SolarZenithAngle(ds, declination, hour_angle):
     return phi.rename('zenith')
 
 #Solar Azimuth Angle [rad]
-#To be checked (against REatlas)
+#To be checked (against REatlas) (only necessary for tracking...)
 def SolarAzimuthAngle(ds, apparent_solar_time, declination, hour_angle, altitude):
     lat = np.deg2rad(ds['lat'])
 
