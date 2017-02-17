@@ -96,33 +96,40 @@ def temperature(cutout, **params):
 
 ## heat demand
 
-def convert_heat_demand(ds, threshold = 15., a = 1., constant = 0., hour_shift = 0.):
+def convert_heat_demand(ds, threshold=15., a=1., constant=0., hour_shift=0.):
     """
-    Convert outside temperature into daily heat demand using the degree-day
-    approximation.
+    Convert outside temperature into daily heat demand using the
+    degree-day approximation.
 
-    Since "daily average temperature" means different things in different time zones and since
-    xarray coordinates do not handle time zones gracefully like pd.DateTimeIndex, you can provide
-    an hour_shift to redefine when the day starts.
+    Since "daily average temperature" means different things in
+    different time zones and since xarray coordinates do not handle
+    time zones gracefully like pd.DateTimeIndex, you can provide an
+    hour_shift to redefine when the day starts.
 
-    E.g. for Moscow in winter, hour_shift = 4, for New York in winter, hour_shift = -5
+    E.g. for Moscow in winter, hour_shift = 4, for New York in winter,
+    hour_shift = -5
 
-    This time shift applies across the entire spatial scope of ds for all times. More fine-grained
-    control will be built in a some point, i.e. space- and time-dependent time zones.
+    This time shift applies across the entire spatial scope of ds for
+    all times. More fine-grained control will be built in a some
+    point, i.e. space- and time-dependent time zones.
 
-    WARNING: Because the original data is provided every month, at the month boundaries there is
-    untidiness if you use a time shift. The resulting xarray will have duplicates in the index for
-    the parts of the day in each month at the boundary. You will have to re-average these based on
-    the number of hours in each month for the duplicated day.
+    WARNING: Because the original data is provided every month, at the
+    month boundaries there is untidiness if you use a time shift. The
+    resulting xarray will have duplicates in the index for the parts
+    of the day in each month at the boundary. You will have to
+    re-average these based on the number of hours in each month for
+    the duplicated day.
 
     Parameters
     ----------
     threshold : float
-        Outside temperature in degrees Celsius above which there is no heat demand.
+        Outside temperature in degrees Celsius above which there is no
+        heat demand.
     a : float
         Linear factor relating heat demand to outside temperature.
     constant : float
-        Constant part of heat demand that does not depend on outside temperature (e.g. due to water heating).
+        Constant part of heat demand that does not depend on outside
+        temperature (e.g. due to water heating).
     hour_shift : float
         Time shift relative to UTC for taking daily average
     """
@@ -145,13 +152,14 @@ def heat_demand(cutout, **params):
 
 ## solar thermal collectors
 
-def convert_solar_thermal(ds,c0=0.8,c1=3.,t_store=80.,angle=45.):
+def convert_solar_thermal(ds, c0=0.8, c1=3., t_store=80., angle=45.):
     """
-    Convert downward short-wave radiation flux and outside temperature into
-    time series for solar thermal collectors.
+    Convert downward short-wave radiation flux and outside temperature
+    into time series for solar thermal collectors.
 
-    Mathematical model and defaults for c0, c1 based on model in Henning and Palzer,
-    Renewable and Sustainable Energy Reviews 30 (2014) 1003-1018
+    Mathematical model and defaults for c0, c1 based on model in
+    Henning and Palzer, Renewable and Sustainable Energy Reviews 30
+    (2014) 1003-1018
 
     WARNING: Angles with Earth's surface are not yet implemented.
 
@@ -167,24 +175,17 @@ def convert_solar_thermal(ds,c0=0.8,c1=3.,t_store=80.,angle=45.):
         Placeholder for angle with horizontal facing south
     """
 
-    #convert storage temperature to Kelvin in line with reanalysis data
+    # convert storage temperature to Kelvin in line with reanalysis data
     t_store += 273.15
 
-    #Downward shortwave radiation flux is in W/m^2
-    #http://rda.ucar.edu/datasets/ds094.0/#metadata/detailed.html?_do=y
+    # Downward shortwave radiation flux is in W/m^2
+    # http://rda.ucar.edu/datasets/ds094.0/#metadata/detailed.html?_do=y
     influx = ds['influx']
 
-    #small negative values were causing large positive values in
-    #the following expression
-    influx.values[influx.values < 0.] = 0.
-
-    #overall efficiency; this will contain -inf's from division by zero influx
+    # overall efficiency
     eta = c0 - c1*((t_store - ds['temperature'])/influx)
 
-    #this will replace -inf's with zeros too
-    eta.values[eta.values<0.] = 0.
-
-    return influx*eta
+    return (influx*eta).where(influx > 0.).fillna(0.)
 
 
 def solar_thermal(cutout, **params):
