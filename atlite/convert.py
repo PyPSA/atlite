@@ -258,7 +258,7 @@ def pv(cutout, **params):
 
     if 'panel' in params:
         assert have_reatlas, "REatlas client is necessary for loading solar panel configs"
-        params['panelconfig'] = get_solarpanelconfig_from_reatlas(params['panel'])
+        params['panelconfig'] = get_solarpanelconfig_from_reatlas(params.pop('panel'))
     if not callable(params['orientation']):
         params['orientation'] = get_orientation(params['orientation'])
 
