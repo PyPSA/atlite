@@ -148,26 +148,11 @@ def prepare_height_ncep(ds, xs, ys, yearmonths):
     ds = ds.rename({'HGT_P0_L105_GGA0': 'height'})
     return [(ym, ds) for ym in yearmonths]
 
-def prepare_roughness_ncep(ds, xs, ys, yearmonths):
-    # there are 3 different grids in the dataset, the one in use since 2011 is in lon_2, lat_2
-    ds = ds.drop(['lon_0', 'lat_0', 'initial_time0_hours', 'lon_1', 'lat_1', 'initial_time1_hours',
-                  'initial_time2_encoded', 'initial_time2'])
-    ds = ds.rename({'initial_time2_hours': 'time', 'lon_2': 'lon_0', 'lat_2': 'lat_0'})
+def prepare_roughness_ncep(ds, yearmonth, xs, ys):
     ds = convert_lons_lats_ncep(ds, xs, ys)
-    # roughness does not come on exactly the same grid as the
-    # other data, so we interpolate with nearest grid point
-    # selection
-    ds = (ds.load()
-            .sel(x=xs, y=ys, method='nearest')
-            .assign_coords(x=xs.values, y=ys.values))
-    ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
-    ds = ds.rename({'SFCR_P8_L1_GGA2': 'roughness'})
-    # split time into months
-    dt = pd.to_datetime(ds.coords['time'].values)
-    ds = (ds.assign_coords(time=pd.MultiIndex.from_arrays([dt.year, dt.month], names=['year', 'month']))
-            .unstack('time'))
-    return [(ym, ds.sel(year=ym[0], month=ym[1]))
-            for ym in yearmonths]
+    ds = ds.rename({'SFCR_P8_L1_GGA0': 'roughness'})
+    ds = ds.assign_coords(year=yearmonth[0]).assign_coords(month=yearmonth[1])
+    return [(yearmonth, ds)]
 
 def prepare_meta_ncep(xs, ys, year, month, template, module):
     fn = next(glob.iglob(template.format(year=year, month=month)))
@@ -206,9 +191,9 @@ weather_data_config = {
     'runoff': dict(tasks_func=tasks_monthly_ncep,
                    prepare_func=prepare_runoff_ncep,
                    template=os.path.join(ncep_dir, '{year}{month:0>2}/runoff.*.grb2')),
-    'roughness': dict(tasks_func=tasks_constant_ncep,
+    'roughness': dict(tasks_func=tasks_monthly_ncep,
                       prepare_func=prepare_roughness_ncep,
-                      template=os.path.join(ncep_dir, 'roughness/flxf01.gdas.SFC_R.SFC.grb2')),
+                      template=os.path.join(ncep_dir, '{year}{month:0>2}/flxf.gdas.*.grb2')),
     'height': dict(tasks_func=tasks_constant_ncep,
                    prepare_func=prepare_height_ncep,
                    template=os.path.join(ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'))
