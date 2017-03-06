@@ -37,7 +37,7 @@ from .config import cordex_dir
 from .shapes import RotProj
 
 # Model and Projection Settings
-model = 'CNRM-CERFACS_CNRM_CM5'
+model = 'MPI-M-MPI-ESM-LR'
 projection = RotProj(dict(proj='ob_tran', o_proj='longlat', lon_0=180,
                           o_lon_p=-162, o_lat_p=39.25))
 engine = None
@@ -53,6 +53,25 @@ def prepare_data_cordex(ds, year, months, oldname, newname, xs, ys):
     ds = rename_and_clean_coords(ds)
     ds = ds.rename({oldname: newname})
     ds = ds.sel(x=xs, y=ys)
+    if newname in {'influx', 'outflux'}:
+        # shift averaged data to beginning of bin
+        ds = ds.assign_coords(time=pd.to_datetime(ds.coords["time"].values) - pd.Timedelta(hours=1.5))
+    if newname in {'runoff'}:
+        # shift and fill 6hr average data to beginning of 3hr bins
+        t = pd.to_datetime(ds.coords["time"].values)
+        ds = ds.reindex(method='bfill', time=(t - pd.Timedelta(hours=3.)).union(t))
+    return [((year, m), ds.sel(time="{}-{}".format(year, m)))
+            for m in months]
+
+def prepare_static_data_cordex(ds, year, months, oldname, newname, xs, ys):
+    ds = rename_and_clean_coords(ds)
+    ds = ds.rename({oldname: newname})
+    ds = ds.sel(x=xs, y=ys)
+    return [((year, m), ds)
+            for m in months]
+
+def prepare_weather_types_cordex(ds, year, months, oldname, newname, xs, ys):
+    ds = ds.rename({oldname: newname})
     return [((year, m), ds.sel(time="{}-{}".format(year, m)))
             for m in months]
 
@@ -88,19 +107,36 @@ weather_data_config = {
                    template=os.path.join(cordex_dir, '{model}', 'influx', 'rsds_*_{year}*.nc')),
     'outflux': dict(tasks_func=tasks_yearly_cordex,
                     prepare_func=prepare_data_cordex,
-                    template=os.path.join(cordex_dir, 'outflux/rsus_*_{year}*.nc')),
+                    oldname='rsus', newname='outflux',
+                    template=os.path.join(cordex_dir, '{model}', 'outflux', 'rsus_*_{year}*.nc')),
     'temperature': dict(tasks_func=tasks_yearly_cordex,
                         prepare_func=prepare_data_cordex,
                         oldname='tas', newname='temperature',
                         template=os.path.join(cordex_dir, '{model}', 'temperature', 'tas_*_{year}*.nc')),
+    'humidity': dict(tasks_func=tasks_yearly_cordex,
+                        prepare_func=prepare_data_cordex,
+                        oldname='hurs', newname='humidity',
+                        template=os.path.join(cordex_dir, '{model}', 'humidity', 'hurs_*_{year}*.nc')),
     'wnd10m': dict(tasks_func=tasks_yearly_cordex,
                    prepare_func=prepare_data_cordex,
                    oldname='sfcWind', newname='wnd10m',
                    template=os.path.join(cordex_dir, '{model}', 'wind', 'sfcWind_*_{year}*.nc')),
-    # Not yet available
-    #'roughness': dict(tasks_func=tasks_yearly_cordex,
-                      #prepare_func=prepare_roughness_cordex,
-                      #template=os.path.join(cordex_dir, 'roughness/'))
+    'roughness': dict(tasks_func=tasks_yearly_cordex,
+                      prepare_func=prepare_static_data_cordex,
+                      oldname='rlst', newname='roughness',
+                      template=os.path.join(cordex_dir, '{model}', 'roughness', 'rlst_*.nc')),
+    'runoff': dict(tasks_func=tasks_yearly_cordex,
+                   prepare_func=prepare_data_cordex,
+                   oldname='mrro', newname='runoff',
+                   template=os.path.join(cordex_dir, '{model}', 'runoff', 'mrro_*_{year}*.nc')),
+    'height': dict(tasks_func=tasks_yearly_cordex,
+                      prepare_func=prepare_static_data_cordex,
+                      oldname='orog', newname='height',
+                      template=os.path.join(cordex_dir, '{model}', 'altitude', 'orog_*.nc')),
+    'CWT': dict(tasks_func=tasks_yearly_cordex,
+                      prepare_func=prepare_weather_types_cordex,
+                      oldname='CWT', newname='CWT',
+                      template=os.path.join(cordex_dir, '{model}', 'weather_types', 'CWT_*_{year}*.nc')),
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_cordex,
