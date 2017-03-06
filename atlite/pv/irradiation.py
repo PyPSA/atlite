@@ -45,6 +45,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
     else:
         raise ArgumentError("`clearsky model` must be chosen from 'simple', 'enhanced' and 'reatlas'")
 
+
     # Set diffuse fraction to one when the sun isn't up
     # fraction = fraction.where(sinaltitude >= np.sin(np.deg2rad(threshold))).fillna(1.0)
     # fraction = fraction.rename('fraction index')
