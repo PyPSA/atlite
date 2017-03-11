@@ -69,8 +69,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
     for ym in yearmonths:
         with xr.open_dataset(cutout.datasetfn(ym)) as ds:
-            da = convert_func(ds, **convert_kwds).load()
-        results.append(aggregate_func(da, **aggregate_kwds))
+            da = convert_func(ds, **convert_kwds)
+            results.append(aggregate_func(da, **aggregate_kwds).load())
     if 'time' in results[0]:
         results = xr.concat(results, dim='time')
     else:
