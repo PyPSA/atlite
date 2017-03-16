@@ -6,7 +6,7 @@ Atlite is a `free software
 <http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
 <http://xarray.pydata.org/en/stable/>`_-based Python library for
 converting weather data (such as wind speeds, solar radiation,
-temperature and precipitation) into power systems data (such as wind
+temperature and runoff) into power systems data (such as wind
 power, solar power, hydro power and heating demand time series). It is
 designed to work with big datasets, such as hourly global weather data
 over several years at spatial resolutions down to e.g. 0.1 x 0.1
@@ -35,7 +35,7 @@ It can process the following weather data fields:
 * Downward short-wave radiation
 * Upward short-wave radiation
 * Wind speeds
-* Precipitation
+* Runoff
 * Surface roughness
 * Height maps
 
