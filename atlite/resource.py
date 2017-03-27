@@ -46,3 +46,21 @@ def get_solarpanelconfig(panel):
 
     fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'SolarPanelData', panel + '.cfg')
     return reatlas_client.solarpanelconf_to_solar_panel_config_object(fn)
+
+def solarpanel_rated_capacity_per_unit(panel):
+    # unit is m^2 here
+
+    # one unit in the capacity layout is interpreted as one panel of a
+    # capacity (A + 1000 * B + log(1000) * C) * 1000W/m^2 * (k / 1000)
+
+    if isinstance(panel, string_types):
+        panel = get_solarpanelconfig(panel)
+
+    A, B, C = itemgetter('A', 'B', 'C')(panelconf)
+    return (A + B * 1000. + C * np.log(1000.))*1e3
+
+def windturbine_rated_capacity_per_unit(turbine):
+    if isinstance(turbine, string_types):
+        turbine = get_turbineconfig(panel)
+
+    return max(turbine['POW'])

@@ -27,6 +27,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 import scipy as sp, scipy.sparse
+from six import string_types
+from operator import itemgetter
 
 from .aggregate import aggregate_sum, aggregate_matrix
 from .shapes import spdiag, compute_indicatormatrix
@@ -37,11 +39,14 @@ from .pv.solar_panel_model import SolarPanelModel
 from .pv.orientation import get_orientation, SurfaceOrientation
 
 from .resource import (get_windturbineconfig, get_solarpanelconfig)
+                       windturbine_rated_capacity_per_unit,
+                       solarpanel_rated_capacity_per_unit)
 
 def convert_and_aggregate(cutout, convert_func, matrix=None,
-                          index=None, layout=None,
-                          shapes=None, shapes_proj='latlong',
-                          **convert_kwds):
+                          index=None, layout=None, shapes=None,
+                          shapes_proj='latlong', unit_capacity=None,
+                          per_unit=False, return_no_of_units=False,
+                          capacity_factor=False, **convert_kwds):
     assert cutout.prepared, "The cutout has to be prepared first."
 
     if shapes is not None:
@@ -76,7 +81,24 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         results = xr.concat(results, dim='time')
     else:
         results = sum(results)
-    return results
+
+    if capacity_factor:
+        assert aggregate_func is aggregate_sum, \
+            "The arguments `matrix`, `shapes` and `layout` are incompatible with capacity_factor"
+        results /= len(cutout.meta['time']) * unit_capacity
+
+    if per_unit or return_weights:
+        assert aggregate_func is aggregate_matrix, \
+            "One of `matrix`, `shapes` and `layout` must be given for `per_unit`"
+        no_of_units = pd.Series(np.asarray(matrix.sum(axis=1)).squeeze(), index)
+
+    if per_unit:
+        results = (results / (no_of_units * unit_capacity)).fillna(0.)
+
+    if return_no_of_units:
+        return results, no_of_units
+    else:
+        return results
 
 
 ## temperature
@@ -198,36 +220,35 @@ def solar_thermal(cutout, **params):
 
 ## wind
 
-def convert_wind(ds, V, POW, hub_height):
+def convert_wind(ds, turbine):
+    V, POW, hub_height = itemgetter('V', 'POW', 'hub_height')(turbine)
+
     ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002
     wnd_hub = ds['wnd10m'] * (np.log(hub_height/ds['roughness']) / np.log((10.0)/ds['roughness']))
     wind_energy = xr.DataArray(np.interp(wnd_hub,V,POW), coords=wnd_hub.coords)
     return wind_energy
 
-def wind(cutout, **params):
-    if 'turbine' in params:
-        assert have_reatlas, "REatlas client is necessary for loading turbine configs"
+def wind(cutout, turbine, **params):
+    if isinstance(turbine, string_types):
+        turbine = get_windturbineconfig(turbine)
 
-        turbine = params.pop('turbine')
-        turbineconfig = get_turbineconfig_from_reatlas(turbine)
-        params['V'] = turbineconfig['V']
-        params['POW'] = turbineconfig['POW']
-        params['hub_height'] = turbineconfig['HUB_HEIGHT']
 
-    return cutout.convert_and_aggregate(convert_func=convert_wind, **params)
+    unit_capacity = windturbine_rated_capacity_per_unit(turbine)
 
+    return cutout.convert_and_aggregate(convert_func=convert_wind, turbine=turbine,
+                                        unit_capacity=unit_capacity, **params)
 
 ## solar PV
 
-def convert_pv(ds, panelconfig, orientation, clearsky_model):
+def convert_pv(ds, panel, orientation, clearsky_model):
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
     irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model)
-    solar_panel = SolarPanelModel(ds, irradiation, panelconfig)
+    solar_panel = SolarPanelModel(ds, irradiation, panel)
     ac_power = solar_panel['AC power']
     return ac_power
 
-def pv(cutout, **params):
+def pv(cutout, panel, orientation, clearsky_model=None, **params):
     '''
     TODO
 
@@ -242,18 +263,21 @@ def pv(cutout, **params):
         'simple'   - clearness of sky index required
         'enhanced' - clearness of sky index, ambient air temperature, relative humidity required
         'reatlas'  - same as 'simple', in compatibility mode to REAtlas
+
+    A clearsky_model of None will be set depending on data availability
     '''
 
-    if 'panel' in params:
-        assert have_reatlas, "REatlas client is necessary for loading solar panel configs"
-        params['panelconfig'] = get_solarpanelconfig_from_reatlas(params.pop('panel'))
-    if not callable(params['orientation']):
-        params['orientation'] = get_orientation(params['orientation'])
+    if isinstance(panel, string_types):
+        panel = get_solarpanelconfig(panel)
+    if not callable(orientation):
+        orientation = get_orientation(orientation)
 
-    # A clearsky_model of None will be set depending on data availability
-    params.setdefault('clearsky_model', None)
-
-    return cutout.convert_and_aggregate(convert_func=convert_pv, **params)
+    unit_capacity = solarpanel_rated_capacity_per_unit(panel)
+    return cutout.convert_and_aggregate(convert_func=convert_pv,
+                                        panel=panel, orientation=orientation,
+                                        clearsky_model=clearsky_model,
+                                        unit_capacity=unit_capacity,
+                                        **params)
 
 ## hydro
 
