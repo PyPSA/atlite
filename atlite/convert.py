@@ -22,24 +22,32 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 
 from __future__ import absolute_import
 
-import os
 import xarray as xr
 import numpy as np
 import pandas as pd
 import datetime as dt
 import scipy as sp, scipy.sparse
+from six import string_types
+from operator import itemgetter
 
 from .aggregate import aggregate_sum, aggregate_matrix
 from .shapes import spdiag, compute_indicatormatrix
 
 from .pv.solar_position import SolarPosition
-from .pv.irradiation import TiltedTotalIrradiation
+from .pv.irradiation import TiltedIrradiation
 from .pv.solar_panel_model import SolarPanelModel
+from .pv.orientation import get_orientation, SurfaceOrientation
+
+from .resource import (get_windturbineconfig, get_solarpanelconfig)
+                       windturbine_rated_capacity_per_unit,
+                       solarpanel_rated_capacity_per_unit,
+                       windturbine_smooth)
 
 def convert_and_aggregate(cutout, convert_func, matrix=None,
-                          index=None, layout=None,
-                          shapes=None, shapes_proj='latlong',
-                          **convert_kwds):
+                          index=None, layout=None, shapes=None,
+                          shapes_proj='latlong', unit_capacity=None,
+                          per_unit=False, return_no_of_units=False,
+                          capacity_factor=False, **convert_kwds):
     assert cutout.prepared, "The cutout has to be prepared first."
 
     if shapes is not None:
@@ -52,6 +60,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         matrix = sp.sparse.csr_matrix(matrix)
 
         if layout is not None:
+            if isinstance(layout, xr.DataArray):
+                layout = layout.stack(spatial=('x', 'y')).values
             matrix = matrix.dot(spdiag(layout.ravel()))
 
         if index is None:
@@ -68,13 +78,30 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
     for ym in yearmonths:
         with xr.open_dataset(cutout.datasetfn(ym)) as ds:
-            da = convert_func(ds, **convert_kwds).load()
-        results.append(aggregate_func(da, **aggregate_kwds))
+            da = convert_func(ds, **convert_kwds)
+            results.append(aggregate_func(da, **aggregate_kwds).load())
     if 'time' in results[0]:
         results = xr.concat(results, dim='time')
     else:
         results = sum(results)
-    return results
+
+    if capacity_factor:
+        assert aggregate_func is aggregate_sum, \
+            "The arguments `matrix`, `shapes` and `layout` are incompatible with capacity_factor"
+        results /= len(cutout.meta['time']) * unit_capacity
+
+    if per_unit or return_weights:
+        assert aggregate_func is aggregate_matrix, \
+            "One of `matrix`, `shapes` and `layout` must be given for `per_unit`"
+        no_of_units = pd.Series(np.asarray(matrix.sum(axis=1)).squeeze(), index)
+
+    if per_unit:
+        results = (results / (no_of_units * unit_capacity)).fillna(0.)
+
+    if return_no_of_units:
+        return results, no_of_units
+    else:
+        return results
 
 
 ## temperature
@@ -194,77 +221,69 @@ def solar_thermal(cutout, **params):
 
 ## turbine and panel data can be read in from reatlas
 
-try:
-    from REatlas_client import reatlas_client
-    def get_turbineconfig_from_reatlas(turbine):
-        fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'TurbineConfig', turbine + '.cfg')
-        return reatlas_client.turbineconf_to_powercurve_object(fn)
-
-    def get_solarpanelconfig_from_reatlas(panel):
-        fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'SolarPanelData', panel + '.cfg')
-        return reatlas_client.solarpanelconf_to_solar_panel_config_object(fn)
-
-    have_reatlas = True
-except ImportError:
-    have_reatlas = False
 
 ## wind
 
-def convert_wind(ds, V, POW, hub_height):
+def convert_wind(ds, turbine):
+    V, POW, hub_height = itemgetter('V', 'POW', 'hub_height')(turbine)
+
     ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002
     wnd_hub = ds['wnd10m'] * (np.log(hub_height/ds['roughness']) / np.log((10.0)/ds['roughness']))
     wind_energy = xr.DataArray(np.interp(wnd_hub,V,POW), coords=wnd_hub.coords)
     return wind_energy
 
-def wind(cutout, **params):
-    if 'turbine' in params:
-        assert have_reatlas, "REatlas client is necessary for loading turbine configs"
+def wind(cutout, turbine, smooth=False, **params):
+    if isinstance(turbine, string_types):
+        turbine = get_windturbineconfig(turbine)
 
-        turbine = params.pop('turbine')
-        turbineconfig = get_turbineconfig_from_reatlas(turbine)
-        params['V'] = turbineconfig['V']
-        params['POW'] = turbineconfig['POW']
-        params['hub_height'] = turbineconfig['HUB_HEIGHT']
+    if smooth:
+        turbine = windturbine_smooth(turbine, params=smooth)
 
-    return cutout.convert_and_aggregate(convert_func=convert_wind, **params)
+    unit_capacity = windturbine_rated_capacity_per_unit(turbine)
 
+    return cutout.convert_and_aggregate(convert_func=convert_wind, turbine=turbine,
+                                        unit_capacity=unit_capacity, **params)
 
 ## solar PV
 
-def convert_pv(ds, settings, panelconfig):
-    solar_position = SolarPosition(ds, settings)
-    irradiation = TiltedTotalIrradiation(ds, solar_position, settings)
-    solar_panel = SolarPanelModel(ds, irradiation, panelconfig)
+def convert_pv(ds, panel, orientation, clearsky_model):
+    solar_position = SolarPosition(ds)
+    surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
+    irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model)
+    solar_panel = SolarPanelModel(ds, irradiation, panel)
     ac_power = solar_panel['AC power']
     return ac_power
 
-def pv(cutout, **params):
+def pv(cutout, panel, orientation, clearsky_model=None, **params):
     '''
-    Example for the <settings> keyword argument:
+    TODO
 
-    settings = {'panel' : 'Scheuten215IG',
-                'surface slope' : 0.0,
-                'surface azimuth' : 0.0,
-                'simulate REatlas' : True,
-                'clearsky model' : 'Simple'}
+    orientation has the form {'slope': 0.0, 'azimuth': 0.0} or
+    'latitude_optimal' or a callback of the form of those generated by
+    the make_* functions in pv/orientation.py, ask me about specifics!!
 
-    Simulate REatlas option:
-        True : Simulates the REatlas routines, clearsky model is ignored
-        False : Executes debugged code, make sure to specify a clearsky model
+    if panel is given its used as a panel name to get the panelconfig from reatlas,
+    alternatively panelconfig can be given directly.
 
     Reindl clearsky model options for diffuse irradiation component:
-        'Simple'   - clearness of sky index required
-        'Enhanced' - clearness of sky index, ambient air temperature, relative humidity required
+        'simple'   - clearness of sky index required
+        'enhanced' - clearness of sky index, ambient air temperature, relative humidity required
+        'reatlas'  - same as 'simple', in compatibility mode to REAtlas
+
+    A clearsky_model of None will be set depending on data availability
     '''
 
-    if 'settings' in params:
-        assert have_reatlas, "REatlas client is necessary for loading solar panel configs"
+    if isinstance(panel, string_types):
+        panel = get_solarpanelconfig(panel)
+    if not callable(orientation):
+        orientation = get_orientation(orientation)
 
-        settings = params.pop('settings')
-        panelconfig = get_solarpanelconfig_from_reatlas(settings['panel'])
-        params['settings'] = settings
-        params['panelconfig'] = panelconfig
-    return cutout.convert_and_aggregate(convert_func=convert_pv, **params)
+    unit_capacity = solarpanel_rated_capacity_per_unit(panel)
+    return cutout.convert_and_aggregate(convert_func=convert_pv,
+                                        panel=panel, orientation=orientation,
+                                        clearsky_model=clearsky_model,
+                                        unit_capacity=unit_capacity,
+                                        **params)
 
 ## hydro
 
@@ -272,5 +291,32 @@ def convert_runoff(ds):
     runoff = ds['runoff'] * ds['height']
     return runoff
 
-def runoff(cutout, **params):
-    return cutout.convert_and_aggregate(convert_func=convert_runoff, **params)
+def runoff(cutout, smooth=24*7, lower_threshold_quantile=5e-3,
+           normalize_using_yearly=None, **params):
+    result = cutout.convert_and_aggregate(convert_func=convert_runoff, **params)
+
+    if smooth is not None:
+        result = result.rolling(time=smooth, min_periods=1).mean()
+
+    if lower_threshold_quantile is not None:
+        lower_threshold = pd.Series(result.values.ravel()).quantile(lower_threshold_quantile)
+        result.values[result.values < lower_threshold] = 0.
+
+    if normalize_using_yearly is not None:
+        normalize_using_yearly_i = normalize_using_yearly.index
+        if isinstance(normalize_using_yearly_i, pd.DatetimeIndex):
+            normalize_using_yearly_i = normalize_using_yearly_i.year
+        else:
+            normalize_using_yearly_i = normalize_using_yearly_i.astype(int)
+
+        years = (pd.Series(pd.to_datetime(result.coords['time'].values).year)
+                 .value_counts().loc[lambda x: x>8700].index
+                 .intersection(normalize_using_yearly_i))
+        assert len(years), "Need at least a full year of data (more is better)"
+        years_overlap = slice(str(min(years)), str(max(years)))
+
+        dim = result.dims[1 - result.get_axis_num('time')]
+        result *= (xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim]) /
+                   result.sel(time=years_overlap).sum('time'))
+
+    return result

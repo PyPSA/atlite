@@ -28,6 +28,9 @@ import xarray as xr
 from six import iteritems
 import os
 import glob
+import tempfile
+import subprocess
+import shutil
 
 from .config import ncep_dir
 
@@ -143,10 +146,42 @@ def prepare_runoff_ncep(ds, yearmonth, xs, ys):
     ds = ds.rename({'WATR_P8_L1_GGA0': 'runoff'})
     return [(yearmonth, ds)]
 
-def prepare_height_ncep(ds, xs, ys, yearmonths):
-    ds = convert_lons_lats_ncep(ds, xs, ys)
-    ds = ds.rename({'HGT_P0_L105_GGA0': 'height'})
-    return [(ym, ds) for ym in yearmonths]
+def prepare_height_gebco(filename, xs, ys, yearmonths):
+    # gebco bathymetry heights for underwater
+    tmpdir = tempfile.mkdtemp()
+    cornersc = np.array(((xs[0], ys[0]), (xs[-1], ys[-1])))
+    minc = np.minimum(*cornersc)
+    maxc = np.maximum(*cornersc)
+    span = (maxc - minc)/(np.asarray((len(xs), len(ys)))-1)
+    minx, miny = minc - span/2.
+    maxx, maxy = maxc + span/2.
+
+    tmpfn = os.path.join(tmpdir, 'resampled.nc')
+    try:
+        ret = subprocess.call(['gdalwarp', '-of', 'NETCDF',
+                               '-ts', str(len(xs)), str(len(ys)),
+                               '-te', str(minx), str(miny), str(maxx), str(maxy),
+                               '-r', 'average',
+                               filename, tmpfn])
+        assert ret == 0, "gdalwarp was not able to resample gebco"
+    except OSError:
+        logger.warning("gdalwarp was not found for resampling gebco. "
+                       "Next-neighbour interpolation will be used instead!")
+        tmpfn = gebcofn
+
+    with xr.open_dataset(tmpfn) as ds_gebco:
+        height = (ds_gebco.rename({'lon': 'x', 'lat': 'y', 'Band1': 'height'})
+                          .reindex(x=xs, y=ys, method='nearest')
+                          .load())
+    shutil.rmtree(tmpdir)
+    return [(ym, height) for ym in yearmonths]
+
+def prepare_height_ncep(filename, xs, ys, yearmonths):
+    with xr.open_dataset(filename, engine=engine) as ds:
+        ds = convert_lons_lats_ncep(ds, xs, ys)
+        ds = ds.rename({'HGT_P0_L105_GGA0': 'height'})
+        ds = ds.load()
+        return [(ym, ds) for ym in yearmonths]
 
 def prepare_roughness_ncep(ds, yearmonth, xs, ys):
     ds = convert_lons_lats_ncep(ds, xs, ys)
@@ -154,13 +189,26 @@ def prepare_roughness_ncep(ds, yearmonth, xs, ys):
     ds = ds.assign_coords(year=yearmonth[0]).assign_coords(month=yearmonth[1])
     return [(yearmonth, ds)]
 
-def prepare_meta_ncep(xs, ys, year, month, template, module):
+def prepare_meta_ncep(xs, ys, year, month, template, height_config, module):
     fn = next(glob.iglob(template.format(year=year, month=month)))
-    with xr.open_dataset(fn, engine="pynio") as ds:
+    with xr.open_dataset(fn, engine=engine) as ds:
         ds = ds.coords.to_dataset()
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = convert_time_hourly_ncep(ds, drop_time_vars=False)
-        return ds.load()
+        meta = ds.load()
+
+    xs = ds['x'].values
+    ys = ds['y'].values
+
+    height_config = height_config.copy()
+    height_tasks_func = height_config.pop('tasks_func')
+    height_task, = height_tasks_func(xs, ys, [(year, month)], meta_attrs={}, **height_config)
+    height_prepare_func = height_task.pop('prepare_func')
+    _, ds = height_prepare_func(**height_task)[0]
+
+    meta['height'] = ds['height']
+
+    return meta
 
 def tasks_monthly_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs):
     return [dict(prepare_func=prepare_func,
@@ -170,10 +218,11 @@ def tasks_monthly_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs):
                  yearmonth=ym)
             for ym in yearmonths]
 
-def tasks_constant_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs):
+def tasks_height_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs, **extra_args):
     return [dict(prepare_func=prepare_func,
                  xs=xs, ys=ys, yearmonths=yearmonths,
-                 fn=template, engine=engine)]
+                 filename=next(glob.iglob(template)),
+                 **extra_args)]
 
 weather_data_config = {
     'influx': dict(tasks_func=tasks_monthly_ncep,
@@ -194,10 +243,14 @@ weather_data_config = {
     'roughness': dict(tasks_func=tasks_monthly_ncep,
                       prepare_func=prepare_roughness_ncep,
                       template=os.path.join(ncep_dir, '{year}{month:0>2}/flxf.gdas.*.grb2')),
-    'height': dict(tasks_func=tasks_constant_ncep,
-                   prepare_func=prepare_height_ncep,
-                   template=os.path.join(ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'))
+    'height': dict(tasks_func=tasks_height_ncep,
+                   # prepare_func=prepare_height_ncep,
+                   # template=os.path.join(ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'),
+                   prepare_func=prepare_height_gebco,
+                   template=os.path.join(ncep_dir, 'height/GEBCO*.nc')
+    )
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_ncep,
-                        template=os.path.join(ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2'))
+                        template=os.path.join(ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2'),
+                        height_config=weather_data_config['height'])

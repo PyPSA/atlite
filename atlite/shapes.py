@@ -110,13 +110,13 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
       Indicatormatrix
     """
 
-    orig_prepped = list(map(prep, orig))
     dest = reproject(dest, dest_proj, orig_proj)
+    dest_prepped = list(map(prep, dest))
 
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
     for i,j in product(range(len(dest)), range(len(orig))):
-        if orig_prepped[j].intersects(dest[i]):
-            area = orig[j].intersection(dest[i]).area
+        if dest_prepped[i].intersects(orig[j]):
+            area = dest[i].intersection(orig[j]).area
             indicator[i,j] = area/orig[j].area
 
     return indicator

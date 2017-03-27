@@ -4,7 +4,6 @@ import xarray as xr
 
 def DayNumber(ds):
     time = ds['time']
-
     day_number = pd.to_datetime(time.values).dayofyear - 1
     return xr.DataArray(day_number, coords=[time], dims=['time'], name='day number')
 
@@ -27,8 +26,7 @@ def ApparentSolarTime(ds, equation_of_time, standard_lon=0.0, daylight_saving=0.
 
 #Hour Angle [rad]
 def HourAngle(apparent_solar_time):
-    h = (apparent_solar_time - 12.0)*15.0
-    h = np.deg2rad(h)
+    h = np.deg2rad((apparent_solar_time - 12.0)*15.0)
     return h.rename('hour angle')
 
 #Declination [rad]
@@ -41,31 +39,26 @@ def Declination(day_number):
 
 #Solar Altitude [rad]
 def SolarAltitudeAngle(ds, declination, hour_angle):
-    lat = ds['lat']
-    lat = np.deg2rad(lat)
-
+    lat = np.deg2rad(ds['lat'])
     alpha = np.arcsin( np.sin(lat)*np.sin(declination) + np.cos(lat)*np.cos(declination)*np.cos(hour_angle) )
     return alpha.rename('altitude')
 
 #Solar Zenith Angle [rad]
 def SolarZenithAngle(ds, declination, hour_angle):
-    lat = ds['lat']
-    lat = np.deg2rad(lat)
-
+    lat = np.deg2rad(ds['lat'])
     phi = np.arccos( np.sin(lat)*np.sin(declination) + np.cos(lat)*np.cos(declination)*np.cos(hour_angle) )
     return phi.rename('zenith')
 
 #Solar Azimuth Angle [rad]
-#To be checked (against REatlas)
+#To be checked (against REatlas) (only necessary for tracking...)
 def SolarAzimuthAngle(ds, apparent_solar_time, declination, hour_angle, altitude):
-    lat = ds['lat']
-    lat = np.deg2rad(lat)
+    lat = np.deg2rad(ds['lat'])
 
     z = np.arcsin( np.cos(declination)*np.sin(hour_angle) / np.cos(altitude) )
 
     #Sun might be behind E-W line. If so, the above formula must be corrected:
-    before_EW_line = ( np.cos(declination) > np.tan(declination)/np.tan(lat) )
-    behind_EW_line = ( np.cos(declination) <= np.tan(declination)/np.tan(lat) )
+    before_EW_line = (np.cos(declination) >  np.tan(declination)/np.tan(lat))
+    behind_EW_line = (np.cos(declination) <= np.tan(declination)/np.tan(lat))
 
     morning = ( apparent_solar_time < 12 )
     afternoon = ( apparent_solar_time > 12)
@@ -89,26 +82,12 @@ def SolarAzimuthAngle(ds, apparent_solar_time, declination, hour_angle, altitude
     z = z_before + z_behind
     return z.rename('azimuth')
 
-#Incidence Angle [rad]
-def SolarIncidenceAngle(ds, declination, hour_angle, altitude, settings):
-    lat = ds['lat']
-    lat = np.deg2rad(lat)
-    surface_slope = np.deg2rad(settings['surface slope'])
-    surface_azimuth = np.deg2rad(settings['surface azimuth'])
-
-    theta = np.arccos( np.sin(lat)*np.sin(declination)*np.cos(surface_slope) \
-                        - np.cos(lat)*np.sin(declination)*np.sin(surface_slope)*np.cos(surface_azimuth) \
-                        + np.cos(lat)*np.cos(declination)*np.cos(hour_angle)*np.cos(surface_slope) \
-                        + np.sin(lat)*np.cos(declination)*np.cos(hour_angle)*np.sin(surface_slope)*np.cos(surface_azimuth) \
-                        + np.cos(declination)*np.sin(hour_angle)*np.sin(surface_slope)*np.sin(surface_azimuth) )
-    return theta.rename('incidence')
-
 def ExtraterrestrialRadiation(day_number, solar_constant=1366.1):
     gamma = 2*np.pi*day_number/365.0
     extra = solar_constant*(1+0.033*np.cos(gamma))
     return extra.rename('extra')
 
-def SolarPosition(ds, settings):
+def SolarPosition(ds):
 
     day_number = DayNumber(ds)
     EoT = EquationOfTime(day_number)
@@ -119,9 +98,8 @@ def SolarPosition(ds, settings):
     altitude = SolarAltitudeAngle(ds, dec, h)
     zenith = SolarZenithAngle(ds, dec, h)
     azimuth = SolarAzimuthAngle(ds, AST, dec, h, altitude)
-    incidence = SolarIncidenceAngle(ds, dec, h, altitude, settings)
     extra = ExtraterrestrialRadiation(day_number)
 
     solar_position = xr.Dataset({da.name: da
-                                 for da in [altitude, zenith, azimuth, incidence, extra]})
+                                 for da in [altitude, zenith, azimuth, extra]})
     return solar_position
