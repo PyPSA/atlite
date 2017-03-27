@@ -59,6 +59,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         matrix = sp.sparse.csr_matrix(matrix)
 
         if layout is not None:
+            if isinstance(layout, xr.DataArray):
+                layout = layout.stack(spatial=('x', 'y')).values
             matrix = matrix.dot(spdiag(layout.ravel()))
 
         if index is None:
