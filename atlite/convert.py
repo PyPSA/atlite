@@ -22,7 +22,6 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 
 from __future__ import absolute_import
 
-import os
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -36,6 +35,8 @@ from .pv.solar_position import SolarPosition
 from .pv.irradiation import TiltedIrradiation
 from .pv.solar_panel_model import SolarPanelModel
 from .pv.orientation import get_orientation, SurfaceOrientation
+
+from .resource import (get_windturbineconfig, get_solarpanelconfig)
 
 def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None,
@@ -194,19 +195,6 @@ def solar_thermal(cutout, **params):
 
 ## turbine and panel data can be read in from reatlas
 
-try:
-    from REatlas_client import reatlas_client
-    def get_turbineconfig_from_reatlas(turbine):
-        fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'TurbineConfig', turbine + '.cfg')
-        return reatlas_client.turbineconf_to_powercurve_object(fn)
-
-    def get_solarpanelconfig_from_reatlas(panel):
-        fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'SolarPanelData', panel + '.cfg')
-        return reatlas_client.solarpanelconf_to_solar_panel_config_object(fn)
-
-    have_reatlas = True
-except ImportError:
-    have_reatlas = False
 
 ## wind
 
