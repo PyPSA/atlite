@@ -290,5 +290,32 @@ def convert_runoff(ds):
     runoff = ds['runoff'] * ds['height']
     return runoff
 
-def runoff(cutout, **params):
-    return cutout.convert_and_aggregate(convert_func=convert_runoff, **params)
+def runoff(cutout, smooth=24*7, lower_threshold_quantile=5e-3,
+           normalize_using_yearly=None, **params):
+    result = cutout.convert_and_aggregate(convert_func=convert_runoff, **params)
+
+    if smooth is not None:
+        result = result.rolling(time=smooth, min_periods=1).mean()
+
+    if lower_threshold_quantile is not None:
+        lower_threshold = pd.Series(result.values.ravel()).quantile(lower_threshold_quantile)
+        result.values[result.values < lower_threshold] = 0.
+
+    if normalize_using_yearly is not None:
+        normalize_using_yearly_i = normalize_using_yearly.index
+        if isinstance(normalize_using_yearly_i, pd.DatetimeIndex):
+            normalize_using_yearly_i = normalize_using_yearly_i.year
+        else:
+            normalize_using_yearly_i = normalize_using_yearly_i.astype(int)
+
+        years = (pd.Series(pd.to_datetime(result.coords['time'].values).year)
+                 .value_counts().loc[lambda x: x>8700].index
+                 .intersection(normalize_using_yearly_i))
+        assert len(years), "Need at least a full year of data (more is better)"
+        years_overlap = slice(str(min(years)), str(max(years)))
+
+        dim = result.dims[1 - result.get_axis_num('time')]
+        result *= (xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim]) /
+                   result.sel(time=years_overlap).sum('time'))
+
+    return result
