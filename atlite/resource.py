@@ -25,6 +25,8 @@ from __future__ import absolute_import
 import os
 from six import string_types
 from operator import itemgetter
+import numpy as np
+from scipy.signal import fftconvolve
 
 try:
     from REatlas_client import reatlas_client
@@ -64,3 +66,61 @@ def windturbine_rated_capacity_per_unit(turbine):
         turbine = get_turbineconfig(panel)
 
     return max(turbine['POW'])
+
+def windturbine_smooth(turbine, params={}):
+    '''
+    Smooth the powercurve in `turbine` with a gaussian kernel
+
+    Parameters
+    ----------
+    turbine : dict
+        Turbine config with at least V and POW
+    params : dict
+        Allows adjusting mean Delta_v and stdev sigma. Defaults to
+        values from Andresen's paper: 1.27 and 2.29, respectively.
+
+    Returns
+    -------
+    turbine : dict
+        Turbine config with a smoothed power curve
+
+    References
+    ----------
+    G. B. Andresen, A. A. Søndergaard, M. Greiner, Validation of
+    Danish wind time series from a new global renewable energy atlas
+    for energy system analysis, Energy 93, Part 1 (2015) 1074–1088.
+    '''
+
+    if not isinstance(params, dict):
+        params = {}
+
+    Delta_v = params.get('Delta_v', 1.27)
+    sigma = params.get('sigma', 2.29)
+
+    def kernel(v_0):
+        # all velocities in m/s
+        return (1./np.sqrt(2*np.pi*sigma*sigma) *
+                np.exp(-(v_0 - Delta_v)*(v_0 - Delta_v)/(2*sigma*sigma) ))
+
+    def smooth(velocities, power):
+
+        # interpolate kernel and power curve to the same, regular velocity grid
+        velocities_reg = np.linspace(-50., 50., 1001)
+        power_reg = np.interp(velocities_reg, velocities, power)
+        kernel_reg = kernel(velocities_reg)
+
+        # convolve power and kernel
+        # the downscaling is necessary because scipy expects the velocity
+        # increments to be 1., but here, they are 0.1
+        convolution = 0.1*fftconvolve(power_reg, kernel_reg, mode='same')
+
+        # sample down so power curve doesn't get too long
+        velocities_new = np.linspace(0., 35., 72)
+        power_new = np.interp(velocities_new, velocities_reg, convolution)
+
+        return velocities_new, power_new
+
+    turbine = turbine.copy()
+    turbine['V'], turbine['POW'] = smooth(turbine['V'], turbine['POW'])
+
+    return turbine

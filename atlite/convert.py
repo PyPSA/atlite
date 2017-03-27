@@ -40,7 +40,8 @@ from .pv.orientation import get_orientation, SurfaceOrientation
 
 from .resource import (get_windturbineconfig, get_solarpanelconfig)
                        windturbine_rated_capacity_per_unit,
-                       solarpanel_rated_capacity_per_unit)
+                       solarpanel_rated_capacity_per_unit,
+                       windturbine_smooth)
 
 def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None, shapes=None,
@@ -230,10 +231,12 @@ def convert_wind(ds, turbine):
     wind_energy = xr.DataArray(np.interp(wnd_hub,V,POW), coords=wnd_hub.coords)
     return wind_energy
 
-def wind(cutout, turbine, **params):
+def wind(cutout, turbine, smooth=False, **params):
     if isinstance(turbine, string_types):
         turbine = get_windturbineconfig(turbine)
 
+    if smooth:
+        turbine = windturbine_smooth(turbine, params=smooth)
 
     unit_capacity = windturbine_rated_capacity_per_unit(turbine)
 
