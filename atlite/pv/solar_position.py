@@ -101,5 +101,5 @@ def SolarPosition(ds):
     extra = ExtraterrestrialRadiation(day_number)
 
     solar_position = xr.Dataset({da.name: da
-                                 for da in [altitude, zenith, azimuth, extra]})
+                                 for da in [h, dec, altitude, zenith, azimuth, extra]})
     return solar_position

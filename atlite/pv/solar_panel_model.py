@@ -10,9 +10,10 @@ def ReferenceEfficiency(irradiation, panelconfig):
     irrad_t = irradiation['total tilted']
     A, B, C = itemgetter('A', 'B', 'C')(panelconfig)
 
-    eta_ref = A + B*irrad_t + C*np.log(irrad_t)
+    eta_ref = (A + B*irrad_t + C*np.log(irrad_t))
     #neglect last two terms for no incoming radiation
-    eta_ref.values[eta_ref.values > A] = A
+    eta_ref.values[eta_ref.values < A] = A
+    eta_ref *= 1e3
 
     return eta_ref.rename('reference efficiency')
 

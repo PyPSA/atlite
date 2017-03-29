@@ -1,4 +1,6 @@
 import sys
+import numpy as np
+import xarray as xr
 
 def get_orientation(name, **params):
     if isinstance(name, dict):
@@ -38,5 +40,4 @@ def SurfaceOrientation(ds, solar_position, orientation):
 
     return xr.Dataset({'incidence': theta,
                        'slope': surface_slope,
-                       'azimuth': surface_azimuth},
-                      name="surface orientation")
+                       'azimuth': surface_azimuth})

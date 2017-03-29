@@ -43,8 +43,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
                     np.fmax( 0.1, 0.426*k-0.256*sinaltitude+0.00349*T+0.0734*rh ))
     elif clearsky_model == 'reatlas':
         # Is supposed to implement the simple Reindl model, but
-        # deviates in two locations (see below). remains to be
-        # determined whether by mistake
+        # deviates in two locations (see below).
 
         fraction = (((k > 0.0) & (k <= 0.3)) *
                     np.fmin( 1.0, 1.020-0.254*k+0.0123*sinaltitude )
@@ -110,7 +109,7 @@ def TiltedGroundIrrad(ds, solar_position, surface_orientation):
     albedo = (outflux / influx)
     # fixup albedo: - only positive fluxes and - cap at 1.0
     # note: REatlas does not do the fixup
-    albedo = albeo.where((influx > 0.0) & (outflux > 0.0)).fillna(0.)
+    albedo = albedo.where((influx > 0.0) & (outflux > 0.0)).fillna(0.)
     albedo.values[albedo.values > 1.0] = 1.0
     # albedo = albedo.rename('albedo')
 
