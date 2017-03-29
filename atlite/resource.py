@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 ## Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)
 
 ## This program is free software; you can redistribute it and/or
@@ -12,7 +14,6 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 
 """
 Renewable Energy Atlas Lite (Atlite)
@@ -58,7 +59,7 @@ def solarpanel_rated_capacity_per_unit(panel):
     if isinstance(panel, string_types):
         panel = get_solarpanelconfig(panel)
 
-    A, B, C = itemgetter('A', 'B', 'C')(panelconf)
+    A, B, C = itemgetter('A', 'B', 'C')(panel)
     return (A + B * 1000. + C * np.log(1000.))*1e3
 
 def windturbine_rated_capacity_per_unit(turbine):

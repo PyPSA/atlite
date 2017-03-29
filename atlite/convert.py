@@ -38,7 +38,7 @@ from .pv.irradiation import TiltedIrradiation
 from .pv.solar_panel_model import SolarPanelModel
 from .pv.orientation import get_orientation, SurfaceOrientation
 
-from .resource import (get_windturbineconfig, get_solarpanelconfig)
+from .resource import (get_windturbineconfig, get_solarpanelconfig,
                        windturbine_rated_capacity_per_unit,
                        solarpanel_rated_capacity_per_unit,
                        windturbine_smooth)
@@ -90,10 +90,10 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
             "The arguments `matrix`, `shapes` and `layout` are incompatible with capacity_factor"
         results /= len(cutout.meta['time']) * unit_capacity
 
-    if per_unit or return_weights:
+    if per_unit or return_no_of_units:
         assert aggregate_func is aggregate_matrix, \
             "One of `matrix`, `shapes` and `layout` must be given for `per_unit`"
-        no_of_units = pd.Series(np.asarray(matrix.sum(axis=1)).squeeze(), index)
+        no_of_units = xr.DataArray(np.asarray(matrix.sum(axis=1)).squeeze(), [index])
 
     if per_unit:
         results = (results / (no_of_units * unit_capacity)).fillna(0.)
