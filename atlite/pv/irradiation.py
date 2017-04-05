@@ -9,7 +9,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
 
     if clearsky_model is None:
         clearsky_model = ('enhanced'
-                          if 'temperature' in ds and 'relative humidity' in ds
+                          if 'temperature' in ds and 'humidity' in ds
                           else 'simple')
 
     # Reindl 1990 clearsky model
@@ -30,8 +30,8 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
                     np.fmax( 0.1, 0.486*k-0.182*sinaltitude ))
     elif clearsky_model == 'enhanced':
         # Enhanced Reindl model with ambient air temperature and relative humidity
-        t = ds['temperature']
-        rh = ds['relative humidity']
+        T = ds['temperature']
+        rh = ds['humidity']
 
         fraction = (((k > 0.0) & (k <= 0.3)) *
                     np.fmin( 1.0, 1.000-0.232*k+0.0239*sinaltitude-0.000682*T+0.0195*rh )
