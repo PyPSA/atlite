@@ -90,11 +90,20 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
                  (1.0 + f * np.sin(surface_slope/2.0)**3)
                  + A * R_b ) * diffuse
 
+    # fixup: clip all negative values (unclear why it gets negative)
+    # note: REatlas does not do the fixup
+    diffuse_t = diffuse_t.clip(min=0.)
+
     return diffuse_t.rename('diffuse tilted')
 
 def TiltedDirectIrrad(solar_position, surface_orientation, beam):
     sinaltitude = np.sin(solar_position['altitude'])
     cosincidence = np.cos(surface_orientation['incidence'])
+    # fixup incidence angle: if the panel is badly oriented and the sun shines
+    # on the back of the panel (incidence angle > 90degree), the irradiation
+    # would be negative instead of 0; this is prevented here.
+    # note: REatlas does not do the fixup
+    cosincidence = cosincidence.clip(min=0)
 
     R_b = (cosincidence/sinaltitude).fillna(0.0)
     # R_b = R_b.rename('geometric factor beam')
