@@ -106,6 +106,13 @@ def convert_unaccumulate_ncep(ds):
 
     return ds
 
+def convert_clip_lower(ds, variable, a_min, value):
+    """Set values of `variable` that are below `a_min` to `value`.
+    Similar to `numpy.clip`.
+    """
+    ds[variable] = ds[variable].where(ds[variable] > a_min).fillna(value)
+    return ds
+
 def prepare_wnd10m_ncep(ds, yearmonth, xs, ys):
     ds = convert_lons_lats_ncep(ds, xs, ys)
     ds = convert_time_hourly_ncep(ds)
@@ -119,6 +126,8 @@ def prepare_influx_ncep(ds, yearmonth, xs, ys):
     ds = convert_time_hourly_ncep(ds)
 
     ds = ds.rename({'DSWRF_P8_L1_GGA0': 'influx'})
+    # clipping random fluctuations around zero
+    ds = convert_clip_lower(ds, 'influx', a_min=0.1, value=0.)
     return [(yearmonth, ds)]
 
 def prepare_outflux_ncep(ds, yearmonth, xs, ys):
@@ -127,6 +136,8 @@ def prepare_outflux_ncep(ds, yearmonth, xs, ys):
     ds = convert_time_hourly_ncep(ds)
 
     ds = ds.rename({'USWRF_P8_L1_GGA0': 'outflux'})
+    # clipping random fluctuations around zero
+    ds = convert_clip_lower(ds, 'outflux', a_min=3., value=0.)
     return [(yearmonth, ds)]
 
 def prepare_temperature_ncep(ds, yearmonth, xs, ys):
