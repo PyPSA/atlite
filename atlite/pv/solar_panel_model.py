@@ -31,10 +31,12 @@ def CellTemperature(ds, irradiation, eta_ref, panelconfig):
 
 def ElectricModelDC(irradiation, eta_ref, temp_cell, panelconfig):
     irrad_t = irradiation['total tilted']
-    irrad_t.values[irrad_t.values >= panelconfig['threshold']] = 0.
+
     eta = eta_ref * (1 + panelconfig['D'] * (temp_cell - panelconfig['Tstd']) )
 
-    return (irrad_t * eta).rename('DC power')
+    dcpower = irrad_t * eta
+    dcpower.values[(irrad_t <= panelconfig['threshold']).transpose(*dcpower.dims).values] = 0.
+    return dcpower.rename('DC power')
 
 def ElectricModelAC(pdc, panelconfig):
     return (pdc * panelconfig['inverter_efficiency']).rename('AC power')
