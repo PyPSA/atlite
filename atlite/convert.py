@@ -179,7 +179,7 @@ def heat_demand(cutout, **params):
 
 ## solar thermal collectors
 
-def convert_solar_thermal(ds, c0=0.8, c1=3., t_store=80., angle=45.):
+def convert_solar_thermal(ds, orientation, clearsky_model, c0=0.8, c1=3., t_store=80., ):
     """
     Convert downward short-wave radiation flux and outside temperature
     into time series for solar thermal collectors.
@@ -187,8 +187,6 @@ def convert_solar_thermal(ds, c0=0.8, c1=3., t_store=80., angle=45.):
     Mathematical model and defaults for c0, c1 based on model in
     Henning and Palzer, Renewable and Sustainable Energy Reviews 30
     (2014) 1003-1018
-
-    WARNING: Angles with Earth's surface are not yet implemented.
 
     Parameters
     ----------
@@ -198,8 +196,10 @@ def convert_solar_thermal(ds, c0=0.8, c1=3., t_store=80., angle=45.):
         Heat loss coefficient (units of W/(m^2 K))
     t_store : float
         Storage temperature (units of degrees Celsius)
-    angle : float
-        Placeholder for angle with horizontal facing south
+    orientation : function
+        Callback function for panel orientation.
+    clearsky_model : str or None
+        Type of clearsky model for diffuse irradiation.    
     """
 
     # convert storage temperature to Kelvin in line with reanalysis data
@@ -207,16 +207,36 @@ def convert_solar_thermal(ds, c0=0.8, c1=3., t_store=80., angle=45.):
 
     # Downward shortwave radiation flux is in W/m^2
     # http://rda.ucar.edu/datasets/ds094.0/#metadata/detailed.html?_do=y
-    influx = ds['influx']
+    solar_position = SolarPosition(ds)
+    surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
+    irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model)
+
 
     # overall efficiency
-    eta = c0 - c1*((t_store - ds['temperature'])/influx)
+    eta = c0 - c1*((t_store - ds['temperature'])/irradiation)
 
-    return (influx*eta).where(influx > 0.).fillna(0.)
+    return (irradiation*eta).where(irradiation > 0.).fillna(0.)
 
 
-def solar_thermal(cutout, **params):
-    return cutout.convert_and_aggregate(convert_func=convert_solar_thermal, **params)
+def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.}, clearsky_model=None, **params):
+    """
+
+    Parameters
+    ----------
+    cutout : cutout
+    orientation : dict or str or function
+        Panel orientation with slope and azimuth (units of degrees), or
+        'latitude_optimal'.
+    clearsky_model : str or None
+        Type of clearsky model for diffuse irradiation.    
+    """
+    if not callable(orientation):
+        orientation = get_orientation(orientation)
+
+    return cutout.convert_and_aggregate(convert_func=convert_solar_thermal,
+                                        orientation=orientation,
+                                        clearsky_model=clearsky_model,
+                                        **params)
 
 
 ## turbine and panel data can be read in from reatlas
