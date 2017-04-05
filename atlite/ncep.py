@@ -39,10 +39,10 @@ projection = 'latlong'
 
 def convert_lons_lats_ncep(ds, xs, ys):
     if not isinstance(xs, slice):
-        first, second, last = xs.values[[0,1,-1]]
+        first, second, last = np.asarray(xs)[[0,1,-1]]
         xs = slice(first - 0.1*(second - first), last + 0.1*(second - first))
     if not isinstance(ys, slice):
-        first, second, last = ys.values[[0,1,-1]]
+        first, second, last = np.asarray(ys)[[0,1,-1]]
         ys = slice(first - 0.1*(second - first), last + 0.1*(second - first))
 
     ds = ds.sel(lat_0=ys)
