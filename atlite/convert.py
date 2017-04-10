@@ -273,8 +273,7 @@ def convert_pv(ds, panel, orientation, clearsky_model):
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
     irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model)
     solar_panel = SolarPanelModel(ds, irradiation, panel)
-    ac_power = solar_panel['AC power']
-    return ac_power
+    return solar_panel
 
 def pv(cutout, panel, orientation, clearsky_model=None, **params):
     '''

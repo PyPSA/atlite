@@ -62,12 +62,6 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
 
     return (influx * fraction).rename('diffuse horizontal')
 
-def DirectHorizontalIrrad(ds, solar_position, diffuse):
-    influx = ds['influx']
-    sinaltitude = np.sin(solar_position['altitude'])
-
-    return (influx - diffuse).rename('direct horizontal')
-
 def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
     influx = ds['influx']
     sinaltitude = np.sin(solar_position['altitude'])
@@ -77,13 +71,13 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
 
     # Hay-Davies Model
 
-    f = np.sqrt(beam/influx).fillna(0.0)
+    f = np.sqrt(beam/influx)
     # f = f.rename('brightening factor')
 
-    A = (beam / (extra * sinaltitude)).fillna(0.0)
+    A = (beam / (extra * sinaltitude))
     # A = A.rename('anisotropy factor')
 
-    R_b = (cosincidence/sinaltitude).fillna(0.0)
+    R_b = (cosincidence/sinaltitude)
     # R_b = R_b.rename('geometric factor diffuse')
 
     diffuse_t = ((1.0 - A) * ((1 + np.cos(surface_slope)) / 2.0) *
@@ -92,7 +86,7 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
 
     # fixup: clip all negative values (unclear why it gets negative)
     # note: REatlas does not do the fixup
-    diffuse_t = diffuse_t.clip(min=0.)
+    diffuse_t.values[diffuse_t.values < 0.] = 0.
 
     return diffuse_t.rename('diffuse tilted')
 
@@ -103,9 +97,9 @@ def TiltedDirectIrrad(solar_position, surface_orientation, beam):
     # on the back of the panel (incidence angle > 90degree), the irradiation
     # would be negative instead of 0; this is prevented here.
     # note: REatlas does not do the fixup
-    cosincidence = cosincidence.clip(min=0)
+    cosincidence.values[cosincidence.values < 0.] = 0.
 
-    R_b = (cosincidence/sinaltitude).fillna(0.0)
+    R_b = cosincidence/sinaltitude
     # R_b = R_b.rename('geometric factor beam')
 
     return (R_b * beam).rename('direct tilted')
@@ -118,7 +112,7 @@ def TiltedGroundIrrad(ds, solar_position, surface_orientation):
     albedo = (outflux / influx)
     # fixup albedo: - only positive fluxes and - cap at 1.0
     # note: REatlas does not do the fixup
-    albedo = albedo.where((influx > 0.0) & (outflux > 0.0)).fillna(0.)
+    # albedo = albedo.where((influx > 0.0) & (outflux > 0.0)).fillna(0.)
     albedo.values[albedo.values > 1.0] = 1.0
     # albedo = albedo.rename('albedo')
 
@@ -126,8 +120,10 @@ def TiltedGroundIrrad(ds, solar_position, surface_orientation):
     return ground_t.rename('ground tilted')
 
 def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, altitude_threshold=5.):
+    influx = ds['influx']
+
     diffuse = DiffuseHorizontalIrrad(ds, solar_position, clearsky_model)
-    beam = DirectHorizontalIrrad(ds, solar_position, diffuse)
+    beam = influx - diffuse
 
     diffuse_t = TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam)
     beam_t = TiltedDirectIrrad(solar_position, surface_orientation, beam)
@@ -135,9 +131,7 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, a
 
     total_t = (diffuse_t + beam_t + ground_t).rename('total tilted')
 
-    cap_alt = np.sin(solar_position['altitude']) >= np.sin(np.deg2rad(altitude_threshold))
-    irradiation = xr.Dataset({
-        da.name: da.where(cap_alt).fillna(0.)
-        for da in [diffuse, diffuse_t, beam, beam_t, ground_t, total_t]
-    })
-    return irradiation
+    cap_alt = np.sin(solar_position['altitude']) < np.sin(np.deg2rad(altitude_threshold))
+    total_t.values[(cap_alt | (ds['influx'] <= 0.)).transpose(*total_t.dims).values] = 0.
+
+    return total_t

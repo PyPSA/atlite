@@ -54,6 +54,7 @@ def SolarZenithAngle(ds, declination, hour_angle):
 def SolarAzimuthAngle(ds, apparent_solar_time, declination, hour_angle, altitude):
     lat = np.deg2rad(ds['lat'])
 
+    # Refer to page 58 in Kalogirou
     z = np.arcsin( np.cos(declination)*np.sin(hour_angle) / np.cos(altitude) )
 
     #Sun might be behind E-W line. If so, the above formula must be corrected:
@@ -97,9 +98,9 @@ def SolarPosition(ds):
 
     altitude = SolarAltitudeAngle(ds, dec, h)
     zenith = SolarZenithAngle(ds, dec, h)
-    azimuth = SolarAzimuthAngle(ds, AST, dec, h, altitude)
+    # azimuth = SolarAzimuthAngle(ds, AST, dec, h, altitude)
     extra = ExtraterrestrialRadiation(day_number)
 
     solar_position = xr.Dataset({da.name: da
-                                 for da in [h, dec, altitude, zenith, azimuth, extra]})
+                                 for da in [h, dec, altitude, zenith, extra]})
     return solar_position

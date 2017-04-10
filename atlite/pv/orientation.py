@@ -6,7 +6,7 @@ def get_orientation(name, **params):
     '''
     Definitions:
         -`slope` is the angle between ground and panel.
-        -`azimuth` is the clockwise angle from SOUTH. 
+        -`azimuth` is the clockwise angle from SOUTH.
             i.e. azimuth=0 faces exactly South,
                         =90 faces West
                         =-45 faces South-East
