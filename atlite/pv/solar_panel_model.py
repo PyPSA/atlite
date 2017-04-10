@@ -6,47 +6,18 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-def ReferenceEfficiency(irradiation, panelconfig):
+def SolarPanelModel(ds, irradiation, pc):
     irrad_t = irradiation['total tilted']
-    A, B, C = itemgetter('A', 'B', 'C')(panelconfig)
+    A, B, C, D = itemgetter('A', 'B', 'C', 'D')(pc)
 
     eta_ref = (A + B*irrad_t + C*np.log(irrad_t))
-    #neglect last two terms for no incoming radiation
-    eta_ref.values[eta_ref.values < A] = A
-    eta_ref *= 1e3
+    fraction = (pc['NOCT'] - pc['Tamb']) / pc['Intc']
 
-    return eta_ref.rename('reference efficiency')
+    eta = (eta_ref *
+           (1. + D * (fraction * irrad_t + (ds['temperature'] - pc['Tstd']))) /
+           (1. + D * fraction / pc['ta'] * eta_ref * irrad_t))
 
-def CellTemperature(ds, irradiation, eta_ref, panelconfig):
-    temp = ds['temperature']
-    irrad_t = irradiation['total tilted']
+    power = irrad_t * eta * pc['inverter_efficiency']
+    power.values[irrad_t.transpose(*irrad_t.dims).values < pc['threshold']] = 0.
 
-    T = panelconfig['NOCT'] - panelconfig['Tamb']
-    I = irrad_t / panelconfig['Intc']
-    frac = eta_ref / panelconfig['ta']
-    temp_cell = (((T * I) / (1.0 + frac * panelconfig['D'])) *
-                 (1.0 - frac * (1.0 - panelconfig['D'] * panelconfig['Tstd']))
-                 + temp)
-    return temp_cell.rename('cell temperature')
-
-def ElectricModelDC(irradiation, eta_ref, temp_cell, panelconfig):
-    irrad_t = irradiation['total tilted']
-
-    eta = eta_ref * (1 + panelconfig['D'] * (temp_cell - panelconfig['Tstd']) )
-
-    dcpower = irrad_t * eta
-    dcpower.values[(irrad_t <= panelconfig['threshold']).transpose(*dcpower.dims).values] = 0.
-    return dcpower.rename('DC power')
-
-def ElectricModelAC(pdc, panelconfig):
-    return (pdc * panelconfig['inverter_efficiency']).rename('AC power')
-
-def SolarPanelModel(ds, irradiation, panelconfig):
-
-    eta_ref = ReferenceEfficiency(irradiation, panelconfig)
-    temp_cell = CellTemperature(ds, irradiation, eta_ref, panelconfig)
-    pdc = ElectricModelDC(irradiation, eta_ref, temp_cell, panelconfig)
-    pac = ElectricModelAC(pdc, panelconfig)
-
-    return xr.Dataset({da.name: da
-                       for da in [eta_ref, temp_cell, pdc, pac]})
+    return xr.Dataset({'AC power': power})
