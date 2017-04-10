@@ -32,10 +32,11 @@ logger = logging.getLogger(__name__)
 
 from . import config, ncep, cordex
 
-from .convert import convert_and_aggregate, heat_demand, temperature, wind, pv, runoff, solar_thermal
-
+from .convert import (convert_and_aggregate, heat_demand, temperature, wind, pv,
+                      runoff, solar_thermal)
 from .preparation import (cutout_do_task, cutout_prepare,
-                          cutout_produce_specific_dataseries, cutout_get_meta)
+                          cutout_produce_specific_dataseries,
+                          cutout_get_meta, cutout_get_meta_view)
 from .shapes import compute_indicatormatrix
 
 class Cutout(object):
@@ -56,8 +57,15 @@ class Cutout(object):
             if 'module' in meta.attrs:
                 cutoutparams['module'] = meta.attrs['module']
             else:
-                print('Warning: module not given in meta file of cutout, assuming it is NCEP')
+                logger.warning('module not given in meta file of cutout, assuming it is NCEP')
                 cutoutparams['module'] = 'ncep'
+
+            if {"xs", "ys", "years", "months"}.intersection(cutoutparams):
+                # Assuming the user is interested in a subview into
+                # the data, update meta in place for the time
+                # dimension and save the xs, ys slices, separately
+                self.meta = meta = self.get_meta_view(**cutoutparams)
+                logger.info("Assuming a view into the prepared cutout: %s", self)
 
         elif 'module' not in cutoutparams:
             d = config.weather_dataset.copy()
@@ -136,6 +144,8 @@ class Cutout(object):
     ## Preparation functions
 
     get_meta = cutout_get_meta
+
+    get_meta_view = cutout_get_meta_view
 
     prepare = cutout_prepare
 

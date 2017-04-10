@@ -183,3 +183,21 @@ def cutout_get_meta(cutout, xs, ys, years, months=None, **dataset_params):
     ds = ds.stack(**{'year-month': ('year', 'month')})
 
     return ds
+
+def cutout_get_meta_view(cutout, xs=None, ys=None, years=slice(None), months=slice(None), **dataset_params):
+    meta = cutout.meta
+
+    if xs is not None:
+        meta.attrs.setdefault('view', {})['x'] = xs
+    if ys is not None:
+        meta.attrs.setdefault('view', {})['y'] = ys
+
+    meta = (meta
+            .unstack('year-month')
+            .sel(year=years, month=months, **meta.attrs.get('view', {}))
+            .stack(**{'year-month': ('year', 'month')}))
+
+    meta = meta.sel(time=slice(*("{:04}-{:02}".format(*ym)
+                                 for ym in meta['year-month'][[0,-1]].to_index())))
+
+    return meta
