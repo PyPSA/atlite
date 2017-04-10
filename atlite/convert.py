@@ -78,6 +78,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
     for ym in yearmonths:
         with xr.open_dataset(cutout.datasetfn(ym)) as ds:
+            if 'view' in cutout.meta.attrs:
+                ds = ds.sel(**cutout.meta.attrs['view'])
             da = convert_func(ds, **convert_kwds)
             results.append(aggregate_func(da, **aggregate_kwds).load())
     if 'time' in results[0]:
