@@ -8,13 +8,13 @@ import xarray as xr
 
 def SolarPanelModel(ds, irradiation, pc):
     A, B, C, D = itemgetter('A', 'B', 'C', 'D')(pc)
-
-    eta_ref = (A + B*irradiation + C*np.log(irradiation))
     fraction = (pc['NOCT'] - pc['Tamb']) / pc['Intc']
 
-    eta = (eta_ref *
-           (1. + D * (fraction * irradiation + (ds['temperature'] - pc['Tstd']))) /
-           (1. + D * fraction / pc['ta'] * eta_ref * irradiation))
+    with np.errstate(divide='ignore', invalid='ignore'):
+        eta_ref = (A + B*irradiation + C*np.log(irradiation))
+        eta = (eta_ref *
+               (1. + D * (fraction * irradiation + (ds['temperature'] - pc['Tstd']))) /
+               (1. + D * fraction / pc['ta'] * eta_ref * irradiation))
 
     power = irradiation * eta * pc['inverter_efficiency']
     power.values[irradiation.transpose(*irradiation.dims).values < pc['threshold']] = 0.

@@ -71,7 +71,8 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
 
     # Hay-Davies Model
 
-    f = np.sqrt(beam/influx)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        f = np.sqrt(beam/influx)
     # f = f.rename('brightening factor')
 
     A = (beam / (extra * sinaltitude))
@@ -86,7 +87,8 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
 
     # fixup: clip all negative values (unclear why it gets negative)
     # note: REatlas does not do the fixup
-    diffuse_t.values[diffuse_t.values < 0.] = 0.
+    with np.errstate(invalid='ignore'):
+        diffuse_t.values[diffuse_t.values < 0.] = 0.
 
     return diffuse_t.rename('diffuse tilted')
 
@@ -109,12 +111,13 @@ def TiltedGroundIrrad(ds, solar_position, surface_orientation):
     outflux = ds['outflux']
     surface_slope = surface_orientation['slope']
 
-    albedo = (outflux / influx)
-    # fixup albedo: - only positive fluxes and - cap at 1.0
-    # note: REatlas does not do the fixup
-    # albedo = albedo.where((influx > 0.0) & (outflux > 0.0)).fillna(0.)
-    albedo.values[albedo.values > 1.0] = 1.0
-    # albedo = albedo.rename('albedo')
+    with np.errstate(divide='ignore', invalid='ignore'):
+        albedo = (outflux / influx)
+        # fixup albedo: - only positive fluxes and - cap at 1.0
+        # note: REatlas does not do the fixup
+        # albedo = albedo.where((influx > 0.0) & (outflux > 0.0)).fillna(0.)
+        albedo.values[albedo.values > 1.0] = 1.0
+        # albedo = albedo.rename('albedo')
 
     ground_t = influx * albedo * (1.0 - np.cos(surface_slope)) / 2.0
     return ground_t.rename('ground tilted')
