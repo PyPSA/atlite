@@ -4,6 +4,7 @@ import xarray as xr
 
 def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
     influx = ds['influx']
+    sinaltitude = np.sin(solar_position['altitude'])
     atmospheric_insolation = solar_position['atmospheric insolation']
 
     if clearsky_model is None:
@@ -64,6 +65,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
 
 def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
     influx = ds['influx']
+    sinaltitude = np.sin(solar_position['altitude'])
     atmospheric_insolation = solar_position['atmospheric insolation']
     cosincidence = np.cos(surface_orientation['incidence'])
     surface_slope = surface_orientation['slope']
@@ -122,7 +124,7 @@ def TiltedGroundIrrad(ds, solar_position, surface_orientation):
     return ground_t.rename('ground tilted')
 
 def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, altitude_threshold=1.):
-    influx = ds['influx'] = ds['influx'].clip(max=solar_position['atmospheric_insolation'])
+    influx = ds['influx'] = ds['influx'].clip(max=solar_position['atmospheric insolation'].transpose(*ds['influx'].dims))
 
     diffuse = DiffuseHorizontalIrrad(ds, solar_position, clearsky_model)
     beam = influx - diffuse
