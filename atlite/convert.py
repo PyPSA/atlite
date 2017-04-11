@@ -414,14 +414,16 @@ def convert_runoff(ds):
     runoff = ds['runoff'] * ds['height']
     return runoff
 
-def runoff(cutout, smooth=24*7, lower_threshold_quantile=5e-3,
+def runoff(cutout, smooth=None, lower_threshold_quantile=None,
            normalize_using_yearly=None, **params):
     result = cutout.convert_and_aggregate(convert_func=convert_runoff, **params)
 
     if smooth is not None:
+        if smooth is True: smooth = 24*7
         result = result.rolling(time=smooth, min_periods=1).mean()
 
     if lower_threshold_quantile is not None:
+        if lower_threshold_quantile is True: lower_threshold_quantile = 5e-3
         lower_threshold = pd.Series(result.values.ravel()).quantile(lower_threshold_quantile)
         result.values[result.values < lower_threshold] = 0.
 
