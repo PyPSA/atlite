@@ -54,10 +54,10 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     Convert and aggregate a weather-based renewable generation
     time-series.
 
-    NOTE: Not meant to be used by the user itself. Rather it is a
-    gateway function that is called by all the individual time-series
-    generation functions like pv and wind. Thus, all its parameters
-    are also available from these.
+    NOTE: Not meant to be used by the user him or herself. Rather it
+    is a gateway function that is called by all the individual
+    time-series generation functions like pv and wind. Thus, all its
+    parameters are also available from these.
 
     Parameters
     ----------
@@ -169,7 +169,6 @@ def convert_temperature(ds):
     #Temperature is in Kelvin
     return ds['temperature'] - 273.15
 
-
 def temperature(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_temperature, **params)
 
@@ -177,7 +176,7 @@ def temperature(cutout, **params):
 
 ## heat demand
 
-def convert_heat_demand(ds, threshold=15., a=1., constant=0., hour_shift=0.):
+def convert_heat_demand(ds, threshold, a, constant, hour_shift):
     #Temperature is in Kelvin; take daily average
     T = ds['temperature']
     T.coords['time'].values += np.timedelta64(dt.timedelta(hours=hour_shift))
@@ -190,7 +189,7 @@ def convert_heat_demand(ds, threshold=15., a=1., constant=0., hour_shift=0.):
 
     return constant + heat_demand
 
-def heat_demand(cutout, **params):
+def heat_demand(cutout, threshold=15., a=1., constant=0., hour_shift=0., **params):
     """
     Convert outside temperature into daily heat demand using the
     degree-day approximation.
@@ -233,12 +232,16 @@ def heat_demand(cutout, **params):
     documented in the `convert_and_aggregate` function.
     """
 
-    return cutout.convert_and_aggregate(convert_func=convert_heat_demand, **params)
+    return cutout.convert_and_aggregate(convert_func=convert_heat_demand,
+                                        threshold=threshold, a=a,
+                                        constant=constant,
+                                        hour_shift=hour_shift,
+                                        **params)
 
 
 ## solar thermal collectors
 
-def convert_solar_thermal(ds, orientation, clearsky_model, c0=0.8, c1=3., t_store=80.):
+def convert_solar_thermal(ds, orientation, clearsky_model, c0, c1, t_store):
     # convert storage temperature to Kelvin in line with reanalysis data
     t_store += 273.15
 
@@ -254,7 +257,10 @@ def convert_solar_thermal(ds, orientation, clearsky_model, c0=0.8, c1=3., t_stor
     return (irradiation*eta).where(irradiation > 0.).fillna(0.)
 
 
-def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.}, clearsky_model=None, **params):
+def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.},
+                  clearsky_model=None,
+                  c0=0.8, c1=3., t_store=80.,
+                  **params):
     """
     Convert downward short-wave radiation flux and outside temperature
     into time series for solar thermal collectors.
@@ -270,6 +276,10 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.}, clearsky_mo
     clearsky_model : str or None
         Type of clearsky model for diffuse irradiation. Either
         `simple' or `enhanced'.
+    c0, c1 : float
+        Parameters for model in [1] (defaults to 0.8 and 3., respectively)
+    t_store : float
+        Store temperature in degree Celsius
 
     Note
     ----
@@ -288,6 +298,7 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.}, clearsky_mo
     return cutout.convert_and_aggregate(convert_func=convert_solar_thermal,
                                         orientation=orientation,
                                         clearsky_model=clearsky_model,
+                                        c0=c0, c1=c1, t_store=t_store,
                                         **params)
 
 
