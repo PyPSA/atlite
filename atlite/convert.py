@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 ## Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)
 
 ## This program is free software; you can redistribute it and/or
@@ -48,6 +50,56 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
                           shapes_proj='latlong', unit_capacity=None,
                           per_unit=False, return_no_of_units=False,
                           capacity_factor=False, **convert_kwds):
+    """
+    Convert and aggregate a weather-based renewable generation
+    time-series.
+
+    NOTE: Not meant to be used by the user itself. Rather it is a
+    gateway function that is called by all the individual time-series
+    generation functions like pv and wind. Thus, all its parameters
+    are also available from these.
+
+    Parameters
+    ----------
+    convert_func : Function
+        Callback like convert_wind, convert_pv
+    unit_capacity : float
+        Capacity in MW for one unit of the resource (typically
+        provided by the calling functions, like wind and pv).
+    matrix : sp.sparse.csr_matrix or None
+        If given, it is used to aggregate the `grid_cells` to buses.
+    index : pd.Index
+        Buses
+    layout : X x Y - np.array or xr.DataArray
+        The number of units to be build in each of the `grid_cells`.
+    shapes : list or pd.Series of shapely.geometry.Polygon
+        If given, matrix is constructed as indicatormatrix of the
+        polygons, its index determines the bus index on the
+        time-series.
+    shapes_proj : str or pyproj.Proj
+        Defaults to 'latlong'. If different to the map projection of
+        the cutout, the shapes are reprojected using pyproj.transform
+        to match cutout.projection (defaults to 'latlong').
+    per_unit : boolean
+        Returns the time-series in per-unit units, instead of in MW
+        (defaults to False).
+    return_no_of_units : boolean
+        Additionally returns the number of installed units at each
+        bus (defaults to False).
+    capacity_factor : boolean
+        If True, the capacity factor of the chosen resource for each
+        grid cell is computed.
+
+    Returns
+    -------
+    resource : xr.DataArray
+        Time-series of renewable generation aggregated to buses, if
+        `matrix` or equivalents are provided else the total sum of
+        generated energy.
+    no_of_units : xr.DataArray (optional)
+        The number of installed units per bus (only if
+        `return_no_of_units` is True).
+    """
     assert cutout.prepared, "The cutout has to be prepared first."
 
     if shapes is not None:
@@ -126,6 +178,19 @@ def temperature(cutout, **params):
 ## heat demand
 
 def convert_heat_demand(ds, threshold=15., a=1., constant=0., hour_shift=0.):
+    #Temperature is in Kelvin; take daily average
+    T = ds['temperature']
+    T.coords['time'].values += np.timedelta64(dt.timedelta(hours=hour_shift))
+
+    T = ds['temperature'].resample("D", dim="time", how="mean")
+    threshold += 273.15
+    heat_demand = a*(threshold - T)
+
+    heat_demand.values[heat_demand.values < 0.] = 0.
+
+    return constant + heat_demand
+
+def heat_demand(cutout, **params):
     """
     Convert outside temperature into daily heat demand using the
     degree-day approximation.
@@ -161,49 +226,19 @@ def convert_heat_demand(ds, threshold=15., a=1., constant=0., hour_shift=0.):
         temperature (e.g. due to water heating).
     hour_shift : float
         Time shift relative to UTC for taking daily average
+
+    Note
+    ----
+    You can also specify all of the general conversion arguments
+    documented in the `convert_and_aggregate` function.
     """
 
-    #Temperature is in Kelvin; take daily average
-    T = ds['temperature']
-    T.coords['time'].values += np.timedelta64(dt.timedelta(hours=hour_shift))
-
-    T = ds['temperature'].resample("D", dim="time", how="mean")
-    threshold += 273.15
-    heat_demand = a*(threshold - T)
-
-    heat_demand.values[heat_demand.values < 0.] = 0.
-
-    return constant + heat_demand
-
-def heat_demand(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_heat_demand, **params)
 
 
 ## solar thermal collectors
 
-def convert_solar_thermal(ds, orientation, clearsky_model, c0=0.8, c1=3., t_store=80., ):
-    """
-    Convert downward short-wave radiation flux and outside temperature
-    into time series for solar thermal collectors.
-
-    Mathematical model and defaults for c0, c1 based on model in
-    Henning and Palzer, Renewable and Sustainable Energy Reviews 30
-    (2014) 1003-1018
-
-    Parameters
-    ----------
-    c0 : float
-        Optical efficiency
-    c1 : float
-        Heat loss coefficient (units of W/(m^2 K))
-    t_store : float
-        Storage temperature (units of degrees Celsius)
-    orientation : function
-        Callback function for panel orientation.
-    clearsky_model : str or None
-        Type of clearsky model for diffuse irradiation.    
-    """
-
+def convert_solar_thermal(ds, orientation, clearsky_model, c0=0.8, c1=3., t_store=80.):
     # convert storage temperature to Kelvin in line with reanalysis data
     t_store += 273.15
 
@@ -213,7 +248,6 @@ def convert_solar_thermal(ds, orientation, clearsky_model, c0=0.8, c1=3., t_stor
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
     irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model)
 
-
     # overall efficiency
     eta = c0 - c1*((t_store - ds['temperature'])/irradiation)
 
@@ -222,6 +256,10 @@ def convert_solar_thermal(ds, orientation, clearsky_model, c0=0.8, c1=3., t_stor
 
 def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.}, clearsky_model=None, **params):
     """
+    Convert downward short-wave radiation flux and outside temperature
+    into time series for solar thermal collectors.
+
+    Mathematical model and defaults for c0, c1 based on model in [1].
 
     Parameters
     ----------
@@ -230,8 +268,20 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.}, clearsky_mo
         Panel orientation with slope and azimuth (units of degrees), or
         'latitude_optimal'.
     clearsky_model : str or None
-        Type of clearsky model for diffuse irradiation.    
+        Type of clearsky model for diffuse irradiation. Either
+        `simple' or `enhanced'.
+
+    Note
+    ----
+    You can also specify all of the general conversion arguments
+    documented in the `convert_and_aggregate` function.
+
+    References
+    ----------
+    [1] Henning and Palzer, Renewable and Sustainable Energy Reviews 30
+        (2014) 1003-1018
     """
+
     if not callable(orientation):
         orientation = get_orientation(orientation)
 
@@ -239,9 +289,6 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.}, clearsky_mo
                                         orientation=orientation,
                                         clearsky_model=clearsky_model,
                                         **params)
-
-
-## turbine and panel data can be read in from reatlas
 
 
 ## wind
@@ -255,6 +302,34 @@ def convert_wind(ds, turbine):
     return wind_energy
 
 def wind(cutout, turbine, smooth=False, **params):
+    """
+    Generate wind generation time-series
+
+    Extrapolates 10m wind speed with monthly surface roughness to hub
+    height and evaluates the power curve.
+
+    Parameters
+    ----------
+    turbine : str or dict
+        Name of a turbine known by the reatlas client or a
+        turbineconfig dictionary with the keys 'hub_height' for the
+        hub height and 'V', 'POW' defining the power curve.
+    smooth : bool or dict
+        If True smooth power curve with a gaussian kernel as
+        determined for the Danish wind fleet to Delta_v = 1.27 and
+        sigma = 2.29. A dict allows to tune these values.
+
+    Note
+    ----
+    You can also specify all of the general conversion arguments
+    documented in the `convert_and_aggregate` function.
+
+    References
+    ----------
+    [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
+        1074 – 1088. doi:10.1016/j.energy.2015.09.071
+    """
+
     if isinstance(turbine, string_types):
         turbine = get_windturbineconfig(turbine)
 
@@ -271,27 +346,54 @@ def wind(cutout, turbine, smooth=False, **params):
 def convert_pv(ds, panel, orientation, clearsky_model):
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model)
+    irradiation = TiltedIrradiation(ds, solar_position,
+                                    surface_orientation, clearsky_model)
     solar_panel = SolarPanelModel(ds, irradiation, panel)
     return solar_panel
 
 def pv(cutout, panel, orientation, clearsky_model=None, **params):
     '''
-    TODO
+    Convert downward-shortwave, upward-shortwave radiation flux and
+    ambient temperature into a pv generation time-series.
 
-    orientation has the form {'slope': 0.0, 'azimuth': 0.0} or
-    'latitude_optimal' or a callback of the form of those generated by
-    the make_* functions in pv/orientation.py, ask me about specifics!!
+    Parameters
+    ----------
+    panel : str or dict
+        Panel name known to the reatlas client or a panel config
+        dictionary with the parameters for the electrical model in [3].
+    orientation : str, dict or callback
+        Panel orientation can be chosen from either
+        'latitude_optimal', a constant orientation {'slope': 0.0,
+        'azimuth': 0.0} or a callback function with the same signature
+        as the callbacks generated by the
+        `atlite.pv.orientation.make_*' functions.
+    clearsky_model : str or None
+        Either the 'simple' or the 'enhanced' Reindl clearsky
+        model. The default choice of None will choose dependending on
+        data availability, since the 'enhanced' model also
+        incorporates ambient air temperature and relative humidity.
 
-    if panel is given its used as a panel name to get the panelconfig from reatlas,
-    alternatively panelconfig can be given directly.
+    Returns
+    -------
+    pv : xr.DataArray
+        Time-series or capacity factors based on additional general
+        conversion arguments.
 
-    Reindl clearsky model options for diffuse irradiation component:
-        'simple'   - clearness of sky index required
-        'enhanced' - clearness of sky index, ambient air temperature, relative humidity required
-        'reatlas'  - same as 'simple', in compatibility mode to REAtlas
+    Note
+    ----
+    You can also specify all of the general conversion arguments
+    documented in the `convert_and_aggregate` function.
 
-    A clearsky_model of None will be set depending on data availability
+    References
+    ----------
+    [1] Soteris A. Kalogirou. Solar Energy Engineering: Processes and Systems,
+        pages 49–117,469–516. Academic Press, 2009. ISBN 0123745012.
+    [2] D.T. Reindl, W.A. Beckman, and J.A. Duffie. Diffuse fraction correla-
+        tions. Solar Energy, 45(1):1 – 7, 1990.
+    [3] Hans Georg Beyer, Gerd Heilscher and Stefan Bofinger. A Robust Model
+        for the MPP Performance of Different Types of PV-Modules Applied for
+        the Performance Check of Grid Connected Systems, Freiburg, June 2004.
+        Eurosun (ISES Europe Solar Congress).
     '''
 
     if isinstance(panel, string_types):
