@@ -83,10 +83,11 @@ def SolarAzimuthAngle(ds, apparent_solar_time, declination, hour_angle, altitude
     z = z_before + z_behind
     return z.rename('azimuth')
 
-def ExtraterrestrialRadiation(day_number, solar_constant=1366.1):
+def AtmosphericInsolation(altitude, day_number, solar_constant=1366.1):
     gamma = 2*np.pi*day_number/365.0
     extra = solar_constant*(1+0.033*np.cos(gamma))
-    return extra.rename('extra')
+
+    return (np.sin(altitude) * extra).rename('atmospheric insolation')
 
 def SolarPosition(ds):
 
@@ -99,8 +100,8 @@ def SolarPosition(ds):
     altitude = SolarAltitudeAngle(ds, dec, h)
     zenith = SolarZenithAngle(ds, dec, h)
     # azimuth = SolarAzimuthAngle(ds, AST, dec, h, altitude)
-    extra = ExtraterrestrialRadiation(day_number)
+    atmospheric_insolation = AtmosphericInsolation(altitude, day_number)
 
     solar_position = xr.Dataset({da.name: da
-                                 for da in [h, dec, altitude, zenith, extra]})
+                                 for da in [h, dec, altitude, zenith, atmospheric_insolation]})
     return solar_position

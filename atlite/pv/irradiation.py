@@ -4,8 +4,7 @@ import xarray as xr
 
 def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
     influx = ds['influx']
-    sinaltitude = np.sin(solar_position['altitude'])
-    extra = solar_position['extra']
+    atmospheric_insolation = solar_position['atmospheric insolation']
 
     if clearsky_model is None:
         clearsky_model = ('enhanced'
@@ -14,7 +13,8 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
 
     # Reindl 1990 clearsky model
 
-    k = influx / (extra*sinaltitude) # clearsky index
+    k = influx / atmospheric_insolation # clearsky index
+    # k.values[k.values > 1.0] = 1.0
     # k = k.rename('clearsky index')
 
     if clearsky_model == 'simple':
@@ -64,8 +64,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
 
 def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
     influx = ds['influx']
-    sinaltitude = np.sin(solar_position['altitude'])
-    extra = solar_position['extra']
+    atmospheric_insolation = solar_position['atmospheric insolation']
     cosincidence = np.cos(surface_orientation['incidence'])
     surface_slope = surface_orientation['slope']
 
@@ -74,10 +73,10 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
     f = np.sqrt(beam/influx)
     # f = f.rename('brightening factor')
 
-    A = (beam / (extra * sinaltitude))
+    A = beam / atmospheric_insolation
     # A = A.rename('anisotropy factor')
 
-    R_b = (cosincidence/sinaltitude)
+    R_b = cosincidence/sinaltitude
     # R_b = R_b.rename('geometric factor diffuse')
 
     diffuse_t = ((1.0 - A) * ((1 + np.cos(surface_slope)) / 2.0) *
@@ -119,8 +118,8 @@ def TiltedGroundIrrad(ds, solar_position, surface_orientation):
     ground_t = influx * albedo * (1.0 - np.cos(surface_slope)) / 2.0
     return ground_t.rename('ground tilted')
 
-def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, altitude_threshold=5.):
-    influx = ds['influx']
+def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, altitude_threshold=1.):
+    influx = ds['influx'] = ds['influx'].clip(max=solar_position['atmospheric_insolation'])
 
     diffuse = DiffuseHorizontalIrrad(ds, solar_position, clearsky_model)
     beam = influx - diffuse
@@ -132,6 +131,6 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, a
     total_t = (diffuse_t + beam_t + ground_t).rename('total tilted')
 
     cap_alt = np.sin(solar_position['altitude']) < np.sin(np.deg2rad(altitude_threshold))
-    total_t.values[(cap_alt | (ds['influx'] <= 0.)).transpose(*total_t.dims).values] = 0.
+    total_t.values[(cap_alt | (ds['influx'] <= 0.01)).transpose(*total_t.dims).values] = 0.
 
     return total_t
