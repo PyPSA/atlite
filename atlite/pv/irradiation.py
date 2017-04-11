@@ -42,18 +42,6 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
                     +
                     (k >= 0.78) *
                     np.fmax( 0.1, 0.426*k-0.256*sinaltitude+0.00349*T+0.0734*rh ))
-    elif clearsky_model == 'reatlas':
-        # Is supposed to implement the simple Reindl model, but
-        # deviates in two locations (see below).
-
-        fraction = (((k > 0.0) & (k <= 0.3)) *
-                    np.fmin( 1.0, 1.020-0.254*k+0.0123*sinaltitude )
-                    +
-                    ((k > 0.3) & (k <= 0.78)) * # XXX in Reindl et al. the = is in condition three
-                    np.fmin( 0.97, np.fmax( 0.1, 0.1400-1.749*k+0.177*sinaltitude ) ) # XXX in Reindl et al. it is 1.400 not 0.1400
-                    +
-                    (k > 0.78) *
-                    np.fmax( 0.1, 0.486*k-0.182*sinaltitude ))
     else:
         raise ArgumentError("`clearsky model` must be chosen from 'simple', 'enhanced' and 'reatlas'")
 
