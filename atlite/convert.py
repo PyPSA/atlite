@@ -59,13 +59,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     time-series generation functions like pv and wind. Thus, all its
     parameters are also available from these.
 
-    Parameters
-    ----------
-    convert_func : Function
-        Callback like convert_wind, convert_pv
-    unit_capacity : float
-        Capacity in MW for one unit of the resource (typically
-        provided by the calling functions, like wind and pv).
+    Parameters (passed through as **params)
+    ---------------------------------------
     matrix : sp.sparse.csr_matrix or None
         If given, it is used to aggregate the `grid_cells` to buses.
     index : pd.Index
@@ -99,6 +94,13 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     no_of_units : xr.DataArray (optional)
         The number of installed units per bus (only if
         `return_no_of_units` is True).
+
+    Internal Parameters (provided by f.ex. wind and pv)
+    ---------------------------------------------------
+    convert_func : Function
+        Callback like convert_wind, convert_pv
+    unit_capacity : float
+        Capacity in MW for one unit of the resource
     """
     assert cutout.prepared, "The cutout has to be prepared first."
 
@@ -108,13 +110,16 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
         matrix = cutout.indicatormatrix(shapes, shapes_proj)
 
+    if layout is not None:
+        if isinstance(layout, xr.DataArray):
+            layout = layout.stack(spatial=('x', 'y')).values
+        assert layout.shape == cutout.shape
+        matrix = (layout.reshape((1,-1))
+                  if matrix is None
+                  else sp.sparse.csr_matrix(matrix).dot(spdiag(layout.ravel())))
+
     if matrix is not None:
         matrix = sp.sparse.csr_matrix(matrix)
-
-        if layout is not None:
-            if isinstance(layout, xr.DataArray):
-                layout = layout.stack(spatial=('x', 'y')).values
-            matrix = matrix.dot(spdiag(layout.ravel()))
 
         if index is None:
             index = pd.RangeIndex(matrix.shape[0])
