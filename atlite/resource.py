@@ -64,7 +64,7 @@ def solarpanel_rated_capacity_per_unit(panel):
 
 def windturbine_rated_capacity_per_unit(turbine):
     if isinstance(turbine, string_types):
-        turbine = get_turbineconfig(panel)
+        turbine = get_windturbineconfig(turbine)
 
     return max(turbine['POW'])
 
