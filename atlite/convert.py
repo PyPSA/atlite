@@ -256,10 +256,12 @@ def convert_solar_thermal(ds, orientation, clearsky_model, c0, c1, t_store):
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
     irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model)
 
-    # overall efficiency
+    # overall efficiency; can be negative, so need to remove negative values below
     eta = c0 - c1*((t_store - ds['temperature'])/irradiation)
 
-    return (irradiation*eta).where(irradiation > 0.).fillna(0.)
+    output = irradiation*eta
+
+    return (output).where(output > 0.).fillna(0.)
 
 
 def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.},
