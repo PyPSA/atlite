@@ -67,10 +67,13 @@ class Cutout(object):
                 self.meta = meta = self.get_meta_view(**cutoutparams)
                 logger.info("Assuming a view into the prepared cutout: %s", self)
 
-        elif 'module' not in cutoutparams:
-            d = config.weather_dataset.copy()
-            d.update(cutoutparams)
-            cutoutparams = d
+        else:
+            logger.info("Cutout %s not found in directory %s, building new one", name, cutout_dir)
+
+            if 'module' not in cutoutparams:
+                d = config.weather_dataset.copy()
+                d.update(cutoutparams)
+                cutoutparams = d
 
         self.dataset_module = sys.modules['atlite.' + cutoutparams['module']]
 
