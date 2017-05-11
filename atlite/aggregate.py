@@ -28,6 +28,6 @@ def aggregate_sum(da):
     return da.sum('time')
 
 def aggregate_matrix(da, matrix, index):
-    da = da.stack(spatial=('x', 'y')).transpose('spatial', 'time')
+    da = da.stack(spatial=('y', 'x')).transpose('spatial', 'time')
     return xr.DataArray(matrix * da,
                         [index, da.coords['time']])

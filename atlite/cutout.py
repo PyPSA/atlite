@@ -113,7 +113,7 @@ class Cutout(object):
 
     @property
     def shape(self):
-        return len(self.coords["x"]), len(self.coords["y"])
+        return len(self.coords["y"]), len(self.coords["x"])
 
     @property
     def extent(self):
@@ -122,7 +122,7 @@ class Cutout(object):
 
 
     def grid_coordinates(self):
-        ys, xs = np.meshgrid(self.coords["y"], self.coords["x"])
+        xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
         return np.asarray((np.ravel(xs), np.ravel(ys))).T
 
     def grid_cells(self):
