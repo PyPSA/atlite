@@ -48,7 +48,7 @@ from .resource import (get_windturbineconfig, get_solarpanelconfig,
 def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None, shapes=None,
                           shapes_proj='latlong', unit_capacity=None,
-                          per_unit=False, return_no_of_units=False,
+                          per_unit=False, return_units=False,
                           capacity_factor=False, **convert_kwds):
     """
     Convert and aggregate a weather-based renewable generation
@@ -78,9 +78,9 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     per_unit : boolean
         Returns the time-series in per-unit units, instead of in MW
         (defaults to False).
-    return_no_of_units : boolean
-        Additionally returns the number of installed units at each
-        bus (defaults to False).
+    return_units : boolean
+        Additionally returns the installed units at each bus
+        corresponding to `layout` (defaults to False).
     capacity_factor : boolean
         If True, the capacity factor of the chosen resource for each
         grid cell is computed.
@@ -91,9 +91,9 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         Time-series of renewable generation aggregated to buses, if
         `matrix` or equivalents are provided else the total sum of
         generated energy.
-    no_of_units : xr.DataArray (optional)
-        The number of installed units per bus (only if
-        `return_no_of_units` is True).
+    units : xr.DataArray (optional)
+        The installed units per bus in MW corresponding to `layout`
+        (only if `return_capacity` is True).
 
     Internal Parameters (provided by f.ex. wind and pv)
     ---------------------------------------------------
@@ -150,16 +150,16 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
             "The arguments `matrix`, `shapes` and `layout` are incompatible with capacity_factor"
         results /= len(cutout.meta['time']) * unit_capacity
 
-    if per_unit or return_no_of_units:
+    if per_unit or return_units:
         assert aggregate_func is aggregate_matrix, \
             "One of `matrix`, `shapes` and `layout` must be given for `per_unit`"
-        no_of_units = xr.DataArray(np.asarray(matrix.sum(axis=1)).squeeze(), [index])
+        units = xr.DataArray(np.asarray(matrix.sum(axis=1)).squeeze(), [index])
 
     if per_unit:
-        results = (results / (no_of_units * unit_capacity)).fillna(0.)
+        results = (results / (units * unit_capacity)).fillna(0.)
 
-    if return_no_of_units:
-        return results, no_of_units
+    if return_units:
+        return results, units
     else:
         return results
 
