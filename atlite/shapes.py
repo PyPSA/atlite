@@ -70,6 +70,9 @@ def reproject(shapes, p1, p2):
     if p1 == p2:
         return shapes
 
+    if isinstance(p1, RotProj):
+        raise NotImplementedError("`p1` can not be a RotProj, yet!")
+
     if isinstance(p2, RotProj):
         shapes = reproject(shapes, p1, 'latlong')
         reproject_points = p2
@@ -111,12 +114,28 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
     """
 
     dest = reproject(dest, dest_proj, orig_proj)
-    dest_prepped = list(map(prep, dest))
-
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
-    for i,j in product(range(len(dest)), range(len(orig))):
-        if dest_prepped[i].intersects(orig[j]):
-            area = dest[i].intersection(orig[j]).area
-            indicator[i,j] = area/orig[j].area
+
+    try:
+        from rtree.index import Index
+
+        idx = Index()
+        for i, d in enumerate(dest):
+            idx.insert(i, d.bounds)
+
+        for j,o in enumerate(orig):
+            for i in idx.intersection(o.bounds):
+                area = dest[i].intersection(o).area
+                indicator[i,j] = area/o.area
+
+    except ImportError:
+        logger.warning("Rtree is not available. Falling back to slower algorithm.")
+
+        dest_prepped = list(map(prep, dest))
+
+        for i,j in product(range(len(dest)), range(len(orig))):
+            if dest_prepped[i].intersects(orig[j]):
+                area = dest[i].intersection(orig[j]).area
+                indicator[i,j] = area/orig[j].area
 
     return indicator
