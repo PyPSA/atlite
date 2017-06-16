@@ -4,7 +4,7 @@ import xarray as xr
 
 def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
     influx = ds['influx']
-    sinaltitude = np.sin(solar_position['altitude'])
+    sinaltitude = solar_position['sinaltitude']
     atmospheric_insolation = solar_position['atmospheric insolation']
 
     if clearsky_model is None:
@@ -54,9 +54,9 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
 
 def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
     influx = ds['influx']
-    sinaltitude = np.sin(solar_position['altitude'])
+    sinaltitude = solar_position['sinaltitude']
     atmospheric_insolation = solar_position['atmospheric insolation']
-    cosincidence = np.cos(surface_orientation['incidence'])
+    cosincidence = surface_orientation['cosincidence']
     surface_slope = surface_orientation['slope']
 
     # Hay-Davies Model
@@ -83,8 +83,8 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
     return diffuse_t.rename('diffuse tilted')
 
 def TiltedDirectIrrad(solar_position, surface_orientation, beam):
-    sinaltitude = np.sin(solar_position['altitude'])
-    cosincidence = np.cos(surface_orientation['incidence'])
+    sinaltitude = solar_position['sinaltitude']
+    cosincidence = surface_orientation['cosincidence']
     # fixup incidence angle: if the panel is badly oriented and the sun shines
     # on the back of the panel (incidence angle > 90degree), the irradiation
     # would be negative instead of 0; this is prevented here.
@@ -124,7 +124,7 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, a
 
     total_t = (diffuse_t + beam_t + ground_t).rename('total tilted')
 
-    cap_alt = np.sin(solar_position['altitude']) < np.sin(np.deg2rad(altitude_threshold))
+    cap_alt = solar_position['sinaltitude'] < np.sin(np.deg2rad(altitude_threshold))
     total_t.values[(cap_alt | (ds['influx'] <= 0.01)).transpose(*total_t.dims).values] = 0.
 
     return total_t

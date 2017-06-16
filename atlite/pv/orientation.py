@@ -40,12 +40,14 @@ def SurfaceOrientation(ds, solar_position, orientation):
     declination = solar_position['declination']
     hour_angle = solar_position['hour angle']
 
-    theta = np.arccos( np.sin(lat)*np.sin(declination)*np.cos(surface_slope) \
-                        - np.cos(lat)*np.sin(declination)*np.sin(surface_slope)*np.cos(surface_azimuth) \
-                        + np.cos(lat)*np.cos(declination)*np.cos(hour_angle)*np.cos(surface_slope) \
-                        + np.sin(lat)*np.cos(declination)*np.cos(hour_angle)*np.sin(surface_slope)*np.cos(surface_azimuth) \
-                        + np.cos(declination)*np.sin(hour_angle)*np.sin(surface_slope)*np.sin(surface_azimuth) )
+    cosincidence = (
+        np.sin(lat)*np.sin(declination)*np.cos(surface_slope)
+        - np.cos(lat)*np.sin(declination)*np.sin(surface_slope)*np.cos(surface_azimuth)
+        + np.cos(lat)*np.cos(declination)*np.cos(hour_angle)*np.cos(surface_slope)
+        + np.sin(lat)*np.cos(declination)*np.cos(hour_angle)*np.sin(surface_slope)*np.cos(surface_azimuth)
+        + np.cos(declination)*np.sin(hour_angle)*np.sin(surface_slope)*np.sin(surface_azimuth)
+    )
 
-    return xr.Dataset({'incidence': theta,
+    return xr.Dataset({'cosincidence': cosincidence,
                        'slope': surface_slope,
                        'azimuth': surface_azimuth})

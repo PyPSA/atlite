@@ -40,8 +40,8 @@ def Declination(day_number):
 #Solar Altitude [rad]
 def SolarAltitudeAngle(ds, declination, hour_angle):
     lat = np.deg2rad(ds['lat'])
-    alpha = np.arcsin( np.sin(lat)*np.sin(declination) + np.cos(lat)*np.cos(declination)*np.cos(hour_angle) )
-    return alpha.rename('altitude')
+    sinalpha = np.sin(lat)*np.sin(declination) + np.cos(lat)*np.cos(declination)*np.cos(hour_angle)
+    return sinalpha.rename('sinaltitude')
 
 #Solar Zenith Angle [rad]
 def SolarZenithAngle(ds, declination, hour_angle):
@@ -51,11 +51,11 @@ def SolarZenithAngle(ds, declination, hour_angle):
 
 #Solar Azimuth Angle [rad]
 #To be checked (against REatlas) (only necessary for tracking...)
-def SolarAzimuthAngle(ds, apparent_solar_time, declination, hour_angle, altitude):
+def SolarAzimuthAngle(ds, apparent_solar_time, declination, hour_angle, sinaltitude):
     lat = np.deg2rad(ds['lat'])
 
     # Refer to page 58 in Kalogirou
-    z = np.arcsin( np.cos(declination)*np.sin(hour_angle) / np.cos(altitude) )
+    z = np.arcsin( np.cos(declination)*np.sin(hour_angle) / np.cos(np.arcsin(sinaltitude)) )
 
     #Sun might be behind E-W line. If so, the above formula must be corrected:
     before_EW_line = (np.cos(declination) >  np.tan(declination)/np.tan(lat))
@@ -83,11 +83,11 @@ def SolarAzimuthAngle(ds, apparent_solar_time, declination, hour_angle, altitude
     z = z_before + z_behind
     return z.rename('azimuth')
 
-def AtmosphericInsolation(altitude, day_number, solar_constant=1366.1):
+def AtmosphericInsolation(sinaltitude, day_number, solar_constant=1366.1):
     gamma = 2*np.pi*day_number/365.0
     extra = solar_constant*(1+0.033*np.cos(gamma))
 
-    return (np.sin(altitude) * extra).rename('atmospheric insolation')
+    return (sinaltitude * extra).rename('atmospheric insolation')
 
 def SolarPosition(ds):
 
@@ -97,11 +97,11 @@ def SolarPosition(ds):
     h = HourAngle(AST)
     dec = Declination(day_number)
 
-    altitude = SolarAltitudeAngle(ds, dec, h)
+    sinaltitude = SolarAltitudeAngle(ds, dec, h)
     zenith = SolarZenithAngle(ds, dec, h)
-    # azimuth = SolarAzimuthAngle(ds, AST, dec, h, altitude)
-    atmospheric_insolation = AtmosphericInsolation(altitude, day_number)
+    # azimuth = SolarAzimuthAngle(ds, AST, dec, h, sinaltitude)
+    atmospheric_insolation = AtmosphericInsolation(sinaltitude, day_number)
 
     solar_position = xr.Dataset({da.name: da
-                                 for da in [h, dec, altitude, zenith, atmospheric_insolation]})
+                                 for da in [h, dec, sinaltitude, zenith, atmospheric_insolation]})
     return solar_position
