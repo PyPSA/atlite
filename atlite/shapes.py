@@ -120,12 +120,13 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
         from rtree.index import Index
 
         idx = Index()
-        for i, d in enumerate(dest):
-            idx.insert(i, d.bounds)
+        for j, o in enumerate(orig):
+            idx.insert(j, o.bounds)
 
-        for j,o in enumerate(orig):
-            for i in idx.intersection(o.bounds):
-                area = dest[i].intersection(o).area
+        for i, d in enumerate(dest):
+            for j in idx.intersection(d.bounds):
+                o = orig[j]
+                area = d.intersection(o).area
                 indicator[i,j] = area/o.area
 
     except ImportError:
