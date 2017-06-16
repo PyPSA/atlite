@@ -18,10 +18,10 @@ def ApparentSolarTime(ds, equation_of_time, standard_lon=0.0, daylight_saving=0.
     local_standard_time = ds['time']
     local_lon = ds['lon']
 
-    local_standard_time = pd.to_datetime(local_standard_time.values)
-    local_standard_time = local_standard_time.hour*60. + local_standard_time.minute
-    AST = local_standard_time + equation_of_time + 4.0*(local_lon - standard_lon) - daylight_saving
-    AST = AST/60.0
+    local_standard_time = local_standard_time.to_index()
+    mins_of_day = xr.DataArray(local_standard_time.hour*60. + local_standard_time.minute,
+                               [('time', local_standard_time)])
+    AST = (mins_of_day + equation_of_time + 4.0*(local_lon - standard_lon) - daylight_saving)/60.
     return AST.rename('apparent solar time')
 
 #Hour Angle [rad]
