@@ -77,8 +77,9 @@ def windturbine_smooth(turbine, params={}):
     turbine : dict
         Turbine config with at least V and POW
     params : dict
-        Allows adjusting mean Delta_v and stdev sigma. Defaults to
-        values from Andresen's paper: 1.27 and 2.29, respectively.
+        Allows adjusting fleet availability eta, mean Delta_v and
+        stdev sigma. Defaults to values from Andresen's paper: 0.95,
+        1.27 and 2.29, respectively.
 
     Returns
     -------
@@ -95,6 +96,7 @@ def windturbine_smooth(turbine, params={}):
     if not isinstance(params, dict):
         params = {}
 
+    eta = params.get('eta', 0.95)
     Delta_v = params.get('Delta_v', 1.27)
     sigma = params.get('sigma', 2.29)
 
@@ -104,7 +106,6 @@ def windturbine_smooth(turbine, params={}):
                 np.exp(-(v_0 - Delta_v)*(v_0 - Delta_v)/(2*sigma*sigma) ))
 
     def smooth(velocities, power):
-
         # interpolate kernel and power curve to the same, regular velocity grid
         velocities_reg = np.linspace(-50., 50., 1001)
         power_reg = np.interp(velocities_reg, velocities, power)
@@ -117,7 +118,7 @@ def windturbine_smooth(turbine, params={}):
 
         # sample down so power curve doesn't get too long
         velocities_new = np.linspace(0., 35., 72)
-        power_new = np.interp(velocities_new, velocities_reg, convolution)
+        power_new = eta * np.interp(velocities_new, velocities_reg, convolution)
 
         return velocities_new, power_new
 
