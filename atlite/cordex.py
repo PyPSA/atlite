@@ -75,13 +75,26 @@ def prepare_weather_types_cordex(ds, year, months, oldname, newname, xs, ys):
     return [((year, m), ds.sel(time="{}-{}".format(year, m)))
             for m in months]
 
-def prepare_meta_cordex(xs, ys, year, month, template, module, model=model):
+def prepare_meta_cordex(xs, ys, year, month, template, height_config, module, model=model):
     fn = next(glob.iglob(template.format(year=year, model=model)))
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.coords.to_dataset()
-        return ds.sel(time="{}-{}".format(year, month),
+        meta = ds.sel(time="{}-{}".format(year, month),
                       x=xs, y=ys).load()
+
+    xs = ds['x'].values
+    ys = ds['y'].values
+
+    height_config = height_config.copy()
+    height_tasks_func = height_config.pop('tasks_func')
+    height_task, = height_tasks_func(xs, ys, [(year, month)], meta_attrs={}, **height_config)
+    height_prepare_func = height_task.pop('prepare_func')
+    _, ds = height_prepare_func(**height_task)[0]
+
+    meta['height'] = ds['height']
+
+    return meta
 
 def tasks_yearly_cordex(xs, ys, yearmonths, prepare_func, template, oldname, newname, meta_attrs):
     model = meta_attrs['model']
@@ -140,4 +153,5 @@ weather_data_config = {
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_cordex,
-                        template=os.path.join(cordex_dir, '{model}', 'temperature', 'tas_*_{year}*.nc'))
+                        template=os.path.join(cordex_dir, '{model}', 'temperature', 'tas_*_{year}*.nc'),
+                        height_config=weather_data_config['height'])
