@@ -42,7 +42,7 @@ def get_windturbineconfig(turbine):
     fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'TurbineConfig', turbine + '.cfg')
     turbineconf = reatlas_client.turbineconf_to_powercurve_object(fn)
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
-    return dict(V=V, POW=POW, hub_height=hub_height)
+    return dict(V=V, POW=POW, hub_height=hub_height, P=max(POW))
 
 def get_solarpanelconfig(panel):
     assert have_reatlas, "REatlas client is necessary for loading solar panel configs"
@@ -66,7 +66,7 @@ def windturbine_rated_capacity_per_unit(turbine):
     if isinstance(turbine, string_types):
         turbine = get_windturbineconfig(turbine)
 
-    return max(turbine['POW'])
+    return turbine['P']
 
 def windturbine_smooth(turbine, params={}):
     '''
