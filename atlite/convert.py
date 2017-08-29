@@ -460,7 +460,8 @@ def runoff(cutout, smooth=None, lower_threshold_quantile=None,
         years_overlap = slice(str(min(years)), str(max(years)))
 
         dim = result.dims[1 - result.get_axis_num('time')]
-        result *= (xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim]) /
+        result *= ((xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim]) /
                    result.sel(time=years_overlap).sum('time'))
+                   .reindex(countries=result.coords['countries']))
 
     return result
