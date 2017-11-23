@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 from . import config, ncep, cordex
 
 from .convert import (convert_and_aggregate, heat_demand, temperature, wind, pv,
-                      runoff, solar_thermal)
+                      runoff, solar_thermal, soil_temperature)
 from .preparation import (cutout_do_task, cutout_prepare,
                           cutout_produce_specific_dataseries,
                           cutout_get_meta, cutout_get_meta_view)
@@ -161,6 +161,8 @@ class Cutout(object):
     heat_demand = heat_demand
 
     temperature = temperature
+
+    soil_temperature = soil_temperature
 
     solar_thermal = solar_thermal
 
