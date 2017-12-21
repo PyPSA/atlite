@@ -30,7 +30,7 @@ from six import string_types
 import logging
 logger = logging.getLogger(__name__)
 
-from . import config, ncep, cordex
+from . import config, datasets
 
 from .convert import (convert_and_aggregate, heat_demand, temperature, wind, pv,
                       runoff, solar_thermal)
@@ -75,7 +75,7 @@ class Cutout(object):
                 d.update(cutoutparams)
                 cutoutparams = d
 
-        self.dataset_module = sys.modules['atlite.' + cutoutparams['module']]
+        self.dataset_module = sys.modules['atlite.datasets.' + cutoutparams['module']]
 
         if not self.prepared:
             if {"xs", "ys", "years"}.difference(cutoutparams):

@@ -38,7 +38,7 @@ from .shapes import RotProj
 
 # Model and Projection Settings
 model = 'MPI-M-MPI-ESM-LR'
-projection = RotProj(dict(proj='ob_tran', o_proj='longlat', lon_0=180,
+projection = RotProj(dict(proj='ob_tran', o_proj='latlong', lon_0=180,
                           o_lon_p=-162, o_lat_p=39.25))
 engine = None
 
