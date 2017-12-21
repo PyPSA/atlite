@@ -16,7 +16,7 @@ setup(
     url='https://github.com/FRESNA/atlite',
     license='GPLv3',
     packages=find_packages(exclude=['doc', 'test']),
-    install_requires=['numpy', 'scipy', 'pandas', 'xarray', 'pynio',
+    install_requires=['numpy', 'scipy', 'pandas', 'xarray', #'pynio',
                       'bottleneck', 'cyordereddict', 'toolz', 'filelock'],
     classifiers=[
         'Development Status :: 3 - Alpha',
