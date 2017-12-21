@@ -4,12 +4,12 @@ import xarray as xr
 
 def DayNumber(ds):
     time = ds['time']
-    day_number = pd.to_datetime(time.values).dayofyear - 1
+    day_number = time.to_index().dayofyear - 1
     return xr.DataArray(day_number, coords=[time], dims=['time'], name='day number')
 
 #Equation of Time [min]
 def EquationOfTime(day_number):
-    B = 2*np.pi*(day_number-81.0)/365.0
+    B = 2*np.pi/365.*(day_number-81.0)
     ET = 9.87*np.sin(2*B)-7.53*np.cos(B)-1.5*np.sin(B)
     return ET.rename('equation of time')
 
@@ -98,10 +98,15 @@ def SolarPosition(ds):
     dec = Declination(day_number)
 
     sinaltitude = SolarAltitudeAngle(ds, dec, h)
-    zenith = SolarZenithAngle(ds, dec, h)
+    # zenith = SolarZenithAngle(ds, dec, h)
     # azimuth = SolarAzimuthAngle(ds, AST, dec, h, sinaltitude)
     atmospheric_insolation = AtmosphericInsolation(sinaltitude, day_number)
 
     solar_position = xr.Dataset({da.name: da
-                                 for da in [h, dec, sinaltitude, zenith, atmospheric_insolation]})
+                                 for da in [h,
+                                            dec,
+                                            sinaltitude,
+                                            # azimuth,
+                                            # zenith,
+                                            atmospheric_insolation]})
     return solar_position

@@ -43,7 +43,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
                     (k >= 0.78) *
                     np.fmax( 0.1, 0.426*k-0.256*sinaltitude+0.00349*T+0.0734*rh ))
     else:
-        raise ArgumentError("`clearsky model` must be chosen from 'simple', 'enhanced' and 'reatlas'")
+        raise ArgumentError("`clearsky model` must be chosen from 'simple' and 'enhanced'")
 
 
     # Set diffuse fraction to one when the sun isn't up
@@ -113,7 +113,7 @@ def TiltedGroundIrrad(ds, solar_position, surface_orientation):
     return ground_t.rename('ground tilted')
 
 def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, altitude_threshold=1.):
-    influx = ds['influx'] = ds['influx'].clip(max=solar_position['atmospheric insolation'].transpose(*ds['influx'].dims))
+    influx = ds['influx'] = ds['influx'].clip(min=0, max=solar_position['atmospheric insolation'].transpose(*ds['influx'].dims))
 
     diffuse = DiffuseHorizontalIrrad(ds, solar_position, clearsky_model)
     beam = influx - diffuse
