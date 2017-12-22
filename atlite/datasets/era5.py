@@ -29,13 +29,24 @@ import tempfile
 import shutil
 from six.moves import range
 from contextlib import contextmanager
-from ecmwfapi import ECMWFDataServer
+
+try:
+    from ecmwfapi import ECMWFDataServer
+    has_ecmwfapi = True
+except ImportError:
+    has_ecmwfapi = False
 
 # Model and Projection Settings
 projection = 'latlong'
 
 @contextmanager
 def _get_data(target, **updates):
+    if not has_ecmwfapi:
+        raise RuntimeError(
+            "Need installed ecmwfapi python package available from "
+            "https://software.ecmwf.int/wiki/display/WEBAPI/Access+ECMWF+Public+Datasets"
+        )
+
     server = ECMWFDataServer()
     request = {'target': target,
                'class': 'ea',
