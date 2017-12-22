@@ -158,36 +158,6 @@ def prepare_runoff_ncep(ds, yearmonth, xs, ys):
     ds = ds.rename({'WATR_P8_L1_GGA0': 'runoff'})
     return [(yearmonth, ds)]
 
-def prepare_height_gebco(filename, xs, ys, yearmonths):
-    # gebco bathymetry heights for underwater
-    tmpdir = tempfile.mkdtemp()
-    cornersc = np.array(((xs[0], ys[0]), (xs[-1], ys[-1])))
-    minc = np.minimum(*cornersc)
-    maxc = np.maximum(*cornersc)
-    span = (maxc - minc)/(np.asarray((len(xs), len(ys)))-1)
-    minx, miny = minc - span/2.
-    maxx, maxy = maxc + span/2.
-
-    tmpfn = os.path.join(tmpdir, 'resampled.nc')
-    try:
-        ret = subprocess.call(['gdalwarp', '-of', 'NETCDF',
-                               '-ts', str(len(xs)), str(len(ys)),
-                               '-te', str(minx), str(miny), str(maxx), str(maxy),
-                               '-r', 'average',
-                               filename, tmpfn])
-        assert ret == 0, "gdalwarp was not able to resample gebco"
-    except OSError:
-        logger.warning("gdalwarp was not found for resampling gebco. "
-                       "Next-neighbour interpolation will be used instead!")
-        tmpfn = gebcofn
-
-    with xr.open_dataset(tmpfn) as ds_gebco:
-        height = (ds_gebco.rename({'lon': 'x', 'lat': 'y', 'Band1': 'height'})
-                          .reindex(x=xs, y=ys, method='nearest')
-                          .load())
-    shutil.rmtree(tmpdir)
-    return [(ym, height) for ym in yearmonths]
-
 def prepare_height_ncep(filename, xs, ys, yearmonths):
     with xr.open_dataset(filename, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
@@ -256,11 +226,8 @@ weather_data_config = {
                       prepare_func=prepare_roughness_ncep,
                       template=os.path.join(ncep_dir, '{year}{month:0>2}/flxf.gdas.*.grb2')),
     'height': dict(tasks_func=tasks_height_ncep,
-                   # prepare_func=prepare_height_ncep,
-                   # template=os.path.join(ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'),
-                   prepare_func=prepare_height_gebco,
-                   template=os.path.join(ncep_dir, 'height/GEBCO*.nc')
-    )
+                   prepare_func=prepare_height_ncep,
+                   template=os.path.join(ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'))
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_ncep,

@@ -23,8 +23,12 @@ from __future__ import absolute_import
 
 import xarray as xr
 import pandas as pd
+import numpy as np
 import os, shutil
 import logging
+import tempfile
+import shutil
+import subprocess
 from glob import glob
 from six import itervalues
 from six.moves import map
@@ -67,7 +71,7 @@ def cutout_do_task(task, write_to_file=True):
         if 'ds' in task:
             task['ds'].close()
 
-def cutout_prepare(cutout, overwrite=False, nprocesses=None):
+def cutout_prepare(cutout, overwrite=False, nprocesses=None, gebco_height=False):
     if cutout.prepared and not overwrite:
         raise ArgumentError("The cutout is already prepared. If you want to recalculate it, "
                             "anyway, then you must supply an `overwrite=True` argument.")
@@ -78,6 +82,10 @@ def cutout_prepare(cutout, overwrite=False, nprocesses=None):
     yearmonths = cutout.coords['year-month'].to_index()
     xs = cutout.coords['x']
     ys = cutout.coords['y']
+
+    if gebco_height:
+        logger.info("Interpolating gebco to the dataset grid")
+        cutout.meta['height'] = _prepare_gebco_height(xs, ys)
 
     # Delete cutout_dir
     if os.path.isdir(cutout_dir):
@@ -125,6 +133,9 @@ def cutout_prepare(cutout, overwrite=False, nprocesses=None):
         fns = glob(base + "-*" + ext)
 
         with xr.open_mfdataset(fns) as ds:
+            if gebco_height:
+                ds['height'] = cutout.meta['height']
+
             ds.to_netcdf(fn)
 
         for fn in fns: os.unlink(fn)
@@ -191,3 +202,36 @@ def cutout_get_meta_view(cutout, xs=None, ys=None, years=slice(None), months=sli
                                  for ym in meta['year-month'][[0,-1]].to_index())))
 
     return meta
+
+
+def _prepare_gebco_height(xs, ys):
+    # gebco bathymetry heights for underwater
+    from .config import gebco_path
+
+    tmpdir = tempfile.mkdtemp()
+    cornersc = np.array(((xs[0], ys[0]), (xs[-1], ys[-1])))
+    minc = np.minimum(*cornersc)
+    maxc = np.maximum(*cornersc)
+    span = (maxc - minc)/(np.asarray((len(xs), len(ys)))-1)
+    minx, miny = minc - span/2.
+    maxx, maxy = maxc + span/2.
+
+    tmpfn = os.path.join(tmpdir, 'resampled.nc')
+    try:
+        ret = subprocess.call(['gdalwarp', '-of', 'NETCDF',
+                               '-ts', str(len(xs)), str(len(ys)),
+                               '-te', str(minx), str(miny), str(maxx), str(maxy),
+                               '-r', 'average',
+                               gebco_path, tmpfn])
+        assert ret == 0, "gdalwarp was not able to resample gebco"
+    except OSError:
+        logger.warning("gdalwarp was not found for resampling gebco. "
+                       "Next-neighbour interpolation will be used instead!")
+        tmpfn = gebco_path
+
+    with xr.open_dataset(tmpfn) as ds_gebco:
+        height = (ds_gebco.rename({'lon': 'x', 'lat': 'y', 'Band1': 'height'})
+                          .reindex(x=xs, y=ys, method='nearest')
+                          .load()['height'])
+    shutil.rmtree(tmpdir)
+    return height
