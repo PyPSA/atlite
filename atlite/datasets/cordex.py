@@ -33,8 +33,8 @@ from operator import itemgetter
 import os
 import glob
 
-from .config import cordex_dir
-from .shapes import RotProj
+from ..config import cordex_dir
+from ..shapes import RotProj
 
 # Model and Projection Settings
 model = 'MPI-M-MPI-ESM-LR'

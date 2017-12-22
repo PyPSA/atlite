@@ -32,7 +32,7 @@ import tempfile
 import subprocess
 import shutil
 
-from .config import ncep_dir
+from ..config import ncep_dir
 
 engine = 'pynio'
 projection = 'latlong'
@@ -107,7 +107,8 @@ def convert_unaccumulate_ncep(ds):
     return ds
 
 def convert_clip_lower(ds, variable, a_min, value):
-    """Set values of `variable` that are below `a_min` to `value`.
+    """
+    Set values of `variable` that are below `a_min` to `value`.
     Similar to `numpy.clip`.
     """
     ds[variable] = ds[variable].where(ds[variable] > a_min).fillna(value)
