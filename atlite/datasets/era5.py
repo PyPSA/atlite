@@ -25,6 +25,8 @@ import os
 import pandas as pd
 import numpy as np
 import xarray as xr
+import tempfile
+import shutil
 from six.moves import range
 from contextlib import contextmanager
 from ecmwfapi import ECMWFDataServer
@@ -83,7 +85,9 @@ def prepare_meta_era5(xs, ys, year, month, module):
         return ds.load()
 
 def prepare_month_era5(year, month, xs, ys):
-    fns = ['_{}{}_{}.nc'.format(year, month, i) for i in range(3)]
+    tmpdir = tempfile.mkdtemp()
+
+    fns = [os.path.join(tmpdir, '_{}{:02}_{}.nc'.format(year, month, i)) for i in range(3)]
     tbeg = pd.Timestamp(year=year, month=month, day=1)
     tend = tbeg + pd.offsets.MonthEnd()
     def s(d): return d.strftime('%Y-%m-%d')
@@ -107,6 +111,8 @@ def prepare_month_era5(year, month, xs, ys):
         ds_m = ds_m.isel(time=0, drop=True)
         ds = xr.merge([ds, ds_fc, ds_m], join='left').load()
 
+    shutil.rmtree(tmpdir)
+
     ds = _rename_and_clean_coords(ds)
     ds = _add_height(ds)
 
@@ -125,7 +131,7 @@ def prepare_month_era5(year, month, xs, ys):
                                           long_name='Surface diffuse solar radiation downwards'))
     ds = ds.drop(['ssrd', 'ssr'])
 
-    # Convert to from energy to power J m**-2 -> W m**-2
+    # Convert from energy to power J m**-2 -> W m**-2
     for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
         ds[a] /= 60.*60.
         ds[a].attrs['units'] = 'W m**-2'
