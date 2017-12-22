@@ -37,7 +37,7 @@ from .convert import (convert_and_aggregate, heat_demand, temperature, wind, pv,
 from .preparation import (cutout_do_task, cutout_prepare,
                           cutout_produce_specific_dataseries,
                           cutout_get_meta, cutout_get_meta_view)
-from .shapes import compute_indicatormatrix
+from .gis import compute_indicatormatrix
 
 class Cutout(object):
     def __init__(self, name=None, cutout_dir=config.cutout_dir, **cutoutparams):

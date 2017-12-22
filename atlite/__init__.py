@@ -24,7 +24,7 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 from __future__ import absolute_import
 
 from .cutout import Cutout
-from .shapes import compute_indicatormatrix
+from .gis import compute_indicatormatrix, regrid
 
 __version__ = "0.0.1"
 __author__ = "Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS), Markus Schlott (FIAS), David Schlachtberger (FIAS)"

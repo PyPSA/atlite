@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 import scipy as sp, scipy.sparse
 from collections import OrderedDict
+from warnings import warn, DeprecationWarning
 from six import string_types, iteritems
 from six.moves import map, range
 from itertools import product
@@ -32,6 +33,9 @@ from functools import partial
 import pyproj
 from shapely.prepared import prep
 from shapely.ops import transform
+import rasterio as rio
+import rasterio.warp
+from rasterio.warp import Resampling
 
 def spdiag(v):
     N = len(v)
@@ -57,7 +61,7 @@ def as_projection(p):
     else:
         return pyproj.Proj(p)
 
-def reproject(shapes, p1, p2):
+def reproject_shapes(shapes, p1, p2):
     """
     Project a collection of `shapes` from one projection `p1` to
     another projection `p2`
@@ -82,15 +86,20 @@ def reproject(shapes, p1, p2):
     else:
         reproject_points = partial(pyproj.transform, as_projection(p1), as_projection(p2))
 
-    def reproject_shape(shape):
+    def _reproject_shape(shape):
         return transform(reproject_points, shape)
 
     if isinstance(shapes, pd.Series):
-        return shapes.map(reproject_shape)
+        return shapes.map(_reproject_shape)
     elif isinstance(shapes, dict):
-        return OrderedDict((k, reproject_shape(v)) for k, v in iteritems(shapes))
+        return OrderedDict((k, _reproject_shape(v)) for k, v in iteritems(shapes))
     else:
-        return list(map(reproject_shape, shapes))
+        return list(map(_reproject_shape, shapes))
+
+def reproject(shapes, p1, p2):
+    warn("reproject has been renamed to reproject_shapes", DeprecationWarning)
+    return reproject_shapes(shapes, p1, p2)
+reproject.__doc__ = reproject_shapes.__doc__
 
 def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'):
     """
@@ -116,7 +125,7 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
       Indicatormatrix
     """
 
-    dest = reproject(dest, dest_proj, orig_proj)
+    dest = reproject_shapes(dest, dest_proj, orig_proj)
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
 
     try:
@@ -143,3 +152,82 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
                 indicator[i,j] = area/orig[j].area
 
     return indicator
+
+def _maybe_swap_data(x, namex, namey):
+    swaps = {}
+    lx, rx = x.coords[namex].to_index()[[0, -1]]
+    uy, ly = x.coords[namex].to_index()[[0, -1]]
+
+    if lx > rx:
+        swaps[namex] = slice(None, None, -1)
+    if uy < ly:
+        swaps[namey] = slice(None, None, -1)
+
+    return x.isel(**swaps) if swaps else x
+
+def _as_transform(x, y):
+    lx, rx = x[[0, -1]]
+    uy, ly = y[[0, -1]]
+
+    dx = float(rx - lx)/float(len(x)-1)
+    dy = float(uy - ly)/float(len(y)-1)
+
+    return rio.transform.from_origin(lx, uy, dx, dy)
+
+def regrid(x, dimx, dimy, **kwargs):
+    """
+    Interpolate DataArray `da` to a new grid, using rasterio's reproject
+    facility.
+
+    See also: https://mapbox.github.io/rasterio/topics/resampling.html
+
+    Parameters
+    ----------
+    da : xr.DataArray
+      N-dim data a spatial grid
+    dimx : pd.Index
+      New x-coordinates in destination crs.
+      dimx.name MUST refer to x-coord of da.
+    dimy : pd.Index
+      New y-coordinates in destination crs.
+      dimy.name MUST refer to y-coord of da.
+    **kwargs :
+      Arguments passed to rio.wrap.reproject; of note:
+      - resampling is one of gis.Resampling.{average,cubic,bilinear,nearest}
+      - src_crs, dst_crs define the different crs (default: latlong)
+    """
+    namex = dimx.name
+    namey = dimy.name
+
+    x = _maybe_swap_data(x, namex, namey)
+
+    src_transform = _as_transform(x.indexes[namex],
+                                  x.indexes[namey])
+    dst_transform = _as_transform(dimx, dimy)
+    dst_shape = len(dimy), len(dimx)
+
+
+    kwargs.update(dst_shape=dst_shape,
+                  src_transform=src_transform,
+                  dst_transform=dst_transform)
+    kwargs.setdefault("src_crs", 'longlat')
+    kwargs.setdefault("dst_crs", 'longlat')
+
+    def _reproject(src, dst_shape, **kwargs):
+        dst = np.empty((len(src),) + dst_shape, dtype=src.dtype)
+        rio.warp.reproject(np.asarray(src), dst, **kwargs)
+        return dst
+
+    return (
+        xr.apply_ufunc(_reproject, x,
+                       input_core_dims=[[namey, namex]],
+                       output_core_dims=[['yout', 'xout']],
+                       output_dtypes=[x.dtype],
+                       output_sizes={'yout': dst_shape[0], 'xout': dst_shape[1]},
+                       dask='parallelized',
+                       kwargs=kwargs)
+            .rename({'yout': namey, 'xout': namex})
+            .assign_coords(**{namey: (namey, dimy, ds.coords[namey].attrs),
+                              namex: (namex, dimx, ds.coords[namex].attrs)})
+            .assign_attrs(**x.attrs)
+    )

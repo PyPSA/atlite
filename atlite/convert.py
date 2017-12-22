@@ -33,7 +33,7 @@ from six import string_types
 from operator import itemgetter
 
 from .aggregate import aggregate_sum, aggregate_matrix
-from .shapes import spdiag, compute_indicatormatrix
+from .gis import spdiag, compute_indicatormatrix
 
 from .pv.solar_position import SolarPosition
 from .pv.irradiation import TiltedIrradiation
