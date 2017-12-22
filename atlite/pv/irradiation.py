@@ -2,8 +2,12 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
-    influx = ds['influx']
+def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
+    # Clearsky model from Reindl 1990 to split downward radiation into direct
+    # and diffuse contributions. Should switch to more up-to-date model, f.ex.
+    # Ridley et al. (2010) http://dx.doi.org/10.1016/j.renene.2009.07.018 ,
+    # Lauret et al. (2013):http://dx.doi.org/10.1016/j.renene.2012.01.049
+
     sinaltitude = solar_position['sinaltitude']
     atmospheric_insolation = solar_position['atmospheric insolation']
 
@@ -52,24 +56,26 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model):
 
     return (influx * fraction).rename('diffuse horizontal')
 
-def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
-    influx = ds['influx']
+def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse):
+    # Hay-Davies Model
+
     sinaltitude = solar_position['sinaltitude']
     atmospheric_insolation = solar_position['atmospheric insolation']
+
     cosincidence = surface_orientation['cosincidence']
     surface_slope = surface_orientation['slope']
 
-    # Hay-Davies Model
+    influx = direct + diffuse
 
+    # brightening factor
     with np.errstate(divide='ignore', invalid='ignore'):
-        f = np.sqrt(beam/influx)
-    # f = f.rename('brightening factor')
+        f = np.sqrt(direct / influx)
 
-    A = beam / atmospheric_insolation
-    # A = A.rename('anisotropy factor')
+    # anisotropy factor
+    A = direct / atmospheric_insolation
 
-    R_b = cosincidence/sinaltitude
-    # R_b = R_b.rename('geometric factor diffuse')
+    # geometric factor
+    R_b = cosincidence / sinaltitude
 
     diffuse_t = ((1.0 - A) * ((1 + np.cos(surface_slope)) / 2.0) *
                  (1.0 + f * np.sin(surface_slope/2.0)**3)
@@ -78,53 +84,55 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam):
     # fixup: clip all negative values (unclear why it gets negative)
     # note: REatlas does not do the fixup
     with np.errstate(invalid='ignore'):
-        diffuse_t.values[diffuse_t.values < 0.] = 0.
+        if (diffuse_t.values < 0.).any():
+            logger.warn('diffuse_t exhibits negative values, clipping.')
+            diffuse_t.values[diffuse_t.values < 0.] = 0.
 
     return diffuse_t.rename('diffuse tilted')
 
-def TiltedDirectIrrad(solar_position, surface_orientation, beam):
+def TiltedDirectIrrad(solar_position, surface_orientation, direct):
     sinaltitude = solar_position['sinaltitude']
     cosincidence = surface_orientation['cosincidence']
-    # fixup incidence angle: if the panel is badly oriented and the sun shines
-    # on the back of the panel (incidence angle > 90degree), the irradiation
-    # would be negative instead of 0; this is prevented here.
-    # note: REatlas does not do the fixup
-    cosincidence.values[cosincidence.values < 0.] = 0.
 
-    R_b = cosincidence/sinaltitude
-    # R_b = R_b.rename('geometric factor beam')
+    # geometric factor
+    R_b = cosincidence / sinaltitude
 
     return (R_b * beam).rename('direct tilted')
 
-def TiltedGroundIrrad(ds, solar_position, surface_orientation):
-    influx = ds['influx']
-    outflux = ds['outflux']
+def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
     surface_slope = surface_orientation['slope']
 
-    with np.errstate(divide='ignore', invalid='ignore'):
-        albedo = (outflux / influx)
-        # fixup albedo: - only positive fluxes and - cap at 1.0
-        # note: REatlas does not do the fixup
-        # albedo = albedo.where((influx > 0.0) & (outflux > 0.0)).fillna(0.)
-        albedo.values[albedo.values > 1.0] = 1.0
-        # albedo = albedo.rename('albedo')
+    if 'albedo' in ds:
+        albedo = ds['albedo']
+    elif 'outflux' in ds:
+        with np.errstate(divide='ignore', invalid='ignore'):
+            albedo = (ds['outflux'] / influx)
+            albedo.values[albedo.values > 1.0] = 1.0
+    else:
+        raise AssertionError("Need either albedo or outflux as a variable in the dataset. Check your cutout and dataset module.")
 
     ground_t = influx * albedo * (1.0 - np.cos(surface_slope)) / 2.0
     return ground_t.rename('ground tilted')
 
 def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, altitude_threshold=1.):
-    influx = ds['influx'] = ds['influx'].clip(min=0, max=solar_position['atmospheric insolation'].transpose(*ds['influx'].dims))
+    if 'influx' in ds:
+        influx = ds['influx'].clip(min=0, max=solar_position['atmospheric insolation'].transpose(*ds['influx'].dims))
 
-    diffuse = DiffuseHorizontalIrrad(ds, solar_position, clearsky_model)
-    beam = influx - diffuse
+        diffuse = DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx)
+        direct = influx - diffuse
+    elif 'influx_direct' in ds and 'influx_diffuse' in ds:
+        direct = ds['influx_direct']
+        diffuse = ds['influx_diffuse']
+    else:
+        raise AssertionError("Need either influx or influx_direct and influx_diffuse in the dataset. Check your cutout and dataset module.")
 
-    diffuse_t = TiltedDiffuseIrrad(ds, solar_position, surface_orientation, diffuse, beam)
-    beam_t = TiltedDirectIrrad(solar_position, surface_orientation, beam)
-    ground_t = TiltedGroundIrrad(ds, solar_position, surface_orientation)
+    diffuse_t = TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
+    direct_t = TiltedDirectIrrad(solar_position, surface_orientation, direct)
+    ground_t = TiltedGroundIrrad(ds, solar_position, surface_orientation, direct + diffuse)
 
-    total_t = (diffuse_t + beam_t + ground_t).rename('total tilted')
+    total_t = (direct_t + diffuse_t + ground_t).rename('total tilted')
 
     cap_alt = solar_position['sinaltitude'] < np.sin(np.deg2rad(altitude_threshold))
-    total_t.values[(cap_alt | (ds['influx'] <= 0.01)).transpose(*total_t.dims).values] = 0.
+    total_t.values[(cap_alt | (direct+diffuse <= 0.01)).transpose(*total_t.dims).values] = 0.
 
     return total_t

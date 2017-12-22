@@ -100,7 +100,11 @@ def SolarPosition(ds):
     sinaltitude = SolarAltitudeAngle(ds, dec, h)
     # zenith = SolarZenithAngle(ds, dec, h)
     # azimuth = SolarAzimuthAngle(ds, AST, dec, h, sinaltitude)
-    atmospheric_insolation = AtmosphericInsolation(sinaltitude, day_number)
+
+    if 'influx_toa' in ds:
+        atmospheric_insolation = ds['influx_toa'].rename('atmospheric insolation')
+    else:
+        atmospheric_insolation = AtmosphericInsolation(sinaltitude, day_number)
 
     solar_position = xr.Dataset({da.name: da
                                  for da in [h,
