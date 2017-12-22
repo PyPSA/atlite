@@ -54,11 +54,11 @@ def _get_data(target, **updates):
     os.unlink(target)
 
 def _add_height(ds):
-    Gm = 6.673e-11*5.975e24
+    Gma = 6.673e-11*5.975e24/(6.378e6)**2
     z = ds['z']
     if 'time' in z.coords:
         z = z.isel(time=0, drop=True)
-    ds['height'] = z/Gm
+    ds['height'] = z/Gma
     ds = ds.drop('z')
     return ds
 
