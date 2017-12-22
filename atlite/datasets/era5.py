@@ -90,7 +90,7 @@ def prepare_month_era5(year, month, xs, ys):
     date1 = s(tbeg)+"/to/"+s(tend)
     date2 = s(tbeg - pd.Timedelta(days=1))+"/to/"+s(tend)
     date3 = s(tbeg)
-    area='{:.1f}/{:.1f}/{:.1f}/{:.1f}'.format(ys.stop, xs.start, ys.start, xs.stop)
+    area='{:.1f}/{:.1f}/{:.1f}/{:.1f}'.format(ys.start, xs.start, ys.stop, xs.stop)
 
     # https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation
     with _get_data(fns[0], type='an', date=date1, area=area,
@@ -117,8 +117,9 @@ def prepare_month_era5(year, month, xs, ys):
     # SSR Surface net Solar Radiation 176
     # FDIR Direct solar radiation at surface 21.228
     ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
-    ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd'])
-                    .assign_attrs(units='(0 - 1)', long_name='Albedo'))
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
+                        .assign_attrs(units='(0 - 1)', long_name='Albedo'))
     ds['influx_diffuse'] = ((ds['ssrd'] - ds['influx_direct'])
                             .assign_attrs(units='J m**-2',
                                           long_name='Surface diffuse solar radiation downwards'))
