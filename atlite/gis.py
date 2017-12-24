@@ -23,6 +23,7 @@ from __future__ import absolute_import
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 import scipy as sp, scipy.sparse
 from collections import OrderedDict
 from warnings import warn
@@ -153,17 +154,17 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
 
     return indicator
 
-def _maybe_swap_data(x, namex, namey):
+def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
     swaps = {}
-    lx, rx = x.coords[namex].to_index()[[0, -1]]
-    uy, ly = x.coords[namex].to_index()[[0, -1]]
+    lx, rx = ds.indexes[namex][[0, -1]]
+    uy, ly = ds.indexes[namex][[0, -1]]
 
     if lx > rx:
         swaps[namex] = slice(None, None, -1)
     if uy < ly:
         swaps[namey] = slice(None, None, -1)
 
-    return x.isel(**swaps) if swaps else x
+    return ds.isel(**swaps) if swaps else ds
 
 def _as_transform(x, y):
     lx, rx = x[[0, -1]]
@@ -174,23 +175,23 @@ def _as_transform(x, y):
 
     return rio.transform.from_origin(lx, uy, dx, dy)
 
-def regrid(x, dimx, dimy, **kwargs):
+def regrid(ds, dimx, dimy, **kwargs):
     """
-    Interpolate DataArray `da` to a new grid, using rasterio's reproject
-    facility.
+    Interpolate Dataset or DataArray `ds` to a new grid, using rasterio's
+    reproject facility.
 
     See also: https://mapbox.github.io/rasterio/topics/resampling.html
 
     Parameters
     ----------
-    da : xr.DataArray
-      N-dim data a spatial grid
+    ds : xr.Dataset|xr.DataArray
+      N-dim data on a spatial grid
     dimx : pd.Index
       New x-coordinates in destination crs.
-      dimx.name MUST refer to x-coord of da.
+      dimx.name MUST refer to x-coord of ds.
     dimy : pd.Index
       New y-coordinates in destination crs.
-      dimy.name MUST refer to y-coord of da.
+      dimy.name MUST refer to y-coord of ds.
     **kwargs :
       Arguments passed to rio.wrap.reproject; of note:
       - resampling is one of gis.Resampling.{average,cubic,bilinear,nearest}
@@ -199,13 +200,12 @@ def regrid(x, dimx, dimy, **kwargs):
     namex = dimx.name
     namey = dimy.name
 
-    x = _maybe_swap_data(x, namex, namey)
+    ds = maybe_swap_spatial_dims(ds, namex, namey)
 
-    src_transform = _as_transform(x.indexes[namex],
-                                  x.indexes[namey])
+    src_transform = _as_transform(ds.indexes[namex],
+                                  ds.indexes[namey])
     dst_transform = _as_transform(dimx, dimy)
     dst_shape = len(dimy), len(dimx)
-
 
     kwargs.update(dst_shape=dst_shape,
                   src_transform=src_transform,
@@ -218,16 +218,20 @@ def regrid(x, dimx, dimy, **kwargs):
         rio.warp.reproject(np.asarray(src), dst, **kwargs)
         return dst
 
+    data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
+    dtypes = {da.dtype for da in data_vars}
+    assert len(dtypes) == 1, "regrid can only reproject datasets with homogeneous dtype"
+
     return (
-        xr.apply_ufunc(_reproject, x,
-                       input_core_dims=[[namey, namex]],
-                       output_core_dims=[['yout', 'xout']],
-                       output_dtypes=[x.dtype],
-                       output_sizes={'yout': dst_shape[0], 'xout': dst_shape[1]},
-                       dask='parallelized',
-                       kwargs=kwargs)
-            .rename({'yout': namey, 'xout': namex})
-            .assign_coords(**{namey: (namey, dimy, ds.coords[namey].attrs),
-                              namex: (namex, dimx, ds.coords[namex].attrs)})
-            .assign_attrs(**x.attrs)
+        xr.apply_ufunc(_reproject, ds,
+                    input_core_dims=[[namey, namex]],
+                    output_core_dims=[['yout', 'xout']],
+                    output_dtypes=[dtypes.pop()],
+                    output_sizes={'yout': dst_shape[0], 'xout': dst_shape[1]},
+                    dask='parallelized',
+                    kwargs=kwargs)
+        .rename({'yout': namey, 'xout': namex})
+        .assign_coords(**{namey: (namey, dimy, ds.coords[namey].attrs),
+                            namex: (namex, dimx, ds.coords[namex].attrs)})
+        .assign_attrs(**ds.attrs)
     )
