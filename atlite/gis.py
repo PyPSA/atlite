@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 import scipy as sp, scipy.sparse
 from collections import OrderedDict
-from warnings import warn, DeprecationWarning
+from warnings import warn
 from six import string_types, iteritems
 from six.moves import map, range
 from itertools import product
