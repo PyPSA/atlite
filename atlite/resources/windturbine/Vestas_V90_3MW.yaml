@@ -1,0 +1,15 @@
+# Turbine characteristic data
+name: V90_3MW
+# The manufacturer of this turbine
+manufacturer: Vestas
+# Link to the original datasheet of the turbine
+source: http://nozebra.ipapercms.dk/Vestas/Communication/Productbrochure/V9030MW/V9030MWUK/
+
+# Hub height in meters
+HUB_HEIGHT: 80.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [0,2,4,4,5,6,7,8,9,10,11,12,13,14,15,25,25]
+# Generated power from the power curves in MW
+POW: [0.000,0.000,0.000,0.065,0.195,0.340,0.570,0.880,1.270,1.710,2.140,2.540,2.830,2.995,3.000,3.000,0.000]

@@ -1,0 +1,17 @@
+[windcfg]
+
+# Turbine characteristic data
+name = Siemens SWT 107 3600 kW
+# The manufacturer of this turbine
+manufacturer = Siemens
+# Link to the original datasheet of the turbine
+source = http://www.energy.siemens.com/hq/pool/hq/power-generation/renewables/wind-power/wind%20turbines/E50001-W310-A103-V6-4A00_WS_SWT_3_6_107_US.pdf
+
+# Hub height in meters
+HUB_HEIGHT = 90
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V = 0,1,2,3,4,4,5,6,7,8,9,10,11,12,13,14,25,25
+# Generated power from the power curves in MW
+POW = 0.0, 0.0, 0.0, 0.0, 0.0, 0.161, 0.351, 0.635, 1.026, 1.544, 2.204, 2.910, 3.399, 3.567, 3.596, 3.6, 3.6, 0.0

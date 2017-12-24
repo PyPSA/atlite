@@ -1,0 +1,23 @@
+model: huld
+name: cSi
+reference: Huld
+
+panel_efficiency: 0.1
+
+ # Panel temperature coefficient of ambient temperature
+c_temp_amb: 1
+# Panel temperature coefficient of irradiance
+c_temp_irrad: 0.035 # 0.035 degC / (W/m2)
+
+# Reference conditions
+r_tamb: 293 # 20 degC
+r_tmod: 298 # 25 degC
+r_irradiance: 1000 # W
+
+# Fitting parameters
+k_1: -0.017162
+k_2: -0.040289
+k_3: -0.004681
+k_4: 0.000148
+k_5: 0.000169
+k_6: 0.000005

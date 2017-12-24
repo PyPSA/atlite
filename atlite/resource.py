@@ -24,43 +24,37 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 from __future__ import absolute_import
 
 import os
+import yaml
 from six import string_types
 from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
-
-try:
-    from REatlas_client import reatlas_client
-
-    have_reatlas = True
-except ImportError:
-    have_reatlas = False
+from pkg_resources import resource_stream
 
 def get_windturbineconfig(turbine):
-    assert have_reatlas, "REatlas client is necessary for loading turbine configs"
-
-    fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'TurbineConfig', turbine + '.cfg')
-    turbineconf = reatlas_client.turbineconf_to_powercurve_object(fn)
+    res_name = "resources/windturbine/" + turbine + ".yaml"
+    turbineconf = yaml.load(resource_stream(__package__, res_name))
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
     return dict(V=V, POW=POW, hub_height=hub_height, P=max(POW))
 
 def get_solarpanelconfig(panel):
-    assert have_reatlas, "REatlas client is necessary for loading solar panel configs"
-
-    fn = os.path.join(os.path.dirname(reatlas_client.__file__), 'SolarPanelData', panel + '.cfg')
-    return reatlas_client.solarpanelconf_to_solar_panel_config_object(fn)
+    res_name = "resources/solarpanel/" + panel + ".yaml"
+    return yaml.load(resource_stream(__package__, res_name))
 
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
 
-    # one unit in the capacity layout is interpreted as one panel of a
-    # capacity (A + 1000 * B + log(1000) * C) * 1000W/m^2 * (k / 1000)
-
     if isinstance(panel, string_types):
         panel = get_solarpanelconfig(panel)
 
-    A, B, C = itemgetter('A', 'B', 'C')(panel)
-    return (A + B * 1000. + C * np.log(1000.))*1e3
+    model = panel.get('model', 'huld')
+    if model == 'huld':
+        return panel['efficiency']
+    elif model == 'bofinger':
+        # one unit in the capacity layout is interpreted as one panel of a
+        # capacity (A + 1000 * B + log(1000) * C) * 1000W/m^2 * (k / 1000)
+        A, B, C = itemgetter('A', 'B', 'C')(panel)
+        return (A + B * 1000. + C * np.log(1000.))*1e3
 
 def windturbine_rated_capacity_per_unit(turbine):
     if isinstance(turbine, string_types):

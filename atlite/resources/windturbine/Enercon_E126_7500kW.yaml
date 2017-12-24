@@ -1,0 +1,16 @@
+[windcfg]
+# Turbine characteristic data
+name = E135 7500 kW
+# The manufacturer of this turbine
+manufacturer = Enercon
+# Link to the original datasheet of the turbine
+source = http://www.enercon.de/p/downloads/EN_Productoverview_0710.pdf
+
+# Hub height in meters
+HUB_HEIGHT = 135
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V = 0,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,28,28
+# Generated power from the power curves in MW
+POW = 0.000,0.000,0.055,0.175,0.410,0.760,1.250,1.900,2.700,3.750,4.850,5.750,6.500,7.000,7.350,7.500,7.580,7.580,0.000

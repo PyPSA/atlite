@@ -1,0 +1,40 @@
+model: bofinger
+
+# Solar panel data
+name: Kaneka Hybrid
+# The manufacturer of this panel
+manufacturer: Kaneka
+# Link to the original datasheet of the panel
+source: http://www.kaneka-solar.com/products/pdf/U-EA.pdf
+
+# Solar radiation below which the panel stops giving useful power
+threshold: 1
+
+# Area of the solar panel in m^2
+area: 1.22
+# Rated production in watt peak
+rated_production: 89.3  
+
+# A. B. C are coefficients for the equation : efficiency = A + B*I + C*logI and
+# are calculated by using the three different values of solar
+# radiation and their peak powers at 25deg C module temperature for
+# corresponding radiations from the data sheet
+# That model comes from 
+A: 0.0659164166836276
+B: -4.44310393547043E-06
+C: 0.0122044905275824
+
+#temperature power coefficient given in data sheet
+D: -0.0035
+
+#Nominal Operating Cell Temperature given in data sheet
+NOCT: 318
+#STC (Standard testing Condition) module temperature in K
+Tstd: 298
+#NTC (Nomial testing Condition) ambient temperature in K
+Tamb: 293
+#NTC radiation in W/m2
+Intc: 800
+#Transmittance times absorptance for glass panel in front of solar cell
+ta: 0.9
+inverter_efficiency: 0.9
