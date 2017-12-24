@@ -95,6 +95,43 @@ def prepare_meta_era5(xs, ys, year, month, module):
 
         return ds.load()
 
+def prepare_for_sarah(year, month, xs, ys, dx, dy):
+    tmpdir = tempfile.mkdtemp()
+    fns = [os.path.join(tmpdir, '_{}{:02}_{}.nc'.format(year, month, i)) for i in range(2)]
+
+    tbeg = pd.Timestamp(year=year, month=month, day=1)
+    tend = tbeg + pd.offsets.MonthEnd()
+    def s(d): return d.strftime('%Y-%m-%d')
+    date1 = s(tbeg)+"/to/"+s(tend)
+    date2 = s(tbeg - pd.Timedelta(days=1))+"/to/"+s(tend) # Forecast data starts at 06:00 and 18:00
+    area='{:.1f}/{:.1f}/{:.1f}/{:.1f}'.format(ys.start, xs.start, ys.stop, xs.stop)
+    grid='{:.2f}/{:.2f}'.format(dx, dy)
+
+    with _get_data(fns[0], type='an', date=date1, area=area, grid=grid,
+                   time='/'.join('{:02}'.format(s) for s in range(0, 24)),
+                   param='167') as ds, \
+         _get_data(fns[1], type='fc', date=date2, area=area, grid=grid,
+                   time='06:00:00/18:00:00',
+                   step='0/1/2/3/4/5/6/7/8/9/10/11',
+                   param='212/169/176') as ds_fc:
+        ds = xr.merge([ds, ds_fc], join='left').load()
+    ds = _rename_and_clean_coords(ds)
+
+    ds = ds.rename({'t2m': 'temperature'})
+    ds = ds.rename({'tisr': 'influx_toa'})
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
+                        .assign_attrs(units='(0 - 1)', long_name='Albedo'))
+    ds = ds.drop(['ssrd', 'ssr'])
+
+    # Convert from energy to power J m**-2 -> W m**-2
+    ds['influx_toa'] /= 60.*60.
+    ds['influx_toa'].attrs['units'] = 'W m**-2'
+
+    shutil.rmtree(tmpdir)
+    return ds
+
 def prepare_month_era5(year, month, xs, ys):
     tmpdir = tempfile.mkdtemp()
 
