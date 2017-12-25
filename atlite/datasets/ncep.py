@@ -114,62 +114,68 @@ def convert_clip_lower(ds, variable, a_min, value):
     ds[variable] = ds[variable].where(ds[variable] > a_min).fillna(value)
     return ds
 
-def prepare_wnd10m_ncep(ds, yearmonth, xs, ys):
-    ds = convert_lons_lats_ncep(ds, xs, ys)
-    ds = convert_time_hourly_ncep(ds)
-    ds['wnd10m'] = np.sqrt(ds['VGRD_P0_L103_GGA0']**2 + ds['UGRD_P0_L103_GGA0']**2)
-    ds = ds.drop(['VGRD_P0_L103_GGA0', 'UGRD_P0_L103_GGA0'])
-    return [(yearmonth, ds)]
+def prepare_wnd10m_ncep(fn, yearmonth, xs, ys):
+    with xr.open_dataset(fn, engine=engine) as ds:
+        ds = convert_lons_lats_ncep(ds, xs, ys)
+        ds = convert_time_hourly_ncep(ds)
+        ds['wnd10m'] = np.sqrt(ds['VGRD_P0_L103_GGA0']**2 + ds['UGRD_P0_L103_GGA0']**2)
+        ds = ds.drop(['VGRD_P0_L103_GGA0', 'UGRD_P0_L103_GGA0'])
+        yield yearmonth, ds
 
 def prepare_influx_ncep(ds, yearmonth, xs, ys):
-    ds = convert_lons_lats_ncep(ds, xs, ys)
-    ds = convert_unaverage_ncep(ds)
-    ds = convert_time_hourly_ncep(ds)
+    with xr.open_dataset(fn, engine=engine) as ds:
+        ds = convert_lons_lats_ncep(ds, xs, ys)
+        ds = convert_unaverage_ncep(ds)
+        ds = convert_time_hourly_ncep(ds)
 
-    ds = ds.rename({'DSWRF_P8_L1_GGA0': 'influx'})
-    # clipping random fluctuations around zero
-    ds = convert_clip_lower(ds, 'influx', a_min=0.1, value=0.)
-    return [(yearmonth, ds)]
+        ds = ds.rename({'DSWRF_P8_L1_GGA0': 'influx'})
+        # clipping random fluctuations around zero
+        ds = convert_clip_lower(ds, 'influx', a_min=0.1, value=0.)
+        yield yearmonth, ds
 
-def prepare_outflux_ncep(ds, yearmonth, xs, ys):
-    ds = convert_lons_lats_ncep(ds, xs, ys)
-    ds = convert_unaverage_ncep(ds)
-    ds = convert_time_hourly_ncep(ds)
+def prepare_outflux_ncep(fn, yearmonth, xs, ys):
+    with xr.open_dataset(fn, engine=engine) as ds:
+        ds = convert_lons_lats_ncep(ds, xs, ys)
+        ds = convert_unaverage_ncep(ds)
+        ds = convert_time_hourly_ncep(ds)
 
-    ds = ds.rename({'USWRF_P8_L1_GGA0': 'outflux'})
-    # clipping random fluctuations around zero
-    ds = convert_clip_lower(ds, 'outflux', a_min=3., value=0.)
-    return [(yearmonth, ds)]
+        ds = ds.rename({'USWRF_P8_L1_GGA0': 'outflux'})
+        # clipping random fluctuations around zero
+        ds = convert_clip_lower(ds, 'outflux', a_min=3., value=0.)
+        yield yearmonth, ds
 
-def prepare_temperature_ncep(ds, yearmonth, xs, ys):
-    ds = convert_lons_lats_ncep(ds, xs, ys)
-    ds = convert_time_hourly_ncep(ds)
+def prepare_temperature_ncep(fn, yearmonth, xs, ys):
+    with xr.open_dataset(fn, engine=engine) as ds:
+        ds = convert_lons_lats_ncep(ds, xs, ys)
+        ds = convert_time_hourly_ncep(ds)
 
-    ds = ds.rename({'TMP_P0_L103_GGA0': 'temperature'})
-    return [(yearmonth, ds)]
+        ds = ds.rename({'TMP_P0_L103_GGA0': 'temperature'})
+        yield yearmonth, ds
 
-def prepare_runoff_ncep(ds, yearmonth, xs, ys):
-    ds = convert_lons_lats_ncep(ds, xs, ys)
-    # runoff has missing values: set nans to 0
-    ds = ds.fillna(0.)
-    ds = convert_unaccumulate_ncep(ds)
-    ds = convert_time_hourly_ncep(ds)
+def prepare_runoff_ncep(fn, yearmonth, xs, ys):
+    with xr.open_dataset(fn, engine=engine) as ds:
+        ds = convert_lons_lats_ncep(ds, xs, ys)
+        # runoff has missing values: set nans to 0
+        ds = ds.fillna(0.)
+        ds = convert_unaccumulate_ncep(ds)
+        ds = convert_time_hourly_ncep(ds)
 
-    ds = ds.rename({'WATR_P8_L1_GGA0': 'runoff'})
-    return [(yearmonth, ds)]
+        ds = ds.rename({'WATR_P8_L1_GGA0': 'runoff'})
+        yield yearmonth, ds
 
-def prepare_height_ncep(filename, xs, ys, yearmonths):
-    with xr.open_dataset(filename, engine=engine) as ds:
+def prepare_height_ncep(fn, xs, ys, yearmonths):
+    with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = ds.rename({'HGT_P0_L105_GGA0': 'height'})
-        ds = ds.load()
-        return [(ym, ds) for ym in yearmonths]
+        for ym in yearmonths:
+            yield ym, ds
 
-def prepare_roughness_ncep(ds, yearmonth, xs, ys):
-    ds = convert_lons_lats_ncep(ds, xs, ys)
-    ds = ds.rename({'SFCR_P8_L1_GGA0': 'roughness'})
-    ds = ds.assign_coords(year=yearmonth[0]).assign_coords(month=yearmonth[1])
-    return [(yearmonth, ds)]
+def prepare_roughness_ncep(fn, yearmonth, xs, ys):
+    with xr.open_dataset(fn, engine=engine) as ds:
+        ds = convert_lons_lats_ncep(ds, xs, ys)
+        ds = ds.rename({'SFCR_P8_L1_GGA0': 'roughness'})
+        ds = ds.assign_coords(year=yearmonth[0]).assign_coords(month=yearmonth[1])
+        yield yearmonth, ds
 
 def prepare_meta_ncep(xs, ys, year, month, template, height_config, module):
     fn = next(glob.iglob(template.format(year=year, month=month)))

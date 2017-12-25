@@ -40,7 +40,6 @@ from ..gis import RotProj
 model = 'MPI-M-MPI-ESM-LR'
 projection = RotProj(dict(proj='ob_tran', o_proj='latlong', lon_0=180,
                           o_lon_p=-162, o_lat_p=39.25))
-engine = None
 
 def rename_and_clean_coords(ds):
     ds = ds.rename({'rlon': 'x', 'rlat': 'y'})
@@ -49,35 +48,42 @@ def rename_and_clean_coords(ds):
                  & {'bnds', 'height', 'rotated_pole'})
     return ds
 
-def prepare_data_cordex(ds, year, months, oldname, newname, xs, ys):
-    ds = rename_and_clean_coords(ds)
-    ds = ds.rename({oldname: newname})
-    ds = ds.sel(x=xs, y=ys)
-    if newname in {'influx', 'outflux'}:
-        # shift averaged data to beginning of bin
-        ds = ds.assign_coords(time=pd.to_datetime(ds.coords["time"].values) - pd.Timedelta(hours=1.5))
-    if newname in {'runoff'}:
-        # shift and fill 6hr average data to beginning of 3hr bins
-        t = pd.to_datetime(ds.coords["time"].values)
-        ds = ds.reindex(method='bfill', time=(t - pd.Timedelta(hours=3.)).union(t))
-    return [((year, m), ds.sel(time="{}-{}".format(year, m)))
-            for m in months]
+def prepare_data_cordex(fn, year, months, oldname, newname, xs, ys):
+    with xr.open_dataset(fn) as ds:
+        ds = rename_and_clean_coords(ds)
+        ds = ds.rename({oldname: newname})
+        ds = ds.sel(x=xs, y=ys)
 
-def prepare_static_data_cordex(ds, year, months, oldname, newname, xs, ys):
-    ds = rename_and_clean_coords(ds)
-    ds = ds.rename({oldname: newname})
-    ds = ds.sel(x=xs, y=ys)
-    return [((year, m), ds)
-            for m in months]
+        if newname in {'influx', 'outflux'}:
+            # shift averaged data to beginning of bin
+            ds = ds.assign_coords(time=(pd.to_datetime(ds.coords["time"].values)
+                                        - pd.Timedelta(hours=1.5)))
+        elif newname in {'runoff'}:
+            # shift and fill 6hr average data to beginning of 3hr bins
+            t = pd.to_datetime(ds.coords["time"].values)
+            ds = ds.reindex(method='bfill', time=(t - pd.Timedelta(hours=3.)).union(t))
 
-def prepare_weather_types_cordex(ds, year, months, oldname, newname, xs, ys):
-    ds = ds.rename({oldname: newname})
-    return [((year, m), ds.sel(time="{}-{}".format(year, m)))
-            for m in months]
+        for m in months:
+            yield (year, m), ds.sel(time="{}-{}".format(year, m))
+
+def prepare_static_data_cordex(fn, year, months, oldname, newname, xs, ys):
+    with xr.open_dataset(fn) as ds:
+        ds = rename_and_clean_coords(ds)
+        ds = ds.rename({oldname: newname})
+        ds = ds.sel(x=xs, y=ys)
+
+        for m in months:
+            yield (year, m), ds
+
+def prepare_weather_types_cordex(fn, year, months, oldname, newname, xs, ys):
+    with xr.open_dataset(fn) as ds:
+        ds = ds.rename({oldname: newname})
+        for m in months:
+            yield (year, m), ds.sel(time="{}-{}".format(year, m))
 
 def prepare_meta_cordex(xs, ys, year, month, template, height_config, module, model=model):
     fn = next(glob.iglob(template.format(year=year, model=model)))
-    with xr.open_dataset(fn, engine=engine) as ds:
+    with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.coords.to_dataset()
         meta = ds.sel(time="{}-{}".format(year, month),
@@ -109,7 +115,6 @@ def tasks_yearly_cordex(xs, ys, yearmonths, prepare_func, template, oldname, new
     return [dict(prepare_func=prepare_func,
                  xs=xs, ys=ys, oldname=oldname, newname=newname,
                  fn=next(glob.iglob(template.format(year=year, model=model))),
-                 engine=engine,
                  year=year, months=list(map(itemgetter(1), yearmonths)))
             for year, yearmonths in groupby(yearmonths, itemgetter(0))]
 
@@ -143,13 +148,13 @@ weather_data_config = {
                    oldname='mrro', newname='runoff',
                    template=os.path.join(cordex_dir, '{model}', 'runoff', 'mrro_*_{year}*.nc')),
     'height': dict(tasks_func=tasks_yearly_cordex,
-                      prepare_func=prepare_static_data_cordex,
-                      oldname='orog', newname='height',
-                      template=os.path.join(cordex_dir, '{model}', 'altitude', 'orog_*.nc')),
+                   prepare_func=prepare_static_data_cordex,
+                   oldname='orog', newname='height',
+                   template=os.path.join(cordex_dir, '{model}', 'altitude', 'orog_*.nc')),
     'CWT': dict(tasks_func=tasks_yearly_cordex,
-                      prepare_func=prepare_weather_types_cordex,
-                      oldname='CWT', newname='CWT',
-                      template=os.path.join(cordex_dir, '{model}', 'weather_types', 'CWT_*_{year}*.nc')),
+                prepare_func=prepare_weather_types_cordex,
+                oldname='CWT', newname='CWT',
+                template=os.path.join(cordex_dir, '{model}', 'weather_types', 'CWT_*_{year}*.nc')),
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_cordex,

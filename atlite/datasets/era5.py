@@ -29,6 +29,8 @@ import tempfile
 import shutil
 from six.moves import range
 from contextlib import contextmanager
+import logging
+logger = logging.getLogger(__name__)
 
 try:
     from ecmwfapi import ECMWFDataServer
@@ -40,7 +42,7 @@ except ImportError:
 projection = 'latlong'
 
 @contextmanager
-def _get_data(target, **updates):
+def _get_data(target, chunks=None, **updates):
     if not has_ecmwfapi:
         raise RuntimeError(
             "Need installed ecmwfapi python package available from "
@@ -59,7 +61,7 @@ def _get_data(target, **updates):
     request.update(updates)
     server.retrieve(request)
 
-    with xr.open_dataset(target) as ds:
+    with xr.open_dataset(target, chunks=chunks) as ds:
         yield ds
 
     os.unlink(target)
@@ -73,9 +75,10 @@ def _add_height(ds):
     ds = ds.drop('z')
     return ds
 
-def _rename_and_clean_coords(ds):
+def _rename_and_clean_coords(ds, add_lon_lat=True):
     ds = ds.rename({'longitude': 'x', 'latitude': 'y'})
-    ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
+    if add_lon_lat:
+        ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     return ds
 
 def prepare_meta_era5(xs, ys, year, month, module):
@@ -95,7 +98,7 @@ def prepare_meta_era5(xs, ys, year, month, module):
 
         return ds.load()
 
-def prepare_for_sarah(year, month, xs, ys, dx, dy):
+def prepare_for_sarah(year, month, xs, ys, dx, dy, chunks=None):
     tmpdir = tempfile.mkdtemp()
     fns = [os.path.join(tmpdir, '_{}{:02}_{}.nc'.format(year, month, i)) for i in range(2)]
 
@@ -109,28 +112,32 @@ def prepare_for_sarah(year, month, xs, ys, dx, dy):
 
     with _get_data(fns[0], type='an', date=date1, area=area, grid=grid,
                    time='/'.join('{:02}'.format(s) for s in range(0, 24)),
-                   param='167') as ds, \
+                   param='167', chunks=chunks) as ds, \
          _get_data(fns[1], type='fc', date=date2, area=area, grid=grid,
                    time='06:00:00/18:00:00',
                    step='0/1/2/3/4/5/6/7/8/9/10/11',
-                   param='212/169/176') as ds_fc:
-        ds = xr.merge([ds, ds_fc], join='left').load()
-    ds = _rename_and_clean_coords(ds)
+                   param='212/169/176', chunks={}) as ds_fc:
+        ds = xr.merge([ds, ds_fc], join='left')
+        ds = _rename_and_clean_coords(ds, add_lon_lat=False)
 
-    ds = ds.rename({'t2m': 'temperature'})
-    ds = ds.rename({'tisr': 'influx_toa'})
+        ds = ds.rename({'t2m': 'temperature'})
+        ds = ds.rename({'tisr': 'influx_toa'})
 
-    with np.errstate(divide='ignore', invalid='ignore'):
+        logger.debug("Calculate albedo")
         ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
                         .assign_attrs(units='(0 - 1)', long_name='Albedo'))
-    ds = ds.drop(['ssrd', 'ssr'])
+        ds = ds.drop(['ssrd', 'ssr'])
 
-    # Convert from energy to power J m**-2 -> W m**-2
-    ds['influx_toa'] /= 60.*60.
-    ds['influx_toa'].attrs['units'] = 'W m**-2'
+        logger.debug("Fixing units of influx_toa")
+        # Convert from energy to power J m**-2 -> W m**-2
+        ds['influx_toa'] /= 60.*60.
+        ds['influx_toa'].attrs['units'] = 'W m**-2'
+
+        logger.debug("Yielding ERA5 results")
+        yield ds.chunk(chunks)
+        logger.debug("Cleaning up ERA5")
 
     shutil.rmtree(tmpdir)
-    return ds
 
 def prepare_month_era5(year, month, xs, ys):
     tmpdir = tempfile.mkdtemp()
@@ -157,45 +164,46 @@ def prepare_month_era5(year, month, xs, ys):
                    param='129/244') as ds_m:
 
         ds_m = ds_m.isel(time=0, drop=True)
-        ds = xr.merge([ds, ds_fc, ds_m], join='left').load()
+        ds = xr.merge([ds, ds_fc, ds_m], join='left')
+
+        ds = _rename_and_clean_coords(ds)
+        ds = _add_height(ds)
+
+        # Help on the radiation quantities is in
+        # https://www.ecmwf.int/sites/default/files/radiation_in_mars.pdf
+        # TISR Top Incident Solar Radiation 212
+        # SSRD Surface Solar Rad Downwards 169
+        # SSR Surface net Solar Radiation 176
+        # FDIR Direct solar radiation at surface 21.228
+        ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
+        with np.errstate(divide='ignore', invalid='ignore'):
+            ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
+                            .assign_attrs(units='(0 - 1)', long_name='Albedo'))
+        ds['influx_diffuse'] = ((ds['ssrd'] - ds['influx_direct'])
+                                .assign_attrs(units='J m**-2',
+                                            long_name='Surface diffuse solar radiation downwards'))
+        ds = ds.drop(['ssrd', 'ssr'])
+
+        # Convert from energy to power J m**-2 -> W m**-2
+        for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
+            ds[a] /= 60.*60.
+            ds[a].attrs['units'] = 'W m**-2'
+
+        ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
+                        .assign_attrs(units=ds['u100'].attrs['units'],
+                                    long_name="100 metre wind speed"))
+        ds = ds.drop(['u100', 'v100'])
+
+        ds = ds.rename({'fsr': 'roughness'})
+
+        ds = ds.rename({'ro': 'runoff',
+                        't2m': 'temperature',
+                        'sp': 'pressure'})
+
+        yield (year, month), ds
 
     shutil.rmtree(tmpdir)
 
-    ds = _rename_and_clean_coords(ds)
-    ds = _add_height(ds)
-
-    # Help on the radiation quantities is in
-    # https://www.ecmwf.int/sites/default/files/radiation_in_mars.pdf
-    # TISR Top Incident Solar Radiation 212
-    # SSRD Surface Solar Rad Downwards 169
-    # SSR Surface net Solar Radiation 176
-    # FDIR Direct solar radiation at surface 21.228
-    ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
-    with np.errstate(divide='ignore', invalid='ignore'):
-        ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
-                        .assign_attrs(units='(0 - 1)', long_name='Albedo'))
-    ds['influx_diffuse'] = ((ds['ssrd'] - ds['influx_direct'])
-                            .assign_attrs(units='J m**-2',
-                                          long_name='Surface diffuse solar radiation downwards'))
-    ds = ds.drop(['ssrd', 'ssr'])
-
-    # Convert from energy to power J m**-2 -> W m**-2
-    for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
-        ds[a] /= 60.*60.
-        ds[a].attrs['units'] = 'W m**-2'
-
-    ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
-                     .assign_attrs(units=ds['u100'].attrs['units'],
-                                   long_name="100 metre wind speed"))
-    ds = ds.drop(['u100', 'v100'])
-
-    ds = ds.rename({'fsr': 'roughness'})
-
-    ds = ds.rename({'ro': 'runoff',
-                    't2m': 'temperature',
-                    'sp': 'pressure'})
-
-    return [((year, month), ds)]
 
 def tasks_monthly_era5(xs, ys, yearmonths, prepare_func, meta_attrs):
     if not isinstance(xs, slice):
