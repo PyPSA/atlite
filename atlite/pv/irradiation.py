@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+import logging
+logger = logging.getLogger(__name__)
 
 def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
     # Clearsky model from Reindl 1990 to split downward radiation into direct
@@ -97,7 +99,7 @@ def TiltedDirectIrrad(solar_position, surface_orientation, direct):
     # geometric factor
     R_b = cosincidence / sinaltitude
 
-    return (R_b * beam).rename('direct tilted')
+    return (R_b * direct).rename('direct tilted')
 
 def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
     surface_slope = surface_orientation['slope']

@@ -20,10 +20,8 @@ def _power_huld(irradiance, t_amb, pc):
     """
 
     capacity = 1.
-    panel_efficiency = pc.get('panel_efficiency', 0.1)
-
-    panel_ref_efficiency = pc['panel_efficiency'],
-    area_per_capacity = 1. / pc['panel_efficiency']
+    ref_efficiency = pc['efficiency']
+    area_per_capacity = 1. / ref_efficiency
 
     panel_aperture = 1 # capacity * area_per_capacity
 
@@ -42,8 +40,8 @@ def _power_huld(irradiance, t_amb, pc):
         return eff
 
     return (irradiance * panel_aperture
-            * panel_relative_efficiency(irradiance, t_amb)
-            * panel_ref_efficiency)*1e-3
+            * relative_efficiency(irradiance, t_amb)
+            * ref_efficiency)*1e-3
 
 def _power_bofinger(irradiance, t_amb, pc):
     """

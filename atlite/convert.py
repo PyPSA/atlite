@@ -140,7 +140,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
                 ds = ds.sel(**cutout.meta.attrs['view'])
             da = convert_func(ds, **convert_kwds)
             results.append(aggregate_func(da, **aggregate_kwds).load())
-    if 'time' in results[0]:
+    if 'time' in results[0].coords:
         results = xr.concat(results, dim='time')
     else:
         results = sum(results)

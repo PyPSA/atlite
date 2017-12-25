@@ -2,7 +2,7 @@ model: huld
 name: cSi
 reference: Huld
 
-panel_efficiency: 0.1
+efficiency: 0.1
 
  # Panel temperature coefficient of ambient temperature
 c_temp_amb: 1
