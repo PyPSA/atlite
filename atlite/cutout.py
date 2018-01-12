@@ -46,6 +46,11 @@ class Cutout(object):
         self.cutout_dir = os.path.join(cutout_dir, name)
         self.prepared = False
 
+        if 'bounds' in cutoutparams:
+            x1, y1, x2, y2 = cutoutparams.pop('bounds')
+            cutoutparams.update(xs=slice(x1, x2),
+                                ys=slice(y2, y1))
+
         if os.path.isdir(self.cutout_dir):
             self.meta = meta = xr.open_dataset(self.datasetfn()).stack(**{'year-month': ('year', 'month')})
             # check datasets very rudimentarily, series and coordinates should be checked as well
