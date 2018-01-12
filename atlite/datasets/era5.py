@@ -154,7 +154,7 @@ def prepare_month_era5(year, month, xs, ys):
     # https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation
     with _get_data(fns[0], type='an', date=date1, area=area,
                    time='/'.join('{:02}'.format(s) for s in range(0, 24)),
-                   param='134/167/246.228/247.228') as ds, \
+                   param='134/167/246.228/247.228/236') as ds, \
          _get_data(fns[1], type='fc', date=date2, area=area,
                    time='06:00:00/18:00:00',
                    step='0/1/2/3/4/5/6/7/8/9/10/11',
@@ -194,11 +194,17 @@ def prepare_month_era5(year, month, xs, ys):
                                     long_name="100 metre wind speed"))
         ds = ds.drop(['u100', 'v100'])
 
+        # FSR Forecast surface roughness 244
         ds = ds.rename({'fsr': 'roughness'})
 
+        # RO Runoff 205
+        # T2m 2 metre temperature 167
+        # SP Surface pressure 134
+        # STL4 Soil temperature level 4 236
         ds = ds.rename({'ro': 'runoff',
                         't2m': 'temperature',
-                        'sp': 'pressure'})
+                        'sp': 'pressure',
+                        'stl4': 'soil temperature'})
 
         yield (year, month), ds
 
