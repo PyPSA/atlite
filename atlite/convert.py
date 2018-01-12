@@ -180,6 +180,26 @@ def temperature(cutout, **params):
 
 
 
+## soil temperature
+
+
+def convert_soil_temperature(ds):
+    """Return soil temperature (useful for e.g. heat pump T-dependent
+    coefficient of performance).
+    """
+
+    #Temperature is in Kelvin
+
+    #There are nans where there is sea; by setting them
+    #to zero we guarantee they do not contribute when multiplied
+    #by matrix in atlite/aggregate.py
+    return (ds['soil temperature'] - 273.15).fillna(0.)
+
+def soil_temperature(cutout, **params):
+    return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
+
+
+
 ## heat demand
 
 def convert_heat_demand(ds, threshold, a, constant, hour_shift):

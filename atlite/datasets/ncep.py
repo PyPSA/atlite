@@ -152,6 +152,14 @@ def prepare_temperature_ncep(fn, yearmonth, xs, ys):
         ds = ds.rename({'TMP_P0_L103_GGA0': 'temperature'})
         yield yearmonth, ds
 
+def prepare_soil_temperature_ncep(fn, yearmonth, xs, ys):
+    with xr.open_dataset(fn, engine=engine) as ds:
+        ds = convert_lons_lats_ncep(ds, xs, ys)
+        ds = convert_time_hourly_ncep(ds)
+
+        ds = ds.rename({'TMP_P0_2L106_GGA0': 'soil temperature'})
+        yield yearmonth, ds
+
 def prepare_runoff_ncep(fn, yearmonth, xs, ys):
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
@@ -222,6 +230,9 @@ weather_data_config = {
     'temperature': dict(tasks_func=tasks_monthly_ncep,
                         prepare_func=prepare_temperature_ncep,
                         template=os.path.join(ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2')),
+    'soil temperature': dict(tasks_func=tasks_monthly_ncep,
+                             prepare_func=prepare_soil_temperature_ncep,
+                             template=os.path.join(ncep_dir, '{year}{month:0>2}/soilt1.*.grb2')),
     'wnd10m': dict(tasks_func=tasks_monthly_ncep,
                    prepare_func=prepare_wnd10m_ncep,
                    template=os.path.join(ncep_dir, '{year}{month:0>2}/wnd10m.*.grb2')),
