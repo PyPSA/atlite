@@ -115,7 +115,7 @@ def prepare_for_sarah(year, month, xs, ys, dx, dy, chunks=None):
                    param='167', chunks=chunks) as ds, \
          _get_data(fns[1], type='fc', date=date2, area=area, grid=grid,
                    time='06:00:00/18:00:00',
-                   step='0/1/2/3/4/5/6/7/8/9/10/11',
+                   step='1/2/3/4/5/6/7/8/9/10/11/12',
                    param='212/169/176', chunks={}) as ds_fc:
         ds = xr.merge([ds, ds_fc], join='left')
         ds = _rename_and_clean_coords(ds, add_lon_lat=False)
@@ -157,7 +157,7 @@ def prepare_month_era5(year, month, xs, ys):
                    param='134/167/246.228/247.228/236') as ds, \
          _get_data(fns[1], type='fc', date=date2, area=area,
                    time='06:00:00/18:00:00',
-                   step='0/1/2/3/4/5/6/7/8/9/10/11',
+                   step='1/2/3/4/5/6/7/8/9/10/11/12',
                    param='212/169/176/21.228/205') as ds_fc, \
          _get_data(fns[2], type='an', date=date3, area=area,
                    stream='moda', # Monthly means of daily means
