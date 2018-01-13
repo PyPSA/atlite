@@ -25,6 +25,7 @@ from __future__ import absolute_import
 import pandas as pd
 import numpy as np
 import xarray as xr
+from functools import partial
 import pyproj
 from six import iteritems
 from itertools import groupby
@@ -94,6 +95,32 @@ def prepare_month_sarah(era5_func, xs, ys, year, month, template_sis, template_s
         ds = xr.merge([ds_sis, ds_sid])
 
         ds = _rename_and_clean_coords(ds, add_lon_lat=False)
+        ds = ds.sel(x=as_slice(xs), y=as_slice(ys))
+
+        def interpolate(ds, dim='time'):
+            def _interpolate1d(y):
+                nan = np.isnan(y)
+                if nan.all(): return y
+                x = lambda z: z.nonzero()[0]
+                y[nan] = np.interp(x(nan), x(~nan), y[~nan])
+                return y
+
+            def _interpolate(a):
+                return a.map_blocks(partial(np.apply_along_axis, _interpolate1d, -1), dtype=a.dtype)
+
+            data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
+            dtypes = {da.dtype for da in data_vars}
+            assert len(dtypes) == 1, "interpolate only supports datasets with homogeneous dtype"
+
+            return xr.apply_ufunc(_interpolate, ds,
+                                input_core_dims=[[dim]],
+                                output_core_dims=[[dim]],
+                                output_dtypes=[dtypes.pop()],
+                                output_sizes={dim: len(ds.indexes[dim])},
+                                dask='allowed',
+                                keep_attrs=True)
+
+        ds = interpolate(ds)
 
         def hourly_mean(ds):
             ds1 = ds.isel(time=slice(None, None, 2))
@@ -104,7 +131,8 @@ def prepare_month_sarah(era5_func, xs, ys, year, month, template_sis, template_s
             for v in ds.variables:
                 ds[v].attrs = ds1[v].attrs
             return ds
-        ds = hourly_mean(ds.sel(x=as_slice(xs), y=as_slice(ys)))
+
+        ds = hourly_mean(ds)
 
         ds['influx_diffuse'] = ((ds['SIS'] - ds['SID'])
                                 .assign_attrs(long_name='Surface Diffuse Shortwave Flux',
