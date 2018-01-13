@@ -69,12 +69,12 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
 
     influx = direct + diffuse
 
-    # brightening factor
     with np.errstate(divide='ignore', invalid='ignore'):
+        # brightening factor
         f = np.sqrt(direct / influx).fillna(0.)
 
-    # anisotropy factor
-    A = direct / atmospheric_insolation
+        # anisotropy factor
+        A = direct / atmospheric_insolation
 
     # geometric factor
     R_b = cosincidence / sinaltitude
@@ -86,9 +86,7 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
     # fixup: clip all negative values (unclear why it gets negative)
     # note: REatlas does not do the fixup
     with np.errstate(invalid='ignore'):
-        if (diffuse_t.values < 0.).any():
-            logger.warn('diffuse_t exhibits negative values, clipping.')
-            diffuse_t.values[diffuse_t.values < 0.] = 0.
+        diffuse_t.values[np.isnan(diffuse_t.values) | (diffuse_t.values < 0.)] = 0.
 
     return diffuse_t.rename('diffuse tilted')
 
