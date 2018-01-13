@@ -184,9 +184,9 @@ def prepare_month_era5(year, month, xs, ys):
                                             long_name='Surface diffuse solar radiation downwards'))
         ds = ds.drop(['ssrd', 'ssr'])
 
-        # Convert from energy to power J m**-2 -> W m**-2
+        # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
         for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
-            ds[a] /= 60.*60.
+            ds[a] = ds[a].clip(min=0.) / (60.*60.)
             ds[a].attrs['units'] = 'W m**-2'
 
         ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
