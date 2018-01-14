@@ -37,4 +37,5 @@ Tamb: 293
 Intc: 800
 #Transmittance times absorptance for glass panel in front of solar cell
 ta: 0.9
+
 inverter_efficiency: 0.9

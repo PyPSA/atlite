@@ -1,7 +1,8 @@
 model: huld
-name: cSi
+name: CdTe
 source: Huld 2010
 
+# Used for calculating capacity per m2
 efficiency: 0.1
 
  # Panel temperature coefficient of ambient temperature
@@ -21,3 +22,5 @@ k_3: -0.001667
 k_4: -0.002075
 k_5: -0.001445
 k_6: -0.000023
+
+inverter_efficiency: 0.9
