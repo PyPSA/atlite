@@ -1,16 +1,15 @@
-[windcfg]
 # Turbine characteristic data
-name = E101 3000 kW
+name: E101 3000 kW
 # The manufacturer of this turbine
-manufacturer = Enercon
+manufacturer: Enercon
 # Link to the original datasheet of the turbine
-source = http://www.enercon.de/p/downloads/EN_Productoverview_0710.pdf
+source: http://www.enercon.de/p/downloads/EN_Productoverview_0710.pdf
 
 # Hub height in meters
-HUB_HEIGHT = 99
+HUB_HEIGHT: 99
 # Power curve, specified as lists of velocities and powers, including
 # cut-in and cut-out speeds
 # Power curve velocities in m/s
-V = 0,1,2,3,4,5,6,7,8,9,10,11,12,13,28,28
+V: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,28,28]
 # Generated power from the power curves in MW
-POW = 0.000,0.000,0.003,0.037,0.118,0.258,0.479,0.790,1.200,1.710,2.340,2.867,3.034,3.050,3.050,0.000
+POW: [0.000,0.000,0.003,0.037,0.118,0.258,0.479,0.790,1.200,1.710,2.340,2.867,3.034,3.050,3.050,0.000]

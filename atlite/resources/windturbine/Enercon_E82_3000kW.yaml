@@ -1,16 +1,15 @@
-[windcfg]
 # Turbine characteristic data
-name = E82 3000 kW
+name: E82 3000 kW
 # The manufacturer of this turbine
-manufacturer = Enercon
+manufacturer: Enercon
 # Link to the original datasheet of the turbine
-source = http://www.enercon.de/p/downloads/EN_Productoverview_0710.pdf
+source: http://www.enercon.de/p/downloads/EN_Productoverview_0710.pdf
 
 # Hub height in meters
-HUB_HEIGHT = 85
+HUB_HEIGHT: 85
 # Power curve, specified as lists of velocities and powers, including
 # cut-in and cut-out speeds
 # Power curve velocities in m/s
-V = 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,28,28
+V: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,28,28]
 # Generated power from the power curves in MW
-POW = 0.000,0.000,0.003,0.025,0.082,0.174,0.321,0.532,0.815,1.180,1.580,1.900,2.200,2.480,2.700,2.850,2.950,3.020,3.020,0.000
+POW: [0.000,0.000,0.003,0.025,0.082,0.174,0.321,0.532,0.815,1.180,1.580,1.900,2.200,2.480,2.700,2.850,2.950,3.020,3.020,0.000]
