@@ -47,9 +47,9 @@ from .resource import (get_windturbineconfig, get_solarpanelconfig,
 
 def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None, shapes=None,
-                          shapes_proj='latlong', unit_capacity=None,
-                          per_unit=False, return_units=False,
-                          capacity_factor=False, **convert_kwds):
+                          shapes_proj='latlong', per_unit=False,
+                          return_capacity=False, capacity_factor=False,
+                          **convert_kwds):
     """
     Convert and aggregate a weather-based renewable generation
     time-series.
@@ -66,7 +66,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     index : pd.Index
         Buses
     layout : X x Y - np.array or xr.DataArray
-        The number of units to be build in each of the `grid_cells`.
+        The capacity to be build in each of the `grid_cells`.
     shapes : list or pd.Series of shapely.geometry.Polygon
         If given, matrix is constructed as indicatormatrix of the
         polygons, its index determines the bus index on the
@@ -78,8 +78,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     per_unit : boolean
         Returns the time-series in per-unit units, instead of in MW
         (defaults to False).
-    return_units : boolean
-        Additionally returns the installed units at each bus
+    return_capacity : boolean
+        Additionally returns the installed capacity at each bus
         corresponding to `layout` (defaults to False).
     capacity_factor : boolean
         If True, the capacity factor of the chosen resource for each
@@ -99,8 +99,6 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     ---------------------------------------------------
     convert_func : Function
         Callback like convert_wind, convert_pv
-    unit_capacity : float
-        Capacity in MW for one unit of the resource
     """
     assert cutout.prepared, "The cutout has to be prepared first."
 
@@ -148,18 +146,18 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     if capacity_factor:
         assert aggregate_func is aggregate_sum, \
             "The arguments `matrix`, `shapes` and `layout` are incompatible with capacity_factor"
-        results /= len(cutout.meta['time']) * unit_capacity
+        results /= len(cutout.meta['time'])
 
-    if per_unit or return_units:
+    if per_unit or return_capacity:
         assert aggregate_func is aggregate_matrix, \
             "One of `matrix`, `shapes` and `layout` must be given for `per_unit`"
-        units = xr.DataArray(np.asarray(matrix.sum(axis=1)).squeeze(), [index])
+        capacity = xr.DataArray(np.asarray(matrix.sum(axis=1)).squeeze(), [index])
 
     if per_unit:
-        results = (results / (units * unit_capacity)).fillna(0.)
+        results = (results / capacity).fillna(0.)
 
-    if return_units:
-        return results, units
+    if return_capacity:
+        return results, capacity
     else:
         return results
 
@@ -333,17 +331,20 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.},
 ## wind
 
 def convert_wind(ds, turbine):
-    V, POW, hub_height = itemgetter('V', 'POW', 'hub_height')(turbine)
+    V, POW, hub_height, P = itemgetter('V', 'POW', 'hub_height', 'P')(turbine)
 
     ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002
+
     for data_height in (100, 10):
         data_name = 'wnd%dm' % data_height
         if data_name in ds.data_vars: break
     else:
         raise AssertionError("Wind speed is not in dataset")
 
-    wnd_hub = ds[data_name] * (np.log(hub_height/ds['roughness']) / np.log(data_height/ds['roughness']))
-    wind_energy = xr.DataArray(np.interp(wnd_hub,V,POW), coords=wnd_hub.coords)
+    wnd_hub = ds[data_name] * (np.log(hub_height/ds['roughness']) /
+                               np.log(data_height/ds['roughness']))
+    wind_energy = xr.DataArray(np.interp(wnd_hub, V, np.asarray(POW)/P),
+                               coords=wnd_hub.coords)
     return wind_energy
 
 def wind(cutout, turbine, smooth=False, **params):
@@ -381,10 +382,8 @@ def wind(cutout, turbine, smooth=False, **params):
     if smooth:
         turbine = windturbine_smooth(turbine, params=smooth)
 
-    unit_capacity = windturbine_rated_capacity_per_unit(turbine)
-
     return cutout.convert_and_aggregate(convert_func=convert_wind, turbine=turbine,
-                                        unit_capacity=unit_capacity, **params)
+                                        **params)
 
 ## solar PV
 
@@ -446,11 +445,9 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
     if not callable(orientation):
         orientation = get_orientation(orientation)
 
-    unit_capacity = solarpanel_rated_capacity_per_unit(panel)
     return cutout.convert_and_aggregate(convert_func=convert_pv,
                                         panel=panel, orientation=orientation,
                                         clearsky_model=clearsky_model,
-                                        unit_capacity=unit_capacity,
                                         **params)
 
 ## hydro
