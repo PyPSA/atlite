@@ -1,0 +1,15 @@
+# Turbine characteristic data
+name: Bonus B1000 1000 kW
+# The manufacturer of this turbine
+manufacturer: Bonus
+# Link to the original datasheet of the turbine
+source: http://cordis.europa.eu/documents/documentlibrary/47698371EN6.pdf
+
+# Hub height in meters
+HUB_HEIGHT: 48
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [3,4,4,5,6,7,8,9,10,11,12,13,14,15,16,17,19,25,25]
+# Generated power from the power curves in MW
+POW: [0,0,0.024,0.069,0.133,0.219,0.333,0.468,0.598,0.730,0.850,0.928,0.973,0.990,0.997,0.999,1.0,1.0,0.0]

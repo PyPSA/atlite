@@ -1,0 +1,15 @@
+# Turbine characteristic data
+name: S82 1.5 MW
+# The manufacturer of this turbine
+manufacturer: Suzlon
+# Link to the original datasheet of the turbine
+source: http://www.suzlon.com/pdf/S82%20product%20brochure.pdf
+
+# Hub height in meters
+HUB_HEIGHT: 79.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [0,3,4,5,6,7,8,9,10,11,12,13,14,20,20]
+# Generated power from the power curves in MW
+POW: [0.000,0.000,0.010,0.095,0.230,0.460,0.725,0.980,1.200,1.380,1.450,1.490,1.500,1.500,0.000]

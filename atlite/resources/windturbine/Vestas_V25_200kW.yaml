@@ -1,0 +1,15 @@
+# Turbine characteristic data
+name: Vestas V25 200 kW
+# The manufacturer of this turbine
+manufacturer: Vestas
+# Link to the original datasheet of the turbine
+source: http://www.kulak.com.pl/Wiatraki/pdf/vestas%20v25.pdf
+
+# Hub height in meters
+HUB_HEIGHT: 29
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 14, 25, 25]
+# Generated power from the power curves in MW
+POW: [0, 0.0036, 0.0123, 0.0244, 0.0399, 0.0634, 0.0902, 0.1189, 0.1457, 0.1712, 0.1951, 0.2001, 0.2, 0.2, 0]

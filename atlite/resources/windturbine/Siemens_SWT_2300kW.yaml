@@ -1,0 +1,15 @@
+# Turbine characteristic data
+name: SWT-2.3-93
+# The manufacturer of this turbine
+manufacturer: Siemens
+# Link to the original datasheet of the turbine
+source: http://www.energy.siemens.com/mx/pool/hq/power-generation/wind-power/E50001-W310-A102-V6-4A00_WS_SWT-2.3-93_US.pdf
+
+# Hub height in meters
+HUB_HEIGHT: 80.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [0,4,4,5,6,7,8,9,10,11,12,13,14,25,25]
+# Generated power from the power curves in MW
+POW: [0.0,0.0,0.098,0.21,0.376,0.608,0.914,1.312,1.784,2.164,2.284,2.299,2.3,2.3,0.0]

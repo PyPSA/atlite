@@ -1,0 +1,15 @@
+# Turbine characteristic data
+name: Vestas V66 1750 kW
+# The manufacturer of this turbine
+manufacturer: Vestas
+# Link to the original datasheet of the turbine
+source: http://www.nrg-systems.hu/dok/de/V66%201,75%20MW%20EN.pdf
+
+# Hub height in meters
+HUB_HEIGHT: 67
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [0,1,2,3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,19,20,21,22,23,24, 25, 25]
+# Generated power from the power curves in MW
+POW: [0,0,0,0,0.0333,0.0939,0.178,0.294,0.452,0.655,0.900,1.167,1.418,1.603,1.702,1.748,1.750,1.750,1.750,1.750,1.750,1.750,1.750,1.750,1.750,1.750,0.0]
