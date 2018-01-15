@@ -22,12 +22,19 @@ heating demand.
 Atlite is designed to be modular, so that it can work with any weather
 datasets. It currently has modules for the following datasets:
 
-* `NCEP Climate Forecast System
-  <http://rda.ucar.edu/datasets/ds094.1/>`_ hourly historical
-  reanalysis weather data available on a 0.2 x 0.2 degree global grid
-* `EURO-CORDEX Climate Change Projection
-  <http://www.euro-cordex.net/>`_ three-hourly up until 2100, available
-  on a 0.11 x 0.11 degree grid for Europe
+* `NCEP Climate Forecast System <http://rda.ucar.edu/datasets/ds094.1/>`_ hourly
+  historical reanalysis weather data available on a 0.2 x 0.2 degree global grid
+* `EURO-CORDEX Climate Change Projection <http://www.euro-cordex.net/>`_
+  three-hourly up until 2100, available on a 0.11 x 0.11 degree grid for Europe
+* `ECMWF ERA5
+  <https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation>`_ hourly
+  historical reanalysis weather data on an approximately 0.3 x 0.3 deg global
+  grid
+* `CMSAF SARAH-2
+  <https://wui.cmsaf.eu/safira/action/viewDoiDetails?acronym=SARAH_V002>`_
+  half-hourly historical surface radiation on a 0.05 x 0.05 deg grid available
+  for Europe and Africa (automatically interpolated to a 0.2 deg grid and
+  combined with ERA5 temperature).
 
 It can process the following weather data fields:
 
@@ -38,6 +45,7 @@ It can process the following weather data fields:
 * Runoff
 * Surface roughness
 * Height maps
+* Soil temperature
 
 The following power-system relevant time series can be produced for
 all possible spatial distributions of assets:
@@ -48,7 +56,7 @@ all possible spatial distributions of assets:
 * Hydroelectric inflow (simplified)
 * Heating demand (based on the degree-day approximation)
 
-As of 2017 REAtlite is under heavy development and therefore it is
+As of 2018 Atlite is under heavy development and therefore it is
 recommended to use caution when using it in a production environment.
 
 Citation for Aarhus University RE
@@ -70,7 +78,8 @@ Getting started
 ===============
 
 * Install atlite from this repository with all its library dependencies
-* Download one of the weather datasets listed above
+* Download one of the weather datasets listed above (ERA5 is downloaded
+  automatically)
 * Adjust the `atlite/config.py <atlite/config.py>`_ directory paths to
   point to the directory where you downloaded the dataset
 * Create a cutout, i.e. a geographical rectangle and a selection of
