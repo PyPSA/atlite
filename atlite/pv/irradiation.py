@@ -119,12 +119,12 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, a
     influx_toa = solar_position['atmospheric insolation']
 
     if 'influx' in ds:
-        influx = ds['influx'].clip(min=0., max=influx_toa)
+        influx = ds['influx'].clip(min=0., max=influx_toa.transpose(*ds['influx'].dims))
         diffuse = DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx)
         direct = influx - diffuse
     elif 'influx_direct' in ds and 'influx_diffuse' in ds:
-        direct = ds['influx_direct'].clip(min=0., max=influx_toa)
-        diffuse = ds['influx_diffuse'].clip(min=0., max=influx_toa)
+        direct = ds['influx_direct'].clip(min=0., max=influx_toa.transpose(*direct.dims))
+        diffuse = ds['influx_diffuse'].clip(min=0., max=influx_toa.transpose(*diffuse.dims))
     else:
         raise AssertionError("Need either influx or influx_direct and influx_diffuse in the dataset. Check your cutout and dataset module.")
 
