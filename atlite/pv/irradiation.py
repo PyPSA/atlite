@@ -99,9 +99,7 @@ def TiltedDirectIrrad(solar_position, surface_orientation, direct):
 
     return (R_b * direct).rename('direct tilted')
 
-def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
-    surface_slope = surface_orientation['slope']
-
+def _albedo(ds):
     if 'albedo' in ds:
         albedo = ds['albedo']
     elif 'outflux' in ds:
@@ -111,28 +109,44 @@ def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
     else:
         raise AssertionError("Need either albedo or outflux as a variable in the dataset. Check your cutout and dataset module.")
 
-    ground_t = influx * albedo * (1.0 - np.cos(surface_slope)) / 2.0
+    return albedo
+
+def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
+    surface_slope = surface_orientation['slope']
+    ground_t = influx * _albedo(ds) * (1.0 - np.cos(surface_slope)) / 2.0
     return ground_t.rename('ground tilted')
 
-def TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model, altitude_threshold=1.):
+def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, clearsky_model, altitude_threshold=1.):
 
     influx_toa = solar_position['atmospheric insolation']
+    def clip(influx, influx_max):
+        return influx.clip(min=0., max=influx_max.transpose(*influx.dims))
 
     if 'influx' in ds:
-        influx = ds['influx'].clip(min=0., max=influx_toa.transpose(*ds['influx'].dims))
+        influx = clip(ds['influx'], influx_toa)
         diffuse = DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx)
         direct = influx - diffuse
     elif 'influx_direct' in ds and 'influx_diffuse' in ds:
-        direct = ds['influx_direct'].clip(min=0., max=influx_toa.transpose(*direct.dims))
-        diffuse = ds['influx_diffuse'].clip(min=0., max=influx_toa.transpose(*diffuse.dims))
+        direct = clip(ds['influx_direct'], influx_toa)
+        diffuse = clip(ds['influx_diffuse'], influx_toa - direct)
     else:
         raise AssertionError("Need either influx or influx_direct and influx_diffuse in the dataset. Check your cutout and dataset module.")
 
-    diffuse_t = TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
-    direct_t = TiltedDirectIrrad(solar_position, surface_orientation, direct)
-    ground_t = TiltedGroundIrrad(ds, solar_position, surface_orientation, direct + diffuse)
+    if trigon_model == 'simple':
+        k = surface_orientation['cosincidence'] / solar_position['sinaltitude']
+        cos_surface_slope = np.cos(surface_orientation['slope'])
 
-    total_t = (direct_t + diffuse_t + ground_t).rename('total tilted')
+        direct_t = k * direct
+        diffuse_t = ((1. + cos_surface_slope) / 2. * diffuse +
+                    _albedo(ds) * (direct + diffuse) * ((1. - cos_surface_slope) / 2.))
+
+        total_t = direct_t.fillna(0.) + diffuse_t.fillna(0.)
+    else:
+        diffuse_t = TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
+        direct_t = TiltedDirectIrrad(solar_position, surface_orientation, direct)
+        ground_t = TiltedGroundIrrad(ds, solar_position, surface_orientation, direct + diffuse)
+
+        total_t = (direct_t + diffuse_t + ground_t).rename('total tilted')
 
     cap_alt = solar_position['sinaltitude'] < np.sin(np.deg2rad(altitude_threshold))
     total_t.values[(cap_alt | (direct+diffuse <= 0.01)).transpose(*total_t.dims).values] = 0.
