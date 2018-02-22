@@ -85,6 +85,10 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
 
     # fixup: clip all negative values (unclear why it gets negative)
     # note: REatlas does not do the fixup
+    if logger.isEnabledFor(logging.WARNING):
+        if ((diffuse_t < 0.) & (sinaltitude > np.sin(np.deg2rad(1.)))).any():
+            logger.warn('diffuse_t exhibits negative values above altitude threshold.')
+
     with np.errstate(invalid='ignore'):
         diffuse_t.values[np.isnan(diffuse_t.values) | (diffuse_t.values < 0.)] = 0.
 
