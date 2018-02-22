@@ -214,7 +214,7 @@ def regrid(ds, dimx, dimy, **kwargs):
     kwargs.setdefault("dst_crs", 'longlat')
 
     def _reproject(src, dst_shape, **kwargs):
-        dst = np.empty((len(src),) + dst_shape, dtype=src.dtype)
+        dst = np.empty(src.shape[:-2] + dst_shape, dtype=src.dtype)
         rio.warp.reproject(np.asarray(src), dst, **kwargs)
         return dst
 
@@ -224,12 +224,12 @@ def regrid(ds, dimx, dimy, **kwargs):
 
     return (
         xr.apply_ufunc(_reproject, ds,
-                    input_core_dims=[[namey, namex]],
-                    output_core_dims=[['yout', 'xout']],
-                    output_dtypes=[dtypes.pop()],
-                    output_sizes={'yout': dst_shape[0], 'xout': dst_shape[1]},
-                    dask='parallelized',
-                    kwargs=kwargs)
+                       input_core_dims=[[namey, namex]],
+                       output_core_dims=[['yout', 'xout']],
+                       output_dtypes=[dtypes.pop()],
+                       output_sizes={'yout': dst_shape[0], 'xout': dst_shape[1]},
+                       dask='parallelized',
+                       kwargs=kwargs)
         .rename({'yout': namey, 'xout': namex})
         .assign_coords(**{namey: (namey, dimy, ds.coords[namey].attrs),
                             namex: (namex, dimx, ds.coords[namex].attrs)})
