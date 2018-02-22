@@ -99,7 +99,7 @@ def TiltedDirectIrrad(solar_position, surface_orientation, direct):
 
     return (R_b * direct).rename('direct tilted')
 
-def _albedo(ds):
+def _albedo(ds, influx):
     if 'albedo' in ds:
         albedo = ds['albedo']
     elif 'outflux' in ds:
@@ -113,7 +113,7 @@ def _albedo(ds):
 
 def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
     surface_slope = surface_orientation['slope']
-    ground_t = influx * _albedo(ds) * (1.0 - np.cos(surface_slope)) / 2.0
+    ground_t = influx * _albedo(ds, influx) * (1.0 - np.cos(surface_slope)) / 2.0
     return ground_t.rename('ground tilted')
 
 def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, clearsky_model, altitude_threshold=1.):
@@ -136,9 +136,10 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, cle
         k = surface_orientation['cosincidence'] / solar_position['sinaltitude']
         cos_surface_slope = np.cos(surface_orientation['slope'])
 
+        influx = direct + diffuse
         direct_t = k * direct
         diffuse_t = ((1. + cos_surface_slope) / 2. * diffuse +
-                    _albedo(ds) * (direct + diffuse) * ((1. - cos_surface_slope) / 2.))
+                    _albedo(ds, influx) * influx * ((1. - cos_surface_slope) / 2.))
 
         total_t = direct_t.fillna(0.) + diffuse_t.fillna(0.)
     else:
