@@ -10,7 +10,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
     # Ridley et al. (2010) http://dx.doi.org/10.1016/j.renene.2009.07.018 ,
     # Lauret et al. (2013):http://dx.doi.org/10.1016/j.renene.2012.01.049
 
-    sinaltitude = solar_position['sinaltitude']
+    sinaltitude = np.sin(solar_position['altitude'])
     atmospheric_insolation = solar_position['atmospheric insolation']
 
     if clearsky_model is None:
@@ -61,7 +61,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
 def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse):
     # Hay-Davies Model
 
-    sinaltitude = solar_position['sinaltitude']
+    sinaltitude = np.sin(solar_position['altitude'])
     atmospheric_insolation = solar_position['atmospheric insolation']
 
     cosincidence = surface_orientation['cosincidence']
@@ -95,7 +95,7 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
     return diffuse_t.rename('diffuse tilted')
 
 def TiltedDirectIrrad(solar_position, surface_orientation, direct):
-    sinaltitude = solar_position['sinaltitude']
+    sinaltitude = np.sin(solar_position['altitude'])
     cosincidence = surface_orientation['cosincidence']
 
     # geometric factor
@@ -137,7 +137,7 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, cle
         raise AssertionError("Need either influx or influx_direct and influx_diffuse in the dataset. Check your cutout and dataset module.")
 
     if trigon_model == 'simple':
-        k = surface_orientation['cosincidence'] / solar_position['sinaltitude']
+        k = surface_orientation['cosincidence'] / np.sin(solar_position['altitude'])
         cos_surface_slope = np.cos(surface_orientation['slope'])
 
         influx = direct + diffuse
@@ -153,7 +153,11 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, cle
 
         total_t = (direct_t + diffuse_t + ground_t).rename('total tilted')
 
-    cap_alt = solar_position['sinaltitude'] < np.sin(np.deg2rad(altitude_threshold))
+    # The solar_position algorithms have a high error for small solar altitude
+    # values, leading to big overall errors from the 1/sinaltitude factor.
+    # => Suppress irradiation below solar altitudes of 1 deg.
+
+    cap_alt = solar_position['altitude'] < np.deg2rad(altitude_threshold)
     total_t.values[(cap_alt | (direct+diffuse <= 0.01)).transpose(*total_t.dims).values] = 0.
 
     return total_t

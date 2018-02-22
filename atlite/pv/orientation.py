@@ -6,10 +6,8 @@ def get_orientation(name, **params):
     '''
     Definitions:
         -`slope` is the angle between ground and panel.
-        -`azimuth` is the clockwise angle from SOUTH.
-            i.e. azimuth=0 faces exactly South,
-                        =90 faces West
-                        =-45 faces South-East
+        -`azimuth` is the clockwise angle from North.
+            i.e. azimuth = 180 faces exactly South
     '''
     if isinstance(name, dict):
         params = name
@@ -52,7 +50,7 @@ def make_latitude_optimal():
         slope[~below_25 & below_50] = 0.76 * lat.values[~below_25 & below_50] + np.deg2rad(0.31)
         slope[~below_50] = np.deg2rad(40.)
 
-        return dict(slope=xr.DataArray(slope, coords=lat.coords), azimuth=0.)
+        return dict(slope=xr.DataArray(slope, coords=lat.coords), azimuth=180.)
 
     return latitude_optimal
 
@@ -65,6 +63,15 @@ def make_constant(slope, azimuth):
     return constant
 
 def SurfaceOrientation(ds, solar_position, orientation):
+    """
+    Compute cos(incidence) for slope and panel azimuth
+
+    References
+    ----------
+    [1] Sproul, A. B., Derivation of the solar geometric relationships using
+    vector analysis, Renewable Energy, 32(7), 1187–1205 (2007).
+    """
+
     lon = np.deg2rad(ds['lon'])
     lat = np.deg2rad(ds['lat'])
 
@@ -72,16 +79,23 @@ def SurfaceOrientation(ds, solar_position, orientation):
     surface_slope = orientation['slope']
     surface_azimuth = orientation['azimuth']
 
-    declination = solar_position['declination']
-    hour_angle = solar_position['hour angle']
+    sun_altitude = solar_position['altitude']
+    sun_azimuth = solar_position['azimuth']
 
-    cosincidence = (
-        np.sin(lat)*np.sin(declination)*np.cos(surface_slope)
-        - np.cos(lat)*np.sin(declination)*np.sin(surface_slope)*np.cos(surface_azimuth)
-        + np.cos(lat)*np.cos(declination)*np.cos(hour_angle)*np.cos(surface_slope)
-        + np.sin(lat)*np.cos(declination)*np.cos(hour_angle)*np.sin(surface_slope)*np.cos(surface_azimuth)
-        + np.cos(declination)*np.sin(hour_angle)*np.sin(surface_slope)*np.sin(surface_azimuth)
-    )
+    cosincidence = (np.sin(surface_slope) * np.cos(sun_altitude) *
+                    np.cos(surface_azimuth - sun_azimuth) +
+                    np.cos(surface_slope) * np.sin(sun_altitude))
+
+    # dec = solar_position['declination']
+    # h = solar_position['hour angle']
+
+    # cosincidence = (
+    #     np.sin(lat)*np.sin(declination)*np.cos(surface_slope)
+    #     - np.cos(lat)*np.sin(declination)*np.sin(surface_slope)*np.cos(surface_azimuth)
+    #     + np.cos(lat)*np.cos(declination)*np.cos(hour_angle)*np.cos(surface_slope)
+    #     + np.sin(lat)*np.cos(declination)*np.cos(hour_angle)*np.sin(surface_slope)*np.cos(surface_azimuth)
+    #     + np.cos(declination)*np.sin(hour_angle)*np.sin(surface_slope)*np.sin(surface_azimuth)
+    # )
 
     # fixup incidence angle: if the panel is badly oriented and the sun shines
     # on the back of the panel (incidence angle > 90degree), the irradiation

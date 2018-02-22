@@ -283,7 +283,7 @@ def convert_solar_thermal(ds, orientation, clearsky_model, c0, c1, t_store):
     return (output).where(output > 0.).fillna(0.)
 
 
-def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 0.},
+def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
                   clearsky_model=None,
                   c0=0.8, c1=3., t_store=80.,
                   **params):
