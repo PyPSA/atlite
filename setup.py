@@ -17,9 +17,8 @@ setup(
     license='GPLv3',
     packages=find_packages(exclude=['doc', 'test']),
     include_package_data=True,
-    install_requires=['numpy', 'scipy', 'pandas', 'xarray>=0.10.0', #'pynio',
-                      'rasterio', 'bottleneck', 'cyordereddict', 'toolz',
-                      'filelock'],
+    install_requires=['numpy', 'scipy', 'pandas', 'xarray>=0.10.0', 'dask', #'pynio',
+                      'rasterio', 'shapely', 'bottleneck', 'cyordereddict', 'toolz'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',
