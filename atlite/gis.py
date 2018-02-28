@@ -38,6 +38,9 @@ import rasterio as rio
 import rasterio.warp
 from rasterio.warp import Resampling
 
+import logging
+logger = logging.getLogger(__name__)
+
 def spdiag(v):
     N = len(v)
     inds = np.arange(N+1, dtype=np.int32)
