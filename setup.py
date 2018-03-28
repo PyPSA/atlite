@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 from setuptools import setup, find_packages
 from codecs import open
+import six
 
 with open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
@@ -17,8 +18,9 @@ setup(
     license='GPLv3',
     packages=find_packages(exclude=['doc', 'test']),
     include_package_data=True,
-    install_requires=['numpy', 'scipy', 'pandas', 'xarray>=0.10.0', 'dask', #'pynio',
-                      'rasterio', 'shapely', 'bottleneck', 'cyordereddict', 'toolz'],
+    install_requires=['numpy', 'scipy', 'pandas', 'xarray>=0.10.0', 'dask',
+                      'rasterio', 'shapely', 'bottleneck', 'cyordereddict',
+'toolz'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',
