@@ -33,13 +33,13 @@ from pkg_resources import resource_stream
 
 def get_windturbineconfig(turbine):
     res_name = "resources/windturbine/" + turbine + ".yaml"
-    turbineconf = yaml.load(resource_stream(__package__, res_name))
+    turbineconf = yaml.load(resource_stream(__name__, res_name))
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
     return dict(V=V, POW=POW, hub_height=hub_height, P=max(POW))
 
 def get_solarpanelconfig(panel):
     res_name = "resources/solarpanel/" + panel + ".yaml"
-    return yaml.load(resource_stream(__package__, res_name))
+    return yaml.load(resource_stream(__name__, res_name))
 
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
