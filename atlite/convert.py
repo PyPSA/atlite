@@ -110,7 +110,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
     if layout is not None:
         if isinstance(layout, xr.DataArray):
-            layout = layout.stack(spatial=('y', 'x')).values
+            layout = layout.reindex_like(cutout.meta).stack(spatial=('y', 'x')).values
         else:
             assert layout.shape == cutout.shape
         matrix = (layout.reshape((1,-1))
