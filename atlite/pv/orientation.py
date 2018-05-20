@@ -86,21 +86,9 @@ def SurfaceOrientation(ds, solar_position, orientation):
                     np.cos(surface_azimuth - sun_azimuth) +
                     np.cos(surface_slope) * np.sin(sun_altitude))
 
-    # dec = solar_position['declination']
-    # h = solar_position['hour angle']
-
-    # cosincidence = (
-    #     np.sin(lat)*np.sin(declination)*np.cos(surface_slope)
-    #     - np.cos(lat)*np.sin(declination)*np.sin(surface_slope)*np.cos(surface_azimuth)
-    #     + np.cos(lat)*np.cos(declination)*np.cos(hour_angle)*np.cos(surface_slope)
-    #     + np.sin(lat)*np.cos(declination)*np.cos(hour_angle)*np.sin(surface_slope)*np.cos(surface_azimuth)
-    #     + np.cos(declination)*np.sin(hour_angle)*np.sin(surface_slope)*np.sin(surface_azimuth)
-    # )
-
     # fixup incidence angle: if the panel is badly oriented and the sun shines
     # on the back of the panel (incidence angle > 90degree), the irradiation
     # would be negative instead of 0; this is prevented here.
-    # note: REatlas does not do the fixup
     cosincidence.values[cosincidence.values < 0.] = 0.
 
     return xr.Dataset({'cosincidence': cosincidence,
