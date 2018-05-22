@@ -110,10 +110,9 @@ def prepare_for_sarah(year, month, xs, ys, dx, dy, chunks=None):
     area='{:.1f}/{:.1f}/{:.1f}/{:.1f}'.format(ys.start, xs.start, ys.stop, xs.stop)
     grid='{:.2f}/{:.2f}'.format(dx, dy)
 
-    # SKT Skin temperature 235
     with _get_data(fns[0], type='an', date=date1, area=area, grid=grid,
                    time='/'.join('{:02}'.format(s) for s in range(0, 24)),
-                   param='235', chunks=chunks) as ds, \
+                   param='167', chunks=chunks) as ds, \
          _get_data(fns[1], type='fc', date=date2, area=area, grid=grid,
                    time='06:00:00/18:00:00',
                    step='1/2/3/4/5/6/7/8/9/10/11/12',
@@ -121,7 +120,7 @@ def prepare_for_sarah(year, month, xs, ys, dx, dy, chunks=None):
         ds = xr.merge([ds, ds_fc], join='left')
         ds = _rename_and_clean_coords(ds, add_lon_lat=False)
 
-        ds = ds.rename({'skt': 'temperature'})
+        ds = ds.rename({'t2m': 'temperature'})
         ds = ds.rename({'tisr': 'influx_toa'})
 
         logger.debug("Calculate albedo")
@@ -155,7 +154,7 @@ def prepare_month_era5(year, month, xs, ys):
     # https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation
     with _get_data(fns[0], type='an', date=date1, area=area,
                    time='/'.join('{:02}'.format(s) for s in range(0, 24)),
-                   param='134/246.228/247.228/235/236') as ds, \
+                   param='134/167/246.228/247.228/236') as ds, \
          _get_data(fns[1], type='fc', date=date2, area=area,
                    time='06:00:00/18:00:00',
                    step='1/2/3/4/5/6/7/8/9/10/11/12',
@@ -200,12 +199,10 @@ def prepare_month_era5(year, month, xs, ys):
 
         # RO Runoff 205
         # T2m 2 metre temperature 167
-        # SKT Skin temperature 235
         # SP Surface pressure 134
         # STL4 Soil temperature level 4 236
         ds = ds.rename({'ro': 'runoff',
-                        # 't2m': 'temperature',
-                        'skt': 'temperature',
+                        't2m': 'temperature',
                         'sp': 'pressure',
                         'stl4': 'soil temperature'})
 
