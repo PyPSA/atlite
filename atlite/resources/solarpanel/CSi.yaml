@@ -1,6 +1,6 @@
 model: huld
 name: CSi
-reference: Huld
+source: Huld 2010
 
 # Used for calculating capacity per m2
 efficiency: 0.1

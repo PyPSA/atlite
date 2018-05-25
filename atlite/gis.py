@@ -160,7 +160,7 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
     swaps = {}
     lx, rx = ds.indexes[namex][[0, -1]]
-    uy, ly = ds.indexes[namex][[0, -1]]
+    uy, ly = ds.indexes[namey][[0, -1]]
 
     if lx > rx:
         swaps[namex] = slice(None, None, -1)
