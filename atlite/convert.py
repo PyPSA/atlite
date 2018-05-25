@@ -463,7 +463,10 @@ def runoff(cutout, smooth=None, lower_threshold_quantile=None,
 
     if smooth is not None:
         if smooth is True: smooth = 24*7
-        result = result.rolling(time=smooth, min_periods=1).mean()
+        if "return_capacity" in params.keys():
+            result = result[0].rolling(time=smooth, min_periods=1).mean(), result[1]
+        else:
+            result = result.rolling(time=smooth, min_periods=1).mean()
 
     if lower_threshold_quantile is not None:
         if lower_threshold_quantile is True: lower_threshold_quantile = 5e-3
