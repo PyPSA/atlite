@@ -265,7 +265,7 @@ def heat_demand(cutout, threshold=15., a=1., constant=0., hour_shift=0., **param
 
 ## solar thermal collectors
 
-def convert_solar_thermal(ds, orientation, clearsky_model, c0, c1, t_store):
+def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model, c0, c1, t_store):
     # convert storage temperature to Kelvin in line with reanalysis data
     t_store += 273.15
 
@@ -273,7 +273,7 @@ def convert_solar_thermal(ds, orientation, clearsky_model, c0, c1, t_store):
     # http://rda.ucar.edu/datasets/ds094.0/#metadata/detailed.html?_do=y
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, clearsky_model)
+    irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, clearsky_model)
 
     # overall efficiency; can be negative, so need to remove negative values below
     eta = c0 - c1*((t_store - ds['temperature'])/irradiation)
@@ -284,7 +284,8 @@ def convert_solar_thermal(ds, orientation, clearsky_model, c0, c1, t_store):
 
 
 def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
-                  clearsky_model=None,
+                  trigon_model="simple",
+                  clearsky_model="simple",
                   c0=0.8, c1=3., t_store=80.,
                   **params):
     """
@@ -299,6 +300,8 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
     orientation : dict or str or function
         Panel orientation with slope and azimuth (units of degrees), or
         'latitude_optimal'.
+    trigon_model : str
+        Type of trigonometry model
     clearsky_model : str or None
         Type of clearsky model for diffuse irradiation. Either
         `simple' or `enhanced'.
@@ -323,6 +326,7 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
 
     return cutout.convert_and_aggregate(convert_func=convert_solar_thermal,
                                         orientation=orientation,
+                                        trigon_model=trigon_model,
                                         clearsky_model=clearsky_model,
                                         c0=c0, c1=c1, t_store=t_store,
                                         **params)
