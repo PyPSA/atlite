@@ -31,6 +31,7 @@ import datetime as dt
 import scipy as sp, scipy.sparse
 from six import string_types
 from operator import itemgetter
+import progressbar as pgb
 
 from .aggregate import aggregate_sum, aggregate_matrix
 from .gis import spdiag, compute_indicatormatrix
@@ -49,6 +50,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None, shapes=None,
                           shapes_proj='latlong', per_unit=False,
                           return_capacity=False, capacity_factor=False,
+                          show_progress=False,
                           **convert_kwds):
     """
     Convert and aggregate a weather-based renewable generation
@@ -84,6 +86,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     capacity_factor : boolean
         If True, the capacity factor of the chosen resource for each
         grid cell is computed.
+    show_progress : boolean
+        Whether to show a progress bar (defaults to False).
 
     Returns
     -------
@@ -132,7 +136,26 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
     yearmonths = cutout.coords['year-month'].to_index()
 
-    for ym in yearmonths:
+    if show_progress is not False:
+        if isinstance(show_progress, string_types):
+            prefix = show_progress
+        else:
+            func_name = (convert_func.__name__[len('convert_'):]
+                         if convert_func.__name__.startswith('convert_')
+                         else convert_func.__name__)
+            prefix = 'Convert and aggregate `{}`: '.format(func_name)
+        widgets = [
+            pgb.widgets.Percentage(),
+            ' ', pgb.widgets.SimpleProgress(format='(%s)' % pgb.widgets.SimpleProgress.DEFAULT_FORMAT),
+            ' ', pgb.widgets.Bar(),
+            ' ', pgb.widgets.Timer(),
+            ' ', pgb.widgets.ETA()
+        ]
+        maybe_progressbar = pgb.ProgressBar(prefix=prefix, widgets=widgets, max_value=len(yearmonths))
+    else:
+        maybe_progressbar = lambda x: x
+
+    for ym in maybe_progressbar(yearmonths):
         with xr.open_dataset(cutout.datasetfn(ym)) as ds:
             if 'view' in cutout.meta.attrs:
                 ds = ds.sel(**cutout.meta.attrs['view'])

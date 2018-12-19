@@ -20,7 +20,7 @@ setup(
     include_package_data=True,
     install_requires=['numpy', 'scipy', 'pandas', 'xarray>=0.10.0', 'dask',
                       'rasterio', 'shapely', 'bottleneck', 'cyordereddict',
-'toolz'],
+                      'toolz', 'progressbar2'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',
