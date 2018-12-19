@@ -208,9 +208,11 @@ def cutout_get_meta_view(cutout, xs=None, ys=None, years=slice(None), months=sli
     return meta
 
 
-def _prepare_gebco_height(xs, ys):
+def _prepare_gebco_height(xs, ys, gebco_fn=None):
     # gebco bathymetry heights for underwater
-    from .config import gebco_path
+    if gebco_fn is None:
+        from .config import gebco_path
+        gebco_fn = gebco_path
 
     tmpdir = tempfile.mkdtemp()
     cornersc = np.array(((xs[0], ys[0]), (xs[-1], ys[-1])))
@@ -226,7 +228,7 @@ def _prepare_gebco_height(xs, ys):
                                '-ts', str(len(xs)), str(len(ys)),
                                '-te', str(minx), str(miny), str(maxx), str(maxy),
                                '-r', 'average',
-                               gebco_path, tmpfn])
+                               gebco_fn, tmpfn])
         assert ret == 0, "gdalwarp was not able to resample gebco"
     except OSError:
         logger.warning("gdalwarp was not found for resampling gebco. "
