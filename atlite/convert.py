@@ -50,16 +50,14 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None, shapes=None,
                           shapes_proj='latlong', per_unit=False,
                           return_capacity=False, capacity_factor=False,
-                          show_progress=False,
-                          **convert_kwds):
+                          show_progress=True, **convert_kwds):
     """
-    Convert and aggregate a weather-based renewable generation
-    time-series.
+    Convert and aggregate a weather-based renewable generation time-series.
 
-    NOTE: Not meant to be used by the user him or herself. Rather it
-    is a gateway function that is called by all the individual
-    time-series generation functions like pv and wind. Thus, all its
-    parameters are also available from these.
+    NOTE: Not meant to be used by the user him or herself. Rather it is a
+    gateway function that is called by all the individual time-series
+    generation functions like pv and wind. Thus, all its parameters are also
+    available from these.
 
     Parameters (passed through as **params)
     ---------------------------------------
@@ -70,24 +68,24 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     layout : X x Y - np.array or xr.DataArray
         The capacity to be build in each of the `grid_cells`.
     shapes : list or pd.Series of shapely.geometry.Polygon
-        If given, matrix is constructed as indicatormatrix of the
-        polygons, its index determines the bus index on the
-        time-series.
+        If given, matrix is constructed as indicatormatrix of the polygons, its
+        index determines the bus index on the time-series.
     shapes_proj : str or pyproj.Proj
-        Defaults to 'latlong'. If different to the map projection of
-        the cutout, the shapes are reprojected using pyproj.transform
-        to match cutout.projection (defaults to 'latlong').
+        Defaults to 'latlong'. If different to the map projection of the
+        cutout, the shapes are reprojected using pyproj.transform to match
+        cutout.projection (defaults to 'latlong').
     per_unit : boolean
-        Returns the time-series in per-unit units, instead of in MW
-        (defaults to False).
+        Returns the time-series in per-unit units, instead of in MW (defaults
+        to False).
     return_capacity : boolean
-        Additionally returns the installed capacity at each bus
-        corresponding to `layout` (defaults to False).
+        Additionally returns the installed capacity at each bus corresponding
+        to `layout` (defaults to False).
     capacity_factor : boolean
-        If True, the capacity factor of the chosen resource for each
-        grid cell is computed.
-    show_progress : boolean
-        Whether to show a progress bar (defaults to False).
+        If True, the capacity factor of the chosen resource for each grid cell
+        is computed.
+    show_progress : boolean|string
+        Whether to show a progress bar if boolean and its label if given as a
+        string (defaults to True).
 
     Returns
     -------
