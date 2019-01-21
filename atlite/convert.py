@@ -226,7 +226,7 @@ def convert_heat_demand(ds, threshold, a, constant, hour_shift):
     T = ds['temperature']
     T.coords['time'].values += np.timedelta64(dt.timedelta(hours=hour_shift))
 
-    T = ds['temperature'].resample("D", dim="time", how="mean")
+    T = ds['temperature'].resample(time="1D").mean(dim='time')
     threshold += 273.15
     heat_demand = a*(threshold - T)
 
