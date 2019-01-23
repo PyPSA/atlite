@@ -44,7 +44,7 @@ def cutout_do_task(task, write_to_file=True):
         datasetfns = task.pop('datasetfns')
 
     # Force dask to use just one thread (to save memory)
-    with dask.set_options(get=dask.local.get_sync):
+    with dask.config.set(scheduler='single-threaded'):
         try:
             data = prepare_func(**task)
             if data is None:
