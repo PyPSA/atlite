@@ -18,7 +18,7 @@ setup(
     license='GPLv3',
     packages=find_packages(exclude=['doc', 'test']),
     include_package_data=True,
-    install_requires=['numpy', 'scipy', 'pandas', 'xarray>=0.10.0', 'dask',
+    install_requires=['numpy', 'scipy', 'pandas', 'xarray>=0.10.0', 'dask>=0.18.0',
                       'rasterio', 'shapely', 'bottleneck', 'cyordereddict',
                       'toolz', 'progressbar2'],
     classifiers=[
