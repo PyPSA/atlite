@@ -93,7 +93,7 @@ def prepare_meta_era5(xs, ys, year, month, module):
         ds = _add_height(ds)
 
         t = pd.Timestamp(year=year, month=month, day=1)
-        ds['time'] = pd.date_range(t, t + pd.offsets.MonthOffset(),
+        ds['time'] = pd.date_range(t, pd.offsets.shift_month(t, months=1),
                                    freq='1h', closed='left')
 
         return ds.load()
