@@ -74,7 +74,7 @@ def prepare_meta_sarah(xs, ys, year, month, template_sis, template_sid, module, 
         ds = ds.coords.to_dataset()
 
         t = pd.Timestamp(year=year, month=month, day=1)
-        ds['time'] = pd.date_range(t, t + pd.offsets.MonthOffset(),
+        ds['time'] = pd.date_range(t, t + pd.DateOffset(months=1),
                                    freq='1h', closed='left')
 
         if resolution is not None:
