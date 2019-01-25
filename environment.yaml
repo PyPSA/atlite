@@ -1,0 +1,21 @@
+name: atlite
+channels:
+  - conda-forge
+dependencies:
+  - six
+  - numpy
+  - scipy
+  - pandas>=0.22.0
+  - xarray>=0.11.2
+  - dask>=0.18.0
+  - netcdf4
+  - bottleneck
+  - cyordereddict
+  - toolz
+  - progressbar2
+
+  # GIS dependencies have to come all from conda-forge
+  - conda-forge::pyproj
+  - conda-forge::rasterio
+  - conda-forge::shapely
+  - conda-forge::libgdal
