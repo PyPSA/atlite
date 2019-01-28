@@ -172,7 +172,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     if per_unit or return_capacity:
         assert aggregate_func is aggregate_matrix, \
             "One of `matrix`, `shapes` and `layout` must be given for `per_unit`"
-        capacity = xr.DataArray(np.asarray(matrix.sum(axis=1)).squeeze(), [index])
+        capacity = xr.DataArray(np.asarray(matrix.sum(axis=1)).reshape(-1), [index])
 
     if per_unit:
         results = (results / capacity).fillna(0.)
