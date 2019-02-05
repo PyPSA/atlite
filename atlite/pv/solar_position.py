@@ -53,7 +53,10 @@ def SolarPosition(ds):
 
     # alt and az from [2]
     lat = np.deg2rad(ds['lat'])
-    alt = np.arcsin(np.sin(lat)*np.sin(dec) + np.cos(lat)*np.cos(dec)*np.cos(h)).rename('altitude')
+    # Clip alt before arcsin to prevent values < -1. from rounding errors; can cause NaNs later
+    alt = (np.sin(lat)*np.sin(dec) + np.cos(lat)*np.cos(dec)*np.cos(h))
+    alt = np.arcsin(alt.clip(min=-1., max=1.)).rename('altitude')
+
     az = np.arccos(((np.sin(dec)*np.cos(lat) - np.cos(dec)*np.sin(lat)*np.cos(h))/np.cos(alt)).clip(min=-1., max=1.))
     az = az.where(h <= 0, 2*np.pi - az).rename('azimuth')
 
