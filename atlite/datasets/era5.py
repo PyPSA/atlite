@@ -102,10 +102,11 @@ def _get_data(target=None, product='reanalysis-era5-single-levels', chunks=None,
 def _add_height(ds):
     # https://confluence.ecmwf.int/display/CKB/ERA5%3A+surface+elevation+and+orography
     g = 9.80665
-    z = ds.pop('z')
+    z = ds['z']
     if 'time' in z.coords:
         z = z.isel(time=0, drop=True)
     ds['height'] = z/g
+    ds = ds.drop('z')
     return ds
 
 def _area(xs, ys):
