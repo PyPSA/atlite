@@ -28,7 +28,7 @@ datasets. It currently has modules for the following datasets:
   three-hourly up until 2100, available on a 0.11 x 0.11 degree grid for Europe
 * `ECMWF ERA5
   <https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation>`_ hourly
-  historical reanalysis weather data on an approximately 0.3 x 0.3 deg global
+  historical reanalysis weather data on an approximately 0.25 x 0.25 deg global
   grid
 * `CMSAF SARAH-2
   <https://wui.cmsaf.eu/safira/action/viewDoiDetails?acronym=SARAH_V002>`_
@@ -55,9 +55,6 @@ all possible spatial distributions of assets:
 * Solar thermal collector heat output
 * Hydroelectric inflow (simplified)
 * Heating demand (based on the degree-day approximation)
-
-As of 2018 Atlite is under heavy development and therefore it is
-recommended to use caution when using it in a production environment.
 
 Citation for Aarhus University RE
 Atlas: G. B. Andresen, A. A. Søndergaard, M. Greiner, "Validation of
