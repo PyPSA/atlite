@@ -55,16 +55,6 @@ def _get_data(target=None, product='reanalysis-era5-single-levels', chunks=None,
     request = {
         'product_type':'reanalysis',
         'format':'netcdf',
-        'variable':[
-            '100m_u_component_of_wind','100m_v_component_of_wind','2m_temperature',
-            'forecast_surface_roughness','runoff','soil_temperature_level_4',
-            'surface_net_solar_radiation','surface_pressure','surface_solar_radiation_downwards',
-            'toa_incident_solar_radiation','total_sky_direct_solar_radiation_at_surface'
-        ],
-        'year':'2000',
-        'month':[
-            '01','02','03','04','05','06','07','08','09','10','11','12'
-        ],
         'day':[
             '01','02','03','04','05','06','07','08','09','10','11','12',
             '13','14','15','16','17','18','19','20','21','22','23','24',
@@ -76,11 +66,12 @@ def _get_data(target=None, product='reanalysis-era5-single-levels', chunks=None,
             '12:00','13:00','14:00','15:00','16:00','17:00',
             '18:00','19:00','20:00','21:00','22:00','23:00'
         ],
-        'area': [50, -1, 49, 1], # North, West, South, East. Default: global
-        'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude) and north-south resolution (latitude). Default: 0.25 x 0.25
+        # 'area': [50, -1, 49, 1], # North, West, South, East. Default: global
+        # 'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude) and north-south resolution (latitude). Default: 0.25 x 0.25
     }
     request.update(updates)
 
+    assert {'year', 'month', 'variable'}.issubset(request), "Need to specify at least 'variable', 'year' and 'month'"
 
     result = cdsapi.Client().retrieve(
         product,
@@ -98,7 +89,7 @@ def _get_data(target=None, product='reanalysis-era5-single-levels', chunks=None,
     with xr.open_dataset(target, chunks=chunks) as ds:
         yield ds
 
-    os.unlink(target)            
+    os.unlink(target)
 
 def _add_height(ds):
     """Convert geopotential 'z' to geopotential height following [1]
@@ -196,7 +187,7 @@ def prepare_month_era5(year, month, xs, ys):
     # sp          | Surface pressure                            | 134
     # stl4        | Soil temperature level 4                    | 236
     # fsr         | Forecast surface roughnes                   | 244
- 
+
     with _get_data(area=area, year=year, month=month,
                    variable=[
                        '100m_u_component_of_wind',
