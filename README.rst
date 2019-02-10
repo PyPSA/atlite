@@ -41,7 +41,7 @@ It can process the following weather data fields:
 * Temperature
 * Downward short-wave radiation
 * Upward short-wave radiation
-* Wind speeds
+* Wind 
 * Runoff
 * Surface roughness
 * Height maps
@@ -76,7 +76,9 @@ Getting started
 
 * Install atlite from this repository with all its library dependencies
 * Download one of the weather datasets listed above (ERA5 is downloaded
-  automatically)
+  automatically on-demand after the ECMWF
+  `cdsapi<https://cds.climate.copernicus.eu/api-how-to>` client is 
+  properly installed)
 * Adjust the `atlite/config.py <atlite/config.py>`_ directory paths to
   point to the directory where you downloaded the dataset
 * Create a cutout, i.e. a geographical rectangle and a selection of
