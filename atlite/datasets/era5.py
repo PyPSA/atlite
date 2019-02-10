@@ -25,41 +25,74 @@ import os
 import pandas as pd
 import numpy as np
 import xarray as xr
-import tempfile
 import shutil
 from six.moves import range
 from contextlib import contextmanager
+from tempfile import mkstemp
 import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from ecmwfapi import ECMWFDataServer
-    has_ecmwfapi = True
+    import cdsapi
+    has_cdsapi = True
 except ImportError:
-    has_ecmwfapi = False
+    has_cdsapi = False
 
 # Model and Projection Settings
 projection = 'latlong'
 
 @contextmanager
-def _get_data(target, chunks=None, **updates):
-    if not has_ecmwfapi:
+def _get_data(target=None, product='reanalysis-era5-single-levels', chunks=None, **updates):
+
+    if not has_cdsapi:
         raise RuntimeError(
-            "Need installed ecmwfapi python package available from "
-            "https://software.ecmwf.int/wiki/display/WEBAPI/Access+ECMWF+Public+Datasets"
+            "Need installed cdsapi python package available from "
+            "https://cds.climate.copernicus.eu/api-how-to"
         )
 
-    server = ECMWFDataServer()
-    request = {'target': target,
-               'class': 'ea',
-               'dataset': 'era5',
-               'expver': '1',
-               'stream': 'oper',
-               'levtype': 'sfc',
-               'grid': '0.3/0.3',
-               'format': 'netcdf'}
+    # 'orography',
+    request = {
+        'product_type':'reanalysis',
+        'format':'netcdf',
+        'variable':[
+            '100m_u_component_of_wind','100m_v_component_of_wind','2m_temperature',
+            'forecast_surface_roughness','runoff','soil_temperature_level_4',
+            'surface_net_solar_radiation','surface_pressure','surface_solar_radiation_downwards',
+            'toa_incident_solar_radiation','total_sky_direct_solar_radiation_at_surface'
+        ],
+        'year':'2000',
+        'month':[
+            '01','02','03', '04','05','06', '07','08','09', '10','11','12'
+        ],
+        'day':[
+            '01','02','03', '04','05','06', '07','08','09', '10','11','12',
+            '13','14','15', '16','17','18', '19','20','21', '22','23','24',
+            '25','26','27', '28','29','30', '31'
+        ],
+        'time':[
+            '00:00','01:00','02:00', '03:00','04:00','05:00',
+            '06:00','07:00','08:00', '09:00','10:00','11:00',
+            '12:00','13:00','14:00', '15:00','16:00','17:00',
+            '18:00','19:00','20:00', '21:00','22:00','23:00'
+        ],
+        'area': [50, -1, 49, 1], # North, West, South, East. Default: global
+        'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude) and north-south resolution (latitude). Default: 0.25 x 0.25
+    }
     request.update(updates)
-    server.retrieve(request)
+
+
+    result = cdsapi.Client().retrieve(
+        product,
+        request
+    )
+
+    if target is None:
+        fd, target = mkstemp(suffix='.nc')
+        os.close(fd)
+
+    logger.info("Downloading request for {} variables to {}".format(len(request['variable']), target))
+
+    result.download(target)
 
     with xr.open_dataset(target, chunks=chunks) as ds:
         yield ds
@@ -67,13 +100,17 @@ def _get_data(target, chunks=None, **updates):
     os.unlink(target)
 
 def _add_height(ds):
-    Gma = 6.673e-11*5.975e24/(6.378e6)**2
-    z = ds['z']
+    # https://confluence.ecmwf.int/display/CKB/ERA5%3A+surface+elevation+and+orography
+    g = 9.80665
+    z = ds.pop('z')
     if 'time' in z.coords:
         z = z.isel(time=0, drop=True)
-    ds['height'] = z/Gma
-    ds = ds.drop('z')
+    ds['height'] = z/g
     return ds
+
+def _area(xs, ys):
+    # North, West, South, East. Default: global
+    return [ys.start, xs.start, ys.stop, xs.stop]
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
     ds = ds.rename({'longitude': 'x', 'latitude': 'y'})
@@ -82,13 +119,9 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     return ds
 
 def prepare_meta_era5(xs, ys, year, month, module):
-    # Z Geopotential 129
-
-    with _get_data('_meta.nc', type='an',
-                   stream='moda',
-                   date="{}-{:02}-01".format(year, month),
-                   area='{}/{}/{}/{}'.format(ys.start, xs.start, ys.stop, xs.stop),
-                   param='129') as ds:
+    with _get_data(variable='orography',
+                   year=year, month=month, day=1,
+                   area=_area(xs, ys)) as ds:
         ds = _rename_and_clean_coords(ds)
         ds = _add_height(ds)
 
@@ -99,25 +132,15 @@ def prepare_meta_era5(xs, ys, year, month, module):
         return ds.load()
 
 def prepare_for_sarah(year, month, xs, ys, dx, dy, chunks=None):
-    tmpdir = tempfile.mkdtemp()
-    fns = [os.path.join(tmpdir, '_{}{:02}_{}.nc'.format(year, month, i)) for i in range(2)]
+    area = _area(xs, ys)
+    grid = [dx, dy]
 
-    tbeg = pd.Timestamp(year=year, month=month, day=1)
-    tend = tbeg + pd.offsets.MonthEnd()
-    def s(d): return d.strftime('%Y-%m-%d')
-    date1 = s(tbeg)+"/to/"+s(tend)
-    date2 = s(tbeg - pd.Timedelta(days=1))+"/to/"+s(tend) # Forecast data starts at 06:00 and 18:00
-    area='{:.1f}/{:.1f}/{:.1f}/{:.1f}'.format(ys.start, xs.start, ys.stop, xs.stop)
-    grid='{:.2f}/{:.2f}'.format(dx, dy)
-
-    with _get_data(fns[0], type='an', date=date1, area=area, grid=grid,
-                   time='/'.join('{:02}'.format(s) for s in range(0, 24)),
-                   param='167', chunks=chunks) as ds, \
-         _get_data(fns[1], type='fc', date=date2, area=area, grid=grid,
-                   time='06:00:00/18:00:00',
-                   step='1/2/3/4/5/6/7/8/9/10/11/12',
-                   param='212/169/176', chunks={}) as ds_fc:
-        ds = xr.merge([ds, ds_fc], join='left')
+    with _get_data(area=area, grid=grid, year=year, month=month,
+                   variable=['2m_temperature',
+                             'toa_incident_solar_radiation',
+                             'surface_solar_radiation_downwards',
+                             'surface_net_solar_radiation'],
+                   chunks=chunks) as ds:
         ds = _rename_and_clean_coords(ds, add_lon_lat=False)
 
         ds = ds.rename({'t2m': 'temperature'})
@@ -137,34 +160,22 @@ def prepare_for_sarah(year, month, xs, ys, dx, dy, chunks=None):
         yield ds.chunk(chunks)
         logger.debug("Cleaning up ERA5")
 
-    shutil.rmtree(tmpdir)
-
 def prepare_month_era5(year, month, xs, ys):
-    tmpdir = tempfile.mkdtemp()
-
-    fns = [os.path.join(tmpdir, '_{}{:02}_{}.nc'.format(year, month, i)) for i in range(3)]
-    tbeg = pd.Timestamp(year=year, month=month, day=1)
-    tend = tbeg + pd.offsets.MonthEnd()
-    def s(d): return d.strftime('%Y-%m-%d')
-    date1 = s(tbeg)+"/to/"+s(tend)
-    date2 = s(tbeg - pd.Timedelta(days=1))+"/to/"+s(tend)
-    date3 = s(tbeg)
-    area='{:.1f}/{:.1f}/{:.1f}/{:.1f}'.format(ys.start, xs.start, ys.stop, xs.stop)
+    area = _area(xs, ys)
 
     # https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation
-    with _get_data(fns[0], type='an', date=date1, area=area,
-                   time='/'.join('{:02}'.format(s) for s in range(0, 24)),
-                   param='134/167/246.228/247.228/236') as ds, \
-         _get_data(fns[1], type='fc', date=date2, area=area,
-                   time='06:00:00/18:00:00',
-                   step='1/2/3/4/5/6/7/8/9/10/11/12',
-                   param='212/169/176/21.228/205') as ds_fc, \
-         _get_data(fns[2], type='an', date=date3, area=area,
-                   stream='moda', # Monthly means of daily means
-                   param='129/244') as ds_m:
+    with _get_data(area=area, year=year, month=month,
+                   variable=[
+                       '100m_u_component_of_wind','100m_v_component_of_wind','2m_temperature',
+                       'runoff','soil_temperature_level_4',
+                       'surface_net_solar_radiation','surface_pressure','surface_solar_radiation_downwards',
+                       'toa_incident_solar_radiation','total_sky_direct_solar_radiation_at_surface'
+                   ]) as ds, \
+         _get_data(area=area, year=year, month=month, day=1,
+                   variable=['forecast_surface_roughness', 'orography']) as ds_m:
 
         ds_m = ds_m.isel(time=0, drop=True)
-        ds = xr.merge([ds, ds_fc, ds_m], join='left')
+        ds = xr.merge([ds, ds_m], join='left')
 
         ds = _rename_and_clean_coords(ds)
         ds = _add_height(ds)
@@ -207,8 +218,6 @@ def prepare_month_era5(year, month, xs, ys):
                         'stl4': 'soil temperature'})
 
         yield (year, month), ds
-
-    shutil.rmtree(tmpdir)
 
 
 def tasks_monthly_era5(xs, ys, yearmonths, prepare_func, meta_attrs):
