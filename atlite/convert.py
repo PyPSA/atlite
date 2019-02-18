@@ -31,7 +31,6 @@ import datetime as dt
 import scipy as sp, scipy.sparse
 from six import string_types
 from operator import itemgetter
-import progressbar as pgb
 
 from .aggregate import aggregate_sum, aggregate_matrix
 from .gis import spdiag, compute_indicatormatrix
@@ -45,6 +44,8 @@ from .resource import (get_windturbineconfig, get_solarpanelconfig,
                        windturbine_rated_capacity_per_unit,
                        solarpanel_rated_capacity_per_unit,
                        windturbine_smooth)
+
+from .utils import make_optional_progressbar
 
 def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None, shapes=None,
@@ -134,24 +135,15 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
     yearmonths = cutout.coords['year-month'].to_index()
 
-    if show_progress is not False:
-        if isinstance(show_progress, string_types):
-            prefix = show_progress
-        else:
-            func_name = (convert_func.__name__[len('convert_'):]
-                         if convert_func.__name__.startswith('convert_')
-                         else convert_func.__name__)
-            prefix = 'Convert and aggregate `{}`: '.format(func_name)
-        widgets = [
-            pgb.widgets.Percentage(),
-            ' ', pgb.widgets.SimpleProgress(format='(%s)' % pgb.widgets.SimpleProgress.DEFAULT_FORMAT),
-            ' ', pgb.widgets.Bar(),
-            ' ', pgb.widgets.Timer(),
-            ' ', pgb.widgets.ETA()
-        ]
-        maybe_progressbar = pgb.ProgressBar(prefix=prefix, widgets=widgets, max_value=len(yearmonths))
+    if isinstance(show_progress, string_types):
+        prefix = show_progress
     else:
-        maybe_progressbar = lambda x: x
+        func_name = (convert_func.__name__[len('convert_'):]
+                        if convert_func.__name__.startswith('convert_')
+                        else convert_func.__name__)
+        prefix = 'Convert and aggregate `{}`: '.format(func_name)
+
+    maybe_progressbar = make_optional_progressbar(show_progress, prefix, len(yearmonths))
 
     for ym in maybe_progressbar(yearmonths):
         with xr.open_dataset(cutout.datasetfn(ym)) as ds:
