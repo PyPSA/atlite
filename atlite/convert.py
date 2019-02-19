@@ -32,6 +32,9 @@ import scipy as sp, scipy.sparse
 from six import string_types
 from operator import itemgetter
 
+import logging
+logger = logging.getLogger(__name__)
+
 from .aggregate import aggregate_sum, aggregate_matrix
 from .gis import spdiag, compute_indicatormatrix
 
@@ -53,7 +56,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None, shapes=None,
                           shapes_proj='latlong', per_unit=False,
                           return_capacity=False, capacity_factor=False,
-                          show_progress=True, **convert_kwds):
+                          show_progress=True, cache_datasets=False,
+                          **convert_kwds):
     """
     Convert and aggregate a weather-based renewable generation time-series.
 
@@ -89,6 +93,9 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     show_progress : boolean|string
         Whether to show a progress bar if boolean and its label if given as a
         string (defaults to True).
+    cache_datasets : boolean
+        Whether to internally keep open and cache dataset files when conversion
+        are repeatedly calculated. Faster but requires more RAM.
 
     Returns
     -------
@@ -148,11 +155,12 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     maybe_progressbar = make_optional_progressbar(show_progress, prefix, len(yearmonths))
 
     for ym in maybe_progressbar(yearmonths):
-        with xr.open_dataset(cutout.datasetfn(ym)) as ds:
-            if 'view' in cutout.meta.attrs:
-                ds = ds.sel(**cutout.meta.attrs['view'])
-            da = convert_func(ds, **convert_kwds)
-            results.append(aggregate_func(da, **aggregate_kwds).load())
+        ds = cutout.open_data(cutout.datasetfn(ym), cache=cache_datasets)
+        if 'view' in cutout.meta.attrs:
+            ds = ds.sel(**cutout.meta.attrs['view'])
+        da = convert_func(ds, **convert_kwds)
+        results.append(aggregate_func(da, **aggregate_kwds).load())
+        # TODO add option for closing files using cutout.close_data() function (remove from cache)
     if 'time' in results[0].coords:
         results = xr.concat(results, dim='time')
     else:
@@ -347,24 +355,95 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
                                         **params)
 
 
+
 ## wind
+def extrapolate_wind_speed(ds, to_height, from_height=None):
+    """Extrapolate the wind speed from a given height above ground to another.
 
-def convert_wind(ds, turbine):
-    V, POW, hub_height, P = itemgetter('V', 'POW', 'hub_height', 'P')(turbine)
+    If ds already contains a key refering to wind speeds at the desired to_height,
+    no conversion is done and the wind speeds are directly returned.
 
+    Extrapolation of the wind speed follows the logarithmic law as desribed in [1].
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing the wind speed time-series at 'from_height' with key
+        'wnd{height:d}m' and the surface orography with key 'roughness' at the
+        geographic locations of the wind speeds.
+    from_height : int
+        (Optional)
+        Height (m) from which the wind speeds are interpolated to 'to_height'.
+        If not provided, the closest height to 'to_height' is selected.
+    to_height : int
+        Height (m) to which the wind speeds are extrapolated to.
+    
+    Returns
+    -------
+    da : xarray.DataArray
+        DataArray containing the extrapolated wind speeds. Name of the DataArray
+        is 'wnd{to_height:d}'.
+
+    References
+    ----------
+    [1] Equation (2) in Andresen, G. et al (2015):
+        'Validation of Danish wind time series from a new global renewable energy atlas for energy system analysis'.
+    [2] https://en.wikipedia.org/w/index.php?title=Roughness_length&oldid=862127433, Retrieved 2019-02-15.
+    """ 
+
+    if not isinstance(to_height, int):
+        logger.warn("Integer to_height expected but got {s}."
+                    "Type casting and continuing, may lead to unexpected results.".format(s=type(to_height))
+        )
+        to_height = int(to_height)
+
+    to_name   = "wnd{h:0d}m".format(h=to_height)
+
+    # Fast lane
+    if to_name in ds:
+        return ds[to_name]
+
+    if from_height is None:
+        # Determine closest height to to_name
+        heights = np.asarray([int(s[3:-1]) for s in ds if s.startswith("wnd")])
+
+        if len(heights) == 0:
+            raise AssertionError("Wind speed is not in dataset")
+
+        from_height = heights[np.argmin(np.abs(heights-to_height))]
+    elif not isinstance(from_height, int):
+        logger.warn("Integer from_height expected but got {s}."
+                    "Trying to type caste and continue, may lead to unexpected results.".format(s=type(from_height))
+        )
+        from_height = int(from_height)
+
+    from_name = "wnd{h:0d}m".format(h=from_height)
+        
+    # Sanitise roughness for logarithm
+    # 0.0002 corresponds to open water [2]
     ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002
 
-    for data_height in (100, 10):
-        data_name = 'wnd%dm' % data_height
-        if data_name in ds.data_vars: break
-    else:
-        raise AssertionError("Wind speed is not in dataset")
+    # Wind speed extrapolation
+    wnd_spd = ds[from_name] * ( np.log(to_height /ds['roughness'])
+                              / np.log(from_height/ds['roughness']))
 
-    wnd_hub = ds[data_name] * (np.log(hub_height/ds['roughness']) /
-                               np.log(data_height/ds['roughness']))
-    wind_energy = xr.DataArray(np.interp(wnd_hub, V, np.asarray(POW)/P),
-                               coords=wnd_hub.coords)
-    return wind_energy
+    wnd_spd.attrs.update({"long name":
+                            "extrapolated {ht:0d} m wind speed using logarithmic "
+                            "method with roughness and {hf:0d} m wind speed"
+                            "".format(ht=to_height, hf=from_height),
+                          "units" : "m s**-1"})
+
+    return wnd_spd.rename(to_name)
+
+def convert_wind(ds, turbine):
+    """Convert wind speeds for turbine to wind energy generation."""
+
+    V, POW, hub_height, P = itemgetter('V', 'POW', 'hub_height', 'P')(turbine)
+    power_curve = xr.DataArray(POW, [('wind speed', V)], name='turbine power curve')
+
+    wnd_hub = extrapolate_wind_speed(ds, to_height=hub_height)
+
+    return power_curve.interp({'wind speed':wnd_hub})
 
 def wind(cutout, turbine, smooth=False, **params):
     """

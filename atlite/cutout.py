@@ -46,6 +46,8 @@ class Cutout(object):
         self.cutout_dir = os.path.join(cutout_dir, name)
         self.prepared = False
 
+        self._open_datasets = dict()
+
         if 'bounds' in cutoutparams:
             x1, y1, x2, y2 = cutoutparams.pop('bounds')
             cutoutparams.update(xs=slice(x1, x2),
@@ -148,6 +150,81 @@ class Cutout(object):
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
         return compute_indicatormatrix(self.grid_cells(), shapes, self.projection, shapes_proj)
+    
+    def open_data(self, dataset_name, cache=False, **params):
+        """Check the internal cache for an opened file or open it and keep it opened.
+        
+        Parameter
+        ---------
+        dataset_name : str
+            String path to dataset file used to identify and open to dataset.
+        cache : boolean
+            (Default: False) Whether to use an internal cache for the dataset object references.
+            Allows to keep-alive and reuse datasets instead of having to reopen
+            (and reload) them from disk to memory.
+        **params : dict
+            Parameters passed to xarray.open_dataset() as options.
+        
+        Return
+        ------
+        xarray.DataSet 
+            Opened dataset_name
+        """
+        if cache is True:
+            return self._open_datasets.setdefault(dataset_name, xr.open_dataset(dataset_name, **params))
+        elif cache is False:
+            return xr.open_dataset(dataset_name, **params)
+        else:
+            raise KeyError("'cache' must either be True or False.")
+
+            
+    def close_data(self, dataset_name=None, dataset=None, all=True):
+        """Find, close and remove the dataset from the internal cache.
+        
+        Searches for the dataset associated with file 'dataset_name' or
+        the dataset object 'dataset' in the internal cache and closes
+        it if it is found/present. Then deletes the dataset object reference.
+
+        Set 'all' to True, to clear the whole cache.
+
+        Does not save anything back to disk.
+
+        Parameter
+        ---------
+        all : bool
+            (Default: True) Whether to close all open files or selectively only a few.
+            If 'dataset_name' or 'dataset' are specified, only these provided ones are closed.
+        dataset_name : str, list(str)
+            (Default: None) String path to dataset file used to identify and close the dataset file.
+        dataset : xarray.Dataset, list(xarray.Dataset)
+            (Default: None) Dataset object to remove from cache and close, delete.
+        """
+        if not dataset and not dataset_name and all is not True:
+            raise KeyError("Provide either 'dataset', 'dataset_name' or set 'all' to True.")
+
+        data_sets = []
+
+        if dataset_name:
+            all = False
+            if isinstance(dataset_name, str):
+                dataset_name = [dataset_name]
+            data_sets.extend([self._open_datasets.pop(dn, None) for dn in dataset_name])
+
+        if dataset:
+            all = False
+            for k,v in self._open_datasets.items():
+                if data_sets is v:
+                    data_sets.append(self._open_datasets.pop(k))
+
+        if all is True:
+            data_sets.extend(list(self._open_datasets.values()))
+            self._open_datasets.clear()
+
+        for d in data_sets:
+            if isinstance(d, xr.Dataset):
+                d.close()
+                del(d)
+            
 
     ## Preparation functions
 

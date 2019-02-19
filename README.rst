@@ -77,7 +77,7 @@ Getting started
 * Install atlite from this repository with all its library dependencies
 * Download one of the weather datasets listed above (ERA5 is downloaded
   automatically on-demand after the ECMWF
-  `cdsapi<https://cds.climate.copernicus.eu/api-how-to>` client is 
+  `cdsapi <https://cds.climate.copernicus.eu/api-how-to>` client is 
   properly installed)
 * Adjust the `atlite/config.py <atlite/config.py>`_ directory paths to
   point to the directory where you downloaded the dataset
@@ -87,6 +87,21 @@ Getting started
 * Select a sparse matrix of the geographical points inside the cutout
   you want to aggregate for your time series, and pass it to the
   appropriate converter function - see `examples/ <examples/>`_
+
+
+FAQ
+===
+
+* Which weather dataset should I use?
+
+  If you don't know which dataset to use, the ERA-5 dataset is an easy
+  and good way to start with.
+* I am doing repeated conversions, is there a way to make things go faster?
+
+  Some conversion function support and option via the keyword argument
+  `cache_datasets=True`. With this option, dataset objects are reused
+  and kept in memory. If you have enough memory or a small cutout,
+  this will probably make things faster for your
 
 Licence
 =======
