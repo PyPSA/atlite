@@ -48,8 +48,9 @@ from .resource import (get_windturbineconfig, get_solarpanelconfig,
                        windturbine_smooth)
 
 from .utils import make_optional_progressbar
+from .data import requires_windowed
 
-def convert_and_aggregate(cutout, convert_func, matrix=None,
+def convert_and_aggregate(cutout, convert_func, windows, matrix=None,
                           index=None, layout=None, shapes=None,
                           shapes_proj='latlong', per_unit=False,
                           return_capacity=False, capacity_factor=False,
@@ -104,9 +105,9 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     ---------------------------------------------------
     convert_func : Function
         Callback like convert_wind, convert_pv
+    windows : windows.Windows
+        Iterable access to consecutive time-slices of xr.Dataset
     """
-    assert cutout.prepared, "The cutout has to be prepared first."
-
     if shapes is not None:
         if isinstance(shapes, pd.Series) and index is None:
             index = shapes.index
@@ -135,8 +136,6 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
     results = []
 
-    yearmonths = cutout.coords['year-month'].to_index()
-
     if isinstance(show_progress, string_types):
         prefix = show_progress
     else:
@@ -145,14 +144,12 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
                         else convert_func.__name__)
         prefix = 'Convert and aggregate `{}`: '.format(func_name)
 
-    maybe_progressbar = make_optional_progressbar(show_progress, prefix, len(yearmonths))
+    maybe_progressbar = make_optional_progressbar(show_progress, prefix, len(windows))
 
-    for ym in maybe_progressbar(yearmonths):
-        with xr.open_dataset(cutout.datasetfn(ym)) as ds:
-            if 'view' in cutout.meta.attrs:
-                ds = ds.sel(**cutout.meta.attrs['view'])
-            da = convert_func(ds, **convert_kwds)
-            results.append(aggregate_func(da, **aggregate_kwds).load())
+    for ds in maybe_progressbar(windows):
+        da = convert_func(ds, **convert_kwds)
+        results.append(aggregate_func(da, **aggregate_kwds).load())
+
     if 'time' in results[0].coords:
         results = xr.concat(results, dim='time')
     else:
@@ -188,6 +185,7 @@ def convert_temperature(ds):
     #Temperature is in Kelvin
     return ds['temperature'] - 273.15
 
+@requires_windowed(['temperature'])
 def temperature(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_temperature, **params)
 
@@ -208,6 +206,7 @@ def convert_soil_temperature(ds):
     #by matrix in atlite/aggregate.py
     return (ds['soil temperature'] - 273.15).fillna(0.)
 
+@requires_windowed(['temperature'])
 def soil_temperature(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
 
@@ -228,6 +227,7 @@ def convert_heat_demand(ds, threshold, a, constant, hour_shift):
 
     return constant + heat_demand
 
+@requires_windowed(['temperature'])
 def heat_demand(cutout, threshold=15., a=1., constant=0., hour_shift=0., **params):
     """
     Convert outside temperature into daily heat demand using the
@@ -297,7 +297,7 @@ def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model, c0, c1,
 
     return (output).where(output > 0.).fillna(0.)
 
-
+@requires_windowed(['influx', 'temperature'])
 def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
                   trigon_model="simple",
                   clearsky_model="simple",
@@ -366,6 +366,7 @@ def convert_wind(ds, turbine):
                                coords=wnd_hub.coords)
     return wind_energy
 
+@requires_windowed(['wind'], allow_dask=True)
 def wind(cutout, turbine, smooth=False, **params):
     """
     Generate wind generation time-series
@@ -415,6 +416,7 @@ def convert_pv(ds, panel, orientation, trigon_model='simple', clearsky_model='si
     solar_panel = SolarPanelModel(ds, irradiation, panel)
     return solar_panel
 
+@requires_windowed(['influx', 'temperature'])
 def pv(cutout, panel, orientation, clearsky_model=None, **params):
     '''
     Convert downward-shortwave, upward-shortwave radiation flux and
@@ -476,6 +478,7 @@ def convert_runoff(ds, weight_with_height=True):
     runoff = ds['runoff'] * ds['height']
     return runoff
 
+@requires_windowed(['runoff'])
 def runoff(cutout, smooth=None, lower_threshold_quantile=None,
            normalize_using_yearly=None, **params):
     result = cutout.convert_and_aggregate(convert_func=convert_runoff, **params)

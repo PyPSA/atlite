@@ -26,17 +26,9 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 from functools import partial
-import pyproj
-from six import iteritems
-from itertools import groupby
-from operator import itemgetter
-import os
 import glob
 import logging
 logger = logging.getLogger(__name__)
-
-from collections import deque
-from contextlib import contextmanager
 
 
 def as_slice(zs, pad=True):
@@ -46,10 +38,11 @@ def as_slice(zs, pad=True):
         zs = slice(first - dz, last + dz)
     return zs
 
-from ..config import sarah_dir
-from ..utils import receive
+from ..utils import timeindex_from_slice, receive
 from ..gis import regrid, Resampling, maybe_swap_spatial_dims
-from .era5 import prepare_for_sarah
+from .. import config
+
+from .era5 import get_data as get_era5_data
 
 # Model and Projection Settings
 projection = 'latlong'
@@ -62,37 +55,47 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
         ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     return ds
 
-def prepare_meta_sarah(xs, ys, year, month, template_sis, template_sid, module, resolution=resolution):
-    fns = [next(glob.iglob(t.format(year=year, month=month)))
-           for t in (template_sis, template_sid)]
+def _get_filenames(sarah_dir, date):
+    year = date.year
+    month = date.month
+
+    return (os.path.join(sarah_dir, 'sis', f'SISin{year}{month:02}*.nc'),
+            os.path.join(sarah_dir, 'sid', f'SIDin{year}{month:02}*.nc'))
+
+def get_coords(time, x, y, **creation_parameters):
+    timeindex = timeindex_from_slice(time)
+
+    fns = _get_filenames(creation_parameters.get('sarah_dir', config.sarah_dir), timeindex[0])
+    res = creation_parameters.get('resolution', resolution)
 
     with xr.open_mfdataset(fns, compat='identical') as ds:
         ds = _rename_and_clean_coords(ds)
         ds = ds.coords.to_dataset()
 
-        t = pd.Timestamp(year=year, month=month, day=1)
-        ds['time'] = pd.date_range(t, t + pd.DateOffset(months=1),
-                                   freq='1h', closed='left')
-
-        if resolution is not None:
+        if res is not None:
             def p(s):
-                s += 0.1*resolution
-                return s - (s % resolution)
-            xs = np.arange(p(xs.start), p(xs.stop) + 1.1*resolution, resolution)
-            ys = np.arange(p(ys.start), p(ys.stop) - 0.1*resolution, - resolution)
-            ds = ds.sel(x=xs, y=ys, method='nearest')
+                s += 0.1*res
+                return s - (s % res)
+            x = np.arange(p(x.start), p(x.stop) + 1.1*res, res)
+            y = np.arange(p(y.start), p(y.stop) - 0.1*res, - res)
+            ds = ds.sel(x=x, y=y, method='nearest')
         else:
-            ds = ds.sel(x=as_slice(xs), y=as_slice(ys))
+            ds = ds.sel(x=x, y=y)
+
+        ds['time'] = timeindex
 
         return ds.load()
 
-def prepare_month_sarah(era5_func, xs, ys, year, month, template_sis, template_sid, resolution):
-    with xr.open_mfdataset(template_sis.format(year=year, month=month)) as ds_sis, \
-         xr.open_mfdataset(template_sid.format(year=year, month=month)) as ds_sid:
+def get_data(coords, date, feature, x, y, **creation_parameters):
+    sis_fn, sid_fn = _get_filenames(creation_parameters.get('sarah_dir', sarah_dir), date)
+    res = creation_parameters.get('resolution', resolution)
+
+    with xr.open_mfdataset(sis_fn) as ds_sis, \
+         xr.open_mfdataset(sid_fn) as ds_sid:
         ds = xr.merge([ds_sis, ds_sid])
 
         ds = _rename_and_clean_coords(ds, add_lon_lat=False)
-        ds = ds.sel(x=as_slice(xs), y=as_slice(ys))
+        ds = ds.sel(x=as_slice(coords['x']), y=as_slice(coords['y']))
 
         def interpolate(ds, dim='time'):
             def _interpolate1d(y):
@@ -110,12 +113,12 @@ def prepare_month_sarah(era5_func, xs, ys, year, month, template_sis, template_s
             assert len(dtypes) == 1, "interpolate only supports datasets with homogeneous dtype"
 
             return xr.apply_ufunc(_interpolate, ds,
-                                input_core_dims=[[dim]],
-                                output_core_dims=[[dim]],
-                                output_dtypes=[dtypes.pop()],
-                                output_sizes={dim: len(ds.indexes[dim])},
-                                dask='allowed',
-                                keep_attrs=True)
+                                  input_core_dims=[[dim]],
+                                  output_core_dims=[[dim]],
+                                  output_dtypes=[dtypes.pop()],
+                                  output_sizes={dim: len(ds.indexes[dim])},
+                                  dask='allowed',
+                                  keep_attrs=True)
 
         ds = interpolate(ds)
 
@@ -136,8 +139,8 @@ def prepare_month_sarah(era5_func, xs, ys, year, month, template_sis, template_s
                                               units='W m-2'))
         ds = ds.rename({'SID': 'influx_direct'}).drop('SIS')
 
-        if resolution is not None:
-            ds = regrid(ds, xs, ys, resampling=Resampling.average)
+        if res is not None:
+            ds = regrid(ds, coords['x'], coords['y'], resampling=Resampling.average)
 
         x = ds.indexes['x']
         y = ds.indexes['y']
@@ -150,32 +153,14 @@ def prepare_month_sarah(era5_func, xs, ys, year, month, template_sis, template_s
         dy = float(uy - ly)/float(len(y)-1)
 
         logger.debug("Getting ERA5 data")
-        with receive(era5_func(year, month, xs, ys, dx, dy, chunks=dict(time=24))) as ds_era:
+        with receive(get_era5_data(coords, date, 'influx', xs, ys, dx, dy, chunks=dict(time=24))) as ds_era_influx, \
+             receive(get_era5_data(coords, data, 'temperature', xs, ys, dx, dy, chunks=dict(time=24))) as ds_era_temp:
             logger.debug("Merging SARAH and ERA5 data")
-            ds_era = ds_era.assign_coords(x=ds.indexes['x'], y=ds.indexes['y'])
-            ds = xr.merge([ds, ds_era]).assign_attrs(ds.attrs)
+            ds_era_influx = ds_era_influx.assign_coords(x=x, y=y)
+            ds_era_temp = ds_era_temp.assign_coords(x=x, y=y)
+            ds = xr.merge([ds,
+                           ds_era_influx[['influx_toa', 'albedo']],
+                           ds_era_temp[['temperature']]]).assign_attrs(ds.attrs)
             ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
 
-            yield ((year, month), ds)
-
-def tasks_monthly_sarah(xs, ys, yearmonths, prepare_func, era5_func, template_sis, template_sid, meta_attrs):
-    resolution = meta_attrs.get('resolution', None)
-
-    return [dict(prepare_func=prepare_func,
-                 era5_func=era5_func,
-                 template_sis=template_sis, template_sid=template_sid,
-                 xs=xs, ys=ys, year=year, month=month,
-                 resolution=resolution)
-            for year, month in yearmonths]
-
-weather_data_config = {
-    '_': dict(tasks_func=tasks_monthly_sarah,
-              prepare_func=prepare_month_sarah,
-              era5_func=prepare_for_sarah,
-              template_sid=os.path.join(sarah_dir, 'sid', 'SIDin{year}{month:02}*.nc'),
-              template_sis=os.path.join(sarah_dir, 'sis', 'SISin{year}{month:02}*.nc'))
-}
-
-meta_data_config = dict(prepare_func=prepare_meta_sarah,
-                        template_sid=weather_data_config['_']['template_sid'],
-                        template_sis=weather_data_config['_']['template_sis'])
+            yield ds

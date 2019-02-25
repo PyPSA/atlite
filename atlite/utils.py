@@ -23,9 +23,17 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 """
 
 import progressbar as pgb
+from pathlib import Path
 from contextlib import contextmanager
+import xarray as xr
 
-def make_optional_progressbar(show, prefix, max_value):
+from .config import features as available_features
+
+
+import logging
+logger = logging.getLogger(__name__)
+
+def make_optional_progressbar(show, prefix, max_value=None):
     if show:
         widgets = [
             pgb.widgets.Percentage(),
@@ -42,7 +50,22 @@ def make_optional_progressbar(show, prefix, max_value):
 
     return maybe_progressbar
 
+def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams):
+    logger.warning("Found an old-style directory-like cutout. Use `prepare` to transfer that data.")
+
+    old_cutout_dir = Path(old_cutout_dir)
+    meta = xr.open_dataset(old_cutout_dir / "meta.nc")
+    data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"))
+    data.attrs.update(meta.attrs)
+    data.attrs["prepared_features"] = list(available_features)
+
+    return data
+
 @contextmanager
 def receive(it):
     yield next(it)
     for i in it: pass
+
+def timeindex_from_slice(timeslice):
+    end = pd.Timestamp(timeslice.end) + pd.offsets.DateOffset(months=1)
+    return pd.date_range(timeslice.start, end, freq="1h", closed="left")

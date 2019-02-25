@@ -38,6 +38,8 @@ try:
 except ImportError:
     has_cdsapi = False
 
+from ..utils import timeindex_from_slice
+
 # Model and Projection Settings
 projection = 'latlong'
 
@@ -123,7 +125,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
         ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     return ds
 
-def prepare_meta_era5(xs, ys, year, month, module):
+def get_coords(time, x, y, **creation_parameters):
     # Reference of the quantities
     # https://confluence.ecmwf.int/display/CKB/ERA5+data+documentation
     # Geopotential is aka Orography in the CDS:
@@ -131,49 +133,22 @@ def prepare_meta_era5(xs, ys, year, month, module):
     #
     # (shortName) | (name)                        | (paramId)
     # z           | Geopotential (CDS: Orography) | 129
+
+    time = timeindex_from_slice(time)
+
     with _get_data(variable='orography',
-                   year=year, month=month, day=1,
-                   area=_area(xs, ys)) as ds:
+                   year=time[0].year, month=time[0].month,
+                   day=1, time="00:00",
+                   area=_area(x, y)) as ds:
         ds = _rename_and_clean_coords(ds)
-        ds = _add_height(ds)
+        ds.coords['time'] = time
+        return ds.coords.to_dataset().load()
 
-        t = pd.Timestamp(year=year, month=month, day=1)
-        ds['time'] = pd.date_range(t, t + pd.DateOffset(months=1),
-                                   freq='1h', closed='left')
+def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
+    kwds = {chunks: chunks}
 
-        return ds.load()
-
-def prepare_for_sarah(year, month, xs, ys, dx, dy, chunks=None):
-    area = _area(xs, ys)
-    grid = [dx, dy]
-
-    with _get_data(area=area, grid=grid, year=year, month=month,
-                   variable=['2m_temperature',
-                             'toa_incident_solar_radiation',
-                             'surface_solar_radiation_downwards',
-                             'surface_net_solar_radiation'],
-                   chunks=chunks) as ds:
-        ds = _rename_and_clean_coords(ds, add_lon_lat=False)
-
-        ds = ds.rename({'t2m': 'temperature'})
-        ds = ds.rename({'tisr': 'influx_toa'})
-
-        logger.debug("Calculating albedo")
-        ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
-                        .assign_attrs(units='(0 - 1)', long_name='Albedo'))
-        ds = ds.drop(['ssrd', 'ssr'])
-
-        logger.debug("Fixing units of influx_toa")
-        # Convert from energy to power J m**-2 -> W m**-2
-        ds['influx_toa'] /= 60.*60.
-        ds['influx_toa'].attrs['units'] = 'W m**-2'
-
-        logger.debug("Yielding ERA5 results")
-        yield ds.chunk(chunks)
-        logger.debug("Cleaning up ERA5")
-
-def prepare_month_era5(year, month, xs, ys):
-    area = _area(xs, ys)
+    if {'dx', 'dy'}.issubset(creation_parameters):
+        kwds['grid'] = [creation_parameters['dx'], creation_parameters['dy']]
 
     # Reference of the quantities
     # https://confluence.ecmwf.int/display/CKB/ERA5+data+documentation
@@ -188,69 +163,76 @@ def prepare_month_era5(year, month, xs, ys):
     # stl4        | Soil temperature level 4                    | 236
     # fsr         | Forecast surface roughnes                   | 244
 
-    with _get_data(area=area, year=year, month=month,
-                   variable=[
-                       '100m_u_component_of_wind',
-                       '100m_v_component_of_wind',
-                       '2m_temperature',
-                       'runoff',
-                       'soil_temperature_level_4',
-                       'surface_net_solar_radiation',
-                       'surface_pressure',
-                       'surface_solar_radiation_downwards',
-                       'toa_incident_solar_radiation',
-                       'total_sky_direct_solar_radiation_at_surface'
-                   ]) as ds, \
-         _get_data(area=area, year=year, month=month, day=1,
-                   variable=['forecast_surface_roughness', 'orography']) as ds_m:
+    if feature == "wind":
+        with _get_data(area=area, year=date.year, month=date.month,
+                       variable=['100m_u_component_of_wind', '100m_v_component_of_wind'],
+                       **kwds) as ds, \
+             _get_data(area=area, year=date.year, month=date.month, day=1, time="00:00",
+                       variable=['forecast_surface_roughness'],
+                       **kwds) as ds_m:
 
-        ds_m = ds_m.isel(time=0, drop=True)
-        ds = xr.merge([ds, ds_m], join='left')
+            ds_m = ds_m.isel(time=0, drop=True)
+            ds = xr.merge([ds, ds_m], join='left')
 
-        ds = _rename_and_clean_coords(ds)
-        ds = _add_height(ds)
+            ds = _rename_and_clean_coords(ds)
 
+            ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
+                            .assign_attrs(units=ds['u100'].attrs['units'],
+                                        long_name="100 metre wind speed"))
+            ds = ds.drop(['u100', 'v100'])
 
-        ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
-        with np.errstate(divide='ignore', invalid='ignore'):
-            ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
-                            .assign_attrs(units='(0 - 1)', long_name='Albedo'))
-        ds['influx_diffuse'] = ((ds['ssrd'] - ds['influx_direct'])
-                                .assign_attrs(units='J m**-2',
-                                            long_name='Surface diffuse solar radiation downwards'))
-        ds = ds.drop(['ssrd', 'ssr'])
+            ds = ds.rename({'fsr': 'roughness'})
 
-        # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
-        for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
-            ds[a] = ds[a].clip(min=0.) / (60.*60.)
-            ds[a].attrs['units'] = 'W m**-2'
+            yield ds
 
-        ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
-                        .assign_attrs(units=ds['u100'].attrs['units'],
-                                    long_name="100 metre wind speed"))
-        ds = ds.drop(['u100', 'v100'])
+    elif feature == "influx":
 
-        ds = ds.rename({'ro': 'runoff',
-                        't2m': 'temperature',
-                        'sp': 'pressure',
-                        'stl4': 'soil temperature',
-                        'fsr': 'roughness'
-                        })
+        with _get_data(area=area, year=date.year, month=date.month,
+                       variable=['surface_net_solar_radiation',
+                                 'surface_solar_radiation_downwards',
+                                 'toa_incident_solar_radiation',
+                                 'total_sky_direct_solar_radiation_at_surface'],
+                       **kwds) as ds:
 
-        yield (year, month), ds
+            ds = _rename_and_clean_coords(ds)
 
-def tasks_monthly_era5(xs, ys, yearmonths, prepare_func, meta_attrs):
-    if not isinstance(xs, slice):
-        xs = slice(*xs.values[[0, -1]])
-    if not isinstance(ys, slice):
-        ys = slice(*ys.values[[0, -1]])
+            ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
+            with np.errstate(divide='ignore', invalid='ignore'):
+                ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
+                                .assign_attrs(units='(0 - 1)', long_name='Albedo'))
+            ds['influx_diffuse'] = ((ds['ssrd'] - ds['influx_direct'])
+                                    .assign_attrs(units='J m**-2',
+                                                long_name='Surface diffuse solar radiation downwards'))
+            ds = ds.drop(['ssrd', 'ssr'])
 
-    return [dict(prepare_func=prepare_func, xs=xs, ys=ys, year=year, month=month)
-            for year, month in yearmonths]
+            # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
+            for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
+                ds[a] = ds[a].clip(min=0.) / (60.*60.)
+                ds[a].attrs['units'] = 'W m**-2'
 
-weather_data_config = {
-    '_': dict(tasks_func=tasks_monthly_era5,
-              prepare_func=prepare_month_era5)
-}
+            yield ds
 
-meta_data_config = dict(prepare_func=prepare_meta_era5)
+    elif feature == "temperature":
+
+        with _get_data(area=area, year=date.year, month=date.month,
+                       variable=['2m_temperature', 'soil_temperature_level_4'],
+                       **kwds) as ds:
+
+            ds = _rename_and_clean_coords(ds)
+            ds = ds.rename({'t2m': 'temperature', 'stl4': 'soil temperature'})
+
+            yield ds
+
+    elif feature == "runoff":
+
+        with _get_data(area=area, year=date.year, month=date.month,
+                       variable=['runoff'],
+                       **kwds) as ds:
+
+            ds = _rename_and_clean_coords(ds)
+            ds = ds.rename({'ro': 'runoff'})
+
+            yield ds
+
+    else:
+        raise NotImplementedError(f"Feature '{feature}' has not been implemented for dataset era5")

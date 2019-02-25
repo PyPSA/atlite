@@ -26,6 +26,6 @@ from __future__ import absolute_import
 from .cutout import Cutout
 from .gis import compute_indicatormatrix, regrid
 
-__version__ = "0.0.1"
+__version__ = "0.2"
 __author__ = "Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS), Markus Schlott (FIAS), David Schlachtberger (FIAS)"
 __copyright__ = "Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS), Markus Schlott (FIAS), David Schlachtberger (FIAS), GNU GPL 3"

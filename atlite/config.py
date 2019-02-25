@@ -4,4 +4,10 @@ cutout_dir = '/home/vres/data/cutouts'
 ncep_dir = '/home/vres-climate/data/rda_ucar'
 cordex_dir = '/home/vres-climate/data/cordex/RCP8.5'
 sarah_dir = '/home/vres-climate/data/sarah_v2'
-weather_dataset = {'module': 'cordex', 'model': 'MPI-M-MPI-ESM-LR'}
+
+features = {
+    'wind': ['wnd10m', 'wnd50m', 'wnd100m', 'roughness'],
+    'influx': ['influx_toa', 'influx_direct', 'influx_diffuse', 'influx', 'albedo'],
+    'temperature': ['temperature', 'soil_temperature'],
+    'runoff': ['runoff']
+}

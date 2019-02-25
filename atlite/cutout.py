@@ -26,95 +26,106 @@ import xarray as xr
 import numpy as np
 import os, sys
 from six import string_types
+from warnings import warn
 
 import logging
 logger = logging.getLogger(__name__)
 
-from . import config, datasets
+
+from . import config, datasets, utils
 
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
-from .preparation import (cutout_do_task, cutout_prepare,
-                          cutout_produce_specific_dataseries,
-                          cutout_get_meta, cutout_get_meta_view)
 from .gis import compute_indicatormatrix
+from .data import requires_coords, requires_windowed
 
 class Cutout(object):
-    def __init__(self, name=None, cutout_dir=config.cutout_dir, **cutoutparams):
-        self.name = name
+    dataset_module = None
 
-        self.cutout_dir = os.path.join(cutout_dir, name)
-        self.prepared = False
+    def __init__(self, name=None, data=None, cutout_dir=config.cutout_dir, **cutoutparams):
+        if isinstance(name, xr.Dataset):
+            data = name
+            name = data.attrs.get("name", "unnamed")
+
+        if '/' in name:
+            cutout_dir, name = os.path.split(name)
+
+        self.name = name
+        self.cutout_dir = cutout_dir
 
         if 'bounds' in cutoutparams:
             x1, y1, x2, y2 = cutoutparams.pop('bounds')
-            cutoutparams.update(xs=slice(x1, x2),
-                                ys=slice(y2, y1))
+            cutoutparams.update(x=slice(x1, x2),
+                                y=slice(y2, y1))
 
-        if os.path.isdir(self.cutout_dir):
-            self.meta = meta = xr.open_dataset(self.datasetfn()).stack(**{'year-month': ('year', 'month')})
-            # check datasets very rudimentarily, series and coordinates should be checked as well
-            if all(os.path.isfile(self.datasetfn(ym)) for ym in meta.coords['year-month'].to_index()):
-                self.prepared = True
+        if {'xs', 'ys'}.intersection(cutoutparams):
+            warn("The arguments `xs` and `ys` have been deprecated in favour of `x` and `y`", DeprecationWarning)
+            if 'xs' in cutoutparams: cutoutparams['x'] = cutoutparams.pop('xs')
+            if 'ys' in cutoutparams: cutoutparams['y'] = cutoutparams.pop('ys')
+
+        if {'years', 'months'}.intersection(cutoutparams):
+            warn("The arguments `years` and `months` have been deprecated in favour of `time`", DeprecationWarning)
+            assert 'years' in cutoutparams
+            months = cutoutparams.pop("months", slice(1, 12))
+            years = cutoutparams.pop("years")
+            cutoutparams["time"] = slice("{}-{}".format(years.start, months.start),
+                                         "{}-{}".format(years.stop, months.stop))
+
+        if data is None:
+            if os.path.isfile(self.cutout_fn):
+                data = xr.open_dataset(self.cutout_fn)
+            elif os.path.isdir(os.path.join(self.cutout_dir, self.name)):
+                data = utils.migrate_from_cutout_directory(os.path.join(self.cutout_dir, self.name),
+                                                           self.name, self.cutout_fn, cutoutparams)
             else:
-                assert False
+                logger.info("Cutout {} not found in directory {}, building new one", self.name, self.cutout_dir)
 
-            if 'module' in meta.attrs:
-                cutoutparams['module'] = meta.attrs['module']
-            else:
-                logger.warning('module not given in meta file of cutout, assuming it is NCEP')
-                cutoutparams['module'] = 'ncep'
+                if {"x", "y", "time"}.difference(cutoutparams):
+                    raise ArgumentError("Arguments `x`, `y` and `time` need to be specified (or `bounds` instead of `x` and `y`)")
 
-            if {"xs", "ys", "years", "months"}.intersection(cutoutparams):
-                # Assuming the user is interested in a subview into
-                # the data, update meta in place for the time
-                # dimension and save the xs, ys slices, separately
-                self.meta = meta = self.get_meta_view(**cutoutparams)
-                logger.info("Assuming a view into the prepared cutout: %s", self)
+                if 'module' not in cutoutparams:
+                    logger.warning("`module` was not specified, falling back to 'era5'")
 
-        else:
-            logger.info("Cutout %s not found in directory %s, building new one", name, cutout_dir)
+                data = xr.Dataset(attrs={'module': cutoutparams.pop('module', 'era5'),
+                                         'prepared_features': [],
+                                         'creation_parameters': str(cutoutparams)})
 
-            if 'module' not in cutoutparams:
-                d = config.weather_dataset.copy()
-                d.update(cutoutparams)
-                cutoutparams = d
+        if 'module' in cutoutparams:
+            module = cutoutparams.pop('module')
+            if module != data.attrs.get('module'):
+                logger.warning("Selected module '{}' disagrees with specification in dataset '{}'. Taking your choice."
+                               .format(module, data.attrs.get('module')))
+                data.attrs['module'] = module
+        elif 'module' not in data.attrs:
+            logger.warning("No module given as argument nor in the dataset. Falling back to 'era5'.")
+            data.attrs['module'] = 'era5'
 
-        self.dataset_module = sys.modules['atlite.datasets.' + cutoutparams['module']]
+        if {"x", "y", "time"}.intersection(cutoutparams):
+            # Assuming the user is interested in a subview into the data
+            data = data.sel(**cutoutparams)
+            self.is_view = True
+            logger.info("Assuming a view into the cutout: {}".format(cutoutparams))
 
-        if not self.prepared:
-            if {"xs", "ys", "years"}.difference(cutoutparams):
-                raise TypeError("Arguments `xs`, `ys` and `years` need to be specified")
-            self.meta = self.get_meta(**cutoutparams)
-
-    def datasetfn(self, *args):
-        dataset = None
-
-        if len(args) == 2:
-            dataset = args
-        elif len(args) == 1:
-            dataset = args[0]
-        else:
-            dataset = None
-        return os.path.join(self.cutout_dir, ("meta.nc"
-                                              if dataset is None
-                                              else "{}{:0>2}.nc".format(*dataset)))
+        self.data = data
+        self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
 
     @property
-    def meta_data_config(self):
-        return self.dataset_module.meta_data_config
-
-    @property
-    def weather_data_config(self):
-        return self.dataset_module.weather_data_config
+    def cutout_fn(self):
+        return os.path.join(self.cutout_dir, self.name + ".nc")
 
     @property
     def projection(self):
-        return self.dataset_module.projection
+        return self.data.attrs.get('projection', self.dataset_module.projection)
 
     @property
+    @requires_coords
     def coords(self):
-        return self.meta.coords
+        return self.data.coords
+
+    @property
+    def meta(self):
+        warn("The `meta` attribute is deprecated in favour of direct access to `data`", DeprecationWarning)
+        return xr.Dataset(self.coords, attrs=self.data.attrs)
 
     @property
     def shape(self):
@@ -125,6 +136,14 @@ class Cutout(object):
         return (list(self.coords["x"].values[[0, -1]]) +
                 list(self.coords["y"].values[[-1, 0]]))
 
+    @property
+    def prepared(self):
+        warn("The `prepared` attribute is deprecated in favour of the fine-grained `prepared_features` list", DeprecationWarning)
+        return self.prepared_features == set(config.features)
+
+    @property
+    def prepared_features(self):
+        return set(self.data.attrs["prepared_features"])
 
     def grid_coordinates(self):
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
@@ -137,27 +156,21 @@ class Cutout(object):
         return [box(*c) for c in np.hstack((coords - span, coords + span))]
 
     def __repr__(self):
-        yearmonths = self.coords['year-month'].to_index()
-        return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}/{}-{}/{} {}prepared>'
+        return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} prepared_features={}>'
                 .format(self.name,
                         self.coords['x'].values[0], self.coords['x'].values[-1],
                         self.coords['y'].values[0], self.coords['y'].values[-1],
-                        yearmonths[0][0],  yearmonths[0][1],
-                        yearmonths[-1][0], yearmonths[-1][1],
-                        "" if self.prepared else "UN"))
+                        self.coords['time'].values[0], self.coords['time'].values[-1],
+                        list(self.prepared_features)))
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
         return compute_indicatormatrix(self.grid_cells(), shapes, self.projection, shapes_proj)
 
     ## Preparation functions
 
-    get_meta = cutout_get_meta
-
-    get_meta_view = cutout_get_meta_view
-
-    prepare = cutout_prepare
-
-    produce_specific_dataseries = cutout_produce_specific_dataseries
+    @requires_windowed(None, allow_dask=True)
+    def prepare(self, windows):
+        xr.concat((win.chunk() for win in windows), dim="time").to_netcdf(self.cutout_fn)
 
     ## Conversion and aggregation functions
 
