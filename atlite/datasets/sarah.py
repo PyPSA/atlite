@@ -38,10 +38,6 @@ logger = logging.getLogger(__name__)
 from collections import deque
 from contextlib import contextmanager
 
-@contextmanager
-def receive(it):
-    yield next(it)
-    for i in it: pass
 
 def as_slice(zs, pad=True):
     if not isinstance(zs, slice):
@@ -51,6 +47,7 @@ def as_slice(zs, pad=True):
     return zs
 
 from ..config import sarah_dir
+from ..utils import receive
 from ..gis import regrid, Resampling, maybe_swap_spatial_dims
 from .era5 import prepare_for_sarah
 

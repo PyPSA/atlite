@@ -23,6 +23,7 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 """
 
 import progressbar as pgb
+from contextlib import contextmanager
 
 def make_optional_progressbar(show, prefix, max_value):
     if show:
@@ -40,3 +41,8 @@ def make_optional_progressbar(show, prefix, max_value):
         maybe_progressbar = lambda x: x
 
     return maybe_progressbar
+
+@contextmanager
+def receive(it):
+    yield next(it)
+    for i in it: pass
