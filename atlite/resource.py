@@ -31,6 +31,9 @@ import numpy as np
 from scipy.signal import fftconvolve
 from pkg_resources import resource_stream
 
+import logging
+logger = logging.getLogger(name=__name__)
+
 def get_windturbineconfig(turbine):
     res_name = "resources/windturbine/" + turbine + ".yaml"
     turbineconf = yaml.load(resource_stream(__name__, res_name))
@@ -90,9 +93,9 @@ def windturbine_smooth(turbine, params={}):
     if not isinstance(params, dict):
         params = {}
 
-    eta = params.get('eta', 0.95)
-    Delta_v = params.get('Delta_v', 1.27)
-    sigma = params.get('sigma', 2.29)
+    eta = params.setdefault('eta', 0.95)
+    Delta_v = params.setdefault('Delta_v', 1.27)
+    sigma = params.setdefault('sigma', 2.29)
 
     def kernel(v_0):
         # all velocities in m/s
@@ -118,5 +121,9 @@ def windturbine_smooth(turbine, params={}):
 
     turbine = turbine.copy()
     turbine['V'], turbine['POW'] = smooth(turbine['V'], turbine['POW'])
+
+    if any(turbine['POW'][np.where(turbine['V'] == 0.0)] > 1e-2):
+        logger.warn("Oversmoothing detected with parameters {p}. " +
+                    "Turbine generates energy at 0 m/s wind speeds".format(p=params))
 
     return turbine
