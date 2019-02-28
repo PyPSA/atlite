@@ -32,10 +32,12 @@ from scipy.signal import fftconvolve
 from pkg_resources import resource_stream
 
 def get_windturbineconfig(turbine):
+    """Load the 'turbine'.yaml file from local disk and provide a turbine dict."""
+
     res_name = "resources/windturbine/" + turbine + ".yaml"
     turbineconf = yaml.load(resource_stream(__name__, res_name))
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
-    return dict(V=V, POW=POW, hub_height=hub_height, P=max(POW))
+    return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=max(POW))
 
 def get_solarpanelconfig(panel):
     res_name = "resources/solarpanel/" + panel + ".yaml"
