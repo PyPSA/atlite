@@ -357,7 +357,7 @@ def convert_wind(ds, turbine):
     """Convert wind speeds for turbine to wind energy generation."""
 
     V, POW, hub_height, P = itemgetter('V', 'POW', 'hub_height', 'P')(turbine)
-    power_curve = xr.DataArray(POW, [('wind speed', V)], name='turbine power curve')
+    power_curve = xr.DataArray(POW/P, [('wind speed', V)], name='turbine power curve')
 
     wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
 
