@@ -22,9 +22,6 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 import xarray as xr
 import numpy as np
 
-import logging
-logger = logging.getLogger(__name__)
-
 def extrapolate_wind_speed(ds, to_height, from_height=None):
     """Extrapolate the wind speed from a given height above ground to another.
 
@@ -43,7 +40,7 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
         (Optional)
         Height (m) from which the wind speeds are interpolated to 'to_height'.
         If not provided, the closest height to 'to_height' is selected.
-    to_height : int
+    to_height : int|float
         Height (m) to which the wind speeds are extrapolated to.
 
     Returns
@@ -61,15 +58,9 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
         Retrieved 2019-02-15.
     """
 
-    if not isinstance(to_height, int):
-        logger.warn("Integer to_height expected but got {s}."
-                    "Type casting and continuing, may lead to unexpected results.".format(s=type(to_height))
-        )
-        to_height = int(to_height)
-
-    to_name   = "wnd{h:0d}m".format(h=to_height)
 
     # Fast lane
+    to_name   = "wnd{h:0d}m".format(h=int(to_height))
     if to_name in ds:
         return ds[to_name]
 
@@ -81,13 +72,8 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
             raise AssertionError("Wind speed is not in dataset")
 
         from_height = heights[np.argmin(np.abs(heights-to_height))]
-    elif not isinstance(from_height, int):
-        logger.warn("Integer from_height expected but got {s}."
-                    "Trying to type caste and continue, may lead to unexpected results.".format(s=type(from_height))
-        )
-        from_height = int(from_height)
 
-    from_name = "wnd{h:0d}m".format(h=from_height)
+    from_name = "wnd{h:0d}m".format(h=int(from_height))
 
     # Sanitise roughness for logarithm
     # 0.0002 corresponds to open water [2]
@@ -98,8 +84,8 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
                               / np.log(from_height/ds['roughness']))
 
     wnd_spd.attrs.update({"long name":
-                            "extrapolated {ht:0d} m wind speed using logarithmic "
-                            "method with roughness and {hf:0d} m wind speed"
+                            "extrapolated {ht} m wind speed using logarithmic "
+                            "method with roughness and {hf} m wind speed"
                             "".format(ht=to_height, hf=from_height),
                           "units" : "m s**-1"})
 
