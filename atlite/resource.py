@@ -40,7 +40,7 @@ def get_windturbineconfig(turbine):
     res_name = "resources/windturbine/" + turbine + ".yaml"
     turbineconf = yaml.load(resource_stream(__name__, res_name))
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
-    return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=max(POW))
+    return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
 def get_solarpanelconfig(panel):
     res_name = "resources/solarpanel/" + panel + ".yaml"
@@ -123,6 +123,7 @@ def windturbine_smooth(turbine, params={}):
 
     turbine = turbine.copy()
     turbine['V'], turbine['POW'] = smooth(turbine['V'], turbine['POW'])
+    turbine['P'] = np.max(turbine['POW'])
 
     if any(turbine['POW'][np.where(turbine['V'] == 0.0)] > 1e-2):
         logger.warn("Oversmoothing detected with parameters {p}. " +
