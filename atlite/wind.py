@@ -45,7 +45,7 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
         If not provided, the closest height to 'to_height' is selected.
     to_height : int
         Height (m) to which the wind speeds are extrapolated to.
-    
+
     Returns
     -------
     da : xarray.DataArray
@@ -55,9 +55,11 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
     References
     ----------
     [1] Equation (2) in Andresen, G. et al (2015):
-        'Validation of Danish wind time series from a new global renewable energy atlas for energy system analysis'.
-    [2] https://en.wikipedia.org/w/index.php?title=Roughness_length&oldid=862127433, Retrieved 2019-02-15.
-    """ 
+        'Validation of Danish wind time series from a new global renewable
+        energy atlas for energy system analysis'.
+    [2] https://en.wikipedia.org/w/index.php?title=Roughness_length&oldid=862127433,
+        Retrieved 2019-02-15.
+    """
 
     if not isinstance(to_height, int):
         logger.warn("Integer to_height expected but got {s}."
@@ -86,7 +88,7 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
         from_height = int(from_height)
 
     from_name = "wnd{h:0d}m".format(h=from_height)
-        
+
     # Sanitise roughness for logarithm
     # 0.0002 corresponds to open water [2]
     ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002

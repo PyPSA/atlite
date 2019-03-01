@@ -32,9 +32,6 @@ import scipy as sp, scipy.sparse
 from six import string_types
 from operator import itemgetter
 
-import logging
-logger = logging.getLogger(__name__)
-
 from .aggregate import aggregate_sum, aggregate_matrix
 from .gis import spdiag, compute_indicatormatrix
 
@@ -357,11 +354,10 @@ def convert_wind(ds, turbine):
     """Convert wind speeds for turbine to wind energy generation."""
 
     V, POW, hub_height, P = itemgetter('V', 'POW', 'hub_height', 'P')(turbine)
-    power_curve = xr.DataArray(POW/P, [('wind speed', V)], name='turbine power curve')
 
     wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
 
-    return power_curve.interp({'wind speed':wnd_hub})
+    return xr.DataArray(np.interp(wnd_hub, V, POW/P), coords=wnd_hub.coords)
 
 def wind(cutout, turbine, smooth=False, **params):
     """
