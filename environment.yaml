@@ -9,9 +9,6 @@ dependencies:
   - xarray>=0.11.2
   - dask>=0.18.0
   - netcdf4
-  - bottleneck
-  - cyordereddict
-  - toolz
   - progressbar2
 
   # GIS dependencies have to come all from conda-forge
