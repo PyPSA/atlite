@@ -21,6 +21,8 @@ setup(
     install_requires=['numpy',
                       'scipy',
                       'pandas>=0.22',
+                      'bottleneck',
+                      'numexpr',
                       'xarray>=0.11.2',
                       'dask>=0.18.0',
                       'rasterio',

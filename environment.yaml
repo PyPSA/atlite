@@ -10,6 +10,10 @@ dependencies:
   - dask>=0.18.0
   - netcdf4
   - progressbar2
+  
+  # Recommended for pandas and xarray
+  - bottleneck
+  - numexpr
 
   # GIS dependencies have to come all from conda-forge
   - conda-forge::pyproj
