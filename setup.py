@@ -27,7 +27,7 @@ setup(
                       'dask>=0.18.0',
                       'rasterio',
                       'shapely',
-                      'progressbar2'
+                      'progressbar2',
                       'geopandas'],
     classifiers=[
         'Development Status :: 3 - Alpha',
