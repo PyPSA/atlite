@@ -136,16 +136,14 @@ def get_coords(time, x, y, **creation_parameters):
 
     time = timeindex_from_slice(time)
 
-    with _get_data(variable='orography',
-                   year=time[0].year, month=time[0].month,
-                   day=1, time="00:00",
-                   area=_area(x, y)) as ds:
-        ds = _rename_and_clean_coords(ds)
-        ds.coords['time'] = time
-        return ds.coords.to_dataset().load()
+    ds = xr.Dataset({'longitude': np.r_[-180:180:0.3], 'latitude': np.r_[90:-90:-0.3]})
+    ds = _rename_and_clean_coords(ds)
+    ds = ds.sel(x=x, y=y)
+
+    ds['time'] = time
 
 def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
-    kwds = {chunks: chunks}
+    kwds = {'chunks': chunks, 'area': _area(x, y), 'year': date.year, 'month': date.month}
 
     if {'dx', 'dy'}.issubset(creation_parameters):
         kwds['grid'] = [creation_parameters['dx'], creation_parameters['dy']]
@@ -164,15 +162,10 @@ def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
     # fsr         | Forecast surface roughnes                   | 244
 
     if feature == "wind":
-        with _get_data(area=area, year=date.year, month=date.month,
-                       variable=['100m_u_component_of_wind', '100m_v_component_of_wind'],
-                       **kwds) as ds, \
-             _get_data(area=area, year=date.year, month=date.month, day=1, time="00:00",
-                       variable=['forecast_surface_roughness'],
-                       **kwds) as ds_m:
-
-            ds_m = ds_m.isel(time=0, drop=True)
-            ds = xr.merge([ds, ds_m], join='left')
+        with _get_data(variable=['100m_u_component_of_wind',
+                                 '100m_v_component_of_wind',
+                                 'forecast_surface_roughness'],
+                       **kwds) as ds:
 
             ds = _rename_and_clean_coords(ds)
 
@@ -187,8 +180,7 @@ def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
 
     elif feature == "influx":
 
-        with _get_data(area=area, year=date.year, month=date.month,
-                       variable=['surface_net_solar_radiation',
+        with _get_data(variable=['surface_net_solar_radiation',
                                  'surface_solar_radiation_downwards',
                                  'toa_incident_solar_radiation',
                                  'total_sky_direct_solar_radiation_at_surface'],
@@ -214,9 +206,7 @@ def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
 
     elif feature == "temperature":
 
-        with _get_data(area=area, year=date.year, month=date.month,
-                       variable=['2m_temperature', 'soil_temperature_level_4'],
-                       **kwds) as ds:
+        with _get_data(variable=['2m_temperature', 'soil_temperature_level_4'], **kwds) as ds:
 
             ds = _rename_and_clean_coords(ds)
             ds = ds.rename({'t2m': 'temperature', 'stl4': 'soil temperature'})
@@ -225,12 +215,19 @@ def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
 
     elif feature == "runoff":
 
-        with _get_data(area=area, year=date.year, month=date.month,
-                       variable=['runoff'],
-                       **kwds) as ds:
+        with _get_data(variable=['runoff'], **kwds) as ds:
 
             ds = _rename_and_clean_coords(ds)
             ds = ds.rename({'ro': 'runoff'})
+
+            yield ds
+
+    elif feature == "height":
+        with _get_data(variable='orography', day=1, time="00:00",
+                       **kwds) as ds:
+
+            ds = _rename_and_clean_coords(ds)
+            ds = _add_height(ds)
 
             yield ds
 
