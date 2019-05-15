@@ -20,27 +20,16 @@ Renewable Energy Atlas Lite (Atlite)
 Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
 """
 
-import os
 import pandas as pd
-import numpy as np
 import xarray as xr
-import shutil
-from six.moves import range
-from contextlib import contextmanager
-from tempfile import mkstemp
 import logging
 logger = logging.getLogger(__name__)
 
-try:
-    import cdsapi
-    has_cdsapi = True
-except ImportError:
-    has_cdsapi = False
+from .era5 import _get_data, _area, _rename_and_clean_coords
 
 # Model and Projection Settings
 projection = 'latlong'
 
-from .era5 import _get_data, _area, _rename_and_clean_coords
 
 def prepare_meta_efas(xs, ys, year, month, module):
     # TODO
