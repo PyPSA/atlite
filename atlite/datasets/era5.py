@@ -237,6 +237,8 @@ def prepare_month_era5(year, month, xs, ys):
                         'fsr': 'roughness'
                         })
 
+        ds['runoff'] = ds['runoff'].clip(min=0.)
+
         yield (year, month), ds
 
 def tasks_monthly_era5(xs, ys, yearmonths, prepare_func, meta_attrs):
