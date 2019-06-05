@@ -7,9 +7,11 @@ import six
 with open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
 
+exec(open('atlite/_version.py').read())
+
 setup(
     name='atlite',
-    version='0.0.2',
+    version=__version__,
     author='Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)',
     author_email='hoersch@fias.uni-frankfurt.de',
     description='Light-weight version of Aarhus RE Atlas for converting weather data to power systems data',
