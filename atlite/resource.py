@@ -38,13 +38,13 @@ def get_windturbineconfig(turbine):
     """Load the 'turbine'.yaml file from local disk and provide a turbine dict."""
 
     res_name = "resources/windturbine/" + turbine + ".yaml"
-    turbineconf = yaml.load(resource_stream(__name__, res_name))
+    turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
     return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
 def get_solarpanelconfig(panel):
     res_name = "resources/solarpanel/" + panel + ".yaml"
-    return yaml.load(resource_stream(__name__, res_name))
+    return yaml.safe_load(resource_stream(__name__, res_name))
 
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
