@@ -31,7 +31,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from ..utils import timeindex_from_slice
-from .common import _retrieve_data, get_data_gebco_height
+from .common import retrieve_data, get_data_gebco_height
 
 # Model and Projection Settings
 projection = 'latlong'
@@ -99,9 +99,9 @@ def get_coords(time, x, y, **creation_parameters):
 
 
 def get_data_wind(kwds):
-    ds = _retrieve_data(variable=['100m_u_component_of_wind',
-                                  '100m_v_component_of_wind',
-                                  'forecast_surface_roughness'], **kwds)
+    ds = retrieve_data(variable=['100m_u_component_of_wind',
+                                 '100m_v_component_of_wind',
+                                 'forecast_surface_roughness'], **kwds)
     ds = _rename_and_clean_coords(ds)
 
     ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
@@ -113,11 +113,11 @@ def get_data_wind(kwds):
     return ds
 
 def get_data_influx(kwds):
-    ds = _retrieve_data(variable=['surface_net_solar_radiation',
-                                  'surface_solar_radiation_downwards',
-                                  'toa_incident_solar_radiation',
-                                  'total_sky_direct_solar_radiation_at_surface'],
-                        **kwds)
+    ds = retrieve_data(variable=['surface_net_solar_radiation',
+                                 'surface_solar_radiation_downwards',
+                                 'toa_incident_solar_radiation',
+                                 'total_sky_direct_solar_radiation_at_surface'],
+                       **kwds)
 
     ds = _rename_and_clean_coords(ds)
 
@@ -138,7 +138,7 @@ def get_data_influx(kwds):
     return ds
 
 def get_data_temperature(kwds):
-    ds = _retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'], **kwds)
+    ds = retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'], **kwds)
 
     ds = _rename_and_clean_coords(ds)
     ds = ds.rename({'t2m': 'temperature', 'stl4': 'soil temperature'})
@@ -146,7 +146,7 @@ def get_data_temperature(kwds):
     return ds
 
 def get_data_runoff(kwds):
-    ds = _retrieve_data(variable=['runoff'], **kwds)
+    ds = retrieve_data(variable=['runoff'], **kwds)
 
     ds = _rename_and_clean_coords(ds)
     ds = ds.rename({'ro': 'runoff'})
@@ -156,7 +156,7 @@ def get_data_runoff(kwds):
     return ds
 
 def get_data_height(kwds):
-    ds = _retrieve_data(variable='orography', day=1, time="00:00", **kwds)
+    ds = retrieve_data(variable='orography', day=1, time="00:00", **kwds)
 
     ds = _rename_and_clean_coords(ds)
     ds = _add_height(ds)
