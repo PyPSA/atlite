@@ -184,12 +184,12 @@ class GridCells:
         with open(filename, mode='wb') as f:
             pickle.dump(self, f, protocol=-1)
 
-    def indicatormatrix(shapes, shapes_projection='latlong'):
+    def indicatormatrix(self, shapes, shapes_projection='latlong'):
         shapes = reproject_shapes(shapes, shapes_projection, self.projection)
         indicator = sp.sparse.lil_matrix((len(shapes), len(self.grid_cells)), dtype=np.float)
 
         for i, s in enumerate(shapes):
-            for j in idx.intersection(s.bounds):
+            for j in self.sindex.intersection(s.bounds):
                 o = self.grid_cells[j]
                 area = s.intersection(o).area
                 indicator[i,j] = area/o.area
