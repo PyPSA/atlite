@@ -3,7 +3,6 @@ import weakref
 from functools import wraps
 from six import string_types
 import pandas as pd
-from pandas.core.resample import TimeGrouper
 import xarray as xr
 import ast
 import dask
@@ -103,9 +102,9 @@ class Windows(object):
     def __init__(self, cutout, features, window_type=None, allow_dask=False):
         group_kws = {}
         if window_type is None:
-            group_kws['grouper'] = TimeGrouper(freq="M")
+            group_kws['grouper'] = pd.Grouper(freq="M")
         elif isinstance(window_type, string_types):
-            group_kws['grouper'] = TimeGrouper(freq=window_type)
+            group_kws['grouper'] = pd.Grouper(freq=window_type)
         elif isinstance(window_type, (int, pd.Index, np.array)):
             group_kws['bins'] = window_type
         elif isinstance(window_type, dict):
