@@ -205,6 +205,8 @@ def get_data_runoff(kwds):
 
     ds = _rename_and_clean_coords(ds)
     ds = ds.rename({'ro': 'runoff'})
+    ds['runoff'] = ds['runoff'].clip(min=0.)
+
 
     return ds
 

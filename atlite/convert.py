@@ -41,6 +41,7 @@ from .pv.solar_panel_model import SolarPanelModel
 from .pv.orientation import get_orientation, SurfaceOrientation
 
 from . import hydro as hydrom
+from . import wind as windm
 
 from .resource import (get_windturbineconfig, get_solarpanelconfig,
                        windturbine_rated_capacity_per_unit,
@@ -350,21 +351,13 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
 ## wind
 
 def convert_wind(ds, turbine):
+    """Convert wind speeds for turbine to wind energy generation."""
+
     V, POW, hub_height, P = itemgetter('V', 'POW', 'hub_height', 'P')(turbine)
 
-    ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002
+    wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
 
-    for data_height in (100, 10):
-        data_name = 'wnd%dm' % data_height
-        if data_name in ds.data_vars: break
-    else:
-        raise AssertionError("Wind speed is not in dataset")
-
-    wnd_hub = ds[data_name] * (np.log(hub_height/ds['roughness']) /
-                               np.log(data_height/ds['roughness']))
-    wind_energy = xr.DataArray(np.interp(wnd_hub, V, np.asarray(POW)/P),
-                               coords=wnd_hub.coords)
-    return wind_energy
+    return xr.DataArray(np.interp(wnd_hub, V, POW/P), coords=wnd_hub.coords)
 
 @requires_windowed(['wind'], allow_dask=True)
 def wind(cutout, turbine, smooth=False, **params):
@@ -475,7 +468,11 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
 ## hydro
 
 def convert_runoff(ds, weight_with_height=True):
-    runoff = ds['runoff'] * ds['height']
+    runoff = ds['runoff'].clip(min=0.)
+
+    if weight_with_height:
+        runoff = runoff * ds['height']
+
     return runoff
 
 @requires_windowed(['runoff'])

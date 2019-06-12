@@ -31,15 +31,20 @@ import numpy as np
 from scipy.signal import fftconvolve
 from pkg_resources import resource_stream
 
+import logging
+logger = logging.getLogger(name=__name__)
+
 def get_windturbineconfig(turbine):
+    """Load the 'turbine'.yaml file from local disk and provide a turbine dict."""
+
     res_name = "resources/windturbine/" + turbine + ".yaml"
-    turbineconf = yaml.load(resource_stream(__name__, res_name))
+    turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
-    return dict(V=V, POW=POW, hub_height=hub_height, P=max(POW))
+    return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
 def get_solarpanelconfig(panel):
     res_name = "resources/solarpanel/" + panel + ".yaml"
-    return yaml.load(resource_stream(__name__, res_name))
+    return yaml.safe_load(resource_stream(__name__, res_name))
 
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
@@ -90,9 +95,9 @@ def windturbine_smooth(turbine, params={}):
     if not isinstance(params, dict):
         params = {}
 
-    eta = params.get('eta', 0.95)
-    Delta_v = params.get('Delta_v', 1.27)
-    sigma = params.get('sigma', 2.29)
+    eta = params.setdefault('eta', 0.95)
+    Delta_v = params.setdefault('Delta_v', 1.27)
+    sigma = params.setdefault('sigma', 2.29)
 
     def kernel(v_0):
         # all velocities in m/s
@@ -118,5 +123,10 @@ def windturbine_smooth(turbine, params={}):
 
     turbine = turbine.copy()
     turbine['V'], turbine['POW'] = smooth(turbine['V'], turbine['POW'])
+    turbine['P'] = np.max(turbine['POW'])
+
+    if any(turbine['POW'][np.where(turbine['V'] == 0.0)] > 1e-2):
+        logger.warn("Oversmoothing detected with parameters {p}. " +
+                    "Turbine generates energy at 0 m/s wind speeds".format(p=params))
 
     return turbine
