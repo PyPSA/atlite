@@ -89,7 +89,7 @@ class requires_windowed(object):
         return wrapper
 
 def create_windows(cutout, features, windows_params, allow_dask):
-    features = set(features if features is not None else cutout.dataset_module.features)
+    features = set(features if features is not None else cutout.available_features)
     missing_features = features - set(cutout.data.attrs.get('prepared_features', []))
 
     if not missing_features:
@@ -171,7 +171,7 @@ def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
             logger.warn("Using empty `prepared_features`!")
             ds.attrs['prepared_features'] = []
     else:
-        features = set(features if features is not None else cutout.dataset_module.features)
+        features = set(features if features is not None else cutout.available_features)
         missing_features = features - cutout.prepared_features
 
         ds = get_missing_data(cutout, missing_features, monthly)

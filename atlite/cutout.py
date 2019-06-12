@@ -122,7 +122,10 @@ class Cutout(object):
             logger.info("Assuming a view into the cutout: {}".format(cutoutparams))
 
         self.data = data
-        self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
+        if self.is_view:
+            self.dataset_module = None
+        else:
+            self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
 
     @property
     def cutout_fn(self):
@@ -131,6 +134,10 @@ class Cutout(object):
     @property
     def projection(self):
         return self.data.attrs.get('projection', self.dataset_module.projection)
+
+    @property
+    def available_features(self):
+        return set(self.dataset_module.features) if self.dataset_module else set()
 
     @property
     @requires_coords
@@ -154,11 +161,11 @@ class Cutout(object):
     @property
     def prepared(self):
         warn("The `prepared` attribute is deprecated in favour of the fine-grained `prepared_features` list", DeprecationWarning)
-        return self.prepared_features == set(self.dataset_module.features)
+        return self.prepared_features == self.available_features
 
     @property
     def prepared_features(self):
-        return set(self.data.attrs["prepared_features"])
+        return set(self.data.attrs.get("prepared_features", []))
 
     def grid_coordinates(self):
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
