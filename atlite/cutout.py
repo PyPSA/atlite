@@ -81,6 +81,7 @@ class Cutout(object):
                     f"{self.cutout_fn} does not have the required attribute `prepared_features`"
                 if not isinstance(prepared_features, list):
                     data.attrs['prepared_features'] = [prepared_features]
+                # TODO we might want to compare the provided `cutoutparams` with what is saved
             elif os.path.isdir(os.path.join(self.cutout_dir, self.name)):
                 data = utils.migrate_from_cutout_directory(os.path.join(self.cutout_dir, self.name),
                                                            self.name, self.cutout_fn, cutoutparams)
@@ -97,9 +98,6 @@ class Cutout(object):
                 data = xr.Dataset(attrs={'module': cutoutparams.pop('module', 'era5'),
                                          'prepared_features': [],
                                          'creation_parameters': str(cutoutparams)})
-
-                # Remove `x`, `y` and `time` from cutoutparams, so we can use them for indicating a view
-                cutoutparams = {k: v for k, v in cutoutparams.items() if k not in {"x", "y", "time"}}
         else:
             # User-provided dataset
             # TODO needs to be checked, sanitized and marked as immutable (is_view)
@@ -114,12 +112,6 @@ class Cutout(object):
         elif 'module' not in data.attrs:
             logger.warning("No module given as argument nor in the dataset. Falling back to 'era5'.")
             data.attrs['module'] = 'era5'
-
-        if {"x", "y", "time"}.intersection(cutoutparams):
-            # Assuming the user is interested in a subview into the data
-            data = data.sel(**cutoutparams)
-            self.is_view = True
-            logger.info("Assuming a view into the cutout: {}".format(cutoutparams))
 
         self.data = data
         self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
