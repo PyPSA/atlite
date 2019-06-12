@@ -93,12 +93,12 @@ def create_windows(cutout, features, windows_params, allow_dask):
     missing_features = features - set(cutout.data.attrs.get('prepared_features', []))
 
     if not missing_features:
-        return Windows(cutout.data, features, windows_params, allow_dask)
+        return Windows(cutout, features, windows_params, allow_dask)
     else:
         logger.error(f"The following features need to be prepared first: {', '.join(missing_features)}")
 
 class Windows(object):
-    def __init__(self, data, features, params=None, allow_dask=False):
+    def __init__(self, cutout, features, params=None, allow_dask=False):
         group_kws = {}
         if params is None:
             group_kws['grouper'] = TimeGrouper(freq="M")
@@ -113,8 +113,9 @@ class Windows(object):
         else:
             raise RuntimeError(f"Type of `params` (`{type(params)}`) is unsupported")
 
-        vars = data.data_vars.keys() & sum((available_features[f] for f in features), [])
-        self.data = data[list(vars)]
+        dataset_vars = sum((cutout.dataset_module.features[f] for f in features), [])
+        vars = cutout.data.data_vars.keys() & dataset_vars
+        self.data = cutout.data[list(vars)]
         self.group_kws = group_kws
 
         if self.data.chunks is None or allow_dask:
