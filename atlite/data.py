@@ -165,7 +165,6 @@ def get_missing_data(cutout, features, monthly=False):
 
     return xr.merge(datasets, compat='identical')
 
-@requires_coords
 def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
     """
     Prepare all or a given set of `features`
@@ -200,6 +199,8 @@ def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
 
     ds.to_netcdf(target)
     ds.close()
+    if not cutout.is_view:
+        cutout.data.close()
 
     if os.path.exists(cutout.cutout_fn):
         os.unlink(cutout.cutout_fn)
