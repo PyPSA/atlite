@@ -32,7 +32,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-from . import config, datasets, utils
+from . import datasets, utils
 
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
@@ -84,6 +84,7 @@ class Cutout(object):
             elif os.path.isdir(os.path.join(self.cutout_dir, self.name)):
                 data = utils.migrate_from_cutout_directory(os.path.join(self.cutout_dir, self.name),
                                                            self.name, self.cutout_fn, cutoutparams)
+                self.is_view = True
             else:
                 logger.info(f"Cutout {self.name} not found in directory {self.cutout_dir}, building new one")
 
@@ -153,7 +154,7 @@ class Cutout(object):
     @property
     def prepared(self):
         warn("The `prepared` attribute is deprecated in favour of the fine-grained `prepared_features` list", DeprecationWarning)
-        return self.prepared_features == set(config.features)
+        return self.prepared_features == set(self.dataset_module.features)
 
     @property
     def prepared_features(self):

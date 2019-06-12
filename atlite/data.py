@@ -12,7 +12,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 from .utils import receive
-from .config import features as available_features
 
 def literal_eval_creation_parameters(node_or_string):
     """
@@ -90,7 +89,7 @@ class requires_windowed(object):
         return wrapper
 
 def create_windows(cutout, features, windows_params, allow_dask):
-    features = set(features if features is not None else available_features)
+    features = set(features if features is not None else cutout.dataset_module.features)
     missing_features = features - set(cutout.data.attrs.get('prepared_features', []))
 
     if not missing_features:
@@ -156,24 +155,37 @@ def get_missing_data(cutout, features, monthly=False):
     return ds
 
 @requires_coords
-def cutout_prepare(cutout, features=None, monthly=False):
+def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
     """
     Prepare all or a given set of `features`
 
     Download `features` in yearly or monthly slices and merge them into the
     cutout data.
     """
-    features = set(features if features is not None else available_features)
-    missing_features = features - cutout.prepared_features
+    if cutout.is_view:
+        assert features is None, f"It's not possible to add features to a view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first."
+        assert not os.path.exists(cutout.cutout_fn) or overwrite, f"Not overwriting {cutout.cutout_fn} with a view, unless `overwrite=True`."
 
-    ds = get_missing_data(cutout, missing_features, monthly)
+        ds = cutout.data
+        if 'prepared_features' not in ds.attrs:
+            logger.warn("Using empty `prepared_features`!")
+            ds.attrs['prepared_features'] = []
+    else:
+        features = set(features if features is not None else cutout.dataset_module.features)
+        missing_features = features - cutout.prepared_features
 
-    # Merge with existing cutout
-    ds = xr.merge([cutout.data, ds])
-    ds.attrs.update(cutout.data.attrs)
-    ds.attrs['prepared_features'].extend(missing_features)
+        ds = get_missing_data(cutout, missing_features, monthly)
 
-    # Replace existing cutout
-    cutout.data.close()
+        # Merge with existing cutout
+        ds = xr.merge([cutout.data, ds])
+        ds.attrs.update(cutout.data.attrs)
+        ds.attrs['prepared_features'].extend(missing_features)
+
+        # Replace existing cutout
+        cutout.data.close()
+
     ds.to_netcdf(cutout.cutout_fn)
     cutout.data = xr.open_dataset(cutout.cutout_fn)
+    prepared_features = cutout.data.attrs.get('prepared_features')
+    if not isinstance(prepared_features, list):
+        cutout.data.attrs['prepared_features'] = [prepared_features]

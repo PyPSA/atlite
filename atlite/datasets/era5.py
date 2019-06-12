@@ -45,6 +45,13 @@ from ..utils import timeindex_from_slice
 # Model and Projection Settings
 projection = 'latlong'
 
+features = {
+    'wind': ['wnd100m', 'roughness'],
+    'influx': ['influx_toa', 'influx_direct', 'influx_diffuse', 'influx', 'albedo'],
+    'temperature': ['temperature', 'soil_temperature'],
+    'runoff': ['runoff']
+}
+
 def _noisy_unlink(path):
     logger.info(f"Deleting file {path}")
     os.unlink(path)

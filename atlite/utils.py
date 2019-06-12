@@ -28,9 +28,6 @@ from contextlib import contextmanager
 import pandas as pd
 import xarray as xr
 
-from .config import features as available_features
-
-
 import logging
 logger = logging.getLogger(__name__)
 
@@ -58,7 +55,6 @@ def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams)
     meta = xr.open_dataset(old_cutout_dir / "meta.nc")
     data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"))
     data.attrs.update(meta.attrs)
-    data.attrs["prepared_features"] = list(available_features)
 
     return data
 
