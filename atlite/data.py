@@ -7,6 +7,7 @@ from pandas.core.resample import TimeGrouper
 import xarray as xr
 import ast
 import dask
+from tempfile import mkstemp
 
 import logging
 logger = logging.getLogger(__name__)
@@ -191,10 +192,20 @@ def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
         ds.attrs.update(cutout.data.attrs)
         ds.attrs['prepared_features'].extend(missing_features)
 
-        # Replace existing cutout
-        cutout.data.close()
+    # Write to a temporary file in the same directory first and then move back,
+    # because we might still want to load data from the original file in the process
+    directory, filename = os.path.split(cutout.cutout_fn)
+    fd, target = mkstemp(suffix=filename, dir=directory)
+    os.close(fd)
 
-    ds.to_netcdf(cutout.cutout_fn)
+    ds.to_netcdf(target)
+    ds.close()
+
+    if os.path.exists(cutout.cutout_fn):
+        os.unlink(cutout.cutout_fn)
+    os.rename(target, cutout.cutout_fn)
+
+    # Re-open
     cutout.data = xr.open_dataset(cutout.cutout_fn)
     prepared_features = cutout.data.attrs.get('prepared_features')
     if not isinstance(prepared_features, list):
