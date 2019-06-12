@@ -210,3 +210,7 @@ def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
     prepared_features = cutout.data.attrs.get('prepared_features')
     if not isinstance(prepared_features, list):
         cutout.data.attrs['prepared_features'] = [prepared_features]
+
+    # Save spatial index
+    sindex_fn = os.path.join(cutout.cutout_dir, cutout.name + ".sindex.pickle")
+    cutout._grid_cells.to_file(sindex_fn)

@@ -24,6 +24,7 @@ from __future__ import absolute_import
 import numpy as np
 import pandas as pd
 import xarray as xr
+import pickle
 import scipy as sp, scipy.sparse
 from collections import OrderedDict
 from warnings import warn
@@ -34,9 +35,11 @@ from functools import partial
 import pyproj
 from shapely.prepared import prep
 from shapely.ops import transform
+from shapely.geometry import box
 import rasterio as rio
 import rasterio.warp
 from rasterio.warp import Resampling
+from rtree.index import Index
 
 import logging
 logger = logging.getLogger(__name__)
@@ -156,6 +159,42 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
                 indicator[i,j] = area/orig[j].area
 
     return indicator
+
+class GridCells:
+    def __init__(self, grid_cells, sindex, projection):
+        self.grid_cells = grid_cells
+        self.sindex = sindex
+        self.projection = projection
+
+    @classmethod
+    def from_cutout(cls, cutout):
+        coords = cutout.grid_coordinates()
+        span = (coords[cutout.shape[1]+1] - coords[0]) / 2
+        grid_cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
+        sindex = Index((j, o.bounds, None) for j, o in enumerate(grid_cells))
+
+        return cls(grid_cells, sindex, cutout.projection)
+
+    @staticmethod
+    def from_file(filename):
+        with open(filename, mode='rb') as f:
+            return pickle.load(f)
+
+    def to_file(self, filename):
+        with open(filename, mode='wb') as f:
+            pickle.dump(self, f, protocol=-1)
+
+    def indicatormatrix(shapes, shapes_projection='latlong'):
+        shapes = reproject_shapes(shapes, shapes_projection, self.projection)
+        indicator = sp.sparse.lil_matrix((len(shapes), len(self.grid_cells)), dtype=np.float)
+
+        for i, s in enumerate(shapes):
+            for j in idx.intersection(s.bounds):
+                o = self.grid_cells[j]
+                area = s.intersection(o).area
+                indicator[i,j] = area/o.area
+
+        return indicator
 
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
     swaps = {}

@@ -36,7 +36,7 @@ from . import datasets, utils
 
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
-from .gis import compute_indicatormatrix
+from .gis import GridCells
 from .data import requires_coords, requires_windowed, cutout_prepare
 
 class Cutout(object):
@@ -171,11 +171,31 @@ class Cutout(object):
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
         return np.asarray((np.ravel(xs), np.ravel(ys))).T
 
+    _grid_cells_cache = None
+    @property
+    def _grid_cells(self):
+        if self._grid_cells_cache is not None:
+            return self._grid_cells_cache
+
+        sindex_fn = os.path.join(self.cutout_dir, self.name + ".sindex.pickle")
+        grid_cells = None
+        if not self.is_view and os.path.exists(sindex_fn):
+            try:
+                grid_cells = GridCells.from_file(sindex_fn)
+            except (EOFError, OSError):
+                logger.warn(f"Couldn't read GridCells from cache {sindex_fn}. Reconstructing ...")
+
+        if grid_cells is None:
+            grid_cells = GridCells.from_cutout(self)
+
+        # Cache
+        self._grid_cells_cache = grid_cells
+
+        return grid_cells
+
+    @property
     def grid_cells(self):
-        from shapely.geometry import box
-        coords = self.grid_coordinates()
-        span = (coords[self.shape[1]+1] - coords[0]) / 2
-        return [box(*c) for c in np.hstack((coords - span, coords + span))]
+        return self._grid_cells.grid_cells
 
     def __repr__(self):
         return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} prepared_features={} is_view={}>'
@@ -187,7 +207,7 @@ class Cutout(object):
                         self.is_view))
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
-        return compute_indicatormatrix(self.grid_cells(), shapes, self.projection, shapes_proj)
+        return self._grid_cells.indicatormatrix(shapes, shapes_proj)
 
     ## Preparation functions
 

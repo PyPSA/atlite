@@ -28,6 +28,7 @@ setup(
                       'xarray>=0.11.2',
                       'dask>=0.18.0',
                       'rasterio',
+                      'rtree',
                       'shapely',
                       'progressbar2',
                       'geopandas'],
