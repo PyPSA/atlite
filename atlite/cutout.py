@@ -194,6 +194,13 @@ class Cutout(object):
     def grid_cells(self):
         return self._grid_cells.grid_cells
 
+    def sel(self, **kwargs):
+        if 'bounds' in kwargs:
+            x1, y1, x2, y2 = kwargs.pop('bounds')
+            kwargs.update(x=slice(x1, x2), y=slice(y2, y1))
+        data = self.data.sel(**kwargs)
+        return Cutout(self.name, data)
+
     def __repr__(self):
         return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} prepared_features={} is_view={}>'
                 .format(self.name,
