@@ -34,13 +34,8 @@ import weakref
 import logging
 logger = logging.getLogger(__name__)
 
-try:
-    import cdsapi
-    has_cdsapi = True
-except ImportError:
-    has_cdsapi = False
-
 from ..utils import timeindex_from_slice
+from .common import _retrieve_data, get_data_gebco_height
 
 # Model and Projection Settings
 projection = 'latlong'
@@ -52,54 +47,6 @@ features = {
     'runoff': ['runoff']
 }
 
-def _noisy_unlink(path):
-    logger.info(f"Deleting file {path}")
-    os.unlink(path)
-
-def _retrieve_data(product='reanalysis-era5-single-levels', chunks=None, **updates):
-    """Download ERA5 data from the Climate Data Store (CDS)"""
-
-    if not has_cdsapi:
-        raise RuntimeError(
-            "Need installed cdsapi python package available from "
-            "https://cds.climate.copernicus.eu/api-how-to"
-        )
-
-    # Default request
-    request = {
-        'product_type':'reanalysis',
-        'format':'netcdf',
-        'day': list(range(1, 31+1)),
-        'time':[
-            '00:00','01:00','02:00','03:00','04:00','05:00',
-            '06:00','07:00','08:00','09:00','10:00','11:00',
-            '12:00','13:00','14:00','15:00','16:00','17:00',
-            '18:00','19:00','20:00','21:00','22:00','23:00'
-        ],
-        'month': list(range(1, 12+1)),
-        # 'area': [50, -1, 49, 1], # North, West, South, East. Default: global
-        # 'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude) and north-south resolution (latitude). Default: 0.25 x 0.25
-    }
-    request.update(updates)
-
-    assert {'year', 'month', 'variable'}.issubset(request), "Need to specify at least 'variable', 'year' and 'month'"
-
-    result = cdsapi.Client().retrieve(
-        product,
-        request
-    )
-
-    fd, target = mkstemp(suffix='.nc')
-    os.close(fd)
-
-    logger.info("Downloading request for {} variables to {}".format(len(request['variable']), target))
-
-    result.download(target)
-
-    ds = xr.open_dataset(target, chunks=chunks or {})
-    weakref.finalize(ds._file_obj, _noisy_unlink, target)
-
-    return ds
 
 def _add_height(ds):
     """Convert geopotential 'z' to geopotential height following [1]
@@ -219,7 +166,8 @@ def get_data_height(kwds):
     return ds
 
 def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
-    kwds = {'chunks': chunks, 'area': _area(x, y), 'year': date.year} #, 'month': date.month}
+    kwds = {'product': 'reanalysis-era5-single-levels',
+            'chunks': chunks, 'area': _area(x, y), 'year': date.year}
 
     if {'dx', 'dy'}.issubset(creation_parameters):
         kwds['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
