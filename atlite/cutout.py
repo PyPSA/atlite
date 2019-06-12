@@ -72,8 +72,15 @@ class Cutout(object):
                                          "{}-{}".format(years.stop, months.stop))
 
         if data is None:
+            self.is_view = False
+
             if os.path.isfile(self.cutout_fn):
                 data = xr.open_dataset(self.cutout_fn)
+                prepared_features = data.attrs.get('prepared_features')
+                assert prepared_features is not None, \
+                    f"{self.cutout_fn} does not have the required attribute `prepared_features`"
+                if not isinstance(prepared_features, list):
+                    data.attrs['prepared_features'] = [prepared_features]
             elif os.path.isdir(os.path.join(self.cutout_dir, self.name)):
                 data = utils.migrate_from_cutout_directory(os.path.join(self.cutout_dir, self.name),
                                                            self.name, self.cutout_fn, cutoutparams)
@@ -90,6 +97,13 @@ class Cutout(object):
                                          'prepared_features': [],
                                          'creation_parameters': str(cutoutparams)})
 
+                # Remove `x`, `y` and `time` from cutoutparams, so we can use them for indicating a view
+                cutoutparams = {k: v for k, v in cutoutparams.items() if k not in {"x", "y", "time"}}
+        else:
+            # User-provided dataset
+            # TODO needs to be checked, sanitized and marked as immutable (is_view)
+            self.is_view = True
+
         if 'module' in cutoutparams:
             module = cutoutparams.pop('module')
             if module != data.attrs.get('module'):
@@ -100,11 +114,11 @@ class Cutout(object):
             logger.warning("No module given as argument nor in the dataset. Falling back to 'era5'.")
             data.attrs['module'] = 'era5'
 
-        # if {"x", "y", "time"}.intersection(cutoutparams):
-        #     # Assuming the user is interested in a subview into the data
-        #     data = data.sel(**cutoutparams)
-        #     self.is_view = True
-        #     logger.info("Assuming a view into the cutout: {}".format(cutoutparams))
+        if {"x", "y", "time"}.intersection(cutoutparams):
+            # Assuming the user is interested in a subview into the data
+            data = data.sel(**cutoutparams)
+            self.is_view = True
+            logger.info("Assuming a view into the cutout: {}".format(cutoutparams))
 
         self.data = data
         self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
@@ -156,12 +170,13 @@ class Cutout(object):
         return [box(*c) for c in np.hstack((coords - span, coords + span))]
 
     def __repr__(self):
-        return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} prepared_features={}>'
+        return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} prepared_features={} is_view={}>'
                 .format(self.name,
                         self.coords['x'].values[0], self.coords['x'].values[-1],
                         self.coords['y'].values[0], self.coords['y'].values[-1],
                         self.coords['time'].values[0], self.coords['time'].values[-1],
-                        list(self.prepared_features)))
+                        list(self.prepared_features),
+                        self.is_view))
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
         return compute_indicatormatrix(self.grid_cells(), shapes, self.projection, shapes_proj)
