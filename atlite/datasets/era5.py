@@ -89,7 +89,7 @@ def get_coords(time, x, y, **creation_parameters):
 
     # time = timeindex_from_slice(time)
 
-    ds = xr.Dataset({'longitude': np.r_[-180:180:0.3], 'latitude': np.r_[90:-90:-0.3],
+    ds = xr.Dataset({'longitude': np.r_[-180:180:0.25], 'latitude': np.r_[90:-90:-0.25],
                      'time': pd.date_range(start="1979", end="now", freq="h")})
 
     ds = _rename_and_clean_coords(ds)
