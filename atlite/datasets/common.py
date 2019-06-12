@@ -1,3 +1,13 @@
+import os
+import subprocess
+import numpy as np
+import xarray as xr
+import weakref
+from tempfile import mkstemp
+
+import logging
+logger = logging.getLogger(__name__)
+
 try:
     import cdsapi
     has_cdsapi = True
@@ -55,7 +65,6 @@ def _retrieve_data(product, chunks=None, **updates):
 
 def get_data_gebco_height(xs, ys, gebco_fn=None):
     # gebco bathymetry heights for underwater
-    tmpdir = tempfile.mkdtemp()
     cornersc = np.array(((xs[0], ys[0]), (xs[-1], ys[-1])))
     minc = np.minimum(*cornersc)
     maxc = np.maximum(*cornersc)
@@ -85,5 +94,8 @@ def get_data_gebco_height(xs, ys, gebco_fn=None):
         height = (ds_gebco.rename({'lon': 'x', 'lat': 'y', 'Band1': 'height'})
                           .reindex(x=xs, y=ys, method='nearest')
                           .load()['height'])
-    shutil.rmtree(tmpdir)
+
+    if delete_target:
+        os.unlink(target)
+
     return height
