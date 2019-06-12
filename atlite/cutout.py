@@ -122,10 +122,7 @@ class Cutout(object):
             logger.info("Assuming a view into the cutout: {}".format(cutoutparams))
 
         self.data = data
-        if self.is_view:
-            self.dataset_module = None
-        else:
-            self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
+        self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
 
     @property
     def cutout_fn(self):
@@ -137,7 +134,7 @@ class Cutout(object):
 
     @property
     def available_features(self):
-        return set(self.dataset_module.features) if self.dataset_module else set()
+        return set(self.dataset_module.features) if self.dataset_module and not self.is_view else set()
 
     @property
     @requires_coords

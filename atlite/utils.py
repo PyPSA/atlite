@@ -27,6 +27,7 @@ from pathlib import Path
 from contextlib import contextmanager
 import pandas as pd
 import xarray as xr
+import sys
 
 import logging
 logger = logging.getLogger(__name__)
@@ -52,16 +53,12 @@ def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams)
     logger.warning("Found an old-style directory-like cutout. Use `prepare` to transfer that data.")
 
     old_cutout_dir = Path(old_cutout_dir)
-    meta = xr.open_dataset(old_cutout_dir / "meta.nc")
-    data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"))
-    data.attrs.update(meta.attrs)
+    with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:
+        data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"))
+        data.attrs.update(meta.attrs)
+    data.attrs['prepared_features'] = list(sys.modules['atlite.datasets.' + data.attrs["module"]].features)
 
     return data
-
-@contextmanager
-def receive(it):
-    yield next(it)
-    for i in it: pass
 
 def timeindex_from_slice(timeslice):
     end = pd.Timestamp(timeslice.end) + pd.offsets.DateOffset(months=1)

@@ -12,8 +12,6 @@ from tempfile import mkstemp
 import logging
 logger = logging.getLogger(__name__)
 
-from .utils import receive
-
 def literal_eval_creation_parameters(node_or_string):
     """
     Safely evaluate an expression node or a string containing a Python
@@ -114,8 +112,10 @@ class Windows(object):
         else:
             raise RuntimeError(f"Type of `params` (`{type(params)}`) is unsupported")
 
-        dataset_vars = sum((cutout.dataset_module.features[f] for f in features), [])
-        vars = cutout.data.data_vars.keys() & dataset_vars
+        vars = cutout.data.data_vars.keys()
+        if cutout.dataset_module:
+            dataset_vars = sum((cutout.dataset_module.features[f] for f in features), [])
+            vars = vars & dataset_vars
         self.data = cutout.data[list(vars)]
         self.group_kws = group_kws
 
