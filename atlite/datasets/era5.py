@@ -41,12 +41,14 @@ from .common import _retrieve_data, get_data_gebco_height
 projection = 'latlong'
 
 features = {
+    'height': ['height'],
     'wind': ['wnd100m', 'roughness'],
     'influx': ['influx_toa', 'influx_direct', 'influx_diffuse', 'influx', 'albedo'],
     'temperature': ['temperature', 'soil_temperature'],
     'runoff': ['runoff']
 }
 
+static_features = {'height'}
 
 def _add_height(ds):
     """Convert geopotential 'z' to geopotential height following [1]
@@ -174,6 +176,11 @@ def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
 
     if 'month' in creation_parameters:
         kwds['month'] = creation_parameters.pop('month')
+
+    gebco_fn = creation_parameters.pop('gebco_fn', None)
+    if gebco_fn is not None and feature == 'height':
+        coords = get_coords(f"{date.year}", x, y, **creation_parameters)
+        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], gebco_fn)
 
     if creation_parameters:
         logger.debug(f"Unused creation_parameters: {', '.join(creation_parameters)}")

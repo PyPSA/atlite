@@ -475,7 +475,7 @@ def convert_runoff(ds, weight_with_height=True):
 
     return runoff
 
-@requires_windowed(['runoff'])
+@requires_windowed(['runoff', 'height'])
 def runoff(cutout, smooth=None, lower_threshold_quantile=None,
            normalize_using_yearly=None, **params):
     result = cutout.convert_and_aggregate(convert_func=convert_runoff, **params)

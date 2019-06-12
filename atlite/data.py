@@ -135,25 +135,34 @@ def get_missing_data(cutout, features, monthly=False):
     creation_parameters = _get_creation_parameters(cutout.data)
     timeindex = cutout.coords.indexes['time']
     datasets = []
-    for date in pd.date_range(timeindex[0], timeindex[-1], freq="MS" if monthly else "YS"):
-        period_data = []
-        if monthly:
-            creation_parameters['month'] = date.month
-        for feature in features:
-            ds = cutout.dataset_module.get_data(
+    for feature in features:
+        if feature in cutout.dataset_module.static_features:
+            creation_parameters.pop('month', None)
+            feature_data = cutout.dataset_module.get_data(
                 cutout.data.coords,
-                date,
+                timeindex[0],
                 feature,
                 **creation_parameters
             )
-            period_data.append(ds)
-        datasets.append(period_data)
+        else:
+            feature_data = []
+            for date in pd.date_range(timeindex[0], timeindex[-1], freq="MS" if monthly else "YS"):
+                if monthly:
+                    creation_parameters['month'] = date.month
+                feature_data.append(
+                    cutout.dataset_module.get_data(
+                        cutout.data.coords,
+                        date,
+                        feature,
+                        **creation_parameters
+                    ))
+            feature_data = dask.delayed(xr.concat)(feature_data, dim='time')
+
+        datasets.append(feature_data)
 
     datasets, = dask.compute(datasets)
 
-    ds = xr.concat([xr.merge(period_data, compat='identical') for period_data in datasets], dim='time')
-
-    return ds
+    return xr.merge(datasets, compat='identical')
 
 @requires_coords
 def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
