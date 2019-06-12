@@ -93,10 +93,10 @@ def create_windows(cutout, features, windows_params, allow_dask):
     features = set(features if features is not None else cutout.available_features)
     missing_features = features - set(cutout.data.attrs.get('prepared_features', []))
 
-    if not missing_features:
-        return Windows(cutout, features, windows_params, allow_dask)
-    else:
-        logger.error(f"The following features need to be prepared first: {', '.join(missing_features)}")
+    if missing_features:
+        logger.error(f"The following features need to be prepared first: {', '.join(missing_features)}. Will try anyway!")
+
+    return Windows(cutout, features, windows_params, allow_dask)
 
 class Windows(object):
     def __init__(self, cutout, features, params=None, allow_dask=False):
