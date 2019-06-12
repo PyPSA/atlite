@@ -29,6 +29,8 @@ import shutil
 from six.moves import range
 from contextlib import contextmanager
 from tempfile import mkstemp
+from dask import delayed
+import weakref
 import logging
 logger = logging.getLogger(__name__)
 
@@ -43,8 +45,11 @@ from ..utils import timeindex_from_slice
 # Model and Projection Settings
 projection = 'latlong'
 
-@contextmanager
-def _get_data(target=None, product='reanalysis-era5-single-levels', chunks=None, **updates):
+def _noisy_unlink(path):
+    logger.info(f"Deleting file {path}")
+    os.unlink(path)
+
+def _retrieve_data(product='reanalysis-era5-single-levels', chunks=None, **updates):
     """Download ERA5 data from the Climate Data Store (CDS)"""
 
     if not has_cdsapi:
@@ -57,17 +62,14 @@ def _get_data(target=None, product='reanalysis-era5-single-levels', chunks=None,
     request = {
         'product_type':'reanalysis',
         'format':'netcdf',
-        'day':[
-            '01','02','03','04','05','06','07','08','09','10','11','12',
-            '13','14','15','16','17','18','19','20','21','22','23','24',
-            '25','26','27','28','29','30','31'
-        ],
+        'day': list(range(1, 31+1)),
         'time':[
             '00:00','01:00','02:00','03:00','04:00','05:00',
             '06:00','07:00','08:00','09:00','10:00','11:00',
             '12:00','13:00','14:00','15:00','16:00','17:00',
             '18:00','19:00','20:00','21:00','22:00','23:00'
         ],
+        'month': list(range(1, 12+1)),
         # 'area': [50, -1, 49, 1], # North, West, South, East. Default: global
         # 'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude) and north-south resolution (latitude). Default: 0.25 x 0.25
     }
@@ -80,18 +82,17 @@ def _get_data(target=None, product='reanalysis-era5-single-levels', chunks=None,
         request
     )
 
-    if target is None:
-        fd, target = mkstemp(suffix='.nc')
-        os.close(fd)
+    fd, target = mkstemp(suffix='.nc')
+    os.close(fd)
 
     logger.info("Downloading request for {} variables to {}".format(len(request['variable']), target))
 
     result.download(target)
 
-    with xr.open_dataset(target, chunks=chunks) as ds:
-        yield ds
+    ds = xr.open_dataset(target, chunks=chunks or {})
+    weakref.finalize(ds._file_obj, _noisy_unlink, target)
 
-    os.unlink(target)
+    return ds
 
 def _add_height(ds):
     """Convert geopotential 'z' to geopotential height following [1]
@@ -134,19 +135,91 @@ def get_coords(time, x, y, **creation_parameters):
     # (shortName) | (name)                        | (paramId)
     # z           | Geopotential (CDS: Orography) | 129
 
-    time = timeindex_from_slice(time)
+    # time = timeindex_from_slice(time)
 
-    ds = xr.Dataset({'longitude': np.r_[-180:180:0.3], 'latitude': np.r_[90:-90:-0.3]})
+    ds = xr.Dataset({'longitude': np.r_[-180:180:0.3], 'latitude': np.r_[90:-90:-0.3],
+                     'time': pd.date_range(start="1979", end="now", freq="h")})
+
     ds = _rename_and_clean_coords(ds)
-    ds = ds.sel(x=x, y=y)
+    ds = ds.sel(x=x, y=y, time=time)
 
-    ds['time'] = time
+    return ds
+
+
+def get_data_wind(kwds):
+    ds = _retrieve_data(variable=['100m_u_component_of_wind',
+                                  '100m_v_component_of_wind',
+                                  'forecast_surface_roughness'], **kwds)
+    ds = _rename_and_clean_coords(ds)
+
+    ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
+                     .assign_attrs(units=ds['u100'].attrs['units'],
+                                   long_name="100 metre wind speed"))
+    ds = ds.drop(['u100', 'v100'])
+    ds = ds.rename({'fsr': 'roughness'})
+
+    return ds
+
+def get_data_influx(kwds):
+    ds = _retrieve_data(variable=['surface_net_solar_radiation',
+                                  'surface_solar_radiation_downwards',
+                                  'toa_incident_solar_radiation',
+                                  'total_sky_direct_solar_radiation_at_surface'],
+                        **kwds)
+
+    ds = _rename_and_clean_coords(ds)
+
+    ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
+                        .assign_attrs(units='(0 - 1)', long_name='Albedo'))
+    ds['influx_diffuse'] = ((ds['ssrd'] - ds['influx_direct'])
+                            .assign_attrs(units='J m**-2',
+                                          long_name='Surface diffuse solar radiation downwards'))
+    ds = ds.drop(['ssrd', 'ssr'])
+
+    # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
+    for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
+        ds[a] = ds[a].clip(min=0.) / (60.*60.)
+        ds[a].attrs['units'] = 'W m**-2'
+
+    return ds
+
+def get_data_temperature(kwds):
+    ds = _retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'], **kwds)
+
+    ds = _rename_and_clean_coords(ds)
+    ds = ds.rename({'t2m': 'temperature', 'stl4': 'soil temperature'})
+
+    return ds
+
+def get_data_runoff(kwds):
+    ds = _retrieve_data(variable=['runoff'], **kwds)
+
+    ds = _rename_and_clean_coords(ds)
+    ds = ds.rename({'ro': 'runoff'})
+
+    return ds
+
+def get_data_height(kwds):
+    ds = _retrieve_data(variable='orography', day=1, time="00:00", **kwds)
+
+    ds = _rename_and_clean_coords(ds)
+    ds = _add_height(ds)
+
+    return ds
 
 def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
-    kwds = {'chunks': chunks, 'area': _area(x, y), 'year': date.year, 'month': date.month}
+    kwds = {'chunks': chunks, 'area': _area(x, y), 'year': date.year} #, 'month': date.month}
 
     if {'dx', 'dy'}.issubset(creation_parameters):
-        kwds['grid'] = [creation_parameters['dx'], creation_parameters['dy']]
+        kwds['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
+
+    if 'month' in creation_parameters:
+        kwds['month'] = creation_parameters.pop('month')
+
+    if creation_parameters:
+        logger.debug(f"Unused creation_parameters: {', '.join(creation_parameters)}")
 
     # Reference of the quantities
     # https://confluence.ecmwf.int/display/CKB/ERA5+data+documentation
@@ -161,75 +234,8 @@ def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
     # stl4        | Soil temperature level 4                    | 236
     # fsr         | Forecast surface roughnes                   | 244
 
-    if feature == "wind":
-        with _get_data(variable=['100m_u_component_of_wind',
-                                 '100m_v_component_of_wind',
-                                 'forecast_surface_roughness'],
-                       **kwds) as ds:
-
-            ds = _rename_and_clean_coords(ds)
-
-            ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
-                            .assign_attrs(units=ds['u100'].attrs['units'],
-                                        long_name="100 metre wind speed"))
-            ds = ds.drop(['u100', 'v100'])
-
-            ds = ds.rename({'fsr': 'roughness'})
-
-            yield ds
-
-    elif feature == "influx":
-
-        with _get_data(variable=['surface_net_solar_radiation',
-                                 'surface_solar_radiation_downwards',
-                                 'toa_incident_solar_radiation',
-                                 'total_sky_direct_solar_radiation_at_surface'],
-                       **kwds) as ds:
-
-            ds = _rename_and_clean_coords(ds)
-
-            ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
-            with np.errstate(divide='ignore', invalid='ignore'):
-                ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
-                                .assign_attrs(units='(0 - 1)', long_name='Albedo'))
-            ds['influx_diffuse'] = ((ds['ssrd'] - ds['influx_direct'])
-                                    .assign_attrs(units='J m**-2',
-                                                long_name='Surface diffuse solar radiation downwards'))
-            ds = ds.drop(['ssrd', 'ssr'])
-
-            # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
-            for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
-                ds[a] = ds[a].clip(min=0.) / (60.*60.)
-                ds[a].attrs['units'] = 'W m**-2'
-
-            yield ds
-
-    elif feature == "temperature":
-
-        with _get_data(variable=['2m_temperature', 'soil_temperature_level_4'], **kwds) as ds:
-
-            ds = _rename_and_clean_coords(ds)
-            ds = ds.rename({'t2m': 'temperature', 'stl4': 'soil temperature'})
-
-            yield ds
-
-    elif feature == "runoff":
-
-        with _get_data(variable=['runoff'], **kwds) as ds:
-
-            ds = _rename_and_clean_coords(ds)
-            ds = ds.rename({'ro': 'runoff'})
-
-            yield ds
-
-    elif feature == "height":
-        with _get_data(variable='orography', day=1, time="00:00",
-                       **kwds) as ds:
-
-            ds = _rename_and_clean_coords(ds)
-            ds = _add_height(ds)
-
-            yield ds
-
-    else:
+    func = globals().get(f"get_data_{feature}")
+    if func is None:
         raise NotImplementedError(f"Feature '{feature}' has not been implemented for dataset era5")
+
+    return delayed(func)(kwds)

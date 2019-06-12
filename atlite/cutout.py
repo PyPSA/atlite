@@ -37,12 +37,12 @@ from . import config, datasets, utils
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
 from .gis import compute_indicatormatrix
-from .data import requires_coords, requires_windowed
+from .data import requires_coords, requires_windowed, cutout_prepare
 
 class Cutout(object):
     dataset_module = None
 
-    def __init__(self, name=None, data=None, cutout_dir=config.cutout_dir, **cutoutparams):
+    def __init__(self, name=None, data=None, cutout_dir=".", **cutoutparams):
         if isinstance(name, xr.Dataset):
             data = name
             name = data.attrs.get("name", "unnamed")
@@ -78,10 +78,10 @@ class Cutout(object):
                 data = utils.migrate_from_cutout_directory(os.path.join(self.cutout_dir, self.name),
                                                            self.name, self.cutout_fn, cutoutparams)
             else:
-                logger.info("Cutout {} not found in directory {}, building new one", self.name, self.cutout_dir)
+                logger.info(f"Cutout {self.name} not found in directory {self.cutout_dir}, building new one")
 
                 if {"x", "y", "time"}.difference(cutoutparams):
-                    raise ArgumentError("Arguments `x`, `y` and `time` need to be specified (or `bounds` instead of `x` and `y`)")
+                    raise RuntimeError("Arguments `x`, `y` and `time` need to be specified (or `bounds` instead of `x` and `y`)")
 
                 if 'module' not in cutoutparams:
                     logger.warning("`module` was not specified, falling back to 'era5'")
@@ -100,11 +100,11 @@ class Cutout(object):
             logger.warning("No module given as argument nor in the dataset. Falling back to 'era5'.")
             data.attrs['module'] = 'era5'
 
-        if {"x", "y", "time"}.intersection(cutoutparams):
-            # Assuming the user is interested in a subview into the data
-            data = data.sel(**cutoutparams)
-            self.is_view = True
-            logger.info("Assuming a view into the cutout: {}".format(cutoutparams))
+        # if {"x", "y", "time"}.intersection(cutoutparams):
+        #     # Assuming the user is interested in a subview into the data
+        #     data = data.sel(**cutoutparams)
+        #     self.is_view = True
+        #     logger.info("Assuming a view into the cutout: {}".format(cutoutparams))
 
         self.data = data
         self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
@@ -168,9 +168,7 @@ class Cutout(object):
 
     ## Preparation functions
 
-    @requires_windowed(None, allow_dask=True)
-    def prepare(self, windows):
-        xr.concat((win.chunk() for win in windows), dim="time").to_netcdf(self.cutout_fn)
+    prepare = cutout_prepare
 
     ## Conversion and aggregation functions
 

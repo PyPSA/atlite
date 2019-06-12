@@ -25,6 +25,7 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 import progressbar as pgb
 from pathlib import Path
 from contextlib import contextmanager
+import pandas as pd
 import xarray as xr
 
 from .config import features as available_features

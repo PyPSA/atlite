@@ -1,9 +1,12 @@
+import os
+import weakref
 from functools import wraps
-from ast import literal_eval
 from six import string_types
+import pandas as pd
 from pandas.core.resample import TimeGrouper
-from dask import delayed
 import xarray as xr
+import ast
+import dask
 
 import logging
 logger = logging.getLogger(__name__)
@@ -11,16 +14,61 @@ logger = logging.getLogger(__name__)
 from .utils import receive
 from .config import features as available_features
 
+def literal_eval_creation_parameters(node_or_string):
+    """
+    Safely evaluate an expression node or a string containing a Python
+    expression.  The string or node provided may only consist of the following
+    Python literal structures: strings, bytes, numbers, tuples, lists, dicts,
+    sets, booleans, slices and None.
+
+    Variant: of ast.literal_eval
+    """
+    if isinstance(node_or_string, str):
+        node_or_string = ast.parse(node_or_string, mode='eval')
+    if isinstance(node_or_string, ast.Expression):
+        node_or_string = node_or_string.body
+    def _convert(node):
+        if isinstance(node, ast.Constant):
+            return node.value
+        elif isinstance(node, (ast.Str, ast.Bytes)):
+            return node.s
+        elif isinstance(node, ast.Num):
+            return node.n
+        elif isinstance(node, ast.Tuple):
+            return tuple(map(_convert, node.elts))
+        elif isinstance(node, ast.List):
+            return list(map(_convert, node.elts))
+        elif isinstance(node, ast.Set):
+            return set(map(_convert, node.elts))
+        elif isinstance(node, ast.Dict):
+            return dict((_convert(k), _convert(v))
+                        for k, v in zip(node.keys, node.values))
+        elif isinstance(node, ast.NameConstant):
+            return node.value
+        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+            operand = _convert(node.operand)
+            if isinstance(operand, ast._NUM_TYPES):
+                if isinstance(node.op, ast.UAdd):
+                    return + operand
+                else:
+                    return - operand
+        elif isinstance(node, ast.Call) and node.func.id == 'slice':
+            return slice(*map(_convert, node.args))
+
+        raise ValueError('malformed creation parameters: ' + repr(node))
+
+    return _convert(node_or_string)
+
 def _get_creation_parameters(data):
-    return literal_eval(data.attrs['creation_parameters'])
+    return literal_eval_creation_parameters(data.attrs['creation_parameters'])
 
 def requires_coords(f):
     @wraps(f)
-    def wrapper(cutout):
+    def wrapper(cutout, *args, **kwargs):
         if not cutout.data.coords:
             creation_parameters = _get_creation_parameters(cutout.data)
-            cutout.data.coords = cutout.dataset_module.get_coords(**creation_parameters)
-        return f(cutout)
+            cutout.data = cutout.data.merge(cutout.dataset_module.get_coords(**creation_parameters))
+        return f(cutout, *args, **kwargs)
     return wrapper
 
 
@@ -48,17 +96,7 @@ def create_windows(cutout, features, windows_params, allow_dask):
     if not missing_features:
         return Windows(cutout.data, features, windows_params, allow_dask)
     else:
-        logger.warn(f"Sideloading features {', '.join(missing_features)}")
-        missing_data = get_missing_data(cutout, missing_features, allow_dask)
-        return SideloadWindows(cutout.data, features, missing_data, windows_params, allow_dask)
-
-def get_missing_data(cutout, features, allow_dask):
-    creation_parameters = _get_creation_parameters(cutout.data)
-    timeindex = cutout.index['time']
-    for date in pd.daterange(timeindex[0], timeindex[-1], freq="MS"):
-        monthdata = [delayed(cutout.dataset_module.get_data)(cutout.data.coords, s, date, **creation_parameters)
-                     for s in features]
-        yield (date, delayed(xr.concat)(monthdata, compat='identical'))
+        logger.error(f"The following features need to be prepared first: {', '.join(missing_features)}")
 
 class Windows(object):
     def __init__(self, data, features, params=None, allow_dask=False):
@@ -93,26 +131,49 @@ class Windows(object):
     def __len__(self):
         return len(self.groupby)
 
+def get_missing_data(cutout, features, monthly=False):
+    creation_parameters = _get_creation_parameters(cutout.data)
+    timeindex = cutout.coords.indexes['time']
+    datasets = []
+    for date in pd.date_range(timeindex[0], timeindex[-1], freq="MS" if monthly else "YS"):
+        period_data = []
+        if monthly:
+            creation_parameters['month'] = date.month
+        for feature in features:
+            ds = cutout.dataset_module.get_data(
+                cutout.data.coords,
+                date,
+                feature,
+                **creation_parameters
+            )
+            period_data.append(ds)
+        datasets.append(period_data)
 
+    datasets, = dask.compute(datasets)
 
-class SideloadWindows(object):
-    def __init__(self, data, features, missing_data, params=None, allow_dask=False):
-        assert params is None or params == 'M', (
-            f"We only support monthly chunks for data side-loading for now. "
-             " Use prepare to save at least the features {', '.join(features)} into a cutout file."
-        )
+    ds = xr.concat([xr.merge(period_data, compat='identical') for period_data in datasets], dim='time')
 
-        vars = data.data_vars.keys() & sum((available_features[f] for f in features), [])
-        self.data = data[list(vars)]
+    return ds
 
-        self.missing_data = missing_data
+@requires_coords
+def cutout_prepare(cutout, features=None, monthly=False):
+    """
+    Prepare all or a given set of `features`
 
-    def __iter__(self):
-        # TODO can we do something with allow_dask here?
-        for date, missing_data_task in self.missing_data:
-            with receive(missing_data_task.compute()) as missing_ds:
-                yield xr.concat([self.data.sel(time=date.strftime("%Y-%m")), missing_ds],
-                                compat="identical").load()
+    Download `features` in yearly or monthly slices and merge them into the
+    cutout data.
+    """
+    features = set(features if features is not None else available_features)
+    missing_features = features - cutout.prepared_features
 
-    def __len__(self):
-        return None
+    ds = get_missing_data(cutout, missing_features, monthly)
+
+    # Merge with existing cutout
+    ds = xr.merge([cutout.data, ds])
+    ds.attrs.update(cutout.data.attrs)
+    ds.attrs['prepared_features'].extend(missing_features)
+
+    # Replace existing cutout
+    cutout.data.close()
+    ds.to_netcdf(cutout.cutout_fn)
+    cutout.data = xr.open_dataset(cutout.cutout_fn)
