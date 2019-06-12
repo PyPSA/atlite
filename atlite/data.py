@@ -80,40 +80,38 @@ class requires_windowed(object):
         @wraps(f)
         def wrapper(cutout, *args, **kwargs):
             features = kwargs.pop('features', self.features)
-            windows_params = kwargs.pop('windows', self.windows)
-            windows = create_windows(cutout, features, windows_params, self.allow_dask)
+            window_type = kwargs.pop('windows', self.windows)
+            windows = create_windows(cutout, features, window_type, self.allow_dask)
 
             return f(cutout, *args, windows=windows, **kwargs)
 
         return wrapper
 
-def create_windows(cutout, features, windows_params, allow_dask):
+def create_windows(cutout, features, window_type, allow_dask):
     features = set(features if features is not None else cutout.available_features)
     missing_features = features - set(cutout.data.attrs.get('prepared_features', []))
 
     if missing_features:
         logger.error(f"The following features need to be prepared first: {', '.join(missing_features)}. Will try anyway!")
 
-    if windows_params == 'None':
+    if window_type is False:
         return [cutout.data]
     else:
-        return Windows(cutout, features, windows_params, allow_dask)
+        return Windows(cutout, features, window_type, allow_dask)
 
 class Windows(object):
-    def __init__(self, cutout, features, params=None, allow_dask=False):
+    def __init__(self, cutout, features, window_type=None, allow_dask=False):
         group_kws = {}
-        if params is None:
+        if window_type is None:
             group_kws['grouper'] = TimeGrouper(freq="M")
-        elif isinstance(params, string_types):
-            group_kws['grouper'] = TimeGrouper(freq=params)
-        elif isinstance(params, int):
-            group_kws['bins'] = params
-        elif isinstance(params, (pd.Index, np.array)):
-            group_kws['bins'] = params
-        elif isinstance(params, dict):
-            group_kws.update(params)
+        elif isinstance(window_type, string_types):
+            group_kws['grouper'] = TimeGrouper(freq=window_type)
+        elif isinstance(window_type, (int, pd.Index, np.array)):
+            group_kws['bins'] = window_type
+        elif isinstance(window_type, dict):
+            group_kws.update(window_type)
         else:
-            raise RuntimeError(f"Type of `params` (`{type(params)}`) is unsupported")
+            raise RuntimeError(f"Type of `window_type` (`{type(window_type)}`) is unsupported")
 
         vars = cutout.data.data_vars.keys()
         if cutout.dataset_module:
@@ -123,14 +121,14 @@ class Windows(object):
         self.group_kws = group_kws
 
         if self.data.chunks is None or allow_dask:
-            self.maybe_instantiate = lambda it: it
+            self.maybe_load = lambda it: it
         else:
-            self.maybe_instantiate = lambda it: (ds.load() for ds in it)
+            self.maybe_load = lambda it: (ds.load() for ds in it)
 
         self.groupby = xr.core.groupby.DatasetGroupBy(self.data, self.data.coords['time'], **self.group_kws)
 
     def __iter__(self):
-        return self.maybe_instantiate(self.groupby._iter_grouped())
+        return self.maybe_load(self.groupby._iter_grouped())
 
     def __len__(self):
         return len(self.groupby)
