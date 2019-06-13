@@ -163,7 +163,7 @@ def get_missing_data(cutout, features, monthly=False):
 
     datasets, = dask.compute(datasets)
 
-    return xr.merge(datasets, compat='identical')
+    return xr.merge(datasets, compat='equals')
 
 def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
     """
