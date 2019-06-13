@@ -29,7 +29,6 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 import scipy as sp, scipy.sparse
-from six import string_types
 from operator import itemgetter
 
 from .aggregate import aggregate_sum, aggregate_matrix
@@ -137,7 +136,7 @@ def convert_and_aggregate(cutout, convert_func, windows, matrix=None,
 
     results = []
 
-    if isinstance(show_progress, string_types):
+    if isinstance(show_progress, basestring):
         prefix = show_progress
     else:
         func_name = (convert_func.__name__[len('convert_'):]
@@ -389,7 +388,7 @@ def wind(cutout, turbine, smooth=False, **params):
         1074 – 1088. doi:10.1016/j.energy.2015.09.071
     """
 
-    if isinstance(turbine, string_types):
+    if isinstance(turbine, basestring):
         turbine = get_windturbineconfig(turbine)
 
     if smooth:
@@ -455,7 +454,7 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
         Eurosun (ISES Europe Solar Congress).
     '''
 
-    if isinstance(panel, string_types):
+    if isinstance(panel, basestring):
         panel = get_solarpanelconfig(panel)
     if not callable(orientation):
         orientation = get_orientation(orientation)

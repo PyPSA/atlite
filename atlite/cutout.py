@@ -25,7 +25,6 @@ from __future__ import absolute_import
 import xarray as xr
 import numpy as np
 import os, sys
-from six import string_types
 from warnings import warn
 
 import logging

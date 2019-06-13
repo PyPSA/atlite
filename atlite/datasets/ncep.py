@@ -25,7 +25,6 @@ from __future__ import absolute_import
 import pandas as pd
 import numpy as np
 import xarray as xr
-from six import iteritems
 import os
 import glob
 import tempfile
@@ -81,7 +80,7 @@ def convert_unaverage_ncep(ds):
         coords = da.coords[dim]
         y = da * xr.DataArray(np.arange(1, len(coords)+1), dims=[dim], coords={dim: coords})
         return y - y.shift(**{dim: 1}).fillna(0.)
-    for k, da in iteritems(ds):
+    for k, da in ds.items():
         if k.endswith('_avg'):
             ds[k[:-len('_avg')]] = unaverage(da)
             ds = ds.drop(k)
@@ -99,7 +98,7 @@ def convert_unaccumulate_ncep(ds):
 
     def unaccumulate(da, dim='forecast_time0'):
         return da - da.shift(**{dim: 1}).fillna(0.)
-    for k, da in iteritems(ds):
+    for k, da in ds.items():
         if k.endswith('_acc'):
             ds[k[:-len('_acc')]] = unaccumulate(da)
             ds = ds.drop(k)

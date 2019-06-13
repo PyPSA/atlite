@@ -29,7 +29,6 @@ import numpy as np
 import scipy.sparse as spp
 from collections import namedtuple
 from shapely.geometry import Point
-from six import string_types
 
 from .utils import make_optional_progressbar
 
@@ -54,7 +53,7 @@ def find_upstream_basins(meta, hid):
     return hids
 
 def determine_basins(plants, hydrobasins, show_progress=True):
-    if isinstance(hydrobasins, string_types):
+    if isinstance(hydrobasins, basestring):
         hydrobasins = gpd.read_file(hydrobasins)
 
     assert isinstance(hydrobasins, gpd.GeoDataFrame), (

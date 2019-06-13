@@ -27,7 +27,6 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import pyproj
-from six import iteritems
 from itertools import groupby
 from operator import itemgetter
 import os

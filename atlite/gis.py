@@ -28,8 +28,6 @@ import pickle
 import scipy as sp, scipy.sparse
 from collections import OrderedDict
 from warnings import warn
-from six import string_types, iteritems
-from six.moves import map, range
 from itertools import product
 from functools import partial
 import pyproj
@@ -63,7 +61,7 @@ class RotProj(pyproj.Proj):
 def as_projection(p):
     if isinstance(p, pyproj.Proj):
         return p
-    elif isinstance(p, string_types):
+    elif isinstance(p, basestring):
         return pyproj.Proj(dict(proj=p))
     else:
         return pyproj.Proj(p)
@@ -99,7 +97,7 @@ def reproject_shapes(shapes, p1, p2):
     if isinstance(shapes, pd.Series):
         return shapes.map(_reproject_shape)
     elif isinstance(shapes, dict):
-        return OrderedDict((k, _reproject_shape(v)) for k, v in iteritems(shapes))
+        return OrderedDict((k, _reproject_shape(v)) for k, v in shapes.items())
     else:
         return list(map(_reproject_shape, shapes))
 

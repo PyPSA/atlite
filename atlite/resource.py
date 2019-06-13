@@ -25,7 +25,6 @@ from __future__ import absolute_import
 
 import os
 import yaml
-from six import string_types
 from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
@@ -49,7 +48,7 @@ def get_solarpanelconfig(panel):
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
 
-    if isinstance(panel, string_types):
+    if isinstance(panel, basestring):
         panel = get_solarpanelconfig(panel)
 
     model = panel.get('model', 'huld')
@@ -62,7 +61,7 @@ def solarpanel_rated_capacity_per_unit(panel):
         return (A + B * 1000. + C * np.log(1000.))*1e3
 
 def windturbine_rated_capacity_per_unit(turbine):
-    if isinstance(turbine, string_types):
+    if isinstance(turbine, basestring):
         turbine = get_windturbineconfig(turbine)
 
     return turbine['P']
