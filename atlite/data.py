@@ -2,6 +2,7 @@ import os
 import weakref
 from functools import wraps
 from six import string_types
+import numpy as np
 import pandas as pd
 import xarray as xr
 import ast
