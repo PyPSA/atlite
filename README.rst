@@ -2,6 +2,17 @@
  Atlite
 ========
 
+.. image:: https://img.shields.io/pypi/v/atlite.svg
+    :target: https://pypi.python.org/pypi/atlite
+    :alt: PyPI version
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/atlite.svg
+    :target: https://anaconda.org/conda-forge/atlite
+    :alt: Conda version
+
+.. image:: https://img.shields.io/pypi/l/atlite.svg
+    :target: License
+
 Atlite is a `free software
 <http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
 <http://xarray.pydata.org/en/stable/>`_-based Python library for
@@ -74,7 +85,7 @@ Research Initiative
 Getting started
 ===============
 
-* Install atlite from this repository with all its library dependencies
+* Install atlite from conda-forge or pypi.
 * Download one of the weather datasets listed above (ERA5 is downloaded
   automatically on-demand after the ECMWF
   `cdsapi<https://cds.climate.copernicus.eu/api-how-to>` client is 
