@@ -12,9 +12,9 @@ exec(open('atlite/_version.py').read())
 setup(
     name='atlite',
     version=__version__,
-    author='Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)',
-    author_email='hoersch@fias.uni-frankfurt.de',
-    description='Light-weight version of Aarhus RE Atlas for converting weather data to power systems data',
+    author='Jonas Hoersch (FIAS), Tom Brown (FIAS), Gorm Andresen (Aarhus University)',
+    author_email='jonas.hoersch@posteo.de',
+    description='Library for fetching and converting weather data to power systems data',
     long_description=long_description,
     url='https://github.com/FRESNA/atlite',
     license='GPLv3',
