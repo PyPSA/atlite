@@ -50,7 +50,7 @@ from .resource import (get_windturbineconfig, get_solarpanelconfig,
 from .utils import make_optional_progressbar
 from .data import requires_windowed
 
-def convert_and_aggregate(cutout, convert_func, windows, matrix=None,
+def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
                           index=None, layout=None, shapes=None,
                           shapes_proj='latlong', per_unit=False,
                           return_capacity=False, capacity_factor=False,
@@ -108,6 +108,12 @@ def convert_and_aggregate(cutout, convert_func, windows, matrix=None,
     windows : windows.Windows
         Iterable access to consecutive time-slices of xr.Dataset
     """
+    if windows is None:
+        windows = [cutout.data]
+        if show_progress is True:
+            show_progress = False
+
+
     if shapes is not None:
         if isinstance(shapes, pd.Series) and index is None:
             index = shapes.index
