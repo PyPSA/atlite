@@ -26,6 +26,7 @@ import xarray as xr
 import numpy as np
 import os, sys
 from warnings import warn
+from shapely.geometry import box
 
 import logging
 logger = logging.getLogger(__name__)
@@ -187,7 +188,11 @@ class Cutout(object):
 
     def sel(self, **kwargs):
         if 'bounds' in kwargs:
-            x1, y1, x2, y2 = kwargs.pop('bounds')
+            bounds = kwargs.pop('bounds')
+            buffer = kwargs.pop('buffer', 0)
+            if buffer > 0:
+                bounds = box(*bounds).buffer(buffer).bounds
+            x1, y1, x2, y2 = bounds
             kwargs.update(x=slice(x1, x2), y=slice(y2, y1))
         data = self.data.sel(**kwargs)
         return Cutout(self.name, data)
