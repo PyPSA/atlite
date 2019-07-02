@@ -136,7 +136,7 @@ def convert_and_aggregate(cutout, convert_func, windows, matrix=None,
 
     results = []
 
-    if isinstance(show_progress, basestring):
+    if isinstance(show_progress, str):
         prefix = show_progress
     else:
         func_name = (convert_func.__name__[len('convert_'):]
@@ -358,7 +358,7 @@ def convert_wind(ds, turbine):
 
     return xr.DataArray(np.interp(wnd_hub, V, POW/P), coords=wnd_hub.coords)
 
-@requires_windowed(['wind'], allow_dask=True)
+@requires_windowed(['wind'])
 def wind(cutout, turbine, smooth=False, **params):
     """
     Generate wind generation time-series
@@ -388,7 +388,7 @@ def wind(cutout, turbine, smooth=False, **params):
         1074 – 1088. doi:10.1016/j.energy.2015.09.071
     """
 
-    if isinstance(turbine, basestring):
+    if isinstance(turbine, str):
         turbine = get_windturbineconfig(turbine)
 
     if smooth:
@@ -454,7 +454,7 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
         Eurosun (ISES Europe Solar Congress).
     '''
 
-    if isinstance(panel, basestring):
+    if isinstance(panel, str):
         panel = get_solarpanelconfig(panel)
     if not callable(orientation):
         orientation = get_orientation(orientation)

@@ -40,7 +40,6 @@ def as_slice(zs, pad=True):
 
 from ..utils import timeindex_from_slice, receive
 from ..gis import regrid, Resampling, maybe_swap_spatial_dims
-from .. import config
 
 from .era5 import get_data as get_era5_data
 

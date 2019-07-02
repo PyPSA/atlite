@@ -61,7 +61,7 @@ class RotProj(pyproj.Proj):
 def as_projection(p):
     if isinstance(p, pyproj.Proj):
         return p
-    elif isinstance(p, basestring):
+    elif isinstance(p, str):
         return pyproj.Proj(dict(proj=p))
     else:
         return pyproj.Proj(p)

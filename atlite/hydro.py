@@ -53,7 +53,7 @@ def find_upstream_basins(meta, hid):
     return hids
 
 def determine_basins(plants, hydrobasins, show_progress=True):
-    if isinstance(hydrobasins, basestring):
+    if isinstance(hydrobasins, str):
         hydrobasins = gpd.read_file(hydrobasins)
 
     assert isinstance(hydrobasins, gpd.GeoDataFrame), (

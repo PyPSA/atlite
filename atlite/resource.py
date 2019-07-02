@@ -48,7 +48,7 @@ def get_solarpanelconfig(panel):
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
 
-    if isinstance(panel, basestring):
+    if isinstance(panel, str):
         panel = get_solarpanelconfig(panel)
 
     model = panel.get('model', 'huld')
@@ -61,7 +61,7 @@ def solarpanel_rated_capacity_per_unit(panel):
         return (A + B * 1000. + C * np.log(1000.))*1e3
 
 def windturbine_rated_capacity_per_unit(turbine):
-    if isinstance(turbine, basestring):
+    if isinstance(turbine, str):
         turbine = get_windturbineconfig(turbine)
 
     return turbine['P']
