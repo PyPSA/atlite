@@ -23,11 +23,24 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 from __future__ import absolute_import
 
 import xarray as xr
+import dask
 
 def aggregate_sum(da):
     return da.sum('time')
 
 def aggregate_matrix(da, matrix, index):
-    da = da.stack(spatial=('y', 'x')).transpose('spatial', 'time')
-    return xr.DataArray(matrix * da,
-                        [index, da.coords['time']])
+    if isinstance(da.data, dask.array.core.Array):
+        da = da.stack(spatial=('y', 'x'))
+        return xr.apply_ufunc(
+            lambda da: da * matrix.T,
+            da,
+            input_core_dims=[['spatial']],
+            output_core_dims=[[index.name]],
+            dask='parallelized',
+            output_dtypes=[float],
+            output_sizes={index.name: index.size}
+        ).assign_coords(**{index.name: index})
+    else:
+        da = da.stack(spatial=('y', 'x')).transpose('spatial', 'time')
+        return xr.DataArray(matrix * da,
+                            [index, da.coords['time']])
