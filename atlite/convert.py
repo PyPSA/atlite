@@ -156,7 +156,7 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
 
     for ds in maybe_progressbar(windows):
         da = convert_func(ds, **convert_kwds)
-        results.append(aggregate_func(da, **aggregate_kwds).load())
+        results.append(aggregate_func(da, **aggregate_kwds))
 
     if 'time' in results[0].coords:
         results = xr.concat(results, dim='time')
