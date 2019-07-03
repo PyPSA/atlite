@@ -174,7 +174,7 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
         capacity = xr.DataArray(np.asarray(matrix.sum(axis=1)).reshape(-1), [index])
 
     if per_unit:
-        results = (results / capacity).fillna(0.)
+        results = (results / capacity.astype(results.dtype)).fillna(0.)
 
     if return_capacity:
         return results, capacity

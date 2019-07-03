@@ -37,7 +37,7 @@ def aggregate_matrix(da, matrix, index):
             input_core_dims=[['spatial']],
             output_core_dims=[[index.name]],
             dask='parallelized',
-            output_dtypes=[float],
+            output_dtypes=[da.dtype],
             output_sizes={index.name: index.size}
         ).assign_coords(**{index.name: index})
     else:
