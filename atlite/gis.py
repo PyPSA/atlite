@@ -19,8 +19,6 @@ Renewable Energy Atlas Lite (Atlite)
 Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
 """
 
-from __future__ import absolute_import
-
 import numpy as np
 import pandas as pd
 import xarray as xr
