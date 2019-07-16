@@ -15,14 +15,15 @@
 
 
 import os
-import atlite
 import logging
 logger = logging.getLogger(__name__)
 
 class Config(object):
+
+    # Default search paths for the yaml-configuration file
     _SEARCH_PATHS = (
         os.path.expanduser("~"),
-        os.path.dirname(atlite.__file__),
+        "./"
     )
 
     _FILE_NAME = ".config.yaml"
@@ -85,12 +86,6 @@ class Config(object):
                     self.read(path)
                     # Either successfully read or invalid file
                     break
-
-            
-            # Last attempt: fallback to default configuration
-            path = os.path.join(os.path.dirname(atlite.__file__), Config._DEFAULT_NAME)
-            if os.path.isfile(path):
-                self.read(path)
     
     def read(self, path):
         """Read and set the configuration based on the file in 'path'."""
