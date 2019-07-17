@@ -28,22 +28,41 @@ import yaml
 from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
-from pkg_resources import resource_stream
+from pkg_resources import resource_filename
 
 import logging
 logger = logging.getLogger(name=__name__)
 
+from .config import config
+
 def get_windturbineconfig(turbine):
     """Load the 'turbine'.yaml file from local disk and provide a turbine dict."""
 
-    res_name = "resources/windturbine/" + turbine + ".yaml"
-    turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
+    res_name = os.path.join(config.windturbine_dir, turbine+".yaml")
+
+    # Relative paths are considered relative to the package location
+    if os.path.isabs(res_name) is False:
+        res_name = resource_filename(__name__, res_name)
+
+    with open(res_name, "r") as turbine_file:
+        turbineconf = yaml.safe_load(turbine_file)
+
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
     return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
 def get_solarpanelconfig(panel):
-    res_name = "resources/solarpanel/" + panel + ".yaml"
-    return yaml.safe_load(resource_stream(__name__, res_name))
+    """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
+
+    res_name = os.path.join(config.solarpanel_dir, panel+".yaml")
+
+    # Relative paths are considered relative to the package location
+    if os.path.isabs(res_name) is False:
+        res_name = resource_filename(__name__, res_name)
+
+    with open(res_name, "r") as panel_file:
+        panelconf = yaml.safe_load(panel_file)
+
+    return panelconf
 
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
