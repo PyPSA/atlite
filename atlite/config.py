@@ -22,12 +22,14 @@ class Config(object):
 
     # Default search paths for the yaml-configuration file
     _SEARCH_PATHS = (
+        # User home directory
         os.path.expanduser("~"),
-        "./"
+        # Package install directory
+        os.path.dirname(os.path.abspath(__file__))
     )
 
-    _FILE_NAME = ".config.yaml"
-    _DEFAULT_NAME = ".config.default.yaml"
+    _FILE_NAME = ".atlite.config.yaml"
+    _DEFAULT_NAME = ".atlite.default.config.yaml"
 
     # List of all supported attributes for the config
     # This set of supported attributes can be expanded by
@@ -40,15 +42,15 @@ class Config(object):
         "windturbine_dir",
         "solarpanel_dir",
         "gebco_path",
-        # Not read, provided for information purposes; updated during config creation
+        # For information purposes; updated during config creation
         "config_path" 
     )
 
     def __init__(self, config_dict=None, config_path=None):
-        """Create a config object using a dictionary or by specifying a config file path.
+        """Create an empty config object, filling it from a dictionary or a config file.
 
-        If neither `config_dict` nor `config_path` are given, then try to read a config
-        file from one of the default locations.
+        If neither `config_dict` nor `config_path` are given, then only an empty object is created.
+
 
         Parameters
         ----------
@@ -78,14 +80,8 @@ class Config(object):
         elif config_path is not None:
             # Provide a fully specified path for reading the config from
             self.read(config_path)
-        else:
-            # Try to load configuration from standard paths
-            paths = [os.path.join(sp, Config._FILE_NAME) for sp in Config._SEARCH_PATHS]
-            for path in paths:
-                if os.path.isfile(path):
-                    self.read(path)
-                    # Either successfully read or invalid file
-                    break
+        elif config_path:
+            self.read(path)
     
     def read(self, path):
         """Read and set the configuration based on the file in 'path'."""
@@ -93,7 +89,8 @@ class Config(object):
         import yaml
 
         if not os.path.isfile(path):
-            raise TypeError("Invalid configuration file path.")
+            raise TypeError("Invalid configuration file path: "
+                            "{p}".format(p=path))
         
         with open(path, "r") as config_file:
             config_dict = yaml.safe_load(config_file)
@@ -149,4 +146,26 @@ class Config(object):
         else:
             raise TypeError("Unknown configuration key {k}".format(k=key))
 
+# Create config object to share amongst package modules
+# When loading the package, try to load the config from
+# a few predefined locations.
 config = Config()
+
+# Priority: .atlite.config.yaml
+# Secondary: .atlite.default.config.yaml
+paths = [os.path.join(sp, Config._FILE_NAME) for sp in Config._SEARCH_PATHS]
+paths.extend([os.path.join(sp, Config._DEFAULT_NAME) for sp in Config._SEARCH_PATHS])
+
+# Try to load configuration from standard paths
+for path in paths:
+    if os.path.isfile(path):
+        print("Reading: {p}".format(p=path))
+        # Don't check if the file is actually what it claims to be
+        # also: consider a read without error a success.
+        config.read(path)
+        break
+
+# Notify user of empty config
+if not config.config_path:
+    logger.warn("No valid configuration file found in default paths. "
+                "No configuration is loaded, manual configuration required.")
