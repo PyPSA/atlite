@@ -21,13 +21,13 @@ logger = logging.getLogger(__name__)
 
 class Config(object):
 
-    _FILE_NAME = ".atlite.config.yaml"
+    _FILE_NAME = "config.yaml"
     _DEFAULT_FILE_NAME = ".atlite.default.config.yaml"
 
     # Search paths for the yaml-configuration file
     _SEARCH_PATHS = (
         # User home directory - Custom
-        os.path.join(os.path.expanduser("~"), _FILE_NAME),
+        os.path.join(os.path.expanduser("~"), ".atlite", _FILE_NAME),
         # Package install directory - Custom
         pkg_resources.resource_filename(__name__, _FILE_NAME),
         # Package install directory - Default
