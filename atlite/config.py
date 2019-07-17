@@ -15,21 +15,25 @@
 
 
 import os
+import pkg_resources
 import logging
 logger = logging.getLogger(__name__)
 
 class Config(object):
 
-    # Default search paths for the yaml-configuration file
+    _FILE_NAME = ".atlite.config.yaml"
+    _DEFAULT_FILE_NAME = ".atlite.default.config.yaml"
+
+    # Search paths for the yaml-configuration file
     _SEARCH_PATHS = (
-        # User home directory
-        os.path.expanduser("~"),
-        # Package install directory
-        os.path.dirname(os.path.abspath(__file__))
+        # User home directory - Custom
+        os.path.join(os.path.expanduser("~"), _FILE_NAME),
+        # Package install directory - Custom
+        pkg_resources.resource_filename(__name__, _FILE_NAME),
+        # Package install directory - Default
+        pkg_resources.resource_filename(__name__, _DEFAULT_FILE_NAME)
     )
 
-    _FILE_NAME = ".atlite.config.yaml"
-    _DEFAULT_NAME = ".atlite.default.config.yaml"
 
     # List of all supported attributes for the config
     # This set of supported attributes can be expanded by
@@ -151,15 +155,9 @@ class Config(object):
 # a few predefined locations.
 config = Config()
 
-# Priority: .atlite.config.yaml
-# Secondary: .atlite.default.config.yaml
-paths = [os.path.join(sp, Config._FILE_NAME) for sp in Config._SEARCH_PATHS]
-paths.extend([os.path.join(sp, Config._DEFAULT_NAME) for sp in Config._SEARCH_PATHS])
-
 # Try to load configuration from standard paths
-for path in paths:
+for path in config._SEARCH_PATHS:
     if os.path.isfile(path):
-        print("Reading: {p}".format(p=path))
         # Don't check if the file is actually what it claims to be
         # also: consider a read without error a success.
         config.read(path)
