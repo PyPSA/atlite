@@ -34,15 +34,14 @@ import logging
 logger = logging.getLogger(name=__name__)
 
 from .config import config
+from .utils import construct_filepath
 
 def get_windturbineconfig(turbine):
     """Load the 'turbine'.yaml file from local disk and provide a turbine dict."""
 
     res_name = os.path.join(config.windturbine_dir, turbine+".yaml")
 
-    # Relative paths are considered relative to the package location
-    if os.path.isabs(res_name) is False:
-        res_name = resource_filename(__name__, res_name)
+    res_name = construct_filepath(res_name)
 
     with open(res_name, "r") as turbine_file:
         turbineconf = yaml.safe_load(turbine_file)
@@ -54,10 +53,8 @@ def get_solarpanelconfig(panel):
     """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
 
     res_name = os.path.join(config.solarpanel_dir, panel+".yaml")
-
-    # Relative paths are considered relative to the package location
-    if os.path.isabs(res_name) is False:
-        res_name = resource_filename(__name__, res_name)
+    
+    res_name = construct_filepath(res_name)
 
     with open(res_name, "r") as panel_file:
         panelconf = yaml.safe_load(panel_file)
