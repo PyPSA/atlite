@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class Config(object):
 
     _FILE_NAME = "config.yaml"
-    _DEFAULT_FILE_NAME = ".atlite.default.config.yaml"
+    _DEFAULT_FILE_NAME = "default.config.yaml"
 
     # Search paths for the yaml-configuration file
     _SEARCH_PATHS = (
