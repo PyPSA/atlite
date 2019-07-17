@@ -1,0 +1,25 @@
+# Default Settings
+# For ATLITE - the Renewable Energy Atlas in its lite version.
+
+# TO OVERWRITE THESE DEFAULT SETTINGS:
+# copy the file in this directory or into a folder ".atlite" in your user's home
+# directory (Linux: "~/.atlite", Windows: usually "C:\Users\<Your Username>\.atlite\")
+# then rename it to '<your home directory>/.atlite/config.yaml'.
+
+
+# NOTE
+# Relative location paths in this file are considered to be relative
+# to the location of this configuration file, i.e.
+# if this file in the path ~/.atlite/config.yaml ,
+# then relative paths should be considered relative to ~/.atlite/
+# Alternatively: One can use absolute paths.
+
+# Dataset Settings
+gebco_path: /home/vres-climate/data/GEBCO_2014_2D.nc
+cutout_dir: /home/vres/data/cutouts
+ncep_dir:   /home/vres-climate/data/rda_ucar
+cordex_dir: /home/vres-climate/data/cordex/RCP8.5
+sarah_dir:  /home/vres-climate/data/sarah_v2
+
+windturbine_dir: resources/windturbine
+solarpanel_dir: resources/solarpanel
