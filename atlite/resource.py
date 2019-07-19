@@ -33,7 +33,7 @@ from pkg_resources import resource_filename
 import logging
 logger = logging.getLogger(name=__name__)
 
-from .config import config
+from . import config
 from .utils import construct_filepath
 
 def get_windturbineconfig(turbine):
