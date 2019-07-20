@@ -56,7 +56,7 @@ class Cutout(object):
             self.cutout_dir = cutout_dir
             self.name = name
 
-        if cutout_dir is None:
+        if not cutout_dir:
             config.cutout_dir
 
         if 'bounds' in cutoutparams:
