@@ -32,7 +32,7 @@ from operator import itemgetter
 import os
 import glob
 
-from ..config import cordex_dir
+from .. import config
 from ..gis import RotProj
 
 # Model and Projection Settings
@@ -121,41 +121,41 @@ weather_data_config = {
     'influx': dict(tasks_func=tasks_yearly_cordex,
                    prepare_func=prepare_data_cordex,
                    oldname='rsds', newname='influx',
-                   template=os.path.join(cordex_dir, '{model}', 'influx', 'rsds_*_{year}*.nc')),
+                   template=os.path.join(config.cordex_dir, '{model}', 'influx', 'rsds_*_{year}*.nc')),
     'outflux': dict(tasks_func=tasks_yearly_cordex,
                     prepare_func=prepare_data_cordex,
                     oldname='rsus', newname='outflux',
-                    template=os.path.join(cordex_dir, '{model}', 'outflux', 'rsus_*_{year}*.nc')),
+                    template=os.path.join(config.cordex_dir, '{model}', 'outflux', 'rsus_*_{year}*.nc')),
     'temperature': dict(tasks_func=tasks_yearly_cordex,
                         prepare_func=prepare_data_cordex,
                         oldname='tas', newname='temperature',
-                        template=os.path.join(cordex_dir, '{model}', 'temperature', 'tas_*_{year}*.nc')),
+                        template=os.path.join(config.cordex_dir, '{model}', 'temperature', 'tas_*_{year}*.nc')),
     'humidity': dict(tasks_func=tasks_yearly_cordex,
                         prepare_func=prepare_data_cordex,
                         oldname='hurs', newname='humidity',
-                        template=os.path.join(cordex_dir, '{model}', 'humidity', 'hurs_*_{year}*.nc')),
+                        template=os.path.join(config.cordex_dir, '{model}', 'humidity', 'hurs_*_{year}*.nc')),
     'wnd10m': dict(tasks_func=tasks_yearly_cordex,
                    prepare_func=prepare_data_cordex,
                    oldname='sfcWind', newname='wnd10m',
-                   template=os.path.join(cordex_dir, '{model}', 'wind', 'sfcWind_*_{year}*.nc')),
+                   template=os.path.join(config.cordex_dir, '{model}', 'wind', 'sfcWind_*_{year}*.nc')),
     'roughness': dict(tasks_func=tasks_yearly_cordex,
                       prepare_func=prepare_static_data_cordex,
                       oldname='rlst', newname='roughness',
-                      template=os.path.join(cordex_dir, '{model}', 'roughness', 'rlst_*.nc')),
+                      template=os.path.join(config.cordex_dir, '{model}', 'roughness', 'rlst_*.nc')),
     'runoff': dict(tasks_func=tasks_yearly_cordex,
                    prepare_func=prepare_data_cordex,
                    oldname='mrro', newname='runoff',
-                   template=os.path.join(cordex_dir, '{model}', 'runoff', 'mrro_*_{year}*.nc')),
+                   template=os.path.join(config.cordex_dir, '{model}', 'runoff', 'mrro_*_{year}*.nc')),
     'height': dict(tasks_func=tasks_yearly_cordex,
                    prepare_func=prepare_static_data_cordex,
                    oldname='orog', newname='height',
-                   template=os.path.join(cordex_dir, '{model}', 'altitude', 'orog_*.nc')),
+                   template=os.path.join(config.cordex_dir, '{model}', 'altitude', 'orog_*.nc')),
     'CWT': dict(tasks_func=tasks_yearly_cordex,
                 prepare_func=prepare_weather_types_cordex,
                 oldname='CWT', newname='CWT',
-                template=os.path.join(cordex_dir, '{model}', 'weather_types', 'CWT_*_{year}*.nc')),
+                template=os.path.join(config.cordex_dir, '{model}', 'weather_types', 'CWT_*_{year}*.nc')),
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_cordex,
-                        template=os.path.join(cordex_dir, '{model}', 'temperature', 'tas_*_{year}*.nc'),
+                        template=os.path.join(config.cordex_dir, '{model}', 'temperature', 'tas_*_{year}*.nc'),
                         height_config=weather_data_config['height'])

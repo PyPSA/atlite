@@ -27,6 +27,9 @@ import numpy as np
 import xarray as xr
 from functools import partial
 import glob
+
+from .. import config
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -86,7 +89,7 @@ def get_coords(time, x, y, **creation_parameters):
         return ds.load()
 
 def get_data(coords, date, feature, x, y, **creation_parameters):
-    sis_fn, sid_fn = _get_filenames(creation_parameters.get('sarah_dir', sarah_dir), date)
+    sis_fn, sid_fn = _get_filenames(creation_parameters.get('sarah_dir', config.sarah_dir), date)
     res = creation_parameters.get('resolution', resolution)
 
     with xr.open_mfdataset(sis_fn) as ds_sis, \
