@@ -15,11 +15,11 @@
 # Alternatively: One can use absolute paths.
 
 # Dataset Settings
-gebco_path: /home/vres-climate/data/GEBCO_2014_2D.nc
-cutout_dir: /home/vres/data/cutouts
-ncep_dir:   /home/vres-climate/data/rda_ucar
-cordex_dir: /home/vres-climate/data/cordex/RCP8.5
-sarah_dir:  /home/vres-climate/data/sarah_v2
+gebco_path: data/gebco
+cutout_dir: cutouts
+ncep_dir:   data/ncep
+cordex_dir: data/cordex
+sarah_dir:  data/sarah
 
 windturbine_dir: resources/windturbine
 solarpanel_dir: resources/solarpanel
