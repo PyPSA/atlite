@@ -95,8 +95,6 @@ def save(path, overwrite=False):
 def update(config_dict):
     """Update the existing config based on the `config_dict` dictionary; resets `config_path`."""
 
-    new_attrs = {"config_path": None}.update(config_dict)
-
     globals().update(config_dict)
     _update_variables()
     
