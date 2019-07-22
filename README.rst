@@ -104,8 +104,8 @@ To create a standard configuration:
   on windows systems it usually is `C:\\Users\\\<Your Username\>\\.atlite\\config.yaml`.
   
 * Copy the settings and format of `atlite/default.config.yaml <atlite/default.config.yaml>`
-    and point the directories to where you downloaded or provided the respective data.
-    This file is automatically loaded when `import atlite`.
+  and point the directories to where you downloaded or provided the respective data.
+  This file is automatically loaded when `import atlite`.
     
 * A specific configuration file can be loaded anytime within your code using
   `atlite.config.read(<path to your configuration file>)`
