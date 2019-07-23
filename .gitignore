@@ -6,3 +6,4 @@ doc/_build/
 build/
 dist/
 atlite.egg-info/
+*.ipynb_checkpoints*
