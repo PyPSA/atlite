@@ -14,10 +14,6 @@ try:
 except ImportError:
     has_cdsapi = False
 
-def noisy_unlink(path):
-    logger.info(f"Deleting file {path}")
-    os.unlink(path)
-
 def retrieve_data(product, chunks=None, **updates):
     """Download data like ERA5 from the Climate Data Store (CDS)"""
 
@@ -59,7 +55,14 @@ def retrieve_data(product, chunks=None, **updates):
     result.download(target)
 
     ds = xr.open_dataset(target, chunks=chunks or {})
-    weakref.finalize(ds._file_obj, noisy_unlink, target)
+
+    def noisy_close_unlink(ds):
+        ds.close()
+        path = ds.encoding['source']
+        logger.info(f"Deleting file {path}")
+        os.unlink(path)
+
+    weakref.finalize(ds, noisy_close_unlink, ds)
 
     return ds
 
