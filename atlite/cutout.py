@@ -49,15 +49,11 @@ class Cutout(object):
             data = name
             name = data.attrs.get("name", "unnamed")
 
-        if name:
-            cutout_dir = os.path.dirname(name)
-            name = os.path.basename(name)
-
-            self.cutout_dir = cutout_dir
-            self.name = name
-
         if not cutout_dir:
             config.cutout_dir
+        
+        self.name = name
+        self.cutout_dir = cutout_dir
 
         if 'bounds' in cutoutparams:
             x1, y1, x2, y2 = cutoutparams.pop('bounds')
