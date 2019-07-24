@@ -59,7 +59,7 @@ def read(path):
     with open(path, "r") as config_file:
         config_dict = yaml.safe_load(config_file)
 
-    config_dict.update({"config_path": path})
+    config_dict['config_path'] = path
     update(config_dict)
 
     logger.info("Configuration from {p} successfully read.".format(p=path))
