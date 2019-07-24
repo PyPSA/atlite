@@ -11,17 +11,14 @@ logging.basicConfig(level=logging.DEBUG)
 
 import atlite
 
-# Setup atlite to use the local directory for
-# storing the cutout reanalysis data
-atlite.config.cutout_dir = "./"
-
 # Define the cutout; this will not yet trigger any major operations
 cutout = atlite.Cutout(name="europe-2011-01",
+                       cutout_dir="./",
                        module="era5",
-                       xs=slice(-12.18798349, 41.56244222),
-                       ys=slice(71.65648314, 33.56459975),
-                       years=slice(2011, 2011),
-                       months=slice(1,1))
+                       x=slice(-12.18798349, 41.56244222),
+                       y=slice(71.65648314, 33.56459975),
+                       time=slice("2011-01","2011-01")
+                       )
 
 # This is where all the work happens
 cutout.prepare()
