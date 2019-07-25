@@ -17,6 +17,7 @@ setup(
     license='GPLv3',
     packages=find_packages(exclude=['doc', 'test']),
     include_package_data=True,
+    python_requires='~=3.6',
     install_requires=['numpy',
                       'scipy',
                       'pandas>=0.22',
