@@ -156,22 +156,31 @@ def get_data_runoff(kwds):
     return ds
 
 def get_data_height(kwds):
-    ds = retrieve_data(variable='orography', day=1, time="00:00", **kwds)
+    ds = retrieve_data(variable='orography', **kwds)
 
     ds = _rename_and_clean_coords(ds)
     ds = _add_height(ds)
 
     return ds
 
-def get_data(coords, date, feature, x, y, chunks=None, **creation_parameters):
+def get_data(coords, time, feature, x, y, chunks=None, **creation_parameters):
     kwds = {'product': 'reanalysis-era5-single-levels',
-            'chunks': chunks, 'area': _area(x, y), 'year': date.year}
+            'chunks': chunks, 'area': _area(x, y)}
 
     if {'dx', 'dy'}.issubset(creation_parameters):
         kwds['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
 
-    if 'month' in creation_parameters:
-        kwds['month'] = creation_parameters.pop('month')
+    if isinstance(time, pd.Period):
+        kwds['year'] = time.year
+        if isinstance(time.freq, pd.tseries.offsets.MonthOffset):
+            kwds['month'] = time.month
+        elif isinstance(time.freq, pd.tseries.frequencies.Day):
+            kwds['month'] = time.month
+            kwds['day'] = time.day
+    elif isinstance(time, pd.Timestamp):
+        kwds.update(year=time.year, month=time.month, day=time.day, time=time.strftime("%H:00"))
+    else:
+        raise TypeError(f"{time} should be one of pd.Timestamp or pd.Period")
 
     gebco_fn = creation_parameters.pop('gebco_fn', None)
     if gebco_fn is not None and feature == 'height':
