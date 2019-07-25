@@ -177,6 +177,11 @@ def cutout_prepare(cutout, features=None, freq=None, overwrite=False):
         features = set(features if features is not None else cutout.available_features)
         missing_features = features - cutout.prepared_features
 
+        if not missing_features and not overwrite:
+            logger.info(f"All available features {cutout.available_features} have already been prepared, so nothing to do."
+                        f" Use `overwrite=True` to re-create {cutout.name}.nc and {cutout.name}.sindex.pickle.")
+            return
+
         ds = get_missing_data(cutout, missing_features, freq)
 
         # Merge with existing cutout
