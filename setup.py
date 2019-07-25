@@ -25,6 +25,7 @@ setup(
                       'bottleneck',
                       'numexpr',
                       'xarray>=0.11.2',
+                      'netcdf4',
                       'dask>=0.18.0',
                       'rasterio',
                       'rtree',
