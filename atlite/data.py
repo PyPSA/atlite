@@ -43,7 +43,7 @@ def literal_eval_creation_parameters(node_or_string):
             return node.value
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
             operand = _convert(node.operand)
-            if isinstance(operand, ast._NUM_TYPES):
+            if isinstance(operand, (int, float, complex)):
                 if isinstance(node.op, ast.UAdd):
                     return + operand
                 else:
