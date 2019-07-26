@@ -102,7 +102,7 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
     return wnd_spd.rename(to_name)
 
-def download_turbineconf(requested_turbine=None):
+def download_turbineconf(turbine=None, store_locally=True):
     """Download a windturbine configuration from the OEDB database.
     
     Download the configuration of a windturbine model from the OEDB database
@@ -115,11 +115,14 @@ def download_turbineconf(requested_turbine=None):
     
     Parameters
     ----------
-    requested_turbine : dict
+    turbine : dict
         Search parameters, either provide the turbine model id (takes priority)
         or a manufacturer and turbine name, e.g. the following are identical:
         {'id':10}, {'id':10, 'manufacturer':'Unknown', name:'E-53/800'},
         {'manufacturer':'Enercon', name:'E-53/800'}
+    store_locally : bool
+        (Default: True) Whether the downloaded config should be stored locally
+        in config.windturbine_dir.
         
     Returns
     -------
@@ -128,42 +131,46 @@ def download_turbineconf(requested_turbine=None):
         Has the same format as returned by 'atlite.ressource.get_turbineconf(name)'.
     """
     
-    # Get the turbine list
-    oedb_url = 'https://openenergy-platform.org/api/v0/schema/supply/tables/turbine_library/rows'
-    result = requests.get(oedb_url)
+    try: 
+        # Get the turbine list
+        OEDB_URL = 'https://openenergy-platform.org/api/v0/schema/supply/tables/turbine_library/rows'
+        result = requests.get(OEDB_URL)
+    except requests.exceptions.RequestException:
+        logger.exception('Exception encountered when trying to connect to OEDB.')
+        return None
 
     # Convert JSON to dataframe for easier filtering
     # Only consider turbines with power curves available
     df = pd.DataFrame.from_dict(result.json())
     df = df[df.has_power_curve]
 
-    if requested_turbine.get('id'):
-        logger.info("Searching turbine power curve in OEDB database using id "
-                    "'{id}'".format(id=requested_turbine['id'])
-                   )
-        ds = df[df.id == requested_turbine['id']]
+    # Check which information is provided for lookup and proceed accordingly
+    if turbine.get('id'):
+        logger.info(f"Searching for turbine in OEDB with id '{turbine['id']}'.")
+        ds = df[df.id == turbine['id']]
         
     else:
-        if not isinstance(requested_turbine.get('name'),str) or
-           not isinstance(requested_turbine.get('manufacturer'),str):
+        if not all({isinstance(v, str)
+                    for k,v in turbine.items() if k in ['name', 'manufacturer']}
+                  ):
             
             logger.error("'name' and 'manufacturer' must be provided. "
                          "Alternatively provide a turbine id from OEDB.")
             return None
-        logger.info("Searching turbine power curve in OEDB database using "
-                    "manufacturer '{m}' and name '{n}'."
-                    "".format(m=requested_turbine['manufacturer'],
-                              n=requested_turbine['name']))
+        logger.info(f"Searching turbine power curve in OEDB database using "
+                    f"manufacturer '{turbine['manufacturer']}'"
+                    f"and name '{turbine['name']}'.")
             
-        ds = df[df.name == requested_turbine['name']]
-        ds = ds[ds.manufacturer == requested_turbine['manufacturer']]
+        ds = df[df.name == turbine['name']]
+        ds = ds[ds.manufacturer == turbine['manufacturer']]
 
     if len(ds) < 1 :
-        logger.info("No turbine found for {rt}.".format(rt=requested_turbine))
+        logger.info(f"No turbine found for {turbine}.")
+        return None
     elif len(ds) > 2 :
-        logger.info("Provided information corresponds to more than one turbine. "
-                    "Provide id to unambigious lookup. {rt}."
-                    "".format(rt=requested_turbine))
+        logger.info(f"Provided information corresponds to more than one turbine. "
+                    f"Provide id to unambiguous lookup. {turbine}.")
+        return None
     elif len(ds) == 1:
         # Convert to series for simpliticty
         ds = ds.iloc[0]
@@ -174,23 +181,24 @@ def download_turbineconf(requested_turbine=None):
     turbineconf = {
         "name": ds['name'].strip(),
         "manufacturer": ds.manufacturer.strip(),
-        "source": "Original: {origin}. "
-                  "Via OEDB {secondary}".format(origin=ds.source, secondary=oedb_url),
+        "source": f"Original: {ds.source}. Via OEDB {OEDB_URL}",
         "HUB_HEIGHT": ds.hub_height.strip(),
         "V": json.loads(ds.power_curve_wind_speeds),
         "POW": power.tolist(),
     }
 
-    filename = "{m}_{n}.yaml".format(m=turbineconf['manufacturer'],
-                                     n=turbineconf['name'])
-    filename = filename.replace("/","_")
-    filename = filename.replace(" ","_")
-    filepath = utils.construct_filepath(os.path.join(config.windturbine_dir, filename))
+    if store_locally is True:
+        filename = "{m}_{n}.yaml".format(m=turbineconf['manufacturer'],
+                                        n=turbineconf['name'])
+        filename = filename.replace("/","_")
+        filename = filename.replace(" ","_")
+        filepath = utils.construct_filepath(os.path.join(config.windturbine_dir, filename))
 
-    with open(filepath, 'w') as turbine_file:
-        yaml.dump(turbineconf, turbine_file)
-        
-    logger.info("Turbine configuration downloaded to '{fp}'.".format(fp=filepath))
+        with open(filepath, 'w') as turbine_file:
+            yaml.dump(turbineconf, turbine_file)
+            
+        logger.info(f"Turbine configuration downloaded to '{filepath}'.")
+
     if ";" in turbineconf['HUB_HEIGHT']:
         logger.info("Multiple HUB_HEIGHTS in dataset. Manual clean-up required.")
 
