@@ -27,7 +27,6 @@ import json
 import yaml
 import os
 
-from . import config
 from . import utils
 
 import logging
@@ -135,8 +134,8 @@ def download_turbineconf(turbine=None, store_locally=True):
         # Get the turbine list
         OEDB_URL = 'https://openenergy-platform.org/api/v0/schema/supply/tables/turbine_library/rows'
         result = requests.get(OEDB_URL)
-    except requests.exceptions.RequestException:
-        logger.exception('Exception encountered when trying to connect to OEDB.')
+    except requests.exceptions.RequestException as e:
+        logger.info(f"Connection to OEDB failed with:\n\n{str(e)}")
         return None
 
     # Convert JSON to dataframe for easier filtering
@@ -147,7 +146,7 @@ def download_turbineconf(turbine=None, store_locally=True):
     # Check which information is provided for lookup and proceed accordingly
     if turbine.get('id'):
         logger.info(f"Searching for turbine in OEDB with id '{turbine['id']}'.")
-        ds = df[df.id == turbine['id']]
+        ds = df[df.id == int(turbine['id'])]
         
     else:
         if not all({isinstance(v, str)
