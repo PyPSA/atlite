@@ -29,39 +29,37 @@ from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
 from pkg_resources import resource_stream
+import ast
 
 from .wind import download_turbineconf
 
 import logging
 logger = logging.getLogger(name=__name__)
 
-def get_windturbineconfig(turbine, source='local'):
+def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
 
     The configuration can either be one from local storage, then 'turbine' is
     considered part of the file base name '<turbine>.yaml' in config.windturbine_dir.
-    Alternatively it can refer to the unique 'id' of a turbine in OEDB, see
-    atlite.wind.download_turbineconf() for details.
+    Alternatively 'turbine' is the string representation of a dict refer to a unique
+    turbine OEDB.
 
     Parameter
     ---------
     turbine : str
-        Name of the local turbine file in config.windturbine_dir or a string
-        refering to a specific turbine online in the oedb with format 'oedb:<id>'.
-    source : str
-        (Default: 'local') Either 'local' or 'oedb'. If local, the 'turbine' is
-        considered the filename of a local turbine in config.windturbine_dir,
-        the file suffix (e.g. '.yaml') is not needed.
-        If 'oedb', then only the online database will be searched for a turbine
-        with 'id' provided in 'turbine'.
+        Name of the local turbine file (without .yaml suffix) in config.windturbine_dir
+        or a string starting with "oedb:" for an online lookup in the OEDB database.
+        The online database will be searched for a turbine according to the dict following
+        the flag, e.g. "oedb:{'id':'10'}".
+        For all supported fields, see atlite.wind.download_turbineconf() for details.
     """
 
-    if turbine.startswith('oedb'):
-        source = 'oedb'
-        turbine = turbine[5:] # Extract turbine id
+    if turbine.startswith('oedb:'):
+        source = 'oedb:'
+        turbine = turbine[5:] # Remove 'oedb:' switch
+        turbine = ast.literal_eval(turbine)
 
-    if source is 'oedb':
-        return download_turbineconf({'id':turbine}, store_locally=False)
+        return download_turbineconf(turbine, store_locally=False)
     elif source is "local":
         res_name = os.path.join(config.windturbine_dir, turbine+".yaml")
         res_name = construct_filepath(res_name)
@@ -69,9 +67,6 @@ def get_windturbineconfig(turbine, source='local'):
         turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
         V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
         return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
-    else:
-        logging.info(f"Unknown option used for 'source':{source}.")
-        return None
 
 def get_solarpanelconfig(panel):
     res_name = "resources/solarpanel/" + panel + ".yaml"
