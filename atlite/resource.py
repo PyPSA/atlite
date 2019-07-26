@@ -30,16 +30,48 @@ import numpy as np
 from scipy.signal import fftconvolve
 from pkg_resources import resource_stream
 
+from .wind import download_turbineconf
+
 import logging
 logger = logging.getLogger(name=__name__)
 
-def get_windturbineconfig(turbine):
-    """Load the 'turbine'.yaml file from local disk and provide a turbine dict."""
+def get_windturbineconfig(turbine, source='local'):
+    """Load the wind 'turbine' configuration.
 
-    res_name = "resources/windturbine/" + turbine + ".yaml"
-    turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
-    V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
-    return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
+    The configuration can either be one from local storage, then 'turbine' is
+    considered part of the file base name '<turbine>.yaml' in config.windturbine_dir.
+    Alternatively it can refer to the unique 'id' of a turbine in OEDB, see
+    atlite.wind.download_turbineconf() for details.
+
+    Parameter
+    ---------
+    turbine : str
+        Name of the local turbine file in config.windturbine_dir or a string
+        refering to a specific turbine online in the oedb with format 'oedb:<id>'.
+    source : str
+        (Default: 'local') Either 'local' or 'oedb'. If local, the 'turbine' is
+        considered the filename of a local turbine in config.windturbine_dir,
+        the file suffix (e.g. '.yaml') is not needed.
+        If 'oedb', then only the online database will be searched for a turbine
+        with 'id' provided in 'turbine'.
+    """
+
+    if turbine.startswith('oedb'):
+        source = 'oedb'
+        turbine = turbine[5:] # Extract turbine id
+
+    if source is 'oedb':
+        return download_turbineconf({'id':turbine}, store_locally=False)
+    elif source is "local":
+        res_name = os.path.join(config.windturbine_dir, turbine+".yaml")
+        res_name = construct_filepath(res_name)
+
+        turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
+        V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
+        return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
+    else:
+        logging.info(f"Unknown option used for 'source':{source}.")
+        return None
 
 def get_solarpanelconfig(panel):
     res_name = "resources/solarpanel/" + panel + ".yaml"
