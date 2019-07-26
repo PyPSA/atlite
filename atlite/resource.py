@@ -31,6 +31,7 @@ from scipy.signal import fftconvolve
 from pkg_resources import resource_stream
 import ast
 
+from . import config
 from .wind import download_turbineconf
 
 import logging

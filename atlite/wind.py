@@ -27,6 +27,7 @@ import json
 import yaml
 import os
 
+from . import config
 from . import utils
 
 import logging
