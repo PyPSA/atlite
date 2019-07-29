@@ -1,0 +1,35 @@
+# Exemplary Settings for atlite
+
+
+## How to use this file.
+# 1. Copy this file into your home directory, usually that is
+#    "~" for linux users and "C:\Users\<Your Username>" for windows users.
+# 2. Rename the file to ".atlite.config.yaml" (note the trailing dot).
+# 3. Uncomment any setting you want to differ from the default settings.
+
+## Remarks
+# * Relative paths:
+#   Are relative to the location of the currently loaded config file,
+#   e.g. if the config file is located in your home directory,
+#   then any relative paths are considered relative to the homedirectory.
+#   Exception: Relative paths starting with "ATLITE/" (case-sensitive) are
+#   considered relative to the atlite-package directory.
+# * Custom location:
+#   You can use this configuration file and place it at custom locations with
+#   a custom file name. In this case you need to manually load the configuration
+#   after importing atlite with "atlite.config.read(<path with filename>)".
+
+# Folder for storing prepared cutout files
+# cutout_dir: <ATLITE>/cutouts
+
+# Folder containing raw dataset data
+# gebco_path: <ATLITE>/data/gebco
+# ncep_dir:   <ATLITE>/data/ncep
+# cordex_dir: <ATLITE>/data/cordex
+# sarah_dir:  <ATLITE>/data/sarah
+
+# Folder for different wind turbine configuration files
+# windturbine_dir: <ATLITE>/resources/windturbine
+
+# Folder for different solar panel configuration files
+# solarpanel_dir: <ATLITE>/resources/solarpanel

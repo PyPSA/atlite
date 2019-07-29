@@ -21,18 +21,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-_FILE_NAME = "config.yaml"
-_DEFAULT_FILE_NAME = "default.config.yaml"
-
-# Search paths for the yaml-configuration file
-_SEARCH_PATHS = (
-    # User home directory - Custom
-    os.path.join(os.path.expanduser("~"), ".atlite", _FILE_NAME),
-    # Package install directory - Custom
-    pkg_resources.resource_filename(__name__, _FILE_NAME),
-    # Package install directory - Default
-    pkg_resources.resource_filename(__name__, _DEFAULT_FILE_NAME)
-)
+_FILE_NAME = ".atlite.config.yaml"
+_FILE_SEARCH_PATH = os.path.join(os.path.expanduser("~"), _FILE_NAME)
+_DEFAULT_FILE_NAME = "config.default.yaml"
+_DEFAULT_SEARCH_PATH = pkg_resources.resource_filename(__name__, _DEFAULT_FILE_NAME)
 
 # List of all supported attributes for the config
 ATTRS = []
@@ -47,7 +39,7 @@ sarah_dir = None
 
 # Path of the configuration file.
 # Automatically updated when using provided API.
-config_path = None
+config_path = ""
 
 def read(path):
     """Read and set the configuration based on the file in 'path'."""
@@ -97,7 +89,21 @@ def update(config_dict):
 
     globals().update(config_dict)
     _update_variables()
-    
+
+def reset():
+    """Reset the configuration to its initial values."""
+
+    # Test for file existence in order to not try to read
+    # non-existing configuration files at this point (do not confuse the user)
+    for path in [_DEFAULT_SEARCH_PATH, _FILE_SEARCH_PATH]:
+        if os.path.isfile(path):
+            read(path)
+
+    # Notify user of empty config
+    if not config_path:
+        logger.warn("No valid configuration file found in default and home directories. "
+                    "No configuration is loaded, manual configuration required.")
+
 def _update_variables():
     """Update list of provided attributes by the module."""
 
@@ -110,15 +116,5 @@ def _update_variables():
                      "logger", "os", "pkg_resources", "yaml"}
 
 
-# Try to load configuration from standard paths
-for path in _SEARCH_PATHS:
-    if os.path.isfile(path):
-        # Don't check if the file is actually what it claims to be
-        # also: consider a read without error a success.
-        read(path)
-        break
-
-# Notify user of empty config
-if not config_path:
-    logger.warn("No valid configuration file found in default paths. "
-                "No configuration is loaded, manual configuration required.")
+# Load the configuration at first module import
+reset()
