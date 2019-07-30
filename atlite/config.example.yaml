@@ -12,7 +12,7 @@
 #   Are relative to the location of the currently loaded config file,
 #   e.g. if the config file is located in your home directory,
 #   then any relative paths are considered relative to the homedirectory.
-#   Exception: Relative paths starting with "ATLITE/" (case-sensitive) are
+#   Exception: Relative paths starting with "<ATLITE>/" (case-sensitive) are
 #   considered relative to the atlite-package directory.
 # * Custom location:
 #   You can use this configuration file and place it at custom locations with
