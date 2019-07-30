@@ -17,8 +17,8 @@ cutout = atlite.Cutout(name="europe-2011-01",
                        module="era5",
                        x=slice(-12.18798349, 41.56244222),
                        y=slice(71.65648314, 33.56459975),
-                       time=slice("2011-01","2011-01")
+                       time="2011-01"
                        )
 
-# This is where all the work happens
+# This is where all the work happens (this can take some time).
 cutout.prepare()
