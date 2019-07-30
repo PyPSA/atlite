@@ -28,6 +28,10 @@ from contextlib import contextmanager
 import pandas as pd
 import xarray as xr
 import sys
+import os
+import pkg_resources
+
+from . import config
 
 import logging
 logger = logging.getLogger(__name__)
@@ -63,3 +67,23 @@ def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams)
 def timeindex_from_slice(timeslice):
     end = pd.Timestamp(timeslice.end) + pd.offsets.DateOffset(months=1)
     return pd.date_range(timeslice.start, end, freq="1h", closed="left")
+
+def construct_filepath(path):
+    """Construct the absolute file path from the provided 'path' as per the packages convention.
+    
+    Paths which are already absolute are returned unchanged.
+    Relative paths are converted into absolute paths.
+    The convention for relative paths is:
+    They are considered relative to the current 'config.config_path'.
+    If the 'config_path' is not defined, just return the relative path.
+    """
+
+    if os.path.isabs(path):
+        return path
+    elif path.startswith('<ATLITE>'):
+        return pkg_resources.resource_filename(__name__, path[8:])
+    elif config.config_path is None:
+        # If config_path is not defined assume the user know what per does
+        return path
+    else:
+        return os.path.join(os.path.dirname(config.config_path), path)

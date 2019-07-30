@@ -29,7 +29,7 @@ import tempfile
 import subprocess
 import shutil
 
-from ..config import ncep_dir
+from .. import config
 
 engine = 'pynio'
 projection = 'latlong'
@@ -220,30 +220,30 @@ def tasks_height_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs, **
 weather_data_config = {
     'influx': dict(tasks_func=tasks_monthly_ncep,
                    prepare_func=prepare_influx_ncep,
-                   template=os.path.join(ncep_dir, '{year}{month:0>2}/dswsfc.*.grb2')),
+                   template=os.path.join(config.ncep_dir, '{year}{month:0>2}/dswsfc.*.grb2')),
     'outflux': dict(tasks_func=tasks_monthly_ncep,
                     prepare_func=prepare_outflux_ncep,
-                    template=os.path.join(ncep_dir, '{year}{month:0>2}/uswsfc.*.grb2')),
+                    template=os.path.join(config.ncep_dir, '{year}{month:0>2}/uswsfc.*.grb2')),
     'temperature': dict(tasks_func=tasks_monthly_ncep,
                         prepare_func=prepare_temperature_ncep,
-                        template=os.path.join(ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2')),
+                        template=os.path.join(config.ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2')),
     'soil temperature': dict(tasks_func=tasks_monthly_ncep,
                              prepare_func=prepare_soil_temperature_ncep,
-                             template=os.path.join(ncep_dir, '{year}{month:0>2}/soilt1.*.grb2')),
+                             template=os.path.join(config.ncep_dir, '{year}{month:0>2}/soilt1.*.grb2')),
     'wnd10m': dict(tasks_func=tasks_monthly_ncep,
                    prepare_func=prepare_wnd10m_ncep,
-                   template=os.path.join(ncep_dir, '{year}{month:0>2}/wnd10m.*.grb2')),
+                   template=os.path.join(config.ncep_dir, '{year}{month:0>2}/wnd10m.*.grb2')),
     'runoff': dict(tasks_func=tasks_monthly_ncep,
                    prepare_func=prepare_runoff_ncep,
-                   template=os.path.join(ncep_dir, '{year}{month:0>2}/runoff.*.grb2')),
+                   template=os.path.join(config.ncep_dir, '{year}{month:0>2}/runoff.*.grb2')),
     'roughness': dict(tasks_func=tasks_monthly_ncep,
                       prepare_func=prepare_roughness_ncep,
-                      template=os.path.join(ncep_dir, '{year}{month:0>2}/flxf.gdas.*.grb2')),
+                      template=os.path.join(config.ncep_dir, '{year}{month:0>2}/flxf.gdas.*.grb2')),
     'height': dict(tasks_func=tasks_height_ncep,
                    prepare_func=prepare_height_ncep,
-                   template=os.path.join(ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'))
+                   template=os.path.join(config.ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'))
 }
 
 meta_data_config = dict(prepare_func=prepare_meta_ncep,
-                        template=os.path.join(ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2'),
+                        template=os.path.join(config.ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2'),
                         height_config=weather_data_config['height'])

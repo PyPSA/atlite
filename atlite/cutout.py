@@ -29,6 +29,7 @@ from shapely.geometry import box
 import logging
 logger = logging.getLogger(__name__)
 
+from . import config
 
 from . import datasets, utils
 
@@ -40,13 +41,21 @@ from .data import requires_coords, requires_windowed, cutout_prepare
 class Cutout(object):
     dataset_module = None
 
-    def __init__(self, name=None, data=None, cutout_dir=".", **cutoutparams):
+    def __init__(self, name=None, data=None, cutout_dir=None, **cutoutparams):
+
         if isinstance(name, xr.Dataset):
             data = name
             name = data.attrs.get("name", "unnamed")
-
-        if '/' in name:
-            cutout_dir, name = os.path.split(name)
+        
+        
+        dirname, name = os.path.split(name)
+        if dirname:
+            cutout_dir = dirname
+        elif cutout_dir is None:
+            if config.cutout_dir:
+                cutout_dir = config.cutout_dir
+            else:
+                cutout_dir = "."
 
         self.name = name
         self.cutout_dir = cutout_dir
