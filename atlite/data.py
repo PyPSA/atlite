@@ -102,7 +102,7 @@ class Windows(object):
         group_kws = {}
         if window_type is None:
             group_kws['grouper'] = pd.Grouper(freq="M")
-        elif isinstance(window_type, base_string):
+        elif isinstance(window_type, str):
             group_kws['grouper'] = pd.Grouper(freq=window_type)
         elif isinstance(window_type, (int, pd.Index, np.array)):
             group_kws['bins'] = window_type
