@@ -102,7 +102,11 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
     return wnd_spd.rename(to_name)
 
-def download_turbineconf(turbine=None, store_locally=True):
+
+# Cache
+_oedb_turbines = None
+
+def download_turbineconf(turbine, store_locally=True):
     """Download a windturbine configuration from the OEDB database.
     
     Download the configuration of a windturbine model from the OEDB database
@@ -111,15 +115,15 @@ def download_turbineconf(turbine=None, store_locally=True):
     https://openenergy-platform.org/dataedit/view/supply/turbine_library
     (2019-07-22)
     Only one turbine configuration is downloaded at a time, if the 
-    search parameters yield an ambigious result, not data is downloaded.
+    search parameters yield an ambigious result, no data is downloaded.
     
     Parameters
     ----------
     turbine : dict
         Search parameters, either provide the turbine model id (takes priority)
         or a manufacturer and turbine name, e.g. the following are identical:
-        {'id':10}, {'id':10, 'manufacturer':'Unknown', name:'E-53/800'},
-        {'manufacturer':'Enercon', name:'E-53/800'}
+        {'id':10}, {'id':10, name:'E-53/800', 'manufacturer':'Unknown'},
+        {name:'E-53/800', 'manufacturer':'Enercon'}
     store_locally : bool
         (Default: True) Whether the downloaded config should be stored locally
         in config.windturbine_dir.
@@ -131,49 +135,48 @@ def download_turbineconf(turbine=None, store_locally=True):
         Has the same format as returned by 'atlite.ressource.get_turbineconf(name)'.
     """
     
-    try: 
-        # Get the turbine list
-        OEDB_URL = 'https://openenergy-platform.org/api/v0/schema/supply/tables/turbine_library/rows'
-        result = requests.get(OEDB_URL)
-    except requests.exceptions.RequestException as e:
-        logger.info(f"Connection to OEDB failed with:\n\n{str(e)}")
-        return None
+    OEDB_URL = 'https://openenergy-platform.org/api/v0/schema/supply/tables/turbine_library/rows'
 
-    # Convert JSON to dataframe for easier filtering
-    # Only consider turbines with power curves available
-    df = pd.DataFrame.from_dict(result.json())
-    df = df[df.has_power_curve]
+    # Cache turbine request locally
+    global _oedb_turbines
 
-    # Check which information is provided for lookup and proceed accordingly
-    if turbine.get('id'):
-        logger.info(f"Searching for turbine in OEDB with id '{turbine['id']}'.")
-        ds = df[df.id == int(turbine['id'])]
-        
-    else:
-        if not all({isinstance(v, str)
-                    for k,v in turbine.items() if k in ['name', 'manufacturer']}
-                  ):
-            
-            logger.error("'name' and 'manufacturer' must be provided. "
-                         "Alternatively provide a turbine id from OEDB.")
+    if _oedb_turbines is None:
+        try: 
+            # Get the turbine list
+            result = requests.get(OEDB_URL)
+        except requests.exceptions.RequestException as e:
+            logger.info(f"Connection to OEDB failed with:\n\n{str(e)}")
             return None
-        logger.info(f"Searching turbine power curve in OEDB database using "
-                    f"manufacturer '{turbine['manufacturer']}'"
-                    f"and name '{turbine['name']}'.")
-            
-        ds = df[df.name == turbine['name']]
-        ds = ds[ds.manufacturer == turbine['manufacturer']]
 
-    if len(ds) < 1 :
-        logger.info(f"No turbine found for {turbine}.")
+        # Convert JSON to dataframe for easier filtering
+        # Only consider turbines with power curves available
+        df = pd.DataFrame.from_dict(result.json())
+        _oedb_turbines = df[df.has_power_curve]
+
+
+    logger.info("Searching turbine power curve in OEDB database using " +
+                ", ".join(f"{k}='{v}'" for (k,v) in turbine.items()) + ".")
+    # Working copy
+    df = _oedb_turbines
+    if turbine.get('id'):
+        df = df[df.id == int(turbine['id'])]
+    if turbine.get('name'):
+        df = df[df.name == turbine['name']]
+    if turbine.get('manufacturer'):
+        df = df[df.manufacturer == turbine['manufacturer']]
+
+
+    if len(df) < 1 :
+        logger.info("No turbine found.")
         return None
-    elif len(ds) > 2 :
-        logger.info(f"Provided information corresponds to more than one turbine. "
-                    f"Provide id to unambiguous lookup. {turbine}.")
+    elif len(df) > 1 :
+        logger.info(f"Provided information corresponds to {len(df)} turbines: \n"
+                    f"{df[['id','name','manufacturer']].head(3)}. \n"
+                    f"Use an 'id' for an unambiguous search.")
         return None
-    elif len(ds) == 1:
+    elif len(df) == 1:
         # Convert to series for simpliticty
-        ds = ds.iloc[0]
+        ds = df.iloc[0]
 
     # convert power from kW to MW
     power = np.array(json.loads(ds.power_curve_values)) / 1e3
@@ -187,11 +190,20 @@ def download_turbineconf(turbine=None, store_locally=True):
         "POW": power.tolist(),
     }
 
+    if ";" in turbineconf['HUB_HEIGHT']:
+        h = np.mean([float(t.strip()) for t in turbineconf['HUB_HEIGHT'].split(";")], dtype=int)
+
+        turbineconf['HUB_HEIGHTS'] = turbineconf['HUB_HEIGHT']
+        turbineconf['HUB_HEIGHT'] = h
+
+        logger.warning(f"Multiple HUB_HEIGHTS in dataset ({turbineconf['HUB_HEIGHTS']}). "
+                       f"Manual clean-up is required. "
+                       f"Using the average {turbineconf['HUB_HEIGHT']}m for now.")
+
+
     if store_locally is True:
-        filename = "{m}_{n}.yaml".format(m=turbineconf['manufacturer'],
-                                        n=turbineconf['name'])
-        filename = filename.replace("/","_")
-        filename = filename.replace(" ","_")
+        filename = (f"{turbineconf['manufacturer']}_{turbineconf['name']}.yaml"
+                     .replace('/','_').replace(' ','_'))
         filepath = utils.construct_filepath(os.path.join(config.windturbine_dir, filename))
 
         with open(filepath, 'w') as turbine_file:
@@ -199,7 +211,5 @@ def download_turbineconf(turbine=None, store_locally=True):
             
         logger.info(f"Turbine configuration downloaded to '{filepath}'.")
 
-    if ";" in turbineconf['HUB_HEIGHT']:
-        logger.info("Multiple HUB_HEIGHTS in dataset. Manual clean-up required.")
 
     return turbineconf

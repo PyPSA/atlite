@@ -37,37 +37,39 @@ from .wind import download_turbineconf
 import logging
 logger = logging.getLogger(name=__name__)
 
-def get_windturbineconfig(turbine):
+def get_windturbineconfig(turbine, source='local'):
     """Load the wind 'turbine' configuration.
 
     The configuration can either be one from local storage, then 'turbine' is
     considered part of the file base name '<turbine>.yaml' in config.windturbine_dir.
-    Alternatively 'turbine' is the string representation of a dict refer to a unique
-    turbine OEDB.
+    Alternatively the configuration can be downloaded from the Open Energy Database (OEDB),
+    in which case 'turbine' is a dictionary used for selecting a turbine from the database.
 
     Parameter
     ---------
-    turbine : str
-        Name of the local turbine file (without .yaml suffix) in config.windturbine_dir
-        or a string starting with "oedb:" for an online lookup in the OEDB database.
-        The online database will be searched for a turbine according to the dict following
-        the flag, e.g. "oedb:{'id':'10'}".
-        For all supported fields, see atlite.wind.download_turbineconf() for details.
+    turbine : str|dict
+        Name of the local turbine file for using source='local'.
+        For selecting a turbine from source='oedb', the dictionary is used to retrieve the
+        for a matching turbine, see atlite.wind.download_turbineconf() for details.
+    source : 'local' (default) |'oedb'
+        Location from where to retrieve the turbine configuration.
     """
 
-    if turbine.startswith('oedb:'):
-        source = 'oedb:'
-        turbine = turbine[5:] # Remove 'oedb:' switch
-        turbine = ast.literal_eval(turbine)
-
-        return download_turbineconf(turbine, store_locally=False)
-    elif source is "local":
+    if source.lower() == 'oedb':
+        turbineconf = download_turbineconf(turbine, store_locally=False)
+    elif source == "local":
         res_name = os.path.join(config.windturbine_dir, turbine+".yaml")
         res_name = construct_filepath(res_name)
 
         turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
-        V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
-        return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
+    else:
+        raise Exception("Not a valid 'source'.")
+    
+    if turbineconf is None:
+        raise Exception("No matching turbine configuration found.")
+    
+    V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
+    return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
 def get_solarpanelconfig(panel):
     res_name = "resources/solarpanel/" + panel + ".yaml"
