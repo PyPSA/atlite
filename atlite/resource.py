@@ -59,22 +59,22 @@ def get_windturbineconfig(turbine):
             turbineconf = download_turbineconf(turbine, store_locally=False)
         else:
             turbine = {'filename':turbine, 'source':'local'}
+    elif isinstance(turbine, dict):
+        if turbine.get('source') is None:
+            logger.warning("No key 'source':'oedb' provided with the turbine dictionary."
+                           "I am assuming and adding it for now, but still nag you about it.")
+            turbine['source'] = 'oedb'
     
-    if turbine.get('source') is None:
-        logger.warning("No key 'source':'oedb' provided with the turbine dictionary."
-                       "I am assuming and adding it for now, but still nag you about it.")
-        turbine['source'] = 'oedb'
-    
-    if turbine['source'] == 'oedb':
-        turbineconf = download_turbineconf(turbine, store_locally=False)
-    elif turbine['source'] == "local":
-        res_name = os.path.join(config.windturbine_dir, turbine['filename']+".yaml")
-        res_name = construct_filepath(res_name)
+        if turbine['source'] == 'oedb':
+            turbineconf = download_turbineconf(turbine, store_locally=False)
+        elif turbine['source'] == "local":
+            res_name = os.path.join(config.windturbine_dir, turbine['filename']+".yaml")
+            res_name = construct_filepath(res_name)
 
-        with open(res_name, "r") as turbine_file:
-            turbineconf = yaml.safe_load(turbine_file)
-    else:
-        raise ValueError("Not a valid 'source'.")
+            with open(res_name, "r") as turbine_file:
+                turbineconf = yaml.safe_load(turbine_file)
+        else:
+            raise ValueError("Not a valid 'source'.")
     
     if turbineconf is None:
         raise ValueError("No matching turbine configuration found.")
