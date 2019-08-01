@@ -21,21 +21,21 @@ Renewable Energy Atlas Lite (Atlite)
 Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
 """
 
-from __future__ import absolute_import
-
 import os
 import yaml
 from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
 from pkg_resources import resource_stream
-import ast
 
 from . import config
 from .wind import download_turbineconf
 
 import logging
 logger = logging.getLogger(name=__name__)
+
+from . import config
+from .utils import construct_filepath
 
 def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
@@ -71,7 +71,8 @@ def get_windturbineconfig(turbine):
         res_name = os.path.join(config.windturbine_dir, turbine['filename']+".yaml")
         res_name = construct_filepath(res_name)
 
-        turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
+        with open(res_name, "r") as turbine_file:
+            turbineconf = yaml.safe_load(turbine_file)
     else:
         raise ValueError("Not a valid 'source'.")
     
@@ -82,8 +83,16 @@ def get_windturbineconfig(turbine):
     return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
 def get_solarpanelconfig(panel):
-    res_name = "resources/solarpanel/" + panel + ".yaml"
-    return yaml.safe_load(resource_stream(__name__, res_name))
+    """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
+
+    res_name = os.path.join(config.solarpanel_dir, panel+".yaml")
+    
+    res_name = construct_filepath(res_name)
+
+    with open(res_name, "r") as panel_file:
+        panelconf = yaml.safe_load(panel_file)
+
+    return panelconf
 
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here

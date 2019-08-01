@@ -43,7 +43,7 @@ def literal_eval_creation_parameters(node_or_string):
             return node.value
         elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
             operand = _convert(node.operand)
-            if isinstance(operand, ast._NUM_TYPES):
+            if isinstance(operand, (int, float, complex)):
                 if isinstance(node.op, ast.UAdd):
                     return + operand
                 else:
@@ -102,7 +102,7 @@ class Windows(object):
         group_kws = {}
         if window_type is None:
             group_kws['grouper'] = pd.Grouper(freq="M")
-        elif isinstance(window_type, base_string):
+        elif isinstance(window_type, str):
             group_kws['grouper'] = pd.Grouper(freq=window_type)
         elif isinstance(window_type, (int, pd.Index, np.array)):
             group_kws['bins'] = window_type
@@ -131,32 +131,26 @@ class Windows(object):
     def __len__(self):
         return len(self.groupby)
 
-def get_missing_data(cutout, features, monthly=False):
+def get_missing_data(cutout, features, freq=None):
     creation_parameters = _get_creation_parameters(cutout.data)
+    creation_parameters.pop('time', None)
     timeindex = cutout.coords.indexes['time']
     datasets = []
+
+    def get_feature_data(period):
+        return cutout.dataset_module.get_data(cutout.data.coords, period, feature, **creation_parameters)
+
+    if freq is None:
+        freq = 'M' if (timeindex[-1] - timeindex[0]).days < 90 else 'A'
+
     for feature in features:
         if feature in cutout.dataset_module.static_features:
-            creation_parameters.pop('month', None)
-            feature_data = cutout.dataset_module.get_data(
-                cutout.data.coords,
-                timeindex[0],
-                feature,
-                **creation_parameters
-            )
+            feature_data = get_feature_data(timeindex[0])
         else:
-            feature_data = []
-            for date in pd.date_range(timeindex[0], timeindex[-1], freq="MS" if monthly else "YS"):
-                if monthly:
-                    creation_parameters['month'] = date.month
-                feature_data.append(
-                    cutout.dataset_module.get_data(
-                        cutout.data.coords,
-                        date,
-                        feature,
-                        **creation_parameters
-                    ))
-            feature_data = dask.delayed(xr.concat)(feature_data, dim='time')
+            feature_data = dask.delayed(xr.concat)(
+                map(get_feature_data, pd.period_range(timeindex[0], timeindex[-1], freq=freq)),
+                dim='time'
+            ).reindex(time=timeindex)
 
         datasets.append(feature_data)
 
@@ -164,11 +158,11 @@ def get_missing_data(cutout, features, monthly=False):
 
     return xr.merge(datasets, compat='equals')
 
-def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
+def cutout_prepare(cutout, features=None, freq=None, overwrite=False):
     """
     Prepare all or a given set of `features`
 
-    Download `features` in yearly or monthly slices and merge them into the
+    Download `features` in slices with frequency `freq` and merge them into the
     cutout data.
     """
     if cutout.is_view:
@@ -183,7 +177,12 @@ def cutout_prepare(cutout, features=None, monthly=False, overwrite=False):
         features = set(features if features is not None else cutout.available_features)
         missing_features = features - cutout.prepared_features
 
-        ds = get_missing_data(cutout, missing_features, monthly)
+        if not missing_features and not overwrite:
+            logger.info(f"All available features {cutout.available_features} have already been prepared, so nothing to do."
+                        f" Use `overwrite=True` to re-create {cutout.name}.nc and {cutout.name}.sindex.pickle.")
+            return
+
+        ds = get_missing_data(cutout, missing_features, freq)
 
         # Merge with existing cutout
         ds = xr.merge([cutout.data, ds])

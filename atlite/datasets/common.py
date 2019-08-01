@@ -16,7 +16,10 @@ except ImportError:
 
 def noisy_unlink(path):
     logger.info(f"Deleting file {path}")
-    os.unlink(path)
+    try:
+        os.unlink(path)
+    except PermissionError:
+        logger.error(f"Unable to delete file {path}, since it is still in use. You will have to clean up yourself!!")
 
 def retrieve_data(product, chunks=None, **updates):
     """Download data like ERA5 from the Climate Data Store (CDS)"""
@@ -59,7 +62,7 @@ def retrieve_data(product, chunks=None, **updates):
     result.download(target)
 
     ds = xr.open_dataset(target, chunks=chunks or {})
-    weakref.finalize(ds._file_obj, noisy_unlink, target)
+    weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
 
     return ds
 

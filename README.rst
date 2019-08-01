@@ -79,14 +79,40 @@ Getting started
   automatically on-demand after the ECMWF
   `cdsapi<https://cds.climate.copernicus.eu/api-how-to>` client is 
   properly installed)
-* Adjust the `atlite/config.py <atlite/config.py>`_ directory paths to
-  point to the directory where you downloaded the dataset
 * Create a cutout, i.e. a geographical rectangle and a selection of
   times, e.g. all hours in 2011 and 2012, to narrow down the scope -
   see `examples/create_cutout.py <examples/create_cutout.py>`_
 * Select a sparse matrix of the geographical points inside the cutout
   you want to aggregate for your time series, and pass it to the
   appropriate converter function - see `examples/ <examples/>`_
+
+Optional: Configuration
+=======================
+
+Instead of manually providing configuration of data directories to function calls,
+you can create one or more configuration files to hold a standard configuration or
+custom configurations for each project.
+
+To create a standard configuration:
+
+* Configuration can be accessed and changed within your code using `atlite.config.<config_variable>`
+
+* To list all `configuration_variables` currently in use `print(atlite.config.ATTRS)`
+
+* Create a new directory `.atlite` in your home directory and place a `config.yaml` file there.
+  On unix systems this is `~/.atlite/config.yaml`,
+  on windows systems it usually is `C:\\Users\\\<Your Username\>\\.atlite\\config.yaml`.
+  
+* Copy the settings and format of `atlite/default.config.yaml <atlite/default.config.yaml>`
+  and point the directories to where you downloaded or provided the respective data.
+  This file is automatically loaded when `import atlite`.
+    
+* A specific configuration file can be loaded anytime within your code using
+  `atlite.config.read(<path to your configuration file>)`
+
+* A specific configuration can be stored anytime from within your code using
+  `atlite.config.save(<path to your configuration file>)`
+
 
 Licence
 =======
