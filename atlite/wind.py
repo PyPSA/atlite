@@ -26,6 +26,7 @@ import pandas as pd
 import json
 import yaml
 import os
+import re
 
 from . import config
 from . import utils
@@ -134,7 +135,37 @@ def download_turbineconf(turbine, store_locally=True):
         The turbine configuration downloaded and stored is also returned as a dict.
         Has the same format as returned by 'atlite.ressource.get_turbineconf(name)'.
     """
-    
+
+    ## Parse information of different allowed 'turbine' values
+    # Assume id
+    if isinstance(turbine, int):
+        turbine = {'id': turbine}
+    elif isinstance(s,str):
+        # Clean the string
+        s = s.strip()
+        s = s.replace('oedb:','')
+        
+        # 'turbine' is just a str(-inged) id
+        m = re.match("(^\d+$)", s)
+        if m:
+            turbine['id'] = turbine.get('id', int(m[1]))
+
+        # 'turbine' is a name or combi of manufacturer + name
+        # Matches e.g. "TurbineName", "Manu1/Manu2[_ ]Turbine/with/number"
+        m = re.match("^([-a-zA-Z0-9\/]*)[\s_]*([-a-zA-Z0-9\/]*?)$", s)
+        if len(m.groups()) == 1:
+            turbine['name'] = turbine.get('name', m[1])
+        elif len(m.groups()) == 2:
+            turbine['manufacturer'] = turbine.get('manufacturer', m[1])
+            turbine['name'] = turbine.get('name', m[2])
+
+    # Fail because we were unable to parse until here
+    if not isinstance(turbine, dict):
+        logger.info(f"Unable to parse the turbine '{turbine}'.")
+        
+
+
+    ## Retrieve and cache OEDB turbine data
     OEDB_URL = 'https://openenergy-platform.org/api/v0/schema/supply/tables/turbine_library/rows'
 
     # Cache turbine request locally
