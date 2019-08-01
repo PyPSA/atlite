@@ -137,10 +137,14 @@ def download_turbineconf(turbine, store_locally=True):
     """
 
     ## Parse information of different allowed 'turbine' values
+    parsed = False
     # Assume id
     if isinstance(turbine, int):
         turbine = {'id': turbine}
-    elif isinstance(s,str):
+        parsed = True
+    elif isinstance(turbine,str):
+        s = turbine
+        turbine = {}
         # Clean the string
         s = s.strip()
         s = s.replace('oedb:','')
@@ -149,18 +153,20 @@ def download_turbineconf(turbine, store_locally=True):
         m = re.match("(^\d+$)", s)
         if m:
             turbine['id'] = turbine.get('id', int(m[1]))
+            s = "" # Consume the string after success
+            parsed = True
 
         # 'turbine' is a name or combi of manufacturer + name
         # Matches e.g. "TurbineName", "Manu1/Manu2[_ ]Turbine/with/number"
-        m = re.match("^([-a-zA-Z0-9\/]*)[\s_]*([-a-zA-Z0-9\/]*?)$", s)
-        if len(m.groups()) == 1:
-            turbine['name'] = turbine.get('name', m[1])
-        elif len(m.groups()) == 2:
-            turbine['manufacturer'] = turbine.get('manufacturer', m[1])
-            turbine['name'] = turbine.get('name', m[2])
+        m = re.match("(?P<manufacturer>[-a-zA-Z0-9\/]*?)?(?:[\s_]*)?(?P<name>[-a-zA-Z0-9\/]+)$", s)
+        if m:
+            turbine['name'] = turbine.get('name', m.group('name'))
+            turbine['manufacturer'] = turbine.get('manufacturer', m.group('manufacturer'))
+            s = "" # Consume the string after success
+            parsed = True
 
     # Fail because we were unable to parse until here
-    if not isinstance(turbine, dict):
+    if parsed is False:
         logger.info(f"Unable to parse the turbine '{turbine}'.")
         
 
@@ -175,10 +181,10 @@ def download_turbineconf(turbine, store_locally=True):
         try: 
             # Get the turbine list
             result = requests.get(OEDB_URL)
-        except requests.exceptions.RequestException as e:
-            logger.info(f"Connection to OEDB failed with:\n\n{str(e)}")
-            return None
-
+        except:
+            logger.info(f"Connection to OEDB failed.")
+            raise
+            
         # Convert JSON to dataframe for easier filtering
         # Only consider turbines with power curves available
         df = pd.DataFrame.from_dict(result.json())
@@ -216,21 +222,28 @@ def download_turbineconf(turbine, store_locally=True):
         "name": ds['name'].strip(),
         "manufacturer": ds.manufacturer.strip(),
         "source": f"Original: {ds.source}. Via OEDB {OEDB_URL}",
-        "HUB_HEIGHT": ds.hub_height.strip(),
+        "HUB_HEIGHT": ds.hub_height,
         "V": json.loads(ds.power_curve_wind_speeds),
         "POW": power.tolist(),
     }
 
-    if ";" in turbineconf['HUB_HEIGHT']:
-        h = np.mean([float(t.strip()) for t in turbineconf['HUB_HEIGHT'].split(";")], dtype=int)
+    # Other convinience assumptions
+    if not turbineconf['HUB_HEIGHT']:
+        turbineconf['HUB_HEIGHT'] = 100
+        logger.warning(f"No HUB_HEIGHT defined in dataset. Manual clean-up required."
+                       f"Assuming a HUB_HEIGHT of {turbineconf['HUB_HEIGHT']}m for now.")
 
-        turbineconf['HUB_HEIGHTS'] = turbineconf['HUB_HEIGHT']
-        turbineconf['HUB_HEIGHT'] = h
+    if ";" in str(turbineconf['HUB_HEIGHT']):
+        hh = [float(t.strip()) for t in turbineconf['HUB_HEIGHT'].strip().split(";") if t]
 
-        logger.warning(f"Multiple HUB_HEIGHTS in dataset ({turbineconf['HUB_HEIGHTS']}). "
-                       f"Manual clean-up is required. "
-                       f"Using the average {turbineconf['HUB_HEIGHT']}m for now.")
-
+        if len(hh) > 1:
+            turbineconf['HUB_HEIGHTS'] = hh
+            turbineconf['HUB_HEIGHT'] = np.mean(hh, dtype=int)
+            logger.warning(f"Multiple HUB_HEIGHTS in dataset ({turbineconf['HUB_HEIGHTS']}). "
+                           f"Manual clean-up is required. "
+                           f"Using the average {turbineconf['HUB_HEIGHT']}m for now.")
+        else:
+            turbineconf['HUB_HEIGHT'] = hh[0]
 
     if store_locally is True:
         filename = (f"{turbineconf['manufacturer']}_{turbineconf['name']}.yaml"
