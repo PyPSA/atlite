@@ -37,7 +37,7 @@ from .wind import download_turbineconf
 import logging
 logger = logging.getLogger(name=__name__)
 
-def get_windturbineconfig(turbine, source='local'):
+def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
 
     The configuration can either be one from local storage, then 'turbine' is
@@ -48,25 +48,35 @@ def get_windturbineconfig(turbine, source='local'):
     Parameter
     ---------
     turbine : str|dict
-        Name of the local turbine file for using source='local'.
-        For selecting a turbine from source='oedb', the dictionary is used to retrieve the
-        for a matching turbine, see atlite.wind.download_turbineconf() for details.
-    source : 'local' (default) |'oedb'
-        Location from where to retrieve the turbine configuration.
+        Name of the local turbine file.
+        Alternatively a dict for selecting a turbine from the Open Energy Database,
+        in thins case the key 'source' should be contained. For all other key arguments
+        to retrieve the matching turbine, see atlite.wind.download_turbineconf() for details.
     """
 
-    if source.lower() == 'oedb':
+    if isinstance(turbine, str):
+        if turbine.startswith('oedb:'):
+            turbineconf = download_turbineconf(turbine, store_locally=False)
+        else:
+            turbine = {'filename':turbine, 'source':'local'}
+    
+    if turbine.get('source') is None:
+        logger.warning("No key 'source':'oedb' provided with the turbine dictionary."
+                       "I am assuming and adding it for now, but still nag you about it.")
+        turbine['source'] = 'oedb'
+    
+    if turbine['source'] == 'oedb':
         turbineconf = download_turbineconf(turbine, store_locally=False)
-    elif source == "local":
-        res_name = os.path.join(config.windturbine_dir, turbine+".yaml")
+    elif turbine['source'] == "local":
+        res_name = os.path.join(config.windturbine_dir, turbine['filename']+".yaml")
         res_name = construct_filepath(res_name)
 
         turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
     else:
-        raise Exception("Not a valid 'source'.")
+        raise ValueError("Not a valid 'source'.")
     
     if turbineconf is None:
-        raise Exception("No matching turbine configuration found.")
+        raise ValueError("No matching turbine configuration found.")
     
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
     return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
