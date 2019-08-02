@@ -375,9 +375,10 @@ def wind(cutout, turbine, smooth=False, **params):
     Parameters
     ----------
     turbine : str or dict
-        Name of a turbine known by the reatlas client or a
-        turbineconfig dictionary with the keys 'hub_height' for the
+        A turbineconfig dictionary with the keys 'hub_height' for the
         hub height and 'V', 'POW' defining the power curve.
+        Alternatively a str refering to a local or remote turbine configuration
+        as accepted as accepted by atlite.resource.get_windturbineconfig().
     smooth : bool or dict
         If True smooth power curve with a gaussian kernel as
         determined for the Danish wind fleet to Delta_v = 1.27 and

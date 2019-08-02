@@ -26,7 +26,10 @@ import yaml
 from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
-from pkg_resources import resource_filename
+from pkg_resources import resource_stream
+
+from . import config
+from .wind import download_turbineconf
 
 import logging
 logger = logging.getLogger(name=__name__)
@@ -35,15 +38,47 @@ from . import config
 from .utils import construct_filepath
 
 def get_windturbineconfig(turbine):
-    """Load the 'turbine'.yaml file from local disk and provide a turbine dict."""
+    """Load the wind 'turbine' configuration.
 
-    res_name = os.path.join(config.windturbine_dir, turbine+".yaml")
+    The configuration can either be one from local storage, then 'turbine' is
+    considered part of the file base name '<turbine>.yaml' in config.windturbine_dir.
+    Alternatively the configuration can be downloaded from the Open Energy Database (OEDB),
+    in which case 'turbine' is a dictionary used for selecting a turbine from the database.
 
-    res_name = construct_filepath(res_name)
+    Parameter
+    ---------
+    turbine : str|dict
+        Name of the local turbine file.
+        Alternatively a dict for selecting a turbine from the Open Energy Database,
+        in thins case the key 'source' should be contained. For all other key arguments
+        to retrieve the matching turbine, see atlite.wind.download_turbineconf() for details.
+    """
 
-    with open(res_name, "r") as turbine_file:
-        turbineconf = yaml.safe_load(turbine_file)
+    if isinstance(turbine, str):
+        if turbine.startswith('oedb:'):
+            turbineconf = download_turbineconf(turbine, store_locally=False)
+        else:
+            turbine = {'filename':turbine, 'source':'local'}
+    elif isinstance(turbine, dict):
+        if turbine.get('source') is None:
+            logger.warning("No key 'source':'oedb' provided with the turbine dictionary."
+                           "I am assuming and adding it for now, but still nag you about it.")
+            turbine['source'] = 'oedb'
+    
+        if turbine['source'] == 'oedb':
+            turbineconf = download_turbineconf(turbine, store_locally=False)
+        elif turbine['source'] == "local":
+            res_name = os.path.join(config.windturbine_dir, turbine['filename']+".yaml")
+            res_name = construct_filepath(res_name)
 
+            with open(res_name, "r") as turbine_file:
+                turbineconf = yaml.safe_load(turbine_file)
+        else:
+            raise ValueError("Not a valid 'source'.")
+    
+    if turbineconf is None:
+        raise ValueError("No matching turbine configuration found.")
+    
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
     return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
