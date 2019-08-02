@@ -156,8 +156,8 @@ def download_turbineconf(turbine, store_locally=True):
 
         # 'turbine' is a name or combi of manufacturer + name
         # Matches e.g. "TurbineName", "Manu1/Manu2_Turbine/number", "Man. Turb." 
-        # Split on white-spaces and underscore.
-        m = re.split("[\s|_]+",s)
+        # Split on white-spaces, underscore and pipes.
+        m = re.split("[\s|_]+",s, maxsplit=1)
         if m and parsed is False:
             if len(m) == 1:
                 turbine.setdefault('name', m[0])
