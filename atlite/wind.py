@@ -150,19 +150,20 @@ def download_turbineconf(turbine, store_locally=True):
         s = s.replace('oedb:','')
         
         # 'turbine' is just a str(-inged) id
-        m = re.match("(^\d+$)", s)
-        if m:
-            turbine['id'] = turbine.get('id', int(m[1]))
-            s = "" # Consume the string after success
+        if s.isdigit() and parsed is False:
+            turbine.setdefault('id', int(s))
             parsed = True
 
         # 'turbine' is a name or combi of manufacturer + name
-        # Matches e.g. "TurbineName", "Manu1/Manu2[_ ]Turbine/with/number"
-        m = re.match("(?P<manufacturer>[-a-zA-Z0-9\/]*?)?(?:[\s_]*)?(?P<name>[-a-zA-Z0-9\/]+)$", s)
-        if m:
-            turbine['name'] = turbine.get('name', m.group('name'))
-            turbine['manufacturer'] = turbine.get('manufacturer', m.group('manufacturer'))
-            s = "" # Consume the string after success
+        # Matches e.g. "TurbineName", "Manu1/Manu2_Turbine/number", "Man. Turb." 
+        # Split on white-spaces and underscore.
+        m = re.split("[\s|_]+",s)
+        if m and parsed is False:
+            if len(m) == 1:
+                turbine.setdefault('name', m[0])
+            elif len(m) == 2:
+                turbine.setdefault('manufacturer', m[0])
+                turbine.setdefault('name', m[1])
             parsed = True
 
     # Fail because we were unable to parse until here
@@ -198,9 +199,9 @@ def download_turbineconf(turbine, store_locally=True):
     if turbine.get('id'):
         df = df[df.id == int(turbine['id'])]
     if turbine.get('name'):
-        df = df[df.name == turbine['name']]
+        df = df[df.turbine_type.str.contains(turbine['name'], case=False)]
     if turbine.get('manufacturer'):
-        df = df[df.manufacturer == turbine['manufacturer']]
+        df = df[df.manufacturer.str.contains(turbine['manufacturer'], case=False)]
 
 
     if len(df) < 1 :
@@ -208,7 +209,7 @@ def download_turbineconf(turbine, store_locally=True):
         return None
     elif len(df) > 1 :
         logger.info(f"Provided information corresponds to {len(df)} turbines: \n"
-                    f"{df[['id','name','manufacturer']].head(3)}. \n"
+                    f"{df[['id','manufacturer','turbine_type']].head(3)}. \n"
                     f"Use an 'id' for an unambiguous search.")
         return None
     elif len(df) == 1:
@@ -219,7 +220,7 @@ def download_turbineconf(turbine, store_locally=True):
     power = np.array(json.loads(ds.power_curve_values)) / 1e3
 
     turbineconf = {
-        "name": ds['name'].strip(),
+        "name": ds.turbine_type.strip(),
         "manufacturer": ds.manufacturer.strip(),
         "source": f"Original: {ds.source}. Via OEDB {OEDB_URL}",
         "HUB_HEIGHT": ds.hub_height,
