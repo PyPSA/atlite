@@ -31,6 +31,9 @@ setup(
                       'shapely',
                       'progressbar2',
                       'geopandas'],
+    extras_require = {
+        "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme"]
+    },
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',
