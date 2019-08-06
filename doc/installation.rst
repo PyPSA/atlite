@@ -12,7 +12,7 @@ There are three possibilities to install atlite:
     conda install -c conda-forge atlite
 
 
-* pypsi::
+* pypi::
 
     pip install atlite
 
