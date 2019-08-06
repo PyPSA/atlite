@@ -16,7 +16,7 @@ There are three possibilities to install atlite:
 
     pip install atlite
 
-* git::
+* or directly from GitHub for the most recent version::
 
     pip install git+https://github.com/PyPSA/atlite/
 
