@@ -1,3 +1,4 @@
 include atlite/resources/*/*.yaml
 include README.rst LICENSE.txt
+include atlite/config.*.yaml
 #include requirements.yml
