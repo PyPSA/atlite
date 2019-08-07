@@ -1,9 +1,7 @@
 ##########################################
-Getting started
+Installation
 ##########################################
 
-Installation
-============
 
 There are three possibilities to install atlite:
 

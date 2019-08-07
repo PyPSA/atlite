@@ -1,5 +1,26 @@
-Atlite: Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
-=================================================================================================
+Atlite: Light-weight Reanalysis
+===============================
+
+
+.. image:: https://img.shields.io/pypi/v/atlite.svg
+    :target: https://pypi.python.org/pypi/atlite
+    :alt: PyPI version
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/atlite.svg
+    :target: https://anaconda.org/conda-forge/atlite
+    :alt: Conda version
+
+.. .. image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
+..     :target: https://travis-ci.org/PyPSA/atlite
+..     :alt: Build status on Linux
+
+.. image:: https://readthedocs.org/projects/atlite/badge/?version=latest
+    :target: https://atlite.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. image:: https://img.shields.io/pypi/l/atlite.svg
+    :target: License
+
 
 Documentation
 =============
@@ -16,6 +37,19 @@ Documentation
 
    introduction
    installation
+
+**User Guide**
+
+* :doc:`design`
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: User Guide
+
+   
+   design
+
 
 **References**
    
