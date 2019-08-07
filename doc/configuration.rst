@@ -6,7 +6,7 @@ Different settings of Atlite are set with defaults that
 suit people in their first steps.
 
 Further down the line you might want to change some of these
-settings, like e.g. to storage locations for cutouts and datasets.
+settings, like e.g. storage locations for cutouts and datasets.
 
 There are different ways to change the settings in Atlite, depending
 on your use case:
