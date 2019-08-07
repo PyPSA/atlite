@@ -21,7 +21,7 @@ dependencies:
   - conda-forge::libgdal
   - conda-forge::geopandas
 
-  pip:
+  - pip:
     - .
     - sphinx
     - sphinx_rtd_theme
