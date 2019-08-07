@@ -53,13 +53,15 @@ def get_windturbineconfig(turbine):
         in thins case the key 'source' should be contained. For all other key arguments
         to retrieve the matching turbine, see atlite.wind.download_turbineconf() for details.
     """
-
+    
+    turbineconf = None
+    
     if isinstance(turbine, str):
         if turbine.startswith('oedb:'):
             turbineconf = download_turbineconf(turbine, store_locally=False)
         else:
             turbine = {'filename':turbine, 'source':'local'}
-    elif isinstance(turbine, dict):
+    if isinstance(turbine, dict):
         if turbine.get('source') is None:
             logger.warning("No key 'source':'oedb' provided with the turbine dictionary."
                            "I am assuming and adding it for now, but still nag you about it.")
