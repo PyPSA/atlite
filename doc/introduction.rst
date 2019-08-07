@@ -1,75 +1,65 @@
 ##########################################
-Atlite
+Introduction
 ##########################################
 
-Atlite is a `free software
-<http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
-<http://xarray.pydata.org/en/stable/>`_-based Python library for
-converting weather data (such as wind speeds, solar radiation,
-temperature and runoff) into power systems data (such as wind
-power, solar power, hydro power and heating demand time series).
-It is designed to work with big datasets as is common with weather
-reanalysis, while maintaining low computational requirements.
+Who is Atlite for
+=================
 
-The spatial and time resolution of the obtainable power time series
-depends on the resolutions of the original weather reanalysis dataset.
-E.g. using our recommended dataset `ERA5 <https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era5>`_
-we can obtain time-series with hourly resolution on a 30 km x 30 km
-grid.
+Atlite is for energy system modellers and other people interested
+in converting weather data into (power) generation or capacity factors
+from e.g. wind or solar.
+Atlite does not provide and graphical user interface (GUI) and relies
+on prior knowledge on working with Python commands.
 
-The time series derived with Atlite are used in energy system models
-like e.g. `PyPSA-EUR <https://github.com/PyPSA/pypsa-eur>`_
-or `model.energy <https://model.energy/>`_.
+What Atlite does
+================
 
-Maintainers
-===========
+Atlite take weather datasets as input and convertes them into
+(electric) power generation time-series for e.g. wind turbines
+or photovoltaic to be used in energy system models.
 
-Atlite is currently maintained by volunteers from different institutions
-with no dedicated funding for developing this package.
-(TODO check!)
+Possible conversions from weather data to energy systems data are:
 
-Atlite was initially developed by the `Renewable Energy Group
-<https://fias.uni-frankfurt.de/physics/schramm/renewable-energy-system-and-network-analysis/>`_
-at `FIAS <https://fias.uni-frankfurt.de/>`_ to carry out simulations
-for the `CoNDyNet project <http://condynet.de/>`_, financed by the
-`German Federal Ministry for Education and Research (BMBF)
-<https://www.bmbf.de/en/index.html>`_ as part of the `Stromnetze
-Research Initiative
-<http://forschung-stromnetze.info/projekte/grundlagen-und-konzepte-fuer-effiziente-dezentrale-stromnetze/>`_.
+* Wind power generation: Using predefined or custom turbine properties
+  and smoothing options for modelling more realistic results.
+  *New:* Turbines can also be imported from the 
+  `Open Energy Database <https://openenergy-platform.org/dataedit/view/supply/turbine_library>`_.
+* Solar (PV) power generation: Using predefined or custom panel properties.
+* Solar (thermal) heat generation from solar collectors.
+* Hydro (run-off) power generation.
+* Heating demand (based on degree-day approx.).
 
-Origin
-======
+Atlite takes as input weather datasets, e.g. from reanalysis or from climate
+forecasts.
+The standard data source we currently employ is ECMWF's ERA5 dataset
+(reanalysis weather data in a ca. 30 km x 30 km and hourly resolution).
+This dataset is easily available at no additional costs and requires only
+minimal setup from the user in comparison to other datasets.
 
-Atlite was originally conceived as a light-weight version of the Aarhus
-University RE Atlas (`doi:10.1016/j.energy.2015.09.071 <http://dx.doi.org/10.1016/j.energy.2015.09.071>`_).
-It has since been extended to use weather datasets simulated with projected
-climate change and to compute other time series, such as hydro power,
-solar thermal collectors and heating demand.
+Previously and in the future other datasets where and (hopefully) will 
+again be usable, including
 
-License
-=======
+* Other reanalysis datasets.
+* Satellite based radiation observations, e.g. SARAH-2.
+* Weather data forecasts from climate models.
 
-Atlite is released and licensed under the 
-`GPLv3 <http://www.gnu.org/licenses/gpl-3.0.en.html>`_.
+What Atlite not does
+====================
 
-Contributions and Copyrights
-============================
+Atlite does not provide exact prediction of the time-series generation
+at high resolution in a future point in time.
+The spatial resolution of the results is limited by the input data used.
+The accuracy of the results is in parts limited by the methodologies used
+for translating weather data into generation and the underlying assumptions.
+With the current assumptions Atlite is not suited for predicting the output
+of single wind turbines or solar panels.
 
-+--------------------+----------------------+----------------------+
-| Copyright years    | Name                 | Affiliation          |
-+====================+======================+======================+
-| 2016-2019          | Jonas Hörsch         | * FIAS Frankfurt     |
-|                    |                      | * KIT Karlsruhe      |
-|                    |                      | * RLI Berlin         |
-+--------------------+----------------------+----------------------+
-| 2016-2019          | Tom Brown            | * FIAS Frankfurt     |
-|                    |                      | * KIT Karlsruhe      |
-+--------------------+----------------------+----------------------+
-| 2019               | Johannes Hampp       | University Giessen   |
-+--------------------+----------------------+----------------------+
-| 2016-2017          | Gorm Andresen        | Aarhus University    |
-+--------------------+----------------------+----------------------+
-| 2016-2017          | David Schlachtberger | FIAS Frankfurt       |
-+--------------------+----------------------+----------------------+
-| 2016-2017          | Markus Schlott       | FIAS Frankfurt       |
-+--------------------+----------------------+----------------------+
+As the results of Atlite are theoretical and are not validated per se,
+and while usually a good approximation, can deviate significantly from
+reality in some cases.
+While in the past and also at the moment datasets generate by packages similar
+to Atlite where commonly used without a comparison and validation with
+reality, there is currently a trend validate the datasets before using them
+to make sure that results are atleast plausible.
+The Atlite team is planning to include in the future auxiliary functions which
+help to validate generated datasets.
