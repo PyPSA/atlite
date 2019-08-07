@@ -73,8 +73,7 @@ Documentation
 
    release_notes
    contributing
-
-
+   license
 
 License
 =======
