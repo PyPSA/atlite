@@ -1,6 +1,25 @@
 Atlite: Convert weather data to energy systems data
 ===================================================
 
+.. image:: https://img.shields.io/pypi/v/atlite.svg
+    :target: https://pypi.python.org/pypi/atlite
+    :alt: PyPI version
+
+.. image:: https://img.shields.io/conda/vn/conda-forge/atlite.svg
+    :target: https://anaconda.org/conda-forge/atlite
+    :alt: Conda version
+
+.. .. image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
+..     :target: https://travis-ci.org/PyPSA/atlite
+..     :alt: Build status on Linux
+
+.. image:: https://readthedocs.org/projects/atlite/badge/?version=latest
+    :target: https://atlite.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. image:: https://img.shields.io/pypi/l/atlite.svg
+    :target: License
+
 Atlite is a `free software
 <http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
 <http://xarray.pydata.org/en/stable/>`_-based Python library for
@@ -43,6 +62,7 @@ University RE Atlas (`doi:10.1016/j.energy.2015.09.071 <http://dx.doi.org/10.101
 It has since been extended to use weather datasets simulated with projected
 climate change and to compute other time series, such as hydro power,
 solar thermal collectors and heating demand.
+=======
 
 Documentation
 =============
@@ -60,6 +80,19 @@ Documentation
    introduction
    installation
    configuration
+
+**User Guide**
+
+* :doc:`design`
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: User Guide
+
+   
+   design
+
 
 **References**
    
