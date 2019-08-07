@@ -16,6 +16,7 @@ Documentation
 
    introduction
    installation
+   configuration
 
 **References**
    
