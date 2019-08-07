@@ -37,16 +37,14 @@ management.
 
 To install the current stable version:
 
-with ``conda`` from ``conda-forge <https://anaconda.org/conda-forge/atlite>``_
+with ``conda`` from ``conda-forge <https://anaconda.org/conda-forge/atlite>``_ ::
 .. code-block:: shell
     conda install -c conda-forge atlite
 
-with ``pip`` from ``pypi <https://pypi.org/project/atlite/>``_
-.. code-block:: shell
+with ``pip`` from ``pypi <https://pypi.org/project/atlite/>``_ ::
     pip install atlite
 
-to install the most recent upstream version from GitHub
-.. code-block:: shell
+to install the most recent upstream version from GitHub ::
     pip install git+https://github.com/pypsa/atlite.git
 
 Getting started
