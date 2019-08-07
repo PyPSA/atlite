@@ -1,17 +1,9 @@
 # Atlite
 
-[![PyPI
-version](https://img.shields.io/pypi/v/atlite.svg)](https://pypi.python.org/pypi/atlite)
-
-[![Conda
-version](https://img.shields.io/conda/vn/conda-forge/atlite.svg)](https://anaconda.org/conda-forge/atlite)
-
-[![Documentation
-Status](https://readthedocs.org/projects/atlite/badge/?version=latest)](https://atlite.readthedocs.io/en/latest/?badge=latest)
-
-[![standard-readme
-compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
-
+[![PyPI version](https://img.shields.io/pypi/v/atlite.svg)](https://pypi.python.org/pypi/atlite)
+[![Conda version](https://img.shields.io/conda/vn/conda-forge/atlite.svg)](https://anaconda.org/conda-forge/atlite)
+[![Documentation Status](https://readthedocs.org/projects/atlite/badge/?version=latest)](https://atlite.readthedocs.io/en/latest/?badge=latest)
+[![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat-square)](https://github.com/RichardLitt/standard-readme)
 [![image](https://img.shields.io/pypi/l/atlite.svg)](License)
 
 Atlite is a [free software](http://www.gnu.org/philosophy/free-sw.en.html),
