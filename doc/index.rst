@@ -113,25 +113,3 @@ License
 
 Atlite is released and licensed under the 
 `GPLv3 <http://www.gnu.org/licenses/gpl-3.0.en.html>`_.
-
-Contributions and Copyrights
-============================
-
-+--------------------+----------------------+----------------------+
-| Copyright years    | Name                 | Affiliation          |
-+====================+======================+======================+
-| 2016-2019          | Jonas Hörsch         | * FIAS Frankfurt     |
-|                    |                      | * KIT Karlsruhe      |
-|                    |                      | * RLI Berlin         |
-+--------------------+----------------------+----------------------+
-| 2016-2019          | Tom Brown            | * FIAS Frankfurt     |
-|                    |                      | * KIT Karlsruhe      |
-+--------------------+----------------------+----------------------+
-| 2019               | Johannes Hampp       | University Giessen   |
-+--------------------+----------------------+----------------------+
-| 2016-2017          | Gorm Andresen        | Aarhus University    |
-+--------------------+----------------------+----------------------+
-| 2016-2017          | David Schlachtberger | FIAS Frankfurt       |
-+--------------------+----------------------+----------------------+
-| 2016-2017          | Markus Schlott       | FIAS Frankfurt       |
-+--------------------+----------------------+----------------------+
