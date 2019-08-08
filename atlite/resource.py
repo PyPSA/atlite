@@ -35,7 +35,7 @@ import logging
 logger = logging.getLogger(name=__name__)
 
 from . import config
-from .utils import construct_filepath
+from .utils import construct_filepath, arrowdict
 
 def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
@@ -53,9 +53,9 @@ def get_windturbineconfig(turbine):
         in thins case the key 'source' should be contained. For all other key arguments
         to retrieve the matching turbine, see atlite.wind.download_turbineconf() for details.
     """
-    
+
     turbineconf = None
-    
+
     if isinstance(turbine, str):
         if turbine.startswith('oedb:'):
             turbineconf = download_turbineconf(turbine, store_locally=False)
@@ -66,7 +66,7 @@ def get_windturbineconfig(turbine):
             logger.warning("No key 'source':'oedb' provided with the turbine dictionary."
                            "I am assuming and adding it for now, but still nag you about it.")
             turbine['source'] = 'oedb'
-    
+
         if turbine['source'] == 'oedb':
             turbineconf = download_turbineconf(turbine, store_locally=False)
         elif turbine['source'] == "local":
@@ -77,10 +77,10 @@ def get_windturbineconfig(turbine):
                 turbineconf = yaml.safe_load(turbine_file)
         else:
             raise ValueError("Not a valid 'source'.")
-    
+
     if turbineconf is None:
         raise ValueError("No matching turbine configuration found.")
-    
+
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
     return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
@@ -88,7 +88,7 @@ def get_solarpanelconfig(panel):
     """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
 
     res_name = os.path.join(config.solarpanel_dir, panel+".yaml")
-    
+
     res_name = construct_filepath(res_name)
 
     with open(res_name, "r") as panel_file:
@@ -180,3 +180,13 @@ def windturbine_smooth(turbine, params={}):
                     "Turbine generates energy at 0 m/s wind speeds".format(p=params))
 
     return turbine
+
+
+turbines = arrowdict({t[:-5]: t for t in
+                     os.listdir(os.path.join(os.path.dirname(__file__),
+                               'resources', 'windturbine'))})
+
+panels = arrowdict({t[:-5]: t for t in
+                     os.listdir(os.path.join(os.path.dirname(__file__),
+                               'resources', 'solarpanel'))})
+
