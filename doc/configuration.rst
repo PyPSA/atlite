@@ -1,6 +1,6 @@
-##########################################
-Configuration of Atlite
-##########################################
+#############
+Configuration
+#############
 
 Different settings of Atlite are set with defaults that
 suit people in their first steps.
@@ -13,7 +13,7 @@ on your use case:
 
 1. Settings can be changed live inside the programme.
 2. You can create custom files with different configurations and load
-    them into atlite as needed.
+   them into atlite as needed.
 3. Default settings which are loaded on ``import atlite`` can be overwritten.
 
 
@@ -76,10 +76,10 @@ The configuration from a file can be read and loaded into Atlite using ::
 This is helpful when you have multiple projects each having their
 own project directory, into which you can put distinct Atlite configuration files.
 
-**Important:**
-When the configuration from ``path``, this path is then set as the base for
-all relative paths in the configuration.
-See  :ref:`note-on-file-paths` for details.
+.. note:: 
+    When the configuration from ``path``, this path is then set as the base for
+    all relative paths in the configuration.
+    See  :ref:`note-on-file-paths` for details.
 
 
 Default configuration
@@ -95,7 +95,7 @@ If you want to change the default configuration loaded into Atlite upon
 3. Rename the file to ``.atlite.config.yaml`` (note the leading ``.``).
 4. Change the configuration in the file according to your needs.
 
-*Alternatively you can also download the file from our `GitHub site <https://github.com/PyPsa/atlite>`.*
+Alternatively you can also download the file from our `GitHub site <https://github.com/PyPsa/atlite>`_.
 
 **Important:**
 When the configuration is read from a different directory, here the 
