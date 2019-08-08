@@ -71,6 +71,9 @@ Documentation
 
 * :doc:`introduction`
 * :doc:`installation`
+* :doc:`basics`
+* :doc:`examples`
+* :doc:`configuration`
 
 .. toctree::
    :hidden:
@@ -79,6 +82,8 @@ Documentation
 
    introduction
    installation
+   examples
+   basics
    configuration
 
 **User Guide**
