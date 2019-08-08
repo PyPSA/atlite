@@ -10,6 +10,7 @@ dependencies:
   - netcdf4
   - dask>=0.18.0
   - progressbar2
+  - cdsapi
 
   # Recommended for pandas and xarray
   - bottleneck

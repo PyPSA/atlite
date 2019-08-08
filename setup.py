@@ -30,7 +30,8 @@ setup(
                       'rtree',
                       'shapely',
                       'progressbar2',
-                      'geopandas'],
+                      'geopandas',
+                      'cdsapi'],
     extras_require = {
         "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme"]
     },

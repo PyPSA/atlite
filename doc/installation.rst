@@ -38,6 +38,7 @@ Required packages
 -----------------
 
 * bottleneck
+* cdsapi
 * dask (0.18.0+)
 * geopandas
 * netcdf4
