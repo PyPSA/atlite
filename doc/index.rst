@@ -58,7 +58,7 @@ Origin
 ======
 
 Atlite was originally conceived as a light-weight version of the Aarhus
-University RE Atlas (`doi:10.1016/j.energy.2015.09.071 <http://dx.doi.org/10.1016/j.energy.2015.09.071>`_).
+University RE Atlas (`original publication doi:10.1016/j.energy.2015.09.071 <http://dx.doi.org/10.1016/j.energy.2015.09.071>`_).
 It has since been extended to use weather datasets simulated with projected
 climate change and to compute other time series, such as hydro power,
 solar thermal collectors and heating demand.
@@ -66,14 +66,6 @@ solar thermal collectors and heating demand.
 
 Documentation
 =============
-
-**Getting Started**
-
-* :doc:`introduction`
-* :doc:`installation`
-* :doc:`basics`
-* :doc:`examples`
-* :doc:`configuration`
 
 .. toctree::
    :hidden:
@@ -86,29 +78,21 @@ Documentation
    basics
    configuration
 
-**User Guide**
-
-* :doc:`design`
-
 .. toctree::
    :hidden:
    :maxdepth: 1
    :caption: User Guide
 
-   
-   design
-
-
-**References**
-   
-* :doc:`release_notes`
-* :doc:`contributing`
+   ug_cutouts
+   ug_capacityfactors
+   ug_timeseries
 
 .. toctree::
    :hidden:
    :maxdepth: 1
    :caption: References
 
+   ref_api
    release_notes
    contributing
    license
