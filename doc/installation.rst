@@ -75,6 +75,7 @@ With regards to
 * Disk space: Is really all about the cutout and dataset sizes
   (in time and space) you use.
   We can only provide two examples for reference:
+  
     - Small cutout (Republic of Ireland + UK + some atlantic ocean),
       1 month with hourly resolution using ERA5: 60 MiB
     - Large cutout (Western Asia), 
