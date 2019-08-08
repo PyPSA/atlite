@@ -5,43 +5,42 @@ API Reference
 Cutout
 ------
 
-.. autoclass:: atlite.cutout
+.. autoclass:: atlite.Cutout
     :members:
 
 Convert
 -------
 
-.. autoclass:: atlite.convert
+.. automodule:: atlite.convert
     :members:
 
 Config
 -------
 
-.. autoclass:: atlite.config
+.. automodule:: atlite.config
     :members:
 
 Hydro
 -----
 
-.. autoclass:: atlite.hydro
+.. automodule:: atlite.hydro
     :members:
-
 
 
 Resource
 --------
 
-.. autoclass:: atlite.resource
+.. automodule:: atlite.resource
     :members:
 
 Wind
 ----
 
-.. autoclass:: atlite.wind
+.. automodule:: atlite.wind
     :members:
 
 Utils
 -----
 
-.. autoclass:: atlite.utils
+.. automodule:: atlite.utils
     :members:
