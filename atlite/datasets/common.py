@@ -8,11 +8,7 @@ from tempfile import mkstemp
 import logging
 logger = logging.getLogger(__name__)
 
-try:
-    import cdsapi
-    has_cdsapi = True
-except ImportError:
-    has_cdsapi = False
+import cdsapi
 
 def noisy_unlink(path):
     logger.info(f"Deleting file {path}")
@@ -23,12 +19,6 @@ def noisy_unlink(path):
 
 def retrieve_data(product, chunks=None, **updates):
     """Download data like ERA5 from the Climate Data Store (CDS)"""
-
-    if not has_cdsapi:
-        raise RuntimeError(
-            "Need installed and configured cdsapi python package available from "
-            "https://cds.climate.copernicus.eu/api-how-to"
-        )
 
     # Default request
     request = {
