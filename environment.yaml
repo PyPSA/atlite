@@ -2,12 +2,13 @@ name: atlite
 channels:
   - conda-forge
 dependencies:
+  - python>=3.6
   - numpy
   - scipy
   - pandas>=0.22.0
   - xarray>=0.11.2
-  - dask>=0.18.0
   - netcdf4
+  - dask>=0.18.0
   - progressbar2
 
   # Recommended for pandas and xarray
@@ -20,3 +21,4 @@ dependencies:
   - conda-forge::shapely
   - conda-forge::libgdal
   - conda-forge::geopandas
+  - conda-forge::rtree
