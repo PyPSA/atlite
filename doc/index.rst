@@ -83,7 +83,7 @@ Documentation
    :maxdepth: 1
    :caption: User Guide
 
-   ug_cutouts
+   ug_cutout
    ug_capacityfactors
    ug_timeseries
 

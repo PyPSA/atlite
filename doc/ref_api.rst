@@ -20,12 +20,6 @@ Config
 .. automodule:: atlite.config
     :members:
 
-Hydro
------
-
-.. automodule:: atlite.hydro
-    :members:
-
 
 Resource
 --------

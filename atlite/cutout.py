@@ -39,6 +39,9 @@ from .gis import GridCells
 from .data import requires_coords, requires_windowed, cutout_prepare
 
 class Cutout(object):
+    """
+    Base class for atlite.
+    """
     dataset_module = None
 
     def __init__(self, name=None, data=None, cutout_dir=None, **cutoutparams):
@@ -46,8 +49,8 @@ class Cutout(object):
         if isinstance(name, xr.Dataset):
             data = name
             name = data.attrs.get("name", "unnamed")
-        
-        
+
+
         dirname, name = os.path.split(name)
         if dirname:
             cutout_dir = dirname

@@ -59,12 +59,12 @@ def get_windturbineconfig(turbine):
             turbineconf = download_turbineconf(turbine, store_locally=False)
         else:
             turbine = {'filename':turbine, 'source':'local'}
-    elif isinstance(turbine, dict):
+    if isinstance(turbine, dict):
         if turbine.get('source') is None:
             logger.warning("No key 'source':'oedb' provided with the turbine dictionary."
                            "I am assuming and adding it for now, but still nag you about it.")
             turbine['source'] = 'oedb'
-    
+
         if turbine['source'] == 'oedb':
             turbineconf = download_turbineconf(turbine, store_locally=False)
         elif turbine['source'] == "local":
@@ -75,10 +75,10 @@ def get_windturbineconfig(turbine):
                 turbineconf = yaml.safe_load(turbine_file)
         else:
             raise ValueError("Not a valid 'source'.")
-    
+
     if turbineconf is None:
         raise ValueError("No matching turbine configuration found.")
-    
+
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
     return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
@@ -86,7 +86,7 @@ def get_solarpanelconfig(panel):
     """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
 
     res_name = os.path.join(config.solarpanel_dir, panel+".yaml")
-    
+
     res_name = construct_filepath(res_name)
 
     with open(res_name, "r") as panel_file:
