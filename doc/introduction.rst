@@ -2,7 +2,7 @@
 Introduction
 ##########################################
 
-Who is Atlite for
+Who Atlite is for
 =================
 
 Atlite is for energy system modellers and other people interested
