@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+
 # Atlite
 
 [![PyPI version](https://img.shields.io/pypi/v/atlite.svg)](https://pypi.python.org/pypi/atlite)
@@ -6,12 +13,12 @@
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat)](https://github.com/RichardLitt/standard-readme)
 [![image](https://img.shields.io/pypi/l/atlite.svg)](License)
 
-Atlite is a [free software](http://www.gnu.org/philosophy/free-sw.en.html),
-[xarray](http://xarray.pydata.org/en/stable/)-based Python library for
-converting weather data (like wind speeds) into energy systems data. It
-is designed to by lightweight and work with big weather datasets while
-keeping the resource requirements especially on CPU and RAM resources
-low.
+> Atlite is a [free software](http://www.gnu.org/philosophy/free-sw.en.html),
+> [xarray](http://xarray.pydata.org/en/stable/)-based Python library for
+> converting weather data (like wind speeds) into energy systems data. It
+> is designed to by lightweight and work with big weather datasets while
+> keeping the resource requirements especially on CPU and RAM resources
+> low.
 
 ## Installation
 
@@ -50,21 +57,21 @@ to file issues or make pull requests.
 
 ## License
 
-Copyright (C) 2016-2019 Jonas Hörsch (FIAS/KIT/RLI), 
-Tom Brown (FIAS/KIT)  
-Copyright (C) 2019 Johannes Hampp (JLU Giessen)  
-Copyright (C) 2016-2017 Gorm Andresen (Aarhus University),
-David Schlachtberger (FIAS), Markus Schlott (FIAS)
+Copyright (C) 2016-2019 The Atlite Authors:
 
-This program is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation, either [version 3 of the License](LICENSE.txt), 
-or (at your option) any later version.
+* Jonas Hörsch (RLI)
+* Tom Brown (KIT)
+* Johannes Hampp (JLUG)
+* Gorm Andresen (AU)
+* David Schlachtberger (FIAS)
+* Markus Schlott (FIAS)
 
-This program is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
-Public License for more details.
+Follow [this link for details](https://atlite.readthedocs.io/en/latest/contributing.html#contributiors-and-copyrights).
 
-You should have received a copy of the [GNU General Public License](LICENSE.txt) 
-along with this program. If not, see <https://www.gnu.org/licenses/>.
+This work is licensed under multiple licences:
+
+* All original source code is licensed under [GPL-3.0-or-later](LICENSES/GPL-3.0-or-later.txt).
+* The documentation is licensed under [CC-BY-4.0](LICENSES/CC-BY-4.0.txt).
+* Configuration and data files are mostly licensed under [CC0-1.0](LICENSES/CC0-1.0.txt).
+
+See the individual files for license details.
