@@ -30,6 +30,7 @@ import re
 
 from . import config
 from . import utils
+from .resource import turbines
 
 import logging
 logger = logging.getLogger(__name__)
@@ -109,15 +110,15 @@ _oedb_turbines = None
 
 def download_turbineconf(turbine, store_locally=True):
     """Download a windturbine configuration from the OEDB database.
-    
+
     Download the configuration of a windturbine model from the OEDB database
     into the local 'windturbine_dir'.
     The OEDB database can be viewed here:
     https://openenergy-platform.org/dataedit/view/supply/turbine_library
     (2019-07-22)
-    Only one turbine configuration is downloaded at a time, if the 
+    Only one turbine configuration is downloaded at a time, if the
     search parameters yield an ambigious result, no data is downloaded.
-    
+
     Parameters
     ----------
     turbine : dict
@@ -128,7 +129,7 @@ def download_turbineconf(turbine, store_locally=True):
     store_locally : bool
         (Default: True) Whether the downloaded config should be stored locally
         in config.windturbine_dir.
-        
+
     Returns
     -------
     turbineconf : dict
@@ -148,14 +149,14 @@ def download_turbineconf(turbine, store_locally=True):
         # Clean the string
         s = s.strip()
         s = s.replace('oedb:','')
-        
+
         # 'turbine' is just a str(-inged) id
         if s.isdigit() and parsed is False:
             turbine.setdefault('id', int(s))
             parsed = True
 
         # 'turbine' is a name or combi of manufacturer + name
-        # Matches e.g. "TurbineName", "Manu1/Manu2_Turbine/number", "Man. Turb." 
+        # Matches e.g. "TurbineName", "Manu1/Manu2_Turbine/number", "Man. Turb."
         # Split on white-spaces, underscore and pipes.
         m = re.split("[\s|_]+",s, maxsplit=1)
         if m and parsed is False:
@@ -169,7 +170,7 @@ def download_turbineconf(turbine, store_locally=True):
     # Fail because we were unable to parse until here
     if parsed is False:
         logger.info(f"Unable to parse the turbine '{turbine}'.")
-        
+
 
 
     ## Retrieve and cache OEDB turbine data
@@ -179,13 +180,13 @@ def download_turbineconf(turbine, store_locally=True):
     global _oedb_turbines
 
     if _oedb_turbines is None:
-        try: 
+        try:
             # Get the turbine list
             result = requests.get(OEDB_URL)
         except:
             logger.info(f"Connection to OEDB failed.")
             raise
-            
+
         # Convert JSON to dataframe for easier filtering
         # Only consider turbines with power curves available
         df = pd.DataFrame.from_dict(result.json())
@@ -253,7 +254,8 @@ def download_turbineconf(turbine, store_locally=True):
 
         with open(filepath, 'w') as turbine_file:
             yaml.dump(turbineconf, turbine_file)
-            
+
+        turbines[filename[:-5]] = filename
         logger.info(f"Turbine configuration downloaded to '{filepath}'.")
 
 
