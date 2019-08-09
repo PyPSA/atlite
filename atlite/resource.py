@@ -182,11 +182,11 @@ def windturbine_smooth(turbine, params={}):
     return turbine
 
 
-turbines = arrowdict({t[:-5]: t for t in
+turbines = arrowdict({t[:-5]: t[:-5] for t in
                      os.listdir(os.path.join(os.path.dirname(__file__),
                                'resources', 'windturbine'))})
 
-panels = arrowdict({t[:-5]: t for t in
+panels = arrowdict({t[:-5]: t[:-5] for t in
                      os.listdir(os.path.join(os.path.dirname(__file__),
                                'resources', 'solarpanel'))})
 

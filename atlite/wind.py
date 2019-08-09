@@ -255,7 +255,7 @@ def download_turbineconf(turbine, store_locally=True):
         with open(filepath, 'w') as turbine_file:
             yaml.dump(turbineconf, turbine_file)
 
-        turbines[filename[:-5]] = filename
+        turbines[filename[:-5]] = filename[:-5]
         logger.info(f"Turbine configuration downloaded to '{filepath}'.")
 
 
