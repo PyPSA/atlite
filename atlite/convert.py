@@ -417,15 +417,15 @@ def convert_pv(ds, panel, orientation, trigon_model='simple', clearsky_model='si
 
 @requires_windowed(['influx', 'temperature'])
 def pv(cutout, panel, orientation, clearsky_model=None, **params):
-    '''
+    """
     Convert downward-shortwave, upward-shortwave radiation flux and
     ambient temperature into a pv generation time-series.
 
     Parameters
     ----------
     panel : str or dict
-        Panel name known to the reatlas client or a panel config
-        dictionary with the parameters for the electrical model in [3].
+        Panel config dictionary with the parameters for the electrical
+        model in [3].
     orientation : str, dict or callback
         Panel orientation can be chosen from either
         'latitude_optimal', a constant orientation {'slope': 0.0,
@@ -459,7 +459,7 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
         for the MPP Performance of Different Types of PV-Modules Applied for
         the Performance Check of Grid Connected Systems, Freiburg, June 2004.
         Eurosun (ISES Europe Solar Congress).
-    '''
+    """
 
     if isinstance(panel, str):
         panel = get_solarpanelconfig(panel)
