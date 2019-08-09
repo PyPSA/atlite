@@ -30,7 +30,6 @@ import re
 
 from . import config
 from . import utils
-from .resource import turbines
 
 import logging
 logger = logging.getLogger(__name__)
@@ -248,6 +247,7 @@ def download_turbineconf(turbine, store_locally=True):
             turbineconf['HUB_HEIGHT'] = hh[0]
 
     if store_locally is True:
+        from .resource import turbines
         filename = (f"{turbineconf['manufacturer']}_{turbineconf['name']}.yaml"
                      .replace('/','_').replace(' ','_'))
         filepath = utils.construct_filepath(os.path.join(config.windturbine_dir, filename))
