@@ -26,9 +26,11 @@ all possible spatial distributions of assets:
 * Hydroelectric inflow (simplified)
 * Heating demand (based on the degree-day approximation)
 
-Obtaining datasets
-==================
+Setting up datasources
+======================
 
+ERA5
+----
 ERA5 is downloaded automatically on-demand after the 
 `ECMWF ADS API <https://cds.climate.copernicus.eu/api-how-to>`_
 (European Centre for Medium-Range Weather Forecasts Climate Data Store
@@ -37,17 +39,21 @@ linked installation guide for details, especially for correctly setting up
 your CDS API key.
 
 Other data sources
-==================
+------------------
 
 Atlite was originally designed to be modular, so that it can work with
 other weather datasets.
-The current version v0.2 of Atlite uses the ERA5 dataset and
-can download the required data automatically.
 
-Previous versions supported also: *NCEP Climate Forecast System*,
-*EURO-CORDEX Cliamte Change Projection*, *CMSAF SARAH-2*.
-Their support however is currently on hold (time limitation on developer
-side).
+.. note::
+    The current version v0.2 of Atlite uses the ERA5 dataset and
+    can download the required data automatically.
 
+Previous versions supported
+* NCEP Climate Forecast System
+* EURO-CORDEX Cliamte Change Projection
+* CMSAF SARAH-2
+
+Their support is currently on hold (time limitation on developer side).
 If you need to process these (or other) data sources, feel free to
-file an issue on our `GitHub <https://github.com/PyPSA/atlite>`_ or (even better) create a pull request!
+file an issue on our `GitHub <https://github.com/PyPSA/atlite>`_ or 
+(even better) create a pull request!
