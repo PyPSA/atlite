@@ -120,8 +120,8 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
 
     if layout is not None:
         if isinstance(layout, xr.DataArray):
-            layout = layout.reindex_like(cutout.meta)
-            layout, _ = xr.broadcast(layout, cutout.meta[['x', 'y']])
+            layout = layout.reindex_like(cutout.data)
+            layout, _ = xr.broadcast(layout, cutout.data[['x', 'y']])
             layout = layout.stack(spatial=('y', 'x')).values
         else:
             assert layout.shape == cutout.shape
@@ -164,7 +164,7 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     if capacity_factor:
         assert aggregate_func is aggregate_sum, \
             "The arguments `matrix`, `shapes` and `layout` are incompatible with capacity_factor"
-        results /= len(cutout.meta['time'])
+        results /= cutout.data['time'].size
 
     if per_unit or return_capacity:
         assert aggregate_func is aggregate_matrix, \
