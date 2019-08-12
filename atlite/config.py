@@ -41,13 +41,16 @@ sarah_dir = None
 # Automatically updated when using provided API.
 config_path = ""
 
+# Functions called on config update
+_update_hooks = []
+
 def read(path):
     """Read and set the configuration based on the file in 'path'."""
 
     if not os.path.isfile(path):
         raise TypeError("Invalid configuration file path: "
                         "{p}".format(p=path))
-    
+
     with open(path, "r") as config_file:
         config_dict = yaml.safe_load(config_file)
 
@@ -65,7 +68,6 @@ def save(path, overwrite=False):
         Including name of the new config file.
     overwrite : boolean
         (Default: False) Allow overwriting of existing files.
-    
     """
 
     if os.path.exists(path) and overwrite is False:
@@ -78,9 +80,9 @@ def save(path, overwrite=False):
     # Construct attribute dict
     global ATTRS
     _update_variables()
-    
+
     config = {key:globals()[key] for key in ATTRS}
-       
+
     with open(path, "w") as config_file:
         yaml.dump(config, config_file, default_flow_style=False)
 
@@ -88,7 +90,8 @@ def update(config_dict):
     """Update the existing config based on the `config_dict` dictionary; resets `config_path`."""
 
     globals().update(config_dict)
-    _update_variables()
+    for func in _update_hooks:
+        func()
 
 def reset():
     """Reset the configuration to its initial values."""
@@ -114,6 +117,8 @@ def _update_variables():
     # Manually remove imported modules and the attribute itself from the list
     ATTRS = ATTRS - {"ATTRS", "logging",
                      "logger", "os", "pkg_resources", "yaml"}
+
+_update_hooks.append(_update_variables)
 
 
 # Load the configuration at first module import
