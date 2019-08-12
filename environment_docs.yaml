@@ -23,6 +23,7 @@ dependencies:
   - conda-forge::libgdal
   - conda-forge::geopandas
   - conda-forge::rtree
+  - conda-forge::nbsphinx
 
   - pip
   - pip:
