@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# PyPSA documentation build configuration file, created by
-# sphinx-quickstart on Tue Jan  5 10:04:42 2016.
+# Atlite documentation build configuration file, created by
+# sphinx-quickstart on Tue Jan 5 10:04:42 2016.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -36,6 +36,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
+    'nbsphinx',
     # 'sphinx.ext.pngmath',
     #'sphinxcontrib.tikz',
     #'rinoh.frontend.sphinx',
@@ -61,8 +62,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'atlite'
-copyright = u'copyright statement'
-author = u'authors'
+copyright = u'2016-2019, The Atlite Authors.'
+author = u'The Atlite Authors'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -213,7 +214,7 @@ html_theme_options = {
 # Sphinx supports the following languages:
 #   'da', 'de', 'en', 'es', 'fi', 'fr', 'hu', 'it', 'ja'
 #   'nl', 'no', 'pt', 'ro', 'ru', 'sv', 'tr'
-#html_search_language = 'en'
+html_search_language = 'en'
 
 # A dictionary with options for the search language support, empty by default.
 # Now only 'ja' uses this config value
@@ -224,7 +225,7 @@ html_theme_options = {
 #html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'PyPSAEurdoc'
+htmlhelp_basename = 'atlitedoc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
