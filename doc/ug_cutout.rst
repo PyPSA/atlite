@@ -1,9 +1,16 @@
+..
+  SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+
+  SPDX-License-Identifier: CC-BY-4.0
+
 ################
 Creating cutouts
 ################
 
-
-Cutouts build the core of Atlite. Once created one, you can easily derive energy system relevant data. They include all necessary weather data within your temporal and spatial boundaries. The following weather data fields can be processed
+Cutouts build the core of Atlite. Once created one, you can easily derive energy system 
+relevant data. 
+They include all necessary weather data within your temporal and spatial boundaries. 
+The following weather data fields can be processed
 
 * Temperature
 * Downward short-wave radiation
@@ -23,7 +30,9 @@ And from there, following energy system relevant time series can be derived
 * Heating demand (based on the degree-day approximation)
 
 
-The creation of cutouts based on the ERA5 dataset is automized in Atlite. Using `GeoPandas <http://geopandas.org/>`_ one can easily build cutouts for one or more countries at a time
+The creation of cutouts based on the ERA5 dataset is automized in Atlite. 
+Using `GeoPandas <http://geopandas.org/>`_ one can easily build cutouts for 
+one or more countries at a time
 
 .. code-block:: python
 
@@ -35,8 +44,8 @@ The creation of cutouts based on the ERA5 dataset is automized in Atlite. Using 
                  .set_index('name')\
                  .reindex(['Estonia', 'Lithuania', 'Latvia' ])
 
-In order to define the spatial bounds of the cutout, we pass the geometrical bounds of the union of all shapes in the GeoPandas.GeoSeries.  
-
+In order to define the spatial bounds of the cutout, we pass the geometrical 
+bounds of the union of all shapes in the GeoPandas.GeoSeries.  
 
 .. code-block:: python
 
@@ -48,11 +57,6 @@ In order to define the spatial bounds of the cutout, we pass the geometrical bou
 
     In [5]: cutout.prepare()
 
-Note that you can likewise pass the bounds as a tuple of floats in the form (x1, y1, x2, y2).  The preparation of a cutout may take some time depending on the queue. 
-
-
-
-
-
-
-
+Note that you can likewise pass the bounds as a tuple of floats in the 
+form (x1, y1, x2, y2). 
+The preparation of a cutout may take some time depending on the queue. 

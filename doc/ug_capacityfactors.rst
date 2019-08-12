@@ -1,9 +1,16 @@
+..
+  SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+
+  SPDX-License-Identifier: CC-BY-4.0
+
 #########################
 Deriving Capacity Factors
 #########################
 
-
-Capacity factors indicate the share of exploitation of a given device. That is the average relative level that a device would run at a specific spot. So, a capacity factor of 0.8 for a 5 MW wind turbine would lead to a average power production of 4 MW. 
+Capacity factors indicate the share of exploitation of a given device.
+That is the average relative level that a device would run at a specific spot.
+So, a capacity factor of 0.8 for a 5 MW wind turbine would lead to a average power 
+production of 4 MW. 
 
 .. code-block:: python
 

@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 from setuptools import setup, find_packages
 from codecs import open
 
@@ -9,9 +15,9 @@ exec(open('atlite/_version.py').read())
 setup(
     name='atlite',
     version=__version__,
-    author='Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)',
+    author='The Atlite Authors',
     author_email='hoersch@fias.uni-frankfurt.de',
-    description='Light-weight version of Aarhus RE Atlas for converting weather data to power systems data',
+    description='Atlite helps you to convert weather data into energy systems model data.',
     long_description=long_description,
     url='https://github.com/FRESNA/atlite',
     license='GPLv3',

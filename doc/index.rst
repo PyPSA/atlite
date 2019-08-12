@@ -1,3 +1,8 @@
+..
+  SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+
+  SPDX-License-Identifier: CC-BY-4.0
+
 Atlite: Convert weather data to energy systems data
 ===================================================
 
