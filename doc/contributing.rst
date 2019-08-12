@@ -15,7 +15,7 @@ contributing code.
 You are invited to submit pull requests / issues to our 
 `Github repository <https://github.com/pypsa/atlite>`_.
 
-Contributiors and Copyrights
+Contributors and Copyrights
 ============================
 
 Major contributions until now from:
