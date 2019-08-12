@@ -27,6 +27,7 @@ from pathlib import Path
 from contextlib import contextmanager
 import pandas as pd
 import xarray as xr
+import textwrap
 import sys
 import os
 import pkg_resources
@@ -54,12 +55,34 @@ def make_optional_progressbar(show, prefix, max_value=None):
     return maybe_progressbar
 
 def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams):
-    logger.warning("Found an old-style directory-like cutout. Use `prepare` to transfer that data.")
-
     old_cutout_dir = Path(old_cutout_dir)
     with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:
-        data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"))
-        data.attrs.update(meta.attrs)
+        newname = old_cutout_dir.parent / f"{name}.nc"
+        module = meta.attrs["module"]
+        minX, maxX = meta.indexes['x'][[0, -1]]
+        minY, maxY = meta.indexes['y'][[0, -1]]
+        minT, maxT = meta.indexes['time'][[0, -1]].strftime("%Y-%m")
+
+        logger.warning(textwrap.dedent(f"""
+            Found an old-style directory-like cutout. It can manually be recreated using
+
+            cutout = atlite.Cutout("{newname}",
+                                   module="{module}",
+                                   time=slice("{minT}", "{maxT}"),
+                                   x=slice({minX}, {maxX}),
+                                   y=slice({minY}, {maxY})
+            cutout.prepare()
+
+            but we are trying to offer an automated migration as well ...
+        """))
+
+        try:
+            data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"), combine="by_coords")
+            data.attrs.update(meta.attrs)
+            logger.warning("Migration successful. You can save the cutout to a new file with `cutout.prepare()`")
+        except xr.MergeError:
+            logger.warning("Automatic migration failed. Re-create the cutout with the command above!")
+
     data.attrs['prepared_features'] = list(sys.modules['atlite.datasets.' + data.attrs["module"]].features)
 
     return data
