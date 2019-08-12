@@ -2,8 +2,5 @@
 Release Notes
 #############
 
-Section A
-=========
-
-Section B
+TODO
 =========

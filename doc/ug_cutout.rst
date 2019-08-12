@@ -3,7 +3,7 @@ Creating cutouts
 ################
 
 
-Cutouts build the core of Atlite. Once created one you can easily derive energy system relevant data. They include all necessary weather data within your temporal and spaital boundaries. The following weather data fields can be processed
+Cutouts build the core of Atlite. Once created one, you can easily derive energy system relevant data. They include all necessary weather data within your temporal and spatial boundaries. The following weather data fields can be processed
 
 * Temperature
 * Downward short-wave radiation
