@@ -164,7 +164,7 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     if capacity_factor:
         assert aggregate_func is aggregate_sum, \
             "The arguments `matrix`, `shapes` and `layout` are incompatible with capacity_factor"
-        results /= cutout.data.coords['time'].size
+        results /= cutout.data['time'].size
 
     if per_unit or return_capacity:
         assert aggregate_func is aggregate_matrix, \
