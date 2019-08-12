@@ -66,7 +66,7 @@ Copyright (C) 2016-2019 The Atlite Authors:
 * David Schlachtberger (FIAS)
 * Markus Schlott (FIAS)
 
-Follow [this link for details](https://atlite.readthedocs.io/en/latest/contributing.html#contributiors-and-copyrights).
+Follow [this link for details](https://atlite.readthedocs.io/en/latest/contributing.html#contributors-and-copyrights).
 
 This work is licensed under multiple licences:
 
