@@ -27,6 +27,7 @@ from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
 from pkg_resources import resource_stream
+from pathlib import Path
 
 import logging
 logger = logging.getLogger(name=__name__)
@@ -332,12 +333,17 @@ def download_windturbineconfig(turbine, store_locally=True):
 
 # Global caches
 _oedb_turbines = None
+turbines = arrowdict()
+panels = arrowdict()
 
-turbines = arrowdict({t[:-5]: t[:-5] for t in
-                     os.listdir(os.path.join(os.path.dirname(__file__),
-                               'resources', 'windturbine'))})
+def _update_resource_dictionaries():
+    global turbines, panels
 
-panels = arrowdict({t[:-5]: t[:-5] for t in
-                     os.listdir(os.path.join(os.path.dirname(__file__),
-                               'resources', 'solarpanel'))})
+    turbines.update({p.stem: p.stem
+                     for p in Path(construct_filepath(config.windturbine_dir)).glob("*.yaml")})
 
+    panels.update({p.stem: p.stem
+                   for p in Path(construct_filepath(config.solarpanel_dir)).glob("*.yaml")})
+
+_update_resource_dictionaries()
+config._update_hooks.append(_update_resource_dictionaries)
