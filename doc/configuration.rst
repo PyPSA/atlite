@@ -28,7 +28,7 @@ Accessing and changing the configuration
 The configuration of atlite can be accessed via the ``atlite.config`` module.
 All currently supported configuration options are listed in the variable ::
 
-    atltie.config.ATTRS
+    atlite.config.ATTRS
 
 To set a different value for a selected option ::
 

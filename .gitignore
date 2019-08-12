@@ -11,3 +11,5 @@ doc/_build/
 build/
 dist/
 atlite.egg-info/
+doc/.vscode/settings.json
+.vscode/settings.json

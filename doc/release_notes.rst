@@ -7,9 +7,6 @@
 Release Notes
 #############
 
-Version 0.2 (to be released)
-============================
-
 Major changes
 -------------
 
