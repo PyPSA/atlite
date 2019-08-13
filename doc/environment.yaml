@@ -12,22 +12,24 @@ dependencies:
 
   # GIS dependencies have to come all from conda-forge
   # because of missing C libraries in pip wrappers
-  - conda-forge::pyproj
-  - conda-forge::rasterio
-  - conda-forge::shapely
-  - conda-forge::geopandas
-  - conda-forge::rtree
+  - conda-forge::pyproj=1.9.6
+  - conda-forge::rasterio=1.0.25
+  - conda-forge::shapely=1.6.4
+  - conda-forge::geopandas=0.5.1
+  - conda-forge::rtree=0.8.3
 
   - pip
   - pip:
-    - pandas>=0.22.0
-    - xarray>=0.11.2
-    - dask>=0.18.0
-    - progressbar2
+    # Install parent directory = use atlite setup.py
+    - ..
+    - pandas=0.25.0
+    - xarray=0.12.3
+    - dask=2.2.0
+    - progressbar2=3.41.0
     - numpy
     - scipy
-    - cdsapi
-    - pyyaml
+    - cdsapi=0.1.6
+    - pyyaml=5.1.2
     - sphinx
     - sphinx_rtd_theme
     - nbsphinx
