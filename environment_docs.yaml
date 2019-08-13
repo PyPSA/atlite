@@ -29,7 +29,7 @@ dependencies:
   - conda-forge::shapely
   - conda-forge::geopandas
   - conda-forge::rtree
-  - conda-forge::nbsphinx
+  # - conda-forge::nbsphinx
 
   - pip
   - pip:
@@ -38,3 +38,4 @@ dependencies:
   # - sphinx
   # - sphinx_rtd_theme
   # - numpydoc
+  - nbsphinx
