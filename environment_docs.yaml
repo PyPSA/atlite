@@ -38,4 +38,4 @@ dependencies:
   # - sphinx
   # - sphinx_rtd_theme
   # - numpydoc
-  - nbsphinx
+  # - nbsphinx
