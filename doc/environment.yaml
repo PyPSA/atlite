@@ -12,7 +12,6 @@ dependencies:
 
   # GIS dependencies have to come all from conda-forge
   # because of missing C libraries in pip wrappers
-
   - conda-forge::pyproj
   - conda-forge::rasterio
   - conda-forge::shapely

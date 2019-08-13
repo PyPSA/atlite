@@ -20,13 +20,6 @@ conda:
 # Configure the python environment
 python:
     version: 3.7
-    install:
-        - method: pip
-          path: .
-          extra_requirements:
-              - docs
-        - method: setuptools
-          path: .
     system_packages: true
 
 # Location of SPHINX specific configuration file
