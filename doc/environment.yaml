@@ -22,14 +22,14 @@ dependencies:
   - pip:
     # Install parent directory = use atlite setup.py
     - ..
-    - pandas=0.25.0
-    - xarray=0.12.3
-    - dask=2.2.0
-    - progressbar2=3.41.0
+    - cdsapi==0.1.6
+    - dask==2.2.0
     - numpy
+    - pandas==0.25.0
+    - progressbar2==3.41.0
+    - pyyaml==5.1.2
+    - xarray==0.12.3
     - scipy
-    - cdsapi=0.1.6
-    - pyyaml=5.1.2
     - sphinx
     - sphinx_rtd_theme
     - nbsphinx
