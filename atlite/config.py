@@ -86,7 +86,7 @@ def save(path, overwrite=False):
     with open(path, "w") as config_file:
         yaml.dump(config, config_file, default_flow_style=False)
 
-def update(config_dict = dict(), **kwargs):
+def update(config_dict=None, **kwargs):
     """Update the existing config.
     
     Use a dictionary `config_dict` for updating using a single object
@@ -105,8 +105,12 @@ def update(config_dict = dict(), **kwargs):
         in the atlite.config.
     """
 
-    config_dict.update(kwargs)
-    globals().update(config_dict)
+    if config_dict is None:
+        config_dict = dict()
+    updates = kwargs
+    updates.update(config_dict)
+
+    globals().update(updates)
     for func in _update_hooks:
         func()
 
