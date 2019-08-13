@@ -5,37 +5,36 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 name: atlite-doc
-# channels:
-  # - conda-forge
+channels:
+  - conda-forge
 dependencies:
   - python>=3.6
 
   # Recommended for pandas and xarray
-  # - bottleneck
-  # - numexpr
+  - bottleneck
+  - numexpr
+  - pandas>=0.22.0
+  - xarray>=0.11.2
+  - dask>=0.18.0
+  - progressbar2
+  - numpy
+  - scipy
+  - cdsapi
+  - pyyaml
 
   # GIS dependencies have to come all from conda-forge
-  # - conda-forge::pyproj
-  # - conda-forge::rasterio
-  # - conda-forge::shapely
-  # - conda-forge::libgdal
-  # - conda-forge::geopandas
-  # - conda-forge::rtree
-  # - conda-forge::nbsphinx
+
+  - conda-forge::pyproj
+  - conda-forge::rasterio
+  - conda-forge::shapely
+  - conda-forge::geopandas
+  - conda-forge::rtree
+  - conda-forge::nbsphinx
 
   - pip
   - pip:
-    - .
-    # - sphinx
-    # - sphinx_rtd_theme
-    - numpydoc
-    - numpy
-    - scipy
-    - pandas>=0.22.0
-    - xarray>=0.11.2
-    - netcdf4
-    - dask>=0.18.0
-    - progressbar2
-    - cdsapi
-    - nbsphinx
-    - pyyaml
+    - . 
+  # Installed by Readthedocs 
+  # - sphinx
+  # - sphinx_rtd_theme
+  # - numpydoc
