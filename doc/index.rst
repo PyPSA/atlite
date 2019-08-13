@@ -67,10 +67,10 @@ University RE Atlas (`original publication doi:10.1016/j.energy.2015.09.071 <htt
 It has since been extended to use weather datasets simulated with projected
 climate change and to compute other time series, such as hydro power,
 solar thermal collectors and heating demand.
-=======
 
-Documentation
-=============
+
+.. Documentation
+.. =============
 
 .. toctree::
    :hidden:
@@ -80,7 +80,6 @@ Documentation
    introduction
    installation
    examples
-   basics
    configuration
 
 .. toctree::
