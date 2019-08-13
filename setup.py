@@ -41,6 +41,7 @@ setup(
     extras_require = {
         "docs": ["numpydoc",
                  "pyyaml",
+                 "toolz",
                  "sphinx", "sphinx_rtd_theme", "nbsphinx"]
     },
     classifiers=[
