@@ -1,0 +1,35 @@
+# -*- coding: utf-8 -*-
+
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: atlite-doc
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+
+  # GIS dependencies have to come all from conda-forge
+  # because of missing C libraries in pip wrappers
+
+  - conda-forge::pyproj
+  - conda-forge::rasterio
+  - conda-forge::shapely
+  - conda-forge::geopandas
+  - conda-forge::rtree
+
+  - pip
+  - pip:
+    - .
+    - pandas>=0.22.0
+    - xarray>=0.11.2
+    - dask>=0.18.0
+    - progressbar2
+    - numpy
+    - scipy
+    - cdsapi
+    - pyyaml
+    - sphinx
+    - sphinx_rtd_theme
+    - nbsphinx

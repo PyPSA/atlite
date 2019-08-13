@@ -12,6 +12,11 @@ version: 2
 build:
     image: latest
 
+# Use a conda environment because of
+# the C library dependencies
+conda:
+    environment: doc/environment.yaml
+
 # Configure the python environment
 python:
     version: 3.7
@@ -22,7 +27,7 @@ python:
               - docs
         - method: setuptools
           path: .
-    system_packages: false
+    system_packages: true
 
 # Location of SPHINX specific configuration file
 sphinx:
