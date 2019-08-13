@@ -21,7 +21,7 @@ python:
           extra_requirements:
               - docs
         - method: setuptools
-          path: atlite
+          path: .
     system_packages: true
 
 # Location of SPHINX specific configuration file
