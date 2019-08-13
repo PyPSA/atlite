@@ -34,15 +34,15 @@ setup(
                       'dask>=0.18.0',
                       'rasterio',
                       'rtree',
+                      "pyyaml",
+                      "toolz",
+                      "python-dateutil",
                       'shapely',
                       'progressbar2',
                       'geopandas',
                       'cdsapi'],
     extras_require = {
         "docs": ["numpydoc",
-                 "pyyaml",
-                 "toolz",
-                 "python-dateutil",
                  "sphinx", "sphinx_rtd_theme", "nbsphinx"]
     },
     classifiers=[
