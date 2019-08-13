@@ -22,7 +22,7 @@ python:
               - docs
         - method: setuptools
           path: .
-    system_packages: true
+    system_packages: false
 
 # Location of SPHINX specific configuration file
 sphinx:
