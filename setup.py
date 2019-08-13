@@ -42,6 +42,7 @@ setup(
         "docs": ["numpydoc",
                  "pyyaml",
                  "toolz",
+                 "python-dateutil",
                  "sphinx", "sphinx_rtd_theme", "nbsphinx"]
     },
     classifiers=[
