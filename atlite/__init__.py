@@ -22,7 +22,7 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 
 from .cutout import Cutout
 from .gis import compute_indicatormatrix, regrid
-from .resource import turbines, panels
+from .resource import windturbines, solarpanels
 
 from ._version import __version__
 

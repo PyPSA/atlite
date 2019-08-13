@@ -338,18 +338,20 @@ def download_windturbineconfig(turbine, store_locally=True):
 
 # Global caches
 _oedb_turbines = None
-turbines = arrowdict()
-panels = arrowdict()
+windturbines = arrowdict()
+solarpanels = arrowdict()
 
 def _update_resource_dictionaries():
     global turbines, panels
 
-    turbines.update({p.stem: p.stem
-                     for p in
-                     Path(construct_filepath(config.windturbine_dir)).glob("*.yaml")})
+    windturbines.clear()
+    windturbines.update({p.stem: p.stem
+                         for p in
+                         Path(construct_filepath(config.windturbine_dir)).glob("*.yaml")})
 
-    panels.update({p.stem: p.stem
-                   for p in Path(construct_filepath(config.solarpanel_dir)).glob("*.yaml")})
+    solarpanels.clear()
+    solarpanels.update({p.stem: p.stem
+                        for p in Path(construct_filepath(config.solarpanel_dir)).glob("*.yaml")})
 
 _update_resource_dictionaries()
 config._update_hooks.append(_update_resource_dictionaries)
