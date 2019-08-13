@@ -31,6 +31,7 @@ import textwrap
 import sys
 import os
 import pkg_resources
+import re
 
 from . import config
 
@@ -93,7 +94,7 @@ def timeindex_from_slice(timeslice):
 
 def construct_filepath(path):
     """Construct the absolute file path from the provided 'path' as per the packages convention.
-    
+
     Paths which are already absolute are returned unchanged.
     Relative paths are converted into absolute paths.
     The convention for relative paths is:
@@ -110,3 +111,27 @@ def construct_filepath(path):
         return path
     else:
         return os.path.join(os.path.dirname(config.config_path), path)
+
+class arrowdict(dict):
+    """
+    A subclass of dict, which allows you to get
+    items in the dict using the attribute syntax!
+    """
+
+    def __getattr__(self, item):
+        try:
+            return self.__getitem__(item)
+        except KeyError as e:
+            raise AttributeError(e.args[0])
+
+    _re_pattern = re.compile('[a-zA-Z_][a-zA-Z0-9_]*')
+
+    def __dir__(self):
+        dict_keys = []
+        for k in self.keys():
+            if isinstance(k, str):
+                m = self._re_pattern.match(k)
+                if m:
+                    dict_keys.append(m.string)
+        return dict_keys
+
