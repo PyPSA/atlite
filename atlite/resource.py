@@ -26,14 +26,19 @@ import yaml
 from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
-from pkg_resources import resource_stream
 from pathlib import Path
+import requests
+import pandas as pd
+import json
+import re
+
 
 import logging
 logger = logging.getLogger(name=__name__)
 
 from . import config
 from .utils import construct_filepath, arrowdict
+
 
 def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
@@ -319,13 +324,13 @@ def download_windturbineconfig(turbine, store_locally=True):
 
     if store_locally is True:
         filename = (f"{turbineconf['manufacturer']}_{turbineconf['name']}.yaml"
-                     .replace('/','_').replace(' ','_'))
-        filepath = utils.construct_filepath(os.path.join(config.windturbine_dir, filename))
+                     .replace('/','_').replace(' ','_').replace('-','_'))
+        filepath = construct_filepath(os.path.join(config.windturbine_dir, filename))
 
         with open(filepath, 'w') as turbine_file:
             yaml.dump(turbineconf, turbine_file)
 
-        turbines[filename[:-5]] = filename[:-5]
+        _update_resource_dictionaries()
         logger.info(f"Turbine configuration downloaded to '{filepath}'.")
 
 
@@ -340,7 +345,8 @@ def _update_resource_dictionaries():
     global turbines, panels
 
     turbines.update({p.stem: p.stem
-                     for p in Path(construct_filepath(config.windturbine_dir)).glob("*.yaml")})
+                     for p in
+                     Path(construct_filepath(config.windturbine_dir)).glob("*.yaml")})
 
     panels.update({p.stem: p.stem
                    for p in Path(construct_filepath(config.solarpanel_dir)).glob("*.yaml")})
