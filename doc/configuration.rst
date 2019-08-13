@@ -27,15 +27,33 @@ Accessing and changing the configuration
 
 The configuration of atlite can be accessed via the ``atlite.config`` module.
 All currently supported configuration options are listed in the variable ::
-
+    
     atlite.config.ATTRS
 
-To set a different value for a selected option ::
+To set the value of one or more options we recommend you use the update function ::
 
-    atlite.config.<option_name> = <new_value>
+    atlite.config.update(cutout_dir=<new_path_to_cutout_dir>,
+                         windturbine_dir=<new_path_to_windturbine_dir>)
 
-These settings do not persist, e.g. after reloading Atlite they would have to
-be set again.
+for setting one or more values.
+If you prefer you can also pass them as a `dict` ::
+
+    atlite.config.update({ 
+                           "cutout_dir":<new_path_to_cutout_dir>,
+                           "windturbine_dir":<new_path_to_windturbine_dir>
+                        })
+
+It is also possible to directly assign the values like this ::
+
+    atlite.config.<variable_name> = <new_value>
+    atlite.config.update()
+
+The call of `update()` is necessary, as the direct assignment does not 
+automatically update internal dependencies on paths.
+
+.. note::
+    Any of these settings are not persistent.
+    After reloading Atlite they have to be set again.
 
 
 .. _note-on-file-paths:
@@ -52,7 +70,7 @@ This means that if e.g.
   are relative to the install directory of the Atlite package
   (which you can determine via ``atlite.__file__``).
 * the configuration is read from your users home directory
-  (``~/`` or ``C:\\Users\\<Your username>\\``), then all relative paths
+  (``~/`` or ``C:\Users\<Your username>\``), then all relative paths
   are considered relative to this location.
 
 There are two exceptions:
@@ -96,7 +114,7 @@ If you want to change the default configuration loaded into Atlite upon
 1. Head into the folder of your local Atlite installation
    (can be determined by looking into ``atlite.__file__``).
 2. Copy the file ``config.example.yaml`` into your user's home directory,
-   i.e. ``~`` (Linux) or ``C:\\Users\\<your username>`` (Windows).
+   i.e. ``~`` (Linux) or ``C:\Users\<Your username>`` (Windows).
 3. Rename the file to ``.atlite.config.yaml`` (note the leading ``.``).
 4. Change the configuration in the file according to your needs.
 
