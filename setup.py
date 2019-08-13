@@ -39,7 +39,7 @@ setup(
                       'geopandas',
                       'cdsapi'],
     extras_require = {
-        "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme"]
+        "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme", "nbsphinx"]
     },
     classifiers=[
         'Development Status :: 3 - Alpha',
