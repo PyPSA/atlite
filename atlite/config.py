@@ -86,10 +86,31 @@ def save(path, overwrite=False):
     with open(path, "w") as config_file:
         yaml.dump(config, config_file, default_flow_style=False)
 
-def update(config_dict):
-    """Update the existing config based on the `config_dict` dictionary; resets `config_path`."""
+def update(config_dict=None, **kwargs):
+    """Update the existing config.
+    
+    Use a dictionary `config_dict` for updating using a single object
+    or provide assignment expressions to the config variables you
+    want to change.
+    Using this method ensures that all internal dependencies relying
+    on path information are also also correctly updated.
+    
+    Parameters
+    ----------
+    config_dict : dict
+        (Default: dict()). Dictionary with pairs of key value pairs:
+        <config var. name>:<new value>.
+    **kwargs
+        Any existing or new config variable and its new value to store
+        in the atlite.config.
+    """
 
-    globals().update(config_dict)
+    if config_dict is None:
+        config_dict = dict()
+    updates = kwargs
+    updates.update(config_dict)
+
+    globals().update(updates)
     for func in _update_hooks:
         func()
 
