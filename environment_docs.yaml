@@ -9,26 +9,18 @@ channels:
   - conda-forge
 dependencies:
   - python>=3.6
-  - numpy
-  - scipy
-  - pandas>=0.22.0
-  - xarray>=0.11.2
-  - netcdf4
-  - dask>=0.18.0
-  - progressbar2
-  - cdsapi
 
   # Recommended for pandas and xarray
   - bottleneck
   - numexpr
 
   # GIS dependencies have to come all from conda-forge
-  - conda-forge::pyproj
-  - conda-forge::rasterio
-  - conda-forge::shapely
-  - conda-forge::libgdal
-  - conda-forge::geopandas
-  - conda-forge::rtree
+  # - conda-forge::pyproj
+  # - conda-forge::rasterio
+  # - conda-forge::shapely
+  # - conda-forge::libgdal
+  # - conda-forge::geopandas
+  # - conda-forge::rtree
   # - conda-forge::nbsphinx
 
   - pip
@@ -37,3 +29,12 @@ dependencies:
     - sphinx
     - sphinx_rtd_theme
     - numpydoc
+    - numpy
+    - scipy
+    - pandas>=0.22.0
+    - xarray>=0.11.2
+    - netcdf4
+    - dask>=0.18.0
+    - progressbar2
+    - cdsapi
+    - nbsphinx

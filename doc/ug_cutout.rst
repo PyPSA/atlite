@@ -59,4 +59,4 @@ bounds of the union of all shapes in the GeoPandas.GeoSeries.
 
 Note that you can likewise pass the bounds as a tuple of floats in the 
 form (x1, y1, x2, y2). 
-The preparation of a cutout may take some time depending on the queue. 
+The preparation of a cutout may take some time depending on the queueing time of your request. 

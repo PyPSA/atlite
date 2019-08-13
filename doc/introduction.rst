@@ -59,7 +59,7 @@ Further, you can set power plants to specific spots and let Atlite calculate the
     :align: center
     :alt: alternate text
 
-Atlite then calculates the power generation series for each cell and either aggregates them to buses
+Atlite then calculates the power generation data for each cell and either aggregates them to buses
 
 .. image:: img/produced_power.png
     :width: 400pt
@@ -73,7 +73,7 @@ or to geometrical shapes
     :align: center
 
 
-Whereas for the first case, grid cells must directly be assigned to buses by passing a matrix of size :math:`N_{cell} \times N_{bus}`, the aggregation to shapes takes place in Atlite itself: It creates the mentioned matrix by itself, a so called **indicator matrix**, which contains the spatial overlap of each grid cell (weighted by eventual capacity layout) with each shape. This is why the shapes can the very refined and even smaller than the grid cells. In our example the **indicator matrix** for the Irland shape without being weighted by the **capacity layout** looks like this
+Whereas for the first case, grid cells must directly be assigned to buses by passing a matrix of size :math:`N_{cell} \times N_{bus}`, for the second case, the aggregation to shapes takes place in Atlite itself: It creates the mentioned matrix, the so-called **indicator matrix**, which contains the spatial overlap of each grid cell (weighted by the capacity layout if present) with each shape. This is why the shapes can the very refined and even smaller than the grid cells. In our example the **indicator matrix** for the shape of United Kingdom without being weighted by the **capacity layout** looks like this
 
 
 .. image:: img/indicator_matrix.png
