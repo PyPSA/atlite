@@ -128,6 +128,20 @@ todo_include_todos = True
 # nbsphinx_kernel_name = 'atlite-doc'
 nbsphinx_execute = 'never'
 
+# This is processed by Jinja2 and inserted before each notebook
+# Based on https://github.com/spatialaudio/nbsphinx/blob/0.4.2/doc/conf.py
+nbsphinx_prolog = r"""
+{% set docname = env.doc2path(env.docname, base='examples') %}
+.. only:: html
+    .. role:: raw-html(raw)
+        :format: html
+    .. nbinfo::
+        This example can be downloaded as a Jupyter notebook
+        from our repository by following this link: `{{ docname }}`__.
+
+    __ https://github.com/spatialaudio/nbsphinx/blob/
+        {{ env.config.release }}/{{ docname }}
+
 # -- Options for HTML output ----------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
