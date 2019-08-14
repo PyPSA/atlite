@@ -141,6 +141,7 @@ nbsphinx_prolog = r"""
 
     __ https://github.com/spatialaudio/nbsphinx/blob/
         {{ env.config.release }}/{{ docname }}
+"""
 
 # -- Options for HTML output ----------------------------------------------
 
