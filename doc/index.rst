@@ -79,8 +79,16 @@ solar thermal collectors and heating demand.
 
    introduction
    installation
-   examples
    configuration
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Examples
+
+   examples/create_cutout.ipynb
+   examples/logfiles_and_messages.ipynb
+   examples/more_examples.rst
 
 .. toctree::
    :hidden:

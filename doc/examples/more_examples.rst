@@ -3,14 +3,12 @@
 
   SPDX-License-Identifier: CC-BY-4.0
 
-########
-Examples
-########
+#############
+More Examples
+#############
 
-Examples are available as Jupyter notebooks.
-They are also available as Python scripts in
-``atlite/examples/`` in the 
-`Atlite GitHub repository <https://github.com/pypsa/atlite>`_.
+All examples are available as Jupyter notebooks in our 
+`Atlite GitHub repository <https://github.com/pypsa/atlite/docs/examples>`_.
 
 
 If you are missing an example for a certain
