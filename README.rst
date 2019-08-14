@@ -59,11 +59,13 @@ Authors and Copyright
 Copyright (C) 2016-2019 The Atlite Authors.
 
 .. include:: AUTHORS.rst
+    :start-after: headline-marker
 
 License
 =======
 
 |GPL-3-or-later-image|
+
 This work is licensed under multiple licences:
 
 -  All original source code is licensed under `GPL-3.0-or-later`_.
