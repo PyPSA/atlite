@@ -130,17 +130,12 @@ nbsphinx_execute = 'never'
 
 # This is processed by Jinja2 and inserted before each notebook
 # Based on https://github.com/spatialaudio/nbsphinx/blob/0.4.2/doc/conf.py
-nbsphinx_prolog = r"""
-{% set docname = env.doc2path(env.docname, base='examples') %}
-.. only:: html
-    .. role:: raw-html(raw)
-        :format: html
-    .. nbinfo::
-        This example can be downloaded as a Jupyter notebook
-        from our repository by following this link: `{{ docname }}`__.
+nbsphinx_prolog = """
+.. note::
 
-    __ https://github.com/spatialaudio/nbsphinx/blob/
-        {{ env.config.release }}/{{ docname }}
+    You can download this example as a Jupyter notebook
+    here: https://github.com/pypsa/atlite/examples/{{ env.docname) }}
+
 """
 
 # -- Options for HTML output ----------------------------------------------
