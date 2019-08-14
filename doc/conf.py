@@ -124,6 +124,9 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
+# -- Options for nbsphinx -------------------------------------------------
+# nbsphinx_kernel_name = 'atlite-doc'
+nbsphinx_execute = 'never'
 
 # -- Options for HTML output ----------------------------------------------
 
