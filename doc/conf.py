@@ -133,8 +133,8 @@ nbsphinx_execute = 'never'
 nbsphinx_prolog = """
 .. note::
 
-    You can download this example as a Jupyter notebook
-    here: https://github.com/pypsa/atlite/examples/{{ env.docname) }}
+    Download this example as a Jupyter notebook here:
+    https://github.com/pypsa/atlite/examples/{{ env.doc2path(env.docname, base=None) }}
 
 """
 
