@@ -5,9 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Renewable Energy Atlas Lite (Atlite)
-
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+Module containing specific operations for creating cutouts from the SARAH2 dataset.
 """
 
 import pandas as pd

@@ -4,6 +4,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+"""
+Module for operations shared among all dataset sources.
+"""
+
 import os
 import subprocess
 import numpy as np

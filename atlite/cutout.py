@@ -5,9 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Renewable Energy Atlas Lite (Atlite)
-
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+Base class for Atlite.
 """
 
 import xarray as xr
@@ -30,8 +28,45 @@ from .data import requires_coords, requires_windowed, cutout_prepare
 
 class Cutout(object):
     """
-    Base class for atlite.
+    Provide an Atlite cutout object.
+
+    Create a cutout object to use atlite operations on it.
+    Based on the provided parameters, atlite first checks
+    whether this cutout already exists on disk and if yes,
+    loads this cutout.
+    If the cutout does not yet exist on disk, then atlite
+    create an "unprepared" cutout object containing all the
+    necessary information for creating the requested cutout,
+    but does not yet create ("prepare") it fully.
+    The process of preparing has to be manually started by
+    `cutout.prepare()`.
+
+    Parameters
+    ----------
+    name : str
+        Name of the cutout. Will also be used as a file name.
+    cutout_dir : str | path-like object | None
+        Location where the cutout will be stored in.
+        If None then atlite will use the value in
+        atlite.config.cutout_dir or as a last resort store
+        the cutout in the scripts directory.
+    module : ["era5","ncep","cordex","sarah"]
+        The dataset which works as a basis for the cutout
+        creation.
+    time : str | slice
+        Time range to include in the cutout, e.g. "2011" or
+        ("2011-01-05", "2011-01-25")
+    bounds : (opt.) GeoSeries.bounds | DataFrame
+        The outer bounds of the cutout or as a DataFrame
+        containing (min.long, min.lat, max.long, max.lat).
+    x : (opt.) slice
+        Outer longitudinal bounds for the cutout (west, east).
+    y : (opt.) slice
+        Outer latitudinal bounds for the cutout (north, south).
+    time : (opt.) slice
+
     """
+
     dataset_module = None
 
     def __init__(self, name=None, data=None, cutout_dir=None, **cutoutparams):

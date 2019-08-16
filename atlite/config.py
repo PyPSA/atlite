@@ -4,6 +4,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+"""
+Module for providing configuration and configuration management to Atlite.
+"""
+
 import os
 import pkg_resources
 import yaml
