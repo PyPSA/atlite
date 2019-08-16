@@ -83,6 +83,7 @@ def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams)
             logger.warning("Migration successful. You can save the cutout to a new file with `cutout.prepare()`")
         except xr.MergeError:
             logger.warning("Automatic migration failed. Re-create the cutout with the command above!")
+            raise
 
     data.attrs['prepared_features'] = list(sys.modules['atlite.datasets.' + data.attrs["module"]].features)
 
