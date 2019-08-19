@@ -229,7 +229,7 @@ def convert_heat_demand(ds, threshold, a, constant, hour_shift):
     threshold += 273.15
     heat_demand = a*(threshold - T)
 
-    heat_demand.values[heat_demand.values < 0.] = 0.
+    heat_demand = heat_demand.clip(min=0.)
 
     return constant + heat_demand
 
@@ -301,7 +301,7 @@ def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model, c0, c1,
 
     output = irradiation*eta
 
-    return (output).where(output > 0.).fillna(0.)
+    return output.where(output > 0., 0.)
 
 @requires_windowed(['influx', 'temperature'])
 def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
@@ -494,7 +494,7 @@ def runoff(cutout, smooth=None, lower_threshold_quantile=None,
     if lower_threshold_quantile is not None:
         if lower_threshold_quantile is True: lower_threshold_quantile = 5e-3
         lower_threshold = pd.Series(result.values.ravel()).quantile(lower_threshold_quantile)
-        result.values[result.values < lower_threshold] = 0.
+        result = result.where(result >= lower_threshold, 0.)
 
     if normalize_using_yearly is not None:
         normalize_using_yearly_i = normalize_using_yearly.index
