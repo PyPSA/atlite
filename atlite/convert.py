@@ -474,8 +474,6 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
 ## hydro
 
 def convert_runoff(ds, weight_with_height=True):
-    runoff = ds['runoff'].clip(min=0.)
-
     if weight_with_height:
         runoff = runoff * ds['height']
 

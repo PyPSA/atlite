@@ -79,10 +79,6 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
     from_name = "wnd{h:0d}m".format(h=int(from_height))
 
-    # Sanitise roughness for logarithm
-    # 0.0002 corresponds to open water [2]
-    ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002
-
     # Wind speed extrapolation
     wnd_spd = ds[from_name] * ( np.log(to_height /ds['roughness'])
                               / np.log(from_height/ds['roughness']))

@@ -46,8 +46,7 @@ class Cutout(object):
         if isinstance(name, xr.Dataset):
             data = name
             name = data.attrs.get("name", "unnamed")
-        
-        
+
         dirname, name = os.path.split(name)
         if dirname:
             cutout_dir = dirname

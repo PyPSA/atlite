@@ -98,10 +98,10 @@ def get_coords(time, x, y, **creation_parameters):
     return ds
 
 
-def get_data_wind(kwds):
+def get_data_wind(retrieval_params):
     ds = retrieve_data(variable=['100m_u_component_of_wind',
                                  '100m_v_component_of_wind',
-                                 'forecast_surface_roughness'], **kwds)
+                                 'forecast_surface_roughness'], **retrieval_params)
     ds = _rename_and_clean_coords(ds)
 
     ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
@@ -112,12 +112,16 @@ def get_data_wind(kwds):
 
     return ds
 
-def get_data_influx(kwds):
+def sanitize_wind(ds):
+    ds['roughness'] = ds['roughness'].where(ds['roughness'] >= 0.0, 2e-4)
+    return ds
+
+def get_data_influx(retrieval_params):
     ds = retrieve_data(variable=['surface_net_solar_radiation',
                                  'surface_solar_radiation_downwards',
                                  'toa_incident_solar_radiation',
                                  'total_sky_direct_solar_radiation_at_surface'],
-                       **kwds)
+                       **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
 
@@ -125,60 +129,74 @@ def get_data_influx(kwds):
     with np.errstate(divide='ignore', invalid='ignore'):
         ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
                         .assign_attrs(units='(0 - 1)', long_name='Albedo'))
-    ds['influx_diffuse'] = ((ds['ssrd'] - ds['influx_direct'])
-                            .assign_attrs(units='J m**-2',
-                                          long_name='Surface diffuse solar radiation downwards'))
+    ds['influx_diffuse'] = (
+        (ds['ssrd'] - ds['influx_direct'])
+        .assign_attrs(units='J m**-2',
+                      long_name='Surface diffuse solar radiation downwards'))
     ds = ds.drop(['ssrd', 'ssr'])
 
     # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
     for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
-        ds[a] = ds[a].clip(min=0.) / (60.*60.)
+        ds[a] = ds[a] / (60.*60.)
         ds[a].attrs['units'] = 'W m**-2'
 
     return ds
 
-def get_data_temperature(kwds):
-    ds = retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'], **kwds)
+def sanitize_inflow(ds):
+    for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
+        ds[a] = ds[a].clip(min=0.)
+    return ds
+
+def get_data_temperature(retrieval_params):
+    ds = retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
     ds = ds.rename({'t2m': 'temperature', 'stl4': 'soil temperature'})
 
     return ds
 
-def get_data_runoff(kwds):
-    ds = retrieve_data(variable=['runoff'], **kwds)
+def get_data_runoff(retrieval_params):
+    ds = retrieve_data(variable=['runoff'], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
     ds = ds.rename({'ro': 'runoff'})
-    ds['runoff'] = ds['runoff'].clip(min=0.)
-
 
     return ds
 
-def get_data_height(kwds):
-    ds = retrieve_data(variable='orography', **kwds)
+def sanitize_runoff(ds):
+    ds['runoff'] = ds['runoff'].clip(min=0.)
+    return ds
+
+def get_data_height(retrieval_params):
+    ds = retrieve_data(variable='orography', **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
     ds = _add_height(ds)
 
     return ds
 
-def get_data(coords, time, feature, x, y, chunks=None, **creation_parameters):
-    kwds = {'product': 'reanalysis-era5-single-levels',
-            'chunks': chunks, 'area': _area(x, y)}
+def get_data(coords, period, feature, sanitize=True, **creation_parameters):
+
+    retrieval_params = {'product': 'reanalysis-era5-single-levels',
+                        'area': _area(creation_parameters.pop('x'),
+                                      creation_parameters.pop('y'))}
+
+    retrieval_params.setdefault('chunks', None)
 
     if {'dx', 'dy'}.issubset(creation_parameters):
-        kwds['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
+        retrieval_params['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
 
+    time = creation_parameters.pop('time')
     if isinstance(time, pd.Period):
-        kwds['year'] = time.year
+        retrieval_params['year'] = time.year
         if isinstance(time.freq, pd.tseries.offsets.MonthOffset):
-            kwds['month'] = time.month
+            retrieval_params['month'] = time.month
         elif isinstance(time.freq, pd.tseries.frequencies.Day):
-            kwds['month'] = time.month
-            kwds['day'] = time.day
+            retrieval_params['month'] = time.month
+            retrieval_params['day'] = time.day
     elif isinstance(time, pd.Timestamp):
-        kwds.update(year=time.year, month=time.month, day=time.day, time=time.strftime("%H:00"))
+        retrieval_params.update(year=time.year, month=time.month,
+                                day=time.day, time=time.strftime("%H:00"))
     else:
         raise TypeError(f"{time} should be one of pd.Timestamp or pd.Period")
 
@@ -204,7 +222,16 @@ def get_data(coords, time, feature, x, y, chunks=None, **creation_parameters):
     # fsr         | Forecast surface roughnes                   | 244
 
     func = globals().get(f"get_data_{feature}")
+    sanitize_func = globals().get(f"sanitize_{feature}")
     if func is None:
         raise NotImplementedError(f"Feature '{feature}' has not been implemented for dataset era5")
 
-    return delayed(func)(kwds)
+
+    ds = delayed(func)(retrieval_params)
+
+    if sanitize and sanitize_func is not None:
+        ds = delayed(sanitize_func)(ds)
+
+    return ds
+
+
