@@ -20,11 +20,12 @@ Renewable Energy Atlas Lite (Atlite)
 Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
 """
 
+import os, glob
 import pandas as pd
 import numpy as np
 import xarray as xr
+from dask import delayed
 from functools import partial
-import glob
 
 from .. import config
 
@@ -39,14 +40,20 @@ def as_slice(zs, pad=True):
         zs = slice(first - dz, last + dz)
     return zs
 
-from ..utils import timeindex_from_slice, receive
 from ..gis import regrid, Resampling, maybe_swap_spatial_dims
 
 from .era5 import get_data as get_era5_data
 
 # Model and Projection Settings
 projection = 'latlong'
-resolution = None
+resolution = 0.2
+
+features = {
+    'influx': ['influx_toa', 'influx_direct', 'influx_diffuse', 'influx', 'albedo'],
+    'temperature': ['temperature', 'soil_temperature'],
+}
+
+static_features = {}
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
     ds = ds.rename({'lon': 'x', 'lat': 'y'})
@@ -55,112 +62,169 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
         ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     return ds
 
-def _get_filenames(sarah_dir, date):
-    year = date.year
-    month = date.month
+def _get_filenames(sarah_dir, period):
+    def _filenames_for_dir(directory):
+        pattern = os.path.join(sarah_dir, directory, "*.nc")
+        files = pd.Series(glob.glob(os.path.join(sarah_dir, directory, "*.nc")))
+        assert not files.empty, \
+            f"No files found at {pattern}. Make sure config.sarah_dir points to the correct directory!"
 
-    return (os.path.join(sarah_dir, 'sis', f'SISin{year}{month:02}*.nc'),
-            os.path.join(sarah_dir, 'sid', f'SIDin{year}{month:02}*.nc'))
+        files.index = pd.to_datetime(files.str.extract(r"SI.in(\d{8})", expand=False))
+        return files.sort_index()
+    files = pd.concat(dict(sis=_filenames_for_dir("sis"),
+                           sid=_filenames_for_dir("sid")),
+                      join="inner", axis=1)
+
+    if isinstance(period, (str, slice)):
+        selector = period
+    elif isinstance(period, pd.Period):
+        if isinstance(period.freq, pd.tseries.frequencies.Day):
+            format_string = "%Y-%m-%d"
+        elif isinstance(period.freq, pd.tseries.offsets.MonthOffset):
+            format_string = "%Y-%m"
+        else:
+            format_string = "%Y-%m"
+        selector = period.strftime(format_string)
+    elif isinstance(period, pd.Timestamp):
+        # Files are daily, anyway
+        selector = period.strftime("%Y-%m-%d")
+    else:
+        raise TypeError(f"{period} should be one of pd.Timestamp or pd.Period")
+
+    files = files.loc[selector]
+    if isinstance(files, pd.Series):
+        files = pd.DataFrame([files], index=[pd.Timestamp(selector)])
+
+    assert not files.empty, f"Files have not been found in {sarah_dir} for {period}"
+
+    return files.sort_index()
 
 def get_coords(time, x, y, **creation_parameters):
-    timeindex = timeindex_from_slice(time)
+    files = _get_filenames(creation_parameters.get('sarah_dir', config.sarah_dir), time)
 
-    fns = _get_filenames(creation_parameters.get('sarah_dir', config.sarah_dir), timeindex[0])
     res = creation_parameters.get('resolution', resolution)
 
-    with xr.open_mfdataset(fns, compat='identical') as ds:
-        ds = _rename_and_clean_coords(ds)
-        ds = ds.coords.to_dataset()
+    coords = {'time': pd.date_range(start=files.index[0],
+                                    end=files.index[-1] + pd.offsets.DateOffset(days=1),
+                                    closed="left", freq="h")}
+    if res is not None:
+        coords.update({'lon': np.r_[-65. + (65. % res):65.01:res],
+                       'lat': np.r_[-65. + (65. % res):65.01:res]})
+    else:
+        coords.update({'lon': np.r_[-65.:65.01:res],
+                       'lat': np.r_[-65.:65.01:res]})
 
-        if res is not None:
-            def p(s):
-                s += 0.1*res
-                return s - (s % res)
-            x = np.arange(p(x.start), p(x.stop) + 1.1*res, res)
-            y = np.arange(p(y.start), p(y.stop) - 0.1*res, - res)
-            ds = ds.sel(x=x, y=y, method='nearest')
-        else:
-            ds = ds.sel(x=x, y=y)
+    ds = xr.Dataset(coords)
+    ds = _rename_and_clean_coords(ds)
+    ds = ds.sel(x=x, y=y, time=time)
 
-        ds['time'] = timeindex
+    return ds
 
-        return ds.load()
+def get_data_era5(coords, period, feature, sanitize=True, **creation_parameters):
+    logger.debug(f"Calling get_data_era5 for {period} with creation_parameters: {creation_parameters}")
 
-def get_data(coords, date, feature, x, y, **creation_parameters):
-    sis_fn, sid_fn = _get_filenames(creation_parameters.get('sarah_dir', config.sarah_dir), date)
+    x = coords.indexes['x']
+    y = coords.indexes['y']
+    xs = slice(*x[[0,-1]])
+    ys = slice(*y[[0,-1]])
+
+    lx, rx = x[[0, -1]]
+    uy, ly = y[[0, -1]]
+    dx = float(rx - lx)/float(len(x)-1)
+    dy = float(uy - ly)/float(len(y)-1)
+
+    del creation_parameters['x'], creation_parameters['y']
+    creation_parameters.pop("sarah_dir", None)
+
+    ds = get_era5_data(coords, period, feature, sanitize=sanitize,
+                       x=xs, y=ys, dx=dx, dy=dy,
+                       **creation_parameters)
+
+    if feature == 'influx':
+        ds = ds[['influx_toa', 'albedo']]
+    elif feature == 'temperature':
+        ds = ds[['temperature']]
+    else:
+        raise NotImplementedError("Support only 'influx' and 'temperature' from ERA5")
+
+    ds = ds.assign_coords(x=x, y=y)
+    return ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
+
+def _get_data_sarah(coords, period, **creation_parameters):
+    files = _get_filenames(creation_parameters['sarah_dir'], period)
     res = creation_parameters.get('resolution', resolution)
 
-    with xr.open_mfdataset(sis_fn) as ds_sis, \
-         xr.open_mfdataset(sid_fn) as ds_sid:
-        ds = xr.merge([ds_sis, ds_sid])
+    ds_sis = xr.open_mfdataset(files.sis, combine='by_coords')
+    ds_sid = xr.open_mfdataset(files.sid, combine='by_coords')
+    ds = xr.merge([ds_sis, ds_sid])
 
-        ds = _rename_and_clean_coords(ds, add_lon_lat=False)
-        ds = ds.sel(x=as_slice(coords['x']), y=as_slice(coords['y']))
+    ds = _rename_and_clean_coords(ds, add_lon_lat=False)
+    ds = ds.sel(x=as_slice(coords['x']), y=as_slice(coords['y']))
 
-        def interpolate(ds, dim='time'):
-            def _interpolate1d(y):
-                nan = np.isnan(y)
-                if nan.all(): return y
-                x = lambda z: z.nonzero()[0]
-                y[nan] = np.interp(x(nan), x(~nan), y[~nan])
-                return y
+    def interpolate(ds, dim='time'):
+        def _interpolate1d(y):
+            nan = np.isnan(y)
+            if nan.all(): return y
+            x = lambda z: z.nonzero()[0]
+            y[nan] = np.interp(x(nan), x(~nan), y[~nan])
+            return y
 
-            def _interpolate(a):
-                return a.map_blocks(partial(np.apply_along_axis, _interpolate1d, -1), dtype=a.dtype)
+        def _interpolate(a):
+            return a.map_blocks(partial(np.apply_along_axis, _interpolate1d, -1), dtype=a.dtype)
 
-            data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
-            dtypes = {da.dtype for da in data_vars}
-            assert len(dtypes) == 1, "interpolate only supports datasets with homogeneous dtype"
+        data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
+        dtypes = {da.dtype for da in data_vars}
+        assert len(dtypes) == 1, "interpolate only supports datasets with homogeneous dtype"
 
-            return xr.apply_ufunc(_interpolate, ds,
-                                  input_core_dims=[[dim]],
-                                  output_core_dims=[[dim]],
-                                  output_dtypes=[dtypes.pop()],
-                                  output_sizes={dim: len(ds.indexes[dim])},
-                                  dask='allowed',
-                                  keep_attrs=True)
+        return xr.apply_ufunc(_interpolate, ds,
+                              input_core_dims=[[dim]],
+                              output_core_dims=[[dim]],
+                              output_dtypes=[dtypes.pop()],
+                              output_sizes={dim: len(ds.indexes[dim])},
+                              dask='allowed',
+                              keep_attrs=True)
 
-        ds = interpolate(ds)
+    ds = interpolate(ds)
 
-        def hourly_mean(ds):
-            ds1 = ds.isel(time=slice(None, None, 2))
-            ds2 = ds.isel(time=slice(1, None, 2))
-            ds2 = ds2.assign_coords(time=ds2.indexes['time'] - pd.Timedelta(30, 'm'))
-            ds = ((ds1 + ds2)/2)
-            ds.attrs = ds1.attrs
-            for v in ds.variables:
-                ds[v].attrs = ds1[v].attrs
-            return ds
+    def hourly_mean(ds):
+        ds1 = ds.isel(time=slice(None, None, 2))
+        ds2 = ds.isel(time=slice(1, None, 2))
+        ds2 = ds2.assign_coords(time=ds2.indexes['time'] - pd.Timedelta(30, 'm'))
+        ds = ((ds1 + ds2)/2)
+        ds.attrs = ds1.attrs
+        for v in ds.variables:
+            ds[v].attrs = ds1[v].attrs
+        return ds
 
-        ds = hourly_mean(ds)
+    ds = hourly_mean(ds)
 
-        ds['influx_diffuse'] = ((ds['SIS'] - ds['SID'])
-                                .assign_attrs(long_name='Surface Diffuse Shortwave Flux',
-                                              units='W m-2'))
-        ds = ds.rename({'SID': 'influx_direct'}).drop('SIS')
+    ds['influx_diffuse'] = ((ds['SIS'] - ds['SID'])
+                            .assign_attrs(long_name='Surface Diffuse Shortwave Flux',
+                                            units='W m-2'))
+    ds = ds.rename({'SID': 'influx_direct'}).drop('SIS')
 
-        if res is not None:
-            ds = regrid(ds, coords['x'], coords['y'], resampling=Resampling.average)
+    if res is not None:
+        ds = regrid(ds, coords['x'], coords['y'], resampling=Resampling.average)
 
-        x = ds.indexes['x']
-        y = ds.indexes['y']
-        xs = slice(*x[[0,-1]])
-        ys = slice(*y[[0,-1]])
+    ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
 
-        lx, rx = x[[0, -1]]
-        uy, ly = y[[0, -1]]
-        dx = float(rx - lx)/float(len(x)-1)
-        dy = float(uy - ly)/float(len(y)-1)
+    return ds
 
-        logger.debug("Getting ERA5 data")
-        with receive(get_era5_data(coords, date, 'influx', xs, ys, dx, dy, chunks=dict(time=24))) as ds_era_influx, \
-             receive(get_era5_data(coords, data, 'temperature', xs, ys, dx, dy, chunks=dict(time=24))) as ds_era_temp:
-            logger.debug("Merging SARAH and ERA5 data")
-            ds_era_influx = ds_era_influx.assign_coords(x=x, y=y)
-            ds_era_temp = ds_era_temp.assign_coords(x=x, y=y)
-            ds = xr.merge([ds,
-                           ds_era_influx[['influx_toa', 'albedo']],
-                           ds_era_temp[['temperature']]]).assign_attrs(ds.attrs)
-            ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
+def get_data_sarah(coords, period, **creation_parameters):
+    # In a distributed setting the workers don't have access to the config module
+    creation_parameters.setdefault("sarah_dir", config.sarah_dir)
 
-            yield ds
+    return delayed(_get_data_sarah)(coords, period, **creation_parameters)
+
+def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
+    if feature == 'influx':
+        ds = delayed(xr.merge)([
+            get_data_sarah(coords, period, **creation_parameters),
+            get_data_era5(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir, **creation_parameters)
+        ])
+    elif feature == 'temperature':
+        ds = get_data_era5(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir, **creation_parameters)
+    else:
+        raise NotImplementedError(f"Feature '{feature}' has not been implemented for dataset sarah")
+
+    return ds
