@@ -30,7 +30,7 @@ from dask import delayed
 import logging
 logger = logging.getLogger(__name__)
 
-from ..utils import timeindex_from_slice
+from .. import config
 from .common import retrieve_data, get_data_gebco_height
 
 # Model and Projection Settings
@@ -175,11 +175,14 @@ def get_data_height(retrieval_params):
 
     return ds
 
-def get_data(coords, period, feature, sanitize=True, **creation_parameters):
+def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
+
+    assert tmpdir is not None
 
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
                         'area': _area(creation_parameters.pop('x'),
-                                      creation_parameters.pop('y'))}
+                                      creation_parameters.pop('y')),
+                        'tmpdir': tmpdir}
 
     retrieval_params.setdefault('chunks', None)
 

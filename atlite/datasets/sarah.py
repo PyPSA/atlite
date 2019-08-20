@@ -120,9 +120,7 @@ def get_coords(time, x, y, **creation_parameters):
 
     return ds
 
-def get_data_era5(coords, period, feature, sanitize=True, **creation_parameters):
-    logger.debug(f"Calling get_data_era5 for {period} with creation_parameters: {creation_parameters}")
-
+def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
     x = coords.indexes['x']
     y = coords.indexes['y']
     xs = slice(*x[[0,-1]])
@@ -136,7 +134,7 @@ def get_data_era5(coords, period, feature, sanitize=True, **creation_parameters)
     del creation_parameters['x'], creation_parameters['y']
     creation_parameters.pop("sarah_dir", None)
 
-    ds = get_era5_data(coords, period, feature, sanitize=sanitize,
+    ds = get_era5_data(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir,
                        x=xs, y=ys, dx=dx, dy=dy, **creation_parameters)
 
     if feature == 'influx':

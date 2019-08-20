@@ -5,7 +5,8 @@ import pandas as pd
 import xarray as xr
 import ast
 import dask
-from tempfile import mkstemp
+from tempfile import mkstemp, mkdtemp
+from shutil import rmtree
 
 import logging
 logger = logging.getLogger(__name__)
@@ -131,14 +132,14 @@ class Windows(object):
     def __len__(self):
         return len(self.groupby)
 
-def get_missing_data(cutout, features, freq=None):
+def get_missing_data(cutout, features, freq=None, tmpdir=None):
     creation_parameters = _get_creation_parameters(cutout.data)
     creation_parameters.pop('time', None)
     timeindex = cutout.coords.indexes['time']
     datasets = []
 
     def get_feature_data(period):
-        return cutout.dataset_module.get_data(cutout.data.coords, period, feature, **creation_parameters)
+        return cutout.dataset_module.get_data(cutout.data.coords, period, feature, tmpdir=tmpdir, **creation_parameters)
 
     if freq is None:
         freq = 'M' if (timeindex[-1] - timeindex[0]).days < 90 else 'A'
@@ -158,13 +159,22 @@ def get_missing_data(cutout, features, freq=None):
 
     return xr.merge(datasets, compat='equals')
 
-def cutout_prepare(cutout, features=None, freq=None, overwrite=False):
+def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=False):
     """
     Prepare all or a given set of `features`
 
     Download `features` in slices with frequency `freq` and merge them into the
-    cutout data.
+    cutout data. If `tmpdir` is True, a directory for intermediate files is
+    created and cleaned up after use. Use `tmpdir = <existing directory>` to
+    keep intermediate files.
     """
+
+    if tmpdir is True:
+        tmpdir = mkdtemp()
+        keep_tmpdir = False
+    else:
+        keep_tmpdir = True
+
     if cutout.is_view:
         assert features is None, f"It's not possible to add features to a view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first."
         assert not os.path.exists(cutout.cutout_fn) or overwrite, f"Not overwriting {cutout.cutout_fn} with a view, unless `overwrite=True`."
@@ -182,7 +192,7 @@ def cutout_prepare(cutout, features=None, freq=None, overwrite=False):
                         f" Use `overwrite=True` to re-create {cutout.name}.nc and {cutout.name}.sindex.pickle.")
             return
 
-        ds = get_missing_data(cutout, missing_features, freq)
+        ds = get_missing_data(cutout, missing_features, freq, tmpdir=tmpdir)
 
         # Merge with existing cutout
         ds = xr.merge([cutout.data, ds])
@@ -203,6 +213,9 @@ def cutout_prepare(cutout, features=None, freq=None, overwrite=False):
     if os.path.exists(cutout.cutout_fn):
         os.unlink(cutout.cutout_fn)
     os.rename(target, cutout.cutout_fn)
+
+    if not keep_tmpdir:
+        rmtree(tmpdir)
 
     # Re-open
     cutout.data = xr.open_dataset(cutout.cutout_fn)

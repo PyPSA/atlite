@@ -21,7 +21,7 @@ def noisy_unlink(path):
     except PermissionError:
         logger.error(f"Unable to delete file {path}, since it is still in use. You will have to clean up yourself!!")
 
-def retrieve_data(product, chunks=None, **updates):
+def retrieve_data(product, chunks=None, tmpdir=None, **updates):
     """Download data like ERA5 from the Climate Data Store (CDS)"""
 
     if not has_cdsapi:
@@ -54,7 +54,7 @@ def retrieve_data(product, chunks=None, **updates):
         request
     )
 
-    fd, target = mkstemp(suffix='.nc')
+    fd, target = mkstemp(suffix='.nc', dir=tmpdir)
     os.close(fd)
 
     logger.info("Downloading request for {} variables to {}".format(len(request['variable']), target))
@@ -62,7 +62,9 @@ def retrieve_data(product, chunks=None, **updates):
     result.download(target)
 
     ds = xr.open_dataset(target, chunks=chunks or {})
-    weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
+    if tmpdir is None:
+        logger.debug(f"Adding finalizer for {target}")
+        weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
 
     return ds
 
