@@ -162,8 +162,9 @@ def _get_data_sarah(coords, period, **creation_parameters):
     def interpolate(ds, dim='time'):
         def _interpolate1d(y):
             nan = np.isnan(y)
-            if nan.all(): return y
+            if nan.all() or not nan.any(): return y
             x = lambda z: z.nonzero()[0]
+            y = np.array(y)
             y[nan] = np.interp(x(nan), x(~nan), y[~nan])
             return y
 
@@ -182,6 +183,11 @@ def _get_data_sarah(coords, period, **creation_parameters):
                               dask='allowed',
                               keep_attrs=True)
 
+    # We can't use interpolate_na, since it only works along non-chunked
+    # dimensions, and we can't chunk on spatial dimensions, since the
+    # reprojection below requires the whole grid
+
+    # ds.interpolate_na(dim='time')
     ds = interpolate(ds)
 
     def hourly_mean(ds):
