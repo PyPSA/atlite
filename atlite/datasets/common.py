@@ -49,7 +49,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
 
     assert {'year', 'month', 'variable'}.issubset(request), "Need to specify at least 'variable', 'year' and 'month'"
 
-    result = cdsapi.Client().retrieve(
+    result = cdsapi.Client(
+        progress=False
+    ).retrieve(
         product,
         request
     )
