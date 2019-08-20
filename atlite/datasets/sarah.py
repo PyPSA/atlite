@@ -137,8 +137,7 @@ def get_data_era5(coords, period, feature, sanitize=True, **creation_parameters)
     creation_parameters.pop("sarah_dir", None)
 
     ds = get_era5_data(coords, period, feature, sanitize=sanitize,
-                       x=xs, y=ys, dx=dx, dy=dy,
-                       **creation_parameters)
+                       x=xs, y=ys, dx=dx, dy=dy, **creation_parameters)
 
     if feature == 'influx':
         ds = ds[['influx_toa', 'albedo']]

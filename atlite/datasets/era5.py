@@ -186,19 +186,18 @@ def get_data(coords, period, feature, sanitize=True, **creation_parameters):
     if {'dx', 'dy'}.issubset(creation_parameters):
         retrieval_params['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
 
-    time = creation_parameters.pop('time')
-    if isinstance(time, pd.Period):
-        retrieval_params['year'] = time.year
-        if isinstance(time.freq, pd.tseries.offsets.MonthOffset):
-            retrieval_params['month'] = time.month
-        elif isinstance(time.freq, pd.tseries.frequencies.Day):
-            retrieval_params['month'] = time.month
-            retrieval_params['day'] = time.day
-    elif isinstance(time, pd.Timestamp):
-        retrieval_params.update(year=time.year, month=time.month,
-                                day=time.day, time=time.strftime("%H:00"))
+    if isinstance(period, pd.Period):
+        retrieval_params['year'] = period.year
+        if isinstance(period.freq, pd.tseries.offsets.MonthOffset):
+            retrieval_params['month'] = period.month
+        elif isinstance(period.freq, pd.tseries.frequencies.Day):
+            retrieval_params['month'] = period.month
+            retrieval_params['day'] = period.day
+    elif isinstance(period, pd.Timestamp):
+        retrieval_params.update(year=period.year, month=period.month,
+                                day=period.day, time=period.strftime("%H:00"))
     else:
-        raise TypeError(f"{time} should be one of pd.Timestamp or pd.Period")
+        raise TypeError(f"{period} should be one of pd.Timestamp or pd.Period")
 
     gebco_fn = creation_parameters.pop('gebco_fn', None)
     if gebco_fn is not None and feature == 'height':
