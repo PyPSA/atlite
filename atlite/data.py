@@ -181,47 +181,49 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
     else:
         keep_tmpdir = True
 
-    if cutout.is_view:
-        assert features is None, f"It's not possible to add features to a view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first."
-        assert not os.path.exists(cutout.cutout_fn) or overwrite, f"Not overwriting {cutout.cutout_fn} with a view, unless `overwrite=True`."
+    try:
+        if cutout.is_view:
+            assert features is None, f"It's not possible to add features to a view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first."
+            assert not os.path.exists(cutout.cutout_fn) or overwrite, f"Not overwriting {cutout.cutout_fn} with a view, unless `overwrite=True`."
 
-        ds = cutout.data
-        if 'prepared_features' not in ds.attrs:
-            logger.warn("Using empty `prepared_features`!")
-            ds.attrs['prepared_features'] = []
-    else:
-        features = set(features if features is not None else cutout.available_features)
-        missing_features = features - cutout.prepared_features
+            ds = cutout.data
+            if 'prepared_features' not in ds.attrs:
+                logger.warn("Using empty `prepared_features`!")
+                ds.attrs['prepared_features'] = []
+        else:
+            features = set(features if features is not None else cutout.available_features)
+            missing_features = features - cutout.prepared_features
 
-        if not missing_features and not overwrite:
-            logger.info(f"All available features {cutout.available_features} have already been prepared, so nothing to do."
-                        f" Use `overwrite=True` to re-create {cutout.name}.nc and {cutout.name}.sindex.pickle.")
-            return
+            if not missing_features and not overwrite:
+                logger.info(f"All available features {cutout.available_features} have already been prepared, so nothing to do."
+                            f" Use `overwrite=True` to re-create {cutout.name}.nc and {cutout.name}.sindex.pickle.")
+                return
 
-        ds = get_missing_data(cutout, missing_features, freq, tmpdir=tmpdir)
+            ds = get_missing_data(cutout, missing_features, freq, tmpdir=tmpdir)
 
-        # Merge with existing cutout
-        ds = xr.merge([cutout.data, ds])
-        ds.attrs.update(cutout.data.attrs)
-        ds.attrs['prepared_features'].extend(missing_features)
+            # Merge with existing cutout
+            ds = xr.merge([cutout.data, ds])
+            ds.attrs.update(cutout.data.attrs)
+            ds.attrs['prepared_features'].extend(missing_features)
 
-    # Write to a temporary file in the same directory first and then move back,
-    # because we might still want to load data from the original file in the process
-    directory, filename = os.path.split(cutout.cutout_fn)
-    fd, target = mkstemp(suffix=filename, dir=directory)
-    os.close(fd)
+        # Write to a temporary file in the same directory first and then move back,
+        # because we might still want to load data from the original file in the process
+        directory, filename = os.path.split(cutout.cutout_fn)
+        fd, target = mkstemp(suffix=filename, dir=directory)
+        os.close(fd)
 
-    ds.to_netcdf(target)
-    ds.close()
-    if not cutout.is_view:
-        cutout.data.close()
+        ds.to_netcdf(target)
 
-    if os.path.exists(cutout.cutout_fn):
-        os.unlink(cutout.cutout_fn)
-    os.rename(target, cutout.cutout_fn)
+        ds.close()
+        if not cutout.is_view:
+            cutout.data.close()
 
-    if not keep_tmpdir:
-        rmtree(tmpdir)
+        if os.path.exists(cutout.cutout_fn):
+            os.unlink(cutout.cutout_fn)
+        os.rename(target, cutout.cutout_fn)
+    finally:
+        if not keep_tmpdir:
+            rmtree(tmpdir)
 
     # Re-open
     cutout.data = xr.open_dataset(cutout.cutout_fn)
