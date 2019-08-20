@@ -7,6 +7,7 @@ import ast
 import dask
 from tempfile import mkstemp, mkdtemp
 from shutil import rmtree
+from dask.diagnostics import ProgressBar
 
 import logging
 logger = logging.getLogger(__name__)
@@ -212,7 +213,8 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
         fd, target = mkstemp(suffix=filename, dir=directory)
         os.close(fd)
 
-        ds.to_netcdf(target)
+        with ProgressBar():
+            ds.to_netcdf(target)
 
         ds.close()
         if not cutout.is_view:
