@@ -142,7 +142,13 @@ def get_missing_data(cutout, features, freq=None, tmpdir=None):
         return cutout.dataset_module.get_data(cutout.data.coords, period, feature, tmpdir=tmpdir, **creation_parameters)
 
     if freq is None:
-        freq = 'M' if (timeindex[-1] - timeindex[0]).days < 90 else 'A'
+        dt = timeindex[-1] - timeindex[0]
+        if dt.days <= 1:
+            freq = 'D'
+        elif dt.days < 90:
+            freq = 'M'
+        else:
+            freq = 'A'
 
     for feature in features:
         if feature in cutout.dataset_module.static_features:
