@@ -202,10 +202,9 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
     else:
         raise TypeError(f"{period} should be one of pd.Timestamp or pd.Period")
 
-    gebco_fn = creation_parameters.pop('gebco_fn', None)
-    if gebco_fn is not None and feature == 'height':
-        coords = get_coords(x=x, y=y, **creation_parameters)
-        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], gebco_fn)
+    gebco_path = creation_parameters.pop('gebco_path', config.gebco_path)
+    if gebco_path is not None and feature == 'height':
+        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], gebco_path)
 
     if creation_parameters:
         logger.debug(f"Unused creation_parameters: {', '.join(creation_parameters)}")

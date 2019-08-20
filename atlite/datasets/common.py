@@ -68,7 +68,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
 
     return ds
 
-def get_data_gebco_height(xs, ys, gebco_fn=None):
+def get_data_gebco_height(xs, ys, gebco_path=None):
     # gebco bathymetry heights for underwater
     cornersc = np.array(((xs[0], ys[0]), (xs[-1], ys[-1])))
     minc = np.minimum(*cornersc)
@@ -87,12 +87,12 @@ def get_data_gebco_height(xs, ys, gebco_fn=None):
                                '-ts', str(len(xs)), str(len(ys)),
                                '-te', str(minx), str(miny), str(maxx), str(maxy),
                                '-r', 'average',
-                               gebco_fn, target])
+                               gebco_path, target])
         assert ret == 0, "gdalwarp was not able to resample gebco"
     except OSError:
         logger.warning("gdalwarp was not found for resampling gebco. "
                        "Next-neighbour interpolation will be used instead!")
-        target = gebco_fn
+        target = gebco_path
         delete_target = False
 
     with xr.open_dataset(target) as ds_gebco:
