@@ -27,6 +27,7 @@ setup(
                       'netcdf4',
                       'dask>=0.18.0',
                       'rasterio',
+                      'requests',
                       'rtree',
                       'shapely',
                       'progressbar2',
