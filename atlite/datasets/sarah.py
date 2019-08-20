@@ -150,9 +150,10 @@ def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None, **creatio
 def _get_data_sarah(coords, period, **creation_parameters):
     files = _get_filenames(creation_parameters['sarah_dir'], period)
     res = creation_parameters.get('resolution', resolution)
+    chunks = creation_parameters.get('chunks', {'time': 12})
 
-    ds_sis = xr.open_mfdataset(files.sis, combine='by_coords')
-    ds_sid = xr.open_mfdataset(files.sid, combine='by_coords')
+    ds_sis = xr.open_mfdataset(files.sis, combine='by_coords', chunks=chunks)
+    ds_sid = xr.open_mfdataset(files.sid, combine='by_coords', chunks=chunks)
     ds = xr.merge([ds_sis, ds_sid])
 
     ds = _rename_and_clean_coords(ds, add_lon_lat=False)

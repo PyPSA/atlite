@@ -182,9 +182,8 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
                         'area': _area(creation_parameters.pop('x'),
                                       creation_parameters.pop('y')),
-                        'tmpdir': tmpdir}
-
-    retrieval_params.setdefault('chunks', None)
+                        'tmpdir': tmpdir,
+                        'chunks': creation_parameters.pop('chunks', None)}
 
     if {'dx', 'dy'}.issubset(creation_parameters):
         retrieval_params['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
