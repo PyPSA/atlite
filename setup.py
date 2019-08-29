@@ -30,7 +30,9 @@ setup(
                       'requests',
                       'rtree',
                       'shapely',
+                      'toolz',
                       'progressbar2',
+                      'pyyaml',
                       'geopandas'],
     classifiers=[
         'Development Status :: 3 - Alpha',

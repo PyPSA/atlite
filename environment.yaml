@@ -10,6 +10,7 @@ dependencies:
   - netcdf4
   - progressbar2
   - requests
+  - yaml
 
   # Recommended for pandas and xarray
   - bottleneck
