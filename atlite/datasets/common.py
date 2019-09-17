@@ -85,12 +85,18 @@ def get_data_gebco_height(xs, ys, gebco_path=None):
     delete_target = True
 
     try:
-        ret = subprocess.call(['gdalwarp', '-of', 'NETCDF',
+        cp = subprocess.run(['gdalwarp', '-of', 'NETCDF',
                                '-ts', str(len(xs)), str(len(ys)),
                                '-te', str(minx), str(miny), str(maxx), str(maxy),
                                '-r', 'average',
-                               gebco_path, target])
-        assert ret == 0, "gdalwarp was not able to resample gebco"
+                               gebco_path, target],
+                               capture_output=True,
+                               check=True
+                            )
+    except subprocess.CalledProcessError as e:
+        logger.error(f"gdalwarp encountered an error, gebco height was not resampled:\n"
+                     f"{e.stderr}")
+                     
     except OSError:
         logger.warning("gdalwarp was not found for resampling gebco. "
                        "Next-neighbour interpolation will be used instead!")
