@@ -30,7 +30,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 from . import config
-
 from . import datasets, utils
 
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
@@ -52,7 +51,7 @@ class Cutout(object):
             cutout_dir = dirname
         elif cutout_dir is None:
             if config.cutout_dir:
-                cutout_dir = config.cutout_dir
+                cutout_dir = utils.construct_filepath(config.cutout_dir)
             else:
                 cutout_dir = "."
 
