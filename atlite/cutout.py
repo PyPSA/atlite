@@ -20,6 +20,16 @@ Renewable Energy Atlas Lite (Atlite)
 Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
 """
 
+# There is a binary incompatibility between the pip wheels of netCDF4 and
+# rasterio, which leads to the first one to work correctly while the second
+# loaded one fails by loading netCDF4 first, we ensure that most of atlite's
+# functionality works fine, even when the pip wheels have been used, only for
+# resampling the sarah dataset it is important to use conda.
+# Refer to
+# https://github.com/pydata/xarray/issues/2535,
+# https://github.com/rasterio/rasterio-wheels/issues/12
+import netCDF4
+
 import xarray as xr
 import numpy as np
 import os, sys
