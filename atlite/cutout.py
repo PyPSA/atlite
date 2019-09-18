@@ -71,7 +71,7 @@ class Cutout(object):
         if 'bounds' in cutoutparams:
             x1, y1, x2, y2 = cutoutparams.pop('bounds')
             cutoutparams.update(x=slice(x1, x2),
-                                y=slice(y2, y1))
+                                y=slice(y1, y2))
 
         if {'xs', 'ys'}.intersection(cutoutparams):
             warn("The arguments `xs` and `ys` have been deprecated in favour of `x` and `y`", DeprecationWarning)
@@ -160,7 +160,7 @@ class Cutout(object):
     @property
     def extent(self):
         return (list(self.coords["x"].values[[0, -1]]) +
-                list(self.coords["y"].values[[-1, 0]]))
+                list(self.coords["y"].values[[0, -1]]))
 
     @property
     def prepared(self):
@@ -208,7 +208,7 @@ class Cutout(object):
             if buffer > 0:
                 bounds = box(*bounds).buffer(buffer).bounds
             x1, y1, x2, y2 = bounds
-            kwargs.update(x=slice(x1, x2), y=slice(y2, y1))
+            kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
         return Cutout(self.name, data)
 

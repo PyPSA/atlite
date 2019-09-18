@@ -195,7 +195,7 @@ class GridCells:
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
     swaps = {}
     lx, rx = ds.indexes[namex][[0, -1]]
-    uy, ly = ds.indexes[namey][[0, -1]]
+    ly, uy = ds.indexes[namey][[0, -1]]
 
     if lx > rx:
         swaps[namex] = slice(None, None, -1)
@@ -206,7 +206,7 @@ def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
 
 def _as_transform(x, y):
     lx, rx = x[[0, -1]]
-    uy, ly = y[[0, -1]]
+    ly, uy = y[[0, -1]]
 
     dx = float(rx - lx)/float(len(x)-1)
     dy = float(uy - ly)/float(len(y)-1)

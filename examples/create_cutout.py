@@ -16,7 +16,7 @@ cutout = atlite.Cutout(name="europe-2011-01",
                        cutout_dir="./",
                        module="era5",
                        x=slice(-12.18798349, 41.56244222),
-                       y=slice(71.65648314, 33.56459975),
+                       y=slice(33.56459975, 71.65648314),
                        time="2011-01"
                        )
 
