@@ -6,12 +6,6 @@
 # Folder for storing prepared cutout files
 cutout_dir: <ATLITE>/cutouts
 
-# Folder containing raw dataset data
-gebco_path: <ATLITE>/data/gebco
-ncep_dir:   <ATLITE>/data/ncep
-cordex_dir: <ATLITE>/data/cordex
-sarah_dir:  <ATLITE>/data/sarah
-
 # Folder for different wind turbine configuration files
 windturbine_dir: <ATLITE>/resources/windturbine
 

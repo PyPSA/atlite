@@ -33,6 +33,7 @@ ATTRS = []
 cutout_dir = None
 windturbine_dir = None
 solarpanel_dir = None
+gebco_path = None
 ncep_dir = None
 cordex_dir = None
 sarah_dir = None

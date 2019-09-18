@@ -23,10 +23,13 @@
 # cutout_dir: <ATLITE>/cutouts
 
 # Folder containing raw dataset data
-# gebco_path: <ATLITE>/data/gebco
 # ncep_dir:   <ATLITE>/data/ncep
 # cordex_dir: <ATLITE>/data/cordex
 # sarah_dir:  <ATLITE>/data/sarah
+
+# To use the GEBCO height (also in ERA5), set the path to the GEBCO data file(s).
+# An empty value deactivates this option.
+# gebco_path: <data file path>
 
 # Folder for different wind turbine configuration files
 # windturbine_dir: <ATLITE>/resources/windturbine
