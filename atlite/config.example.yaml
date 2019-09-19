@@ -24,7 +24,6 @@
 
 # Folder containing raw dataset data
 # ncep_dir:   <ATLITE>/data/ncep
-# cordex_dir: <ATLITE>/data/cordex
 # sarah_dir:  <ATLITE>/data/sarah
 
 # To use the GEBCO height (also in ERA5), set the path to the GEBCO data file(s).
