@@ -236,7 +236,7 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
             rmtree(tmpdir)
 
     # Re-open
-    cutout.data = xr.open_dataset(cutout.cutout_fn)
+    cutout.data = xr.open_dataset(cutout.cutout_fn, cache=False)
     prepared_features = cutout.data.attrs.get('prepared_features')
     if not isinstance(prepared_features, list):
         cutout.data.attrs['prepared_features'] = [prepared_features]

@@ -90,7 +90,7 @@ class Cutout(object):
             self.is_view = False
 
             if os.path.isfile(self.cutout_fn):
-                data = xr.open_dataset(self.cutout_fn)
+                data = xr.open_dataset(self.cutout_fn, cache=False)
                 prepared_features = data.attrs.get('prepared_features')
                 assert prepared_features is not None, \
                     f"{self.cutout_fn} does not have the required attribute `prepared_features`"
