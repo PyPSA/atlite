@@ -111,7 +111,6 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
         if show_progress is True:
             show_progress = False
 
-
     if shapes is not None:
         if isinstance(shapes, pd.Series) and index is None:
             index = shapes.index
@@ -149,7 +148,6 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
                         if convert_func.__name__.startswith('convert_')
                         else convert_func.__name__)
         prefix = 'Convert and aggregate `{}`: '.format(func_name)
-
     maybe_progressbar = make_optional_progressbar(show_progress, prefix, len(windows))
 
     for ds in maybe_progressbar(windows):
@@ -362,7 +360,14 @@ def convert_wind(ds, turbine):
 
     wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
 
-    return xr.DataArray(np.interp(wnd_hub, V, POW/P), coords=wnd_hub.coords)
+    def _interpolate(da):
+        return np.interp(da, V, POW/P)
+
+    return xr.apply_ufunc(_interpolate, wnd_hub,
+                          input_core_dims=[[]],
+                          output_core_dims=[[]],
+                          output_dtypes=[wnd_hub.dtype],
+                          dask="parallelized")
 
 @requires_windowed(['wind'])
 def wind(cutout, turbine, smooth=False, **params):
