@@ -89,6 +89,8 @@ def get_coords(time, x, y, **creation_parameters):
     # z           | Geopotential (CDS: Orography) | 129
 
     # time = timeindex_from_slice(time)
+    dx = creation_parameters.get("dx", 0.25)
+    dy = creation_parameters.get("dy", 0.25)
 
     ds = xr.Dataset({'longitude': np.r_[-180:180:dx], 'latitude': np.r_[-90:90:dy],
                      'time': pd.date_range(start="1979", end="now", freq="h")})
