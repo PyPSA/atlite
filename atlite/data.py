@@ -1,4 +1,5 @@
 import os
+import gc
 from functools import wraps
 import numpy as np
 import pandas as pd
@@ -224,6 +225,13 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
             os.unlink(cutout.cutout_fn)
         os.rename(target, cutout.cutout_fn)
     finally:
+        # ds is the last reference to the temporary files:
+        # - we remove it from this scope, and
+        # - fire up the garbage collector,
+        # => xarray's file manager closes them and we can remove tmpdir
+        del ds
+        gc.collect()
+
         if not keep_tmpdir:
             rmtree(tmpdir)
 
