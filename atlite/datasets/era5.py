@@ -66,7 +66,13 @@ def _add_height(ds):
 
 def _area(xs, ys):
     # North, West, South, East. Default: global
-    return [ys.start, xs.start, ys.stop, xs.stop]
+    area = [ys.start, xs.start, ys.stop, xs.stop]
+    if all(a is not None for a in area):
+        return area
+    elif all(a is None for a in area):
+        return None
+    else:
+        raise RuntimeError(f"All bounds for x and y must be specified (or none)")
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
     """Rename 'longitude' and 'latitude' columns to 'x' and 'y'
@@ -183,10 +189,12 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
     assert tmpdir is not None
 
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
-                        'area': _area(creation_parameters.pop('x'),
-                                      creation_parameters.pop('y')),
                         'tmpdir': tmpdir,
                         'chunks': creation_parameters.pop('chunks', None)}
+
+    area = _area(creation_parameters.pop('x'), creation_parameters.pop('y'))
+    if area is not None:
+        retrieval_params['area'] = area
 
     if {'dx', 'dy'}.issubset(creation_parameters):
         retrieval_params['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
