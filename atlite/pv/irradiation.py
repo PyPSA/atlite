@@ -118,14 +118,14 @@ def _albedo(ds, influx):
 
 def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
     surface_slope = surface_orientation['slope']
-    ground_t = influx * _albedo(ds, influx) * (1.0 - np.cos(surface_slope)) / 2.0
+    ground_t = influx * _albedo(ds, influx) * (1 - np.cos(surface_slope)) / 2
     return ground_t.rename('ground tilted')
 
-def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, clearsky_model, altitude_threshold=1.):
+def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, clearsky_model, altitude_threshold=1., dtype=np.float32):
 
     influx_toa = solar_position['atmospheric insolation']
     def clip(influx, influx_max):
-        return influx.clip(min=0., max=influx_max.transpose(*influx.dims))
+        return influx.clip(min=0, max=influx_max.transpose(*influx.dims))
 
     if 'influx' in ds:
         influx = clip(ds['influx'], influx_toa)
@@ -143,10 +143,10 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, cle
 
         influx = direct + diffuse
         direct_t = k * direct
-        diffuse_t = ((1. + cos_surface_slope) / 2. * diffuse +
-                    _albedo(ds, influx) * influx * ((1. - cos_surface_slope) / 2.))
+        diffuse_t = ((dtype(1) + cos_surface_slope) / dtype(2) * diffuse +
+                     _albedo(ds, influx) * influx * ((dtype(1) - cos_surface_slope) / dtype(2)))
 
-        total_t = direct_t.fillna(0.) + diffuse_t.fillna(0.)
+        total_t = direct_t.fillna(0) + diffuse_t.fillna(0)
     else:
         diffuse_t = TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
         direct_t = TiltedDirectIrrad(solar_position, surface_orientation, direct)
