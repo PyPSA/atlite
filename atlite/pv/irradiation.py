@@ -91,7 +91,7 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
             logger.warn('diffuse_t exhibits negative values above altitude threshold.')
 
     with np.errstate(invalid='ignore'):
-        diffuse_t.values[np.isnan(diffuse_t.values) | (diffuse_t.values < 0.)] = 0.
+        diffuse_t.clip(min=0.).fillna(0.)
 
     return diffuse_t.rename('diffuse tilted')
 
@@ -158,7 +158,8 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, cle
     # values, leading to big overall errors from the 1/sinaltitude factor.
     # => Suppress irradiation below solar altitudes of 1 deg.
 
-    cap_alt = solar_position['altitude'] < np.deg2rad(altitude_threshold)
-    total_t.values[(cap_alt | (direct+diffuse <= 0.01)).transpose(*total_t.dims).values] = 0.
+    cap_alt = solar_position['altitude'] > np.deg2rad(altitude_threshold)
+    total_t = total_t.where(cap_alt & (direct + diffuse > 0.01), dtype(0))
+    # total_t.values[(cap_alt | (direct+diffuse <= 0.01)).transpose(*total_t.dims).values] = 0.
 
     return total_t
