@@ -4,7 +4,7 @@
 # --------------------*DO NOT CHANGE*--------------------- #
 
 # Folder for storing prepared cutout files
-cutout_dir: <ATLITE>/cutouts
+cutout_dir:
 
 # Folder for different wind turbine configuration files
 windturbine_dir: <ATLITE>/resources/windturbine
