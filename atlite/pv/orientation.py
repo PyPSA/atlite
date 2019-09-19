@@ -63,6 +63,11 @@ def make_constant(slope, azimuth):
         return dict(slope=slope, azimuth=azimuth)
     return constant
 
+def make_latitude(azimuth=180):
+    def latitude(lon, lat, solar_position):
+        return dict(slope=lat, azimuth=azimuth)
+    return latitude
+
 def SurfaceOrientation(ds, solar_position, orientation):
     """
     Compute cos(incidence) for slope and panel azimuth
