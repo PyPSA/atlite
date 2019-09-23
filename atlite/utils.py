@@ -106,7 +106,7 @@ def construct_filepath(path):
     if os.path.isabs(path):
         return path
     elif path.startswith('<ATLITE>'):
-        return pkg_resources.resource_filename(__name__, path[8:])
+        return pkg_resources.resource_filename(__name__, path[9:])
     elif config.config_path is None:
         # If config_path is not defined assume the user know what per does
         return path
