@@ -184,6 +184,9 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
         keep_tmpdir = True
 
     try:
+        # Make sure the variable ds is defined in the finally block
+        ds = None
+
         if cutout.is_view:
             assert features is None, f"It's not possible to add features to a view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first."
             assert not os.path.exists(cutout.cutout_fn) or overwrite, f"Not overwriting {cutout.cutout_fn} with a view, unless `overwrite=True`."
