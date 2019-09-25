@@ -193,7 +193,7 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
 
             ds = cutout.data
             if 'prepared_features' not in ds.attrs:
-                logger.warn("Using empty `prepared_features`!")
+                logger.warning("Using empty `prepared_features`!")
                 ds.attrs['prepared_features'] = []
         else:
             features = set(features if features is not None else cutout.available_features)

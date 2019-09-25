@@ -187,7 +187,7 @@ class Cutout(object):
             try:
                 grid_cells = GridCells.from_file(sindex_fn)
             except (EOFError, OSError):
-                logger.warn(f"Couldn't read GridCells from cache {sindex_fn}. Reconstructing ...")
+                logger.warning(f"Couldn't read GridCells from cache {sindex_fn}. Reconstructing ...")
 
         if grid_cells is None:
             grid_cells = GridCells.from_cutout(self)

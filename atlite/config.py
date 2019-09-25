@@ -125,8 +125,8 @@ def reset():
 
     # Notify user of empty config
     if not config_path:
-        logger.warn("No valid configuration file found in default and home directories. "
-                    "No configuration is loaded, manual configuration required.")
+        logger.warning("No valid configuration file found in default and home directories. "
+                       "No configuration is loaded, manual configuration required.")
 
 def _update_variables():
     """Update list of provided attributes by the module."""

@@ -180,8 +180,9 @@ def windturbine_smooth(turbine, params={}):
     turbine['P'] = np.max(turbine['POW'])
 
     if any(turbine['POW'][np.where(turbine['V'] == 0.0)] > 1e-2):
-        logger.warn("Oversmoothing detected with parameters {p}. " +
-                    "Turbine generates energy at 0 m/s wind speeds".format(p=params))
+        logger.warning(f"Oversmoothing detected with parameters {params}. "
+                    "Turbine generates energy at 0 m/s wind speeds"
+        )
 
     return turbine
 
