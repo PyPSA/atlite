@@ -91,7 +91,7 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
             logger.warn('diffuse_t exhibits negative values above altitude threshold.')
 
     with np.errstate(invalid='ignore'):
-        diffuse_t.clip(min=0.).fillna(0.)
+        diffuse_t = diffuse_t.clip(min=0.).fillna(0.)
 
     return diffuse_t.rename('diffuse tilted')
 
