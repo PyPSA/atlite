@@ -37,8 +37,7 @@ import logging
 logger = logging.getLogger(name=__name__)
 
 from . import config
-from .utils import construct_filepath, arrowdict
-
+from .utils import arrowdict
 
 def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
@@ -74,8 +73,7 @@ def get_windturbineconfig(turbine):
         if turbine['source'] == 'oedb':
             turbineconf = download_windturbineconfig(turbine, store_locally=False)
         elif turbine['source'] == "local":
-            res_name = os.path.join(config.windturbine_dir, turbine['filename']+".yaml")
-            res_name = construct_filepath(res_name)
+            res_name = config.config.windturbine_dir.joinpath(turbine['filename']+".yaml")
 
             with open(res_name, "r") as turbine_file:
                 turbineconf = yaml.safe_load(turbine_file)
@@ -91,9 +89,7 @@ def get_windturbineconfig(turbine):
 def get_solarpanelconfig(panel):
     """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
 
-    res_name = os.path.join(config.solarpanel_dir, panel+".yaml")
-
-    res_name = construct_filepath(res_name)
+    res_name = config.config.solarpanel_dir.joinpath(panel+".yaml")
 
     with open(res_name, "r") as panel_file:
         panelconf = yaml.safe_load(panel_file)
@@ -326,7 +322,7 @@ def download_windturbineconfig(turbine, store_locally=True):
     if store_locally is True:
         filename = (f"{turbineconf['manufacturer']}_{turbineconf['name']}.yaml"
                      .replace('/','_').replace(' ','_').replace('-','_'))
-        filepath = construct_filepath(os.path.join(config.windturbine_dir, filename))
+        filepath = config.config.windturbine_dir.joinpath(filename)
 
         with open(filepath, 'w') as turbine_file:
             yaml.dump(turbineconf, turbine_file)
@@ -348,11 +344,11 @@ def _update_resource_dictionaries():
     windturbines.clear()
     windturbines.update({p.stem: p.stem
                          for p in
-                         Path(construct_filepath(config.windturbine_dir)).glob("*.yaml")})
+                         config.config.windturbine_dir.glob("*.yaml")})
 
     solarpanels.clear()
     solarpanels.update({p.stem: p.stem
-                        for p in Path(construct_filepath(config.solarpanel_dir)).glob("*.yaml")})
+                        for p in config.config.solarpanel_dir.glob("*.yaml")})
 
 _update_resource_dictionaries()
-config._update_hooks.append(_update_resource_dictionaries)
+config.Config._UPDATE_HOOKS.append(_update_resource_dictionaries)

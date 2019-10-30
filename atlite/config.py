@@ -1,146 +1,212 @@
-## Copyright 2019 Johannes Hampp (Justus-Liebig University Giessen)
-
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 3 of the
-## License, or (at your option) any later version.
-
-## This program is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-
-## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
-import os
-import pkg_resources
+from pathlib import Path
 import yaml
+import atlite
+import pkg_resources
 import logging
 logger = logging.getLogger(__name__)
 
+class Config(object):
+    _FILE_NAME = Path(".atlite.config.yaml")
+    _FILE_SEARCH_PATH = Path.home().joinpath(_FILE_NAME)
+    _DEFAULT_FILE_NAME = Path("config.default.yaml")
+    _DEFAULT_SEARCH_PATH = Path(pkg_resources.resource_filename("atlite", str(_DEFAULT_FILE_NAME)))
 
-_FILE_NAME = ".atlite.config.yaml"
-_FILE_SEARCH_PATH = os.path.join(os.path.expanduser("~"), _FILE_NAME)
-_DEFAULT_FILE_NAME = "config.default.yaml"
-_DEFAULT_SEARCH_PATH = pkg_resources.resource_filename(__name__, _DEFAULT_FILE_NAME)
+    # Functions called on config change
+    _UPDATE_HOOKS = []
 
-# List of all supported attributes for the config
-ATTRS = []
+    def resolve_filepath(self, path):
+        """Construct the absolute file path from the provided 'path' as per the packages convention.
 
-# Implemented attributes
-cutout_dir = None
-windturbine_dir = None
-solarpanel_dir = None
-gebco_path = None
-ncep_dir = None
-sarah_dir = None
+        Paths which are already absolute are returned unchanged.
+        Relative paths are converted into absolute paths.
+        The convention for relative paths is:
+        They are considered relative to the current 'config.config_path'.
+        If the 'config_path' is not defined, just return the relative path.
 
-# Path of the configuration file.
-# Automatically updated when using provided API.
-config_path = ""
+        Returns
+        -------
+        path : pathlib.Path
+            A Path object pointing to the resolved location.
+        """
 
-# Functions called on config update
-_update_hooks = []
+        if path is None:
+            return path
+        
+        path = Path(path)
 
-def read(path):
-    """Read and set the configuration based on the file in 'path'."""
+        if path.is_absolute():
+            return path
+        elif path.parts[0] == '<ATLITE>':
+            return Path(pkg_resources.resource_filename("atlite", str(Path(*path.parts[1:]))))
+        elif self._config_path is None:
+            # If config_path is not defined assume user know what per does
+            return path
+        elif Path(self._config_path) == path:
+            # Avoid recursion resolving the same path over and over again
+            return path
+        else:
+            return Path(self._config_path).parent.joinpath(path)
 
-    if not os.path.isfile(path):
-        raise TypeError("Invalid configuration file path: "
-                        "{p}".format(p=path))
-
-    with open(path, "r") as config_file:
-        config_dict = yaml.safe_load(config_file)
-
-    config_dict['config_path'] = path
-    update(config_dict)
-
-    logger.info("Configuration from {p} successfully read.".format(p=path))
-
-def save(path, overwrite=False):
-    """Write the current configuration into a config file in the specified path.
-
-    Parameters
-    ----------
-    path : string or os.path
-        Including name of the new config file.
-    overwrite : boolean
-        (Default: False) Allow overwriting of existing files.
-    """
-
-    if os.path.exists(path) and overwrite is False:
-        raise FileExistsError("Overwriting disallowed for {p}".format(p=path))
-
-    # New path now points to the current config
-    global config_path
-    config_path = path
-
-    # Construct attribute dict
-    global ATTRS
-    _update_variables()
-
-    config = {key:globals()[key] for key in ATTRS}
-
-    with open(path, "w") as config_file:
-        yaml.dump(config, config_file, default_flow_style=False)
-
-def update(config_dict=None, **kwargs):
-    """Update the existing config.
+    @property
+    def cutout_dir(self):
+        return self.resolve_filepath(self._cutout_dir)
     
-    Use a dictionary `config_dict` for updating using a single object
-    or provide assignment expressions to the config variables you
-    want to change.
-    Using this method ensures that all internal dependencies relying
-    on path information are also also correctly updated.
+    @property
+    def ncep_dir(self):
+        return self.resolve_filepath(self._ncep_dir)
+
+    @property
+    def cordex_dir(self):
+        return self.resolve_filepath(self._cordex_dir)
+
+    @property
+    def sarah_dir(self):
+        return self.resolve_filepath(self._sarah_dir)
+
+    @property
+    def windturbine_dir(self):
+        return self.resolve_filepath(self._windturbine_dir)
+
+    @property
+    def solarpanel_dir(self):
+        return self.resolve_filepath(self._solarpanel_dir)
+
+    @property
+    def gebco_path(self):
+        return self.resolve_filepath(self._gebco_path)
+
+    @property
+    def config_path(self):
+        return self.resolve_filepath(self._config_path)
+
+    def __init__(self, config_dict=None, config_path=None):
+        """Create a config object using a dictionary or by specifying a config file path.
+
+        If neither `config_dict` nor `config_path` are given, then try to read a config
+        file from one of the default locations.
+
+        Parameters
+        ----------
+        config_dict : dict
+            Dictionary containing the values for a new config, takes priority
+            over reading configurations from file.
+            (Default: None)
+        config_path : string or os.path
+            Full path of a valid config file (including arbitrary name).
+            (Default: None)
+        
+        """
+
+        self._cutout_dir = None
+        self._ncep_dir = None
+        self._cordex_dir = None
+        self._sarah_dir = None
+        self._windturbine_dir = None
+        self._solarpanel_dir = None
+        self._gebco_path = None
+        self._config_path = None
+
+        # Try to find a working config
+        
+        # Prefer config explicitly provided as a dict
+        if isinstance(config_dict, dict):
+            logger.info(f"Loading config from dict.")
+            self.update(config_dict)
+        elif config_path is not None:
+            # Provide a fully specified path for reading the config from
+            logger.info(f"Loading config from {str(config_path)}.")
+            self.read(config_path)
+        else:
+            # Try to load configuration from standard paths
+            for path in [Config._FILE_SEARCH_PATH, Config._DEFAULT_SEARCH_PATH]:
+                if path.is_file():
+                    logger.info(f"Loading config from {str(path)}.")
+                    self.read(path)
+                    # Either successfully read or invalid file
+                    break
+
+    def read(self, path):
+        """Read and set the configuration based on the file in 'path'."""
+
+        path = Path(path)
+        if not path.is_file():
+            raise TypeError(f"Invalid configuration file path {str(path)}.")
+        
+        with open(path, "r") as config_file:
+            config_dict = yaml.safe_load(config_file)
+            self.update(config_dict)
+
+        logger.info(f"Configuration from {str(path)} successfully read.")
+        self.update(config_path=path)
     
-    Parameters
-    ----------
-    config_dict : dict
-        (Default: dict()). Dictionary with pairs of key value pairs:
-        <config var. name>:<new value>.
-    **kwargs
-        Any existing or new config variable and its new value to store
-        in the atlite.config.
-    """
+    def save(self, path, overwrite=False):
+        """Write the current configuration into a config file in the specified path.
 
-    if config_dict is None:
-        config_dict = dict()
-    updates = kwargs
-    updates.update(config_dict)
+        Parameters
+        ----------
+        path : string or os.path
+            Including name of the new config file.
+        overwrite : boolean
+            (Default: False) Allow overwriting of existing files.
+        
+        """
 
-    globals().update(updates)
-    for func in _update_hooks:
-        func()
+        path = Path(path)
+
+        if path.exists() and overwrite is False:
+            raise FileExistsError(f"Overwriting disallowed for {str(path)}")
+ 
+        # New path now points to the current config
+        self.update(config_path=str(path))
+ 
+        # Construct attribute dict, make sure to only store string representations
+        config = {k:str(v) for k,v in self.__dict__.items()}
+       
+        with open(path, "w") as config_file:
+            yaml.dump(config, config_file, default_flow_style=False)
+
+    def update(self, config_dict=None, **kwargs):
+        """Update the existing config.
+        
+        Use a dictionary `config_dict` for updating using a single object
+        or provide assignment expressions to the config variables you
+        want to change.
+        Using this method ensures that all internal dependencies relying
+        on path information are also also correctly updated.
+        
+        Parameters
+        ----------
+        config_dict : dict
+            (Default: dict()). Dictionary with pairs of key value pairs:
+            <config var. name>:<new value>.
+        **kwargs
+            Any existing or new config variable and its new value to store
+            in the atlite.config.
+        """
+
+        if config_dict is None:
+            config_dict = dict()
+        updates = kwargs
+        updates.update(config_dict)
+
+        for key, val in updates.items():
+            self.__setattr__("_"+str(key), val)
+
+        for func in self._UPDATE_HOOKS:
+            func()
 
 def reset():
-    """Reset the configuration to its initial values."""
+    """Reset the configuration to its initial values at atlite import."""
 
-    # Test for file existence in order to not try to read
-    # non-existing configuration files at this point (do not confuse the user)
-    for path in [_DEFAULT_SEARCH_PATH, _FILE_SEARCH_PATH]:
-        if os.path.isfile(path):
-            read(path)
+    global config
+    config = Config()
 
-    # Notify user of empty config
-    if not config_path:
-        logger.warning("No valid configuration file found in default and home directories. "
-                       "No configuration is loaded, manual configuration required.")
+# Module's config object to be accessed by other modules
+# This can be exchanged for another Config object to interchange
+# the configuration quickly
+# TODO : If "config" is assigned a different Config object, then
+# TODO : functions in _UPDATE_HOOKS need to be called (are currently not)
+config = None
 
-def _update_variables():
-    """Update list of provided attributes by the module."""
-
-    global ATTRS
-
-    ATTRS = {k for k,v in globals().items() if not k.startswith("_") and not callable(v)}
-
-    # Manually remove imported modules and the attribute itself from the list
-    ATTRS = ATTRS - {"ATTRS", "logging",
-                     "logger", "os", "pkg_resources", "yaml"}
-
-_update_hooks.append(_update_variables)
-
-
-# Load the configuration at first module import
+# Init the configuration at module import
 reset()

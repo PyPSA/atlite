@@ -22,7 +22,6 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 """
 
 import os
-from ..utils import construct_filepath
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -204,9 +203,9 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
     else:
         raise TypeError(f"{period} should be one of pd.Timestamp or pd.Period")
 
-    gebco_path = creation_parameters.pop('gebco_path', config.gebco_path)
+    gebco_path = creation_parameters.pop('gebco_path', config.config.gebco_path)
     if gebco_path and feature == 'height':
-        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], construct_filepath(config.gebco_path))
+        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], config.config.gebco_path)
 
     if creation_parameters:
         logger.debug(f"Unused creation_parameters: {', '.join(creation_parameters)}")

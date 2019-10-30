@@ -60,8 +60,8 @@ class Cutout(object):
         if dirname:
             cutout_dir = dirname
         elif cutout_dir is None:
-            if config.cutout_dir:
-                cutout_dir = utils.construct_filepath(config.cutout_dir)
+            if config.config.cutout_dir:
+                cutout_dir = config.config.cutout_dir
             else:
                 cutout_dir = "."
 
