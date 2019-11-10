@@ -60,9 +60,9 @@ def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams)
     with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:
         newname = old_cutout_dir.parent / f"{name}.nc"
         module = meta.attrs["module"]
-        minX, maxX = meta.indexes['x'].sort_values()[[0, -1]]
-        minY, maxY = meta.indexes['y'].sort_values()[[0, -1]]
-        minT, maxT = meta.indexes['time'].sort_values()[[0, -1]].strftime("%Y-%m")
+        minX, maxX = meta.indexes['x'][[0, -1]]
+        minY, maxY = sorted(meta.indexes['y'][[0, -1]])
+        minT, maxT = meta.indexes['time'][[0, -1]].strftime("%Y-%m")
 
         logger.warning(textwrap.dedent(f"""
             Found an old-style directory-like cutout. It can manually be recreated using
