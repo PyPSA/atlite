@@ -39,18 +39,19 @@ from shapely.geometry import box
 import logging
 logger = logging.getLogger(__name__)
 
-from . import config
+from .config import ensure_config
 from . import datasets, utils
 
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
+from .resource import Resources
 from .gis import GridCells
 from .data import requires_coords, requires_windowed, cutout_prepare
 
-class Cutout(object):
-    dataset_module = None
-
-    def __init__(self, name=None, data=None, cutout_dir=None, **cutoutparams):
+class Cutout:
+    def __init__(self, name=None, data=None, cutout_dir=None, config=None, **cutoutparams):
+        self.config = ensure_config(config)
+        self.resource = Resources(self.config)
 
         if isinstance(name, xr.Dataset):
             data = name

@@ -141,7 +141,8 @@ def get_missing_data(cutout, features, freq=None, tmpdir=None):
     datasets = []
 
     def get_feature_data(period):
-        return cutout.dataset_module.get_data(cutout.data.coords, period, feature, tmpdir=tmpdir, **creation_parameters)
+        return cutout.dataset_module.get_data(cutout.data.coords, period, feature, cutout.config,
+                                              tmpdir=tmpdir, **creation_parameters)
 
     if freq is None:
         dt = timeindex[-1] - timeindex[0]

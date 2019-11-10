@@ -27,8 +27,6 @@ import xarray as xr
 from dask import delayed
 from functools import partial
 
-from .. import config
-
 import logging
 logger = logging.getLogger(__name__)
 
@@ -107,12 +105,9 @@ def get_coords(time, x, y, **creation_parameters):
     coords = {'time': pd.date_range(start=files.index[0],
                                     end=files.index[-1] + pd.offsets.DateOffset(days=1),
                                     closed="left", freq="h")}
-    if res is not None:
-        coords.update({'lon': np.r_[-65. + (65. % res):65.01:res],
-                       'lat': np.r_[-65. + (65. % res):65.01:res]})
-    else:
-        coords.update({'lon': np.r_[-65.:65.01:res],
-                       'lat': np.r_[-65.:65.01:res]})
+
+    coords.update({'lon': np.r_[-65. + (65. % res):65.01:res],
+                   'lat': np.r_[-65. + (65. % res):65.01:res]})
 
     ds = xr.Dataset(coords)
     ds = _rename_and_clean_coords(ds)
@@ -120,7 +115,8 @@ def get_coords(time, x, y, **creation_parameters):
 
     return ds
 
-def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
+def get_data_era5(coords, period, feature, config, sanitize=True, tmpdir=None,
+                  **creation_parameters):
     x = coords.indexes['x']
     y = coords.indexes['y']
     xs = slice(*x[[0,-1]])
@@ -134,7 +130,7 @@ def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None, **creatio
     del creation_parameters['x'], creation_parameters['y']
     creation_parameters.pop("sarah_dir", None)
 
-    ds = get_era5_data(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir,
+    ds = get_era5_data(coords, period, feature, config, sanitize=sanitize, tmpdir=tmpdir,
                        x=xs, y=ys, dx=dx, dy=dy, **creation_parameters)
 
     if feature == 'influx':
@@ -214,20 +210,24 @@ def _get_data_sarah(coords, period, **creation_parameters):
 
     return ds
 
-def get_data_sarah(coords, period, **creation_parameters):
+def get_data_sarah(coords, period, config, **creation_parameters):
     # In a distributed setting the workers don't have access to the config module
     creation_parameters.setdefault("sarah_dir", config.sarah_dir)
 
     return delayed(_get_data_sarah)(coords, period, **creation_parameters)
 
-def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
+def get_data(coords, period, feature, config, sanitize=True, tmpdir=None,
+             **creation_parameters):
+
     if feature == 'influx':
         ds = delayed(xr.merge)([
-            get_data_sarah(coords, period, **creation_parameters),
-            get_data_era5(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir, **creation_parameters)
+            get_data_sarah(coords, period, config, **creation_parameters),
+            get_data_era5(coords, period, feature, config, sanitize=sanitize, tmpdir=tmpdir,
+                          **creation_parameters)
         ])
     elif feature == 'temperature':
-        ds = get_data_era5(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir, **creation_parameters)
+        ds = get_data_era5(coords, period, feature, config, sanitize=sanitize, tmpdir=tmpdir,
+                           **creation_parameters)
     else:
         raise NotImplementedError(f"Feature '{feature}' has not been implemented for dataset sarah")
 

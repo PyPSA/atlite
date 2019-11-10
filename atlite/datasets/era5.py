@@ -30,7 +30,6 @@ from dask import delayed
 import logging
 logger = logging.getLogger(__name__)
 
-from .. import config
 from .common import retrieve_data, get_data_gebco_height
 
 # Model and Projection Settings
@@ -177,7 +176,8 @@ def get_data_height(retrieval_params):
 
     return ds
 
-def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
+def get_data(coords, period, feature, config, sanitize=True, tmpdir=None,
+             **creation_parameters):
 
     assert tmpdir is not None
 
@@ -203,9 +203,9 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
     else:
         raise TypeError(f"{period} should be one of pd.Timestamp or pd.Period")
 
-    gebco_path = creation_parameters.pop('gebco_path', config.config.gebco_path)
+    gebco_path = creation_parameters.pop('gebco_path', config.gebco_path)
     if gebco_path and feature == 'height':
-        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], config.config.gebco_path)
+        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], gebco_path)
 
     if creation_parameters:
         logger.debug(f"Unused creation_parameters: {', '.join(creation_parameters)}")

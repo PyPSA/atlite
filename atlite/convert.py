@@ -40,10 +40,7 @@ from .pv.orientation import get_orientation, SurfaceOrientation
 from . import hydro as hydrom
 from . import wind as windm
 
-from .resource import (get_windturbineconfig, get_solarpanelconfig,
-                       windturbine_rated_capacity_per_unit,
-                       solarpanel_rated_capacity_per_unit,
-                       windturbine_smooth)
+from .resource import windturbine_smooth
 
 from .utils import make_optional_progressbar
 from .data import requires_windowed
@@ -383,7 +380,7 @@ def wind(cutout, turbine, smooth=False, **params):
         A turbineconfig dictionary with the keys 'hub_height' for the
         hub height and 'V', 'POW' defining the power curve.
         Alternatively a str refering to a local or remote turbine configuration
-        as accepted as accepted by atlite.resource.get_windturbineconfig().
+        as accepted as accepted by `cutout.resource.get_windturbineconfig`.
     smooth : bool or dict
         If True smooth power curve with a gaussian kernel as
         determined for the Danish wind fleet to Delta_v = 1.27 and
@@ -401,7 +398,7 @@ def wind(cutout, turbine, smooth=False, **params):
     """
 
     if isinstance(turbine, str):
-        turbine = get_windturbineconfig(turbine)
+        turbine = self.resource.get_windturbineconfig(turbine)
 
     if smooth:
         turbine = windturbine_smooth(turbine, params=smooth)
@@ -429,8 +426,8 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
     Parameters
     ----------
     panel : str or dict
-        Panel name known to the reatlas client or a panel config
-        dictionary with the parameters for the electrical model in [3].
+        Panel name known to cutout.resource.get_solarpanelconfig or a panel
+        config dictionary with the parameters for the electrical model in [3].
     orientation : str, dict or callback
         Panel orientation can be chosen from either
         'latitude_optimal', a constant orientation {'slope': 0.0,
@@ -467,7 +464,7 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
     '''
 
     if isinstance(panel, str):
-        panel = get_solarpanelconfig(panel)
+        panel = self.resource.get_solarpanelconfig(panel)
     if not callable(orientation):
         orientation = get_orientation(orientation)
 
