@@ -112,7 +112,7 @@ class Config:
         path = Path(path)
 
         if path.exists() and not overwrite:
-            raise FileExistsError(f"File {str(path)} already exists. "
+            raise FileExistsError(f"File {path} already exists. "
                                   "Overwrite with save(path, overwrite=True).")
 
         # New path now points to the current config
