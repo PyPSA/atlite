@@ -67,7 +67,7 @@ class Config:
         # Prefer config explicitly provided as a dict
         if isinstance(config_dict, dict):
             logger.info(f"Loading config from dict.")
-            config_dict.setdefault("config_path", ".")
+            config_dict.setdefault("config_path", self._FILE_NAME)
             self.update(config_dict)
         elif config_path is not None:
             # Provide a fully specified path for reading the config from
@@ -93,7 +93,7 @@ class Config:
 
         with open(path, "r") as config_file:
             config_dict = yaml.safe_load(config_file)
-            config_dict.setdefault("config_path", path.parent)
+            config_dict.setdefault("config_path", path)
             self.update(config_dict)
 
         logger.info(f"Configuration from {path} successfully read.")
@@ -136,11 +136,10 @@ class Config:
         Parameters
         ----------
         config_dict : dict
-            (Default: dict()). Dictionary with pairs of key value pairs:
-            <config var. name>:<new value>.
+            Dictionary with pairs of key value pairs:
+            <config var. name>: <new value>
         **kwargs
-            Any existing or new config variable and its new value to store
-            in the atlite.config.
+            Any existing or new config variable and its new value
         """
 
         if config_dict is None:
