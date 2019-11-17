@@ -35,6 +35,7 @@ import numpy as np
 import os, sys
 from warnings import warn
 from shapely.geometry import box
+from pathlib import Path
 
 import logging
 logger = logging.getLogger(__name__)
@@ -48,8 +49,46 @@ from .resource import Resources
 from .gis import GridCells
 from .data import requires_coords, requires_windowed, cutout_prepare
 
+def ensure_path(name, has_data, config):
+    """
+    Translate `name` argument to the full path of a cutout netcdf file or
+    directory of an old-style cutout
+
+    In order, we look for:
+
+    - File with nc suffix in current working directory
+
+    - File with nc suffix in cutout_dir directory
+
+    - Directory in current working directory
+
+    - Directory in cutout_dir
+
+    If no match is found, we return the path to the non-existant file in the
+    cutout directory or in the current working directory if cutout_dir is
+    unset.
+    """
+    name_nc = name if name.endswith(".nc") else name + ".nc"
+    cwd = Path.cwd()
+    cutout_dir = config.cutout_dir
+
+    if not has_data:
+        if (cwd / name_nc).is_file():
+            return cwd / name_nc
+        elif cutout_dir is not None and (cutout_dir / name_nc).is_file():
+            return cutout_dir / name_nc
+        elif (cwd / name).is_dir():
+            return cwd / name
+        elif cutout_dir is not None and (cutout_dir / name).is_dir():
+            return cutout_dir / name
+
+    if cutout_dir is not None:
+        return cutout_dir / name_nc
+    else:
+        return cwd / name_nc
+
 class Cutout:
-    def __init__(self, name=None, data=None, cutout_dir=None, config=None, **cutoutparams):
+    def __init__(self, name=None, data=None, config=None, **cutoutparams):
         self.config = ensure_config(config)
         self.resource = Resources(self.config)
 
@@ -57,17 +96,7 @@ class Cutout:
             data = name
             name = data.attrs.get("name", "unnamed")
 
-        dirname, name = os.path.split(name)
-        if dirname:
-            cutout_dir = dirname
-        elif cutout_dir is None:
-            if config.config.cutout_dir:
-                cutout_dir = config.config.cutout_dir
-            else:
-                cutout_dir = "."
-
-        self.name = name
-        self.cutout_dir = cutout_dir
+        self.cutout_path = ensure_path(name, data is not None, self.config)
 
         if 'bounds' in cutoutparams:
             x1, y1, x2, y2 = cutoutparams.pop('bounds')
@@ -90,17 +119,16 @@ class Cutout:
         if data is None:
             self.is_view = False
 
-            if os.path.isfile(self.cutout_fn):
-                data = xr.open_dataset(self.cutout_fn, cache=False)
+            if self.cutout_path.is_file():
+                data = xr.open_dataset(self.cutout_path, cache=False)
                 prepared_features = data.attrs.get('prepared_features')
                 assert prepared_features is not None, \
-                    f"{self.cutout_fn} does not have the required attribute `prepared_features`"
+                    f"{self.cutout_path} does not have the required attribute `prepared_features`"
                 if not isinstance(prepared_features, list):
                     data.attrs['prepared_features'] = [prepared_features]
                 # TODO we might want to compare the provided `cutoutparams` with what is saved
-            elif os.path.isdir(os.path.join(self.cutout_dir, self.name)):
-                data = utils.migrate_from_cutout_directory(os.path.join(self.cutout_dir, self.name),
-                                                           self.name, self.cutout_fn, cutoutparams)
+            elif self.cutout_path.is_dir():
+                data = utils.migrate_from_cutout_directory(self.cutout_path, cutoutparams, config)
                 self.is_view = True
             else:
                 logger.info(f"Cutout {self.name} not found in directory {self.cutout_dir}, building new one")
@@ -133,8 +161,8 @@ class Cutout:
         self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
 
     @property
-    def cutout_fn(self):
-        return os.path.join(self.cutout_dir, self.name + ".nc")
+    def name(self):
+        return self.cutout_path.stem
 
     @property
     def projection(self):
@@ -182,9 +210,9 @@ class Cutout:
         if self._grid_cells_cache is not None:
             return self._grid_cells_cache
 
-        sindex_fn = os.path.join(self.cutout_dir, self.name + ".sindex.pickle")
+        sindex_fn = self.cutout_path.parent / f"{self.name}.sindex.pickle"
         grid_cells = None
-        if not self.is_view and os.path.exists(sindex_fn):
+        if not self.is_view and sindex_fn.exists():
             try:
                 grid_cells = GridCells.from_file(sindex_fn)
             except (EOFError, OSError):

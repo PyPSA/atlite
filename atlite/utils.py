@@ -55,10 +55,12 @@ def make_optional_progressbar(show, prefix, max_value=None):
 
     return maybe_progressbar
 
-def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams):
-    old_cutout_dir = Path(old_cutout_dir)
-    with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:
-        newname = old_cutout_dir.parent / f"{name}.nc"
+def migrate_from_cutout_directory(cutout_path, cutoutparams, config):
+    cutout_dir = config.cutout_dir
+    if cutout_dir is None:
+        cutout_dir = cutout_path.parent
+    new_cutout_path = cutout_dir / f"{cutout_path.stem}.nc"
+    with xr.open_dataset(cutout_path / "meta.nc") as meta:
         module = meta.attrs["module"]
         minX, maxX = meta.indexes['x'][[0, -1]]
         minY, maxY = meta.indexes['y'][[0, -1]]
@@ -67,7 +69,7 @@ def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams)
         logger.warning(textwrap.dedent(f"""
             Found an old-style directory-like cutout. It can manually be recreated using
 
-            cutout = atlite.Cutout("{newname}",
+            cutout = atlite.Cutout("{new_cutout_path.stem}",
                                    module="{module}",
                                    time=slice("{minT}", "{maxT}"),
                                    x=slice({minX}, {maxX}),
@@ -78,7 +80,7 @@ def migrate_from_cutout_directory(old_cutout_dir, name, cutout_fn, cutoutparams)
         """))
 
         try:
-            data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"), combine="by_coords")
+            data = xr.open_mfdataset(cutout_path / "[12]*.nc", combine="by_coords")
             data.attrs.update(meta.attrs)
             logger.warning("Migration successful. You can save the cutout to a new file with `cutout.prepare()`")
         except xr.MergeError:
