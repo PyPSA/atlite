@@ -36,13 +36,13 @@ class Config:
     # Functions called on config change
     _UPDATE_HOOKS = []
 
-    @staticmethod
-    def from_dict(config_dict):
-        return Config(config_dict=config_dict)
+    @classmethod
+    def from_dict(cls, config_dict):
+        return cls(config_dict=config_dict)
 
-    @staticmethod
-    def from_file(config_path):
-        return Config(config_path=config_path)
+    @classmethod
+    def from_file(cls, config_path):
+        return cls(config_path=config_path)
 
     def __init__(self, config_dict=None, config_path=None):
         """Create a config object using a dictionary or by specifying a config file path.
