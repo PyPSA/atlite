@@ -155,7 +155,6 @@ class Config:
 
     def register_update_hook(self, func):
         self._UPDATE_HOOKS.append(func)
-        func(self)
 
     def resolve_filepath(self, path):
         """

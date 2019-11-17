@@ -50,6 +50,7 @@ class Resources:
         self.solarpanels = arrowdict()
 
         config.register_update_hook(self._update_resource_dictionaries)
+        self._update_resource_dictionaries(None)
 
     def _update_resource_dictionaries(self, _):
         self.windturbines.clear()
