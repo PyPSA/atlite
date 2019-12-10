@@ -177,16 +177,18 @@ def prepare_month_era5(year, month, xs, ys):
 
     # Reference of the quantities
     # https://confluence.ecmwf.int/display/CKB/ERA5+data+documentation
-    # (shortName) | (name)                                      | (paramId)
-    # tisr        | TOA incident solar radiation                | 212
-    # ssrd        | Surface Solar Rad Downwards                 | 169
-    # ssr         | Surface net Solar Radiation                 | 176
-    # fdir        | Total sky direct solar radiation at surface | 228021
-    # ro          | Runoff                                      | 205
-    # 2t          | 2 metre temperature                         | 167
-    # sp          | Surface pressure                            | 134
-    # stl4        | Soil temperature level 4                    | 236
-    # fsr         | Forecast surface roughnes                   | 244
+    # (shortName) | (name)                                              | (paramId)
+    # tisr        | TOA incident solar radiation                        | 212
+    # ssrd        | Surface Solar Rad Downwards                         | 169
+    # ssr         | Surface net Solar Radiation                         | 176
+    # fdir        | Total sky direct solar radiation at surface         | 228021
+    # ro          | Runoff                                              | 205
+    # 2t          | 2 metre temperature                                 | 167
+    # sp          | Surface pressure                                    | 134
+    # stl4        | Soil temperature level 4                            | 236
+    # fsr         | Forecast surface roughnes                           | 244
+    # swh         | Significant height of combined wind waves and swell | 140229
+    # pp1d        | Peak wave period                                    | 140231
 
     with _get_data(area=area, year=year, month=month,
                    variable=[
@@ -236,7 +238,9 @@ def prepare_month_era5(year, month, xs, ys):
                         't2m': 'temperature',
                         'sp': 'pressure',
                         'stl4': 'soil temperature',
-                        'fsr': 'roughness'
+                        'fsr': 'roughness',
+                        'swh': 'wave height',
+                        'pp1d': 'wave period'
                         })
 
         ds['runoff'] = ds['runoff'].clip(min=0.)
