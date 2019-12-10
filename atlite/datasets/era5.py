@@ -199,7 +199,9 @@ def prepare_month_era5(year, month, xs, ys):
                        'surface_pressure',
                        'surface_solar_radiation_downwards',
                        'toa_incident_solar_radiation',
-                       'total_sky_direct_solar_radiation_at_surface'
+                       'total_sky_direct_solar_radiation_at_surface',
+                       'significant_height_of_combined_wind_waves_and_swell',
+                       'peak_wave_period'
                    ]) as ds, \
          _get_data(area=area, year=year, month=month, day=1,
                    variable=['forecast_surface_roughness', 'orography']) as ds_m:
