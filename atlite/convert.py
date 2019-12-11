@@ -397,6 +397,28 @@ def wind(cutout, turbine, smooth=False, **params):
     return cutout.convert_and_aggregate(convert_func=convert_wind, turbine=turbine,
                                         **params)
 
+## wave
+
+def convert_wave(ds, turbine):
+    """Convert wave height and period for wec to wave energy generation."""
+
+    V, POW, hub_height, P = itemgetter('V', 'POW', 'hub_height', 'P')(turbine)
+
+    wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
+
+    return xr.DataArray(np.interp(wnd_hub, V, POW/P), coords=wnd_hub.coords)
+
+def wave(cutout, wec, **params):
+    """
+    Generate wave generation time-series
+    """
+
+    if isinstance(wec, string_types):
+        wec = get_wec_config(wec)
+
+    return cutout.convert_and_aggregate(convert_func=convert_wave, wec=wec,
+                                        **params)
+
 ## solar PV
 
 def convert_pv(ds, panel, orientation, trigon_model='simple', clearsky_model='simple'):

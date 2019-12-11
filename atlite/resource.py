@@ -42,6 +42,13 @@ def get_windturbineconfig(turbine):
     V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
     return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
 
+def get_wec_config(wec):
+    """Load the 'wec'.yaml file from local disk and provide a wec dict."""
+    res_name = "resources/wec/" + wec + ".yaml"
+    wecconf = yaml.safe_load(resource_stream(__name__, res_name))
+    # TODO
+    return None
+
 def get_solarpanelconfig(panel):
     res_name = "resources/solarpanel/" + panel + ".yaml"
     return yaml.safe_load(resource_stream(__name__, res_name))
