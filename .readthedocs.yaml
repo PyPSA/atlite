@@ -1,0 +1,27 @@
+# -*- coding: utf-8 -*-
+
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+version: 2
+
+build:
+    image: latest
+
+# Use a conda environment because of
+# the C library dependencies
+conda:
+    environment: doc/environment.yaml
+
+# Configure the python environment
+python:
+    version: 3.7
+    system_packages: true
+
+# Location of SPHINX specific configuration file
+sphinx:
+    configuration: doc/conf.py

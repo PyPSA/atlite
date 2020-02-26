@@ -1,0 +1,41 @@
+# -*- coding: utf-8 -*-
+
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: atlite-doc
+channels:
+  - conda-forge
+dependencies:
+  - python=3.7
+
+  # GIS dependencies have to come all from conda-forge
+  # because of missing C libraries in pip wrappers
+  - conda-forge::pyproj=1.9.6
+  - conda-forge::rasterio=1.0.25
+  - conda-forge::shapely=1.6.4
+  - conda-forge::geopandas=0.5.1
+  - conda-forge::rtree=0.8.3
+
+  # Following suggestion from nbsphinx documentation, install this from conda-forge
+  - pandoc=2.7.3
+
+  - pip
+  - pip:
+    # Install parent directory = use atlite setup.py
+    - ..
+    - bottleneck==1.2.1
+    - cdsapi==0.1.6
+    - dask==2.2.0
+    - numpy==1.17
+    - pandas==0.25.0
+    - progressbar2==3.41.0
+    - pyyaml==5.1.2
+    - xarray==0.12.3
+    - scipy==1.3.0
+    - toolz==0.10.0
+    - sphinx
+    - sphinx_rtd_theme
+    - nbsphinx
+    - nbsphinx_link

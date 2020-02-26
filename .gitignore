@@ -1,8 +1,15 @@
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
 *~
 *.py[cod]
 .~*
 __pycache__
+.ipynb_checkpoints
 doc/_build/
 build/
 dist/
 atlite.egg-info/
+doc/.vscode/settings.json
+.vscode/settings.json

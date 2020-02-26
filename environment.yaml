@@ -1,16 +1,23 @@
+# -*- coding: utf-8 -*-
+
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 name: atlite
 channels:
   - conda-forge
 dependencies:
+  - python>=3.6
   - numpy
   - scipy
   - pandas>=0.22.0
   - xarray>=0.11.2
-  - dask>=0.18.0
   - netcdf4
+  - dask>=0.18.0
   - progressbar2
-  - requests
   - yaml
+  - cdsapi
 
   # Recommended for pandas and xarray
   - bottleneck
@@ -22,3 +29,4 @@ dependencies:
   - conda-forge::shapely
   - conda-forge::libgdal
   - conda-forge::geopandas
+  - conda-forge::rtree

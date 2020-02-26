@@ -1,23 +1,11 @@
-## Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)
+# -*- coding: utf-8 -*-
 
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 3 of the
-## License, or (at your option) any later version.
-
-## This program is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-
-## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Renewable Energy Atlas Lite (Atlite)
-
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+Base class for Atlite.
 """
 
 # There is a binary incompatibility between the pip wheels of netCDF4 and
@@ -48,9 +36,47 @@ from .gis import GridCells
 from .data import requires_coords, requires_windowed, cutout_prepare
 
 class Cutout:
+
     dataset_module = None
 
     def __init__(self, path=None, data=None, cutout_dir=None, **cutoutparams):
+        """
+        Provide an Atlite cutout object.
+
+        Create a cutout object to use atlite operations on it.
+        Based on the provided parameters, atlite first checks
+        whether this cutout already exists on disk and if yes,
+        loads this cutout.
+
+        If the cutout does not yet exist on disk, then atlite
+        creates an "unprepared" cutout object containing all the
+        necessary information for creating the requested cutout,
+        but does not yet create ("prepare") it fully.
+        The process of preparing has to be manually started by
+        `cutout.prepare()`.
+
+        Parameters
+        ----------
+        path : str | path-like
+            NetCDF from which to load or where to store the cutout
+        data : (opt.) xr.Dataset
+            Specify the NetCDF data directly
+        module : ["era5","ncep","cordex","sarah"]
+            The dataset which works as a basis for the cutout
+            creation.
+        time : str | slice
+            Time range to include in the cutout, e.g. "2011" or
+            ("2011-01-05", "2011-01-25")
+        bounds : (opt.) GeoSeries.bounds | DataFrame
+            The outer bounds of the cutout or as a DataFrame
+            containing (min.long, min.lat, max.long, max.lat).
+        x : (opt.) slice
+            Outer longitudinal bounds for the cutout (west, east).
+        y : (opt.) slice
+            Outer latitudinal bounds for the cutout (south, north).
+        time : (opt.) slice
+
+        """
         if cutout_dir is not None:
             warn("The argument `cutout_dir` has been deprecated in favour of just `path`", DeprecationWarning)
             path = Path(cutout_dir) / path
