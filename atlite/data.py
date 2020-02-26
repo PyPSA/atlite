@@ -189,7 +189,7 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
 
         if cutout.is_view:
             assert features is None, f"It's not possible to add features to a view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first."
-            assert not os.path.exists(cutout.cutout_fn) or overwrite, f"Not overwriting {cutout.cutout_fn} with a view, unless `overwrite=True`."
+            assert not os.path.exists(cutout.path) or overwrite, f"Not overwriting {cutout.path} with a view, unless `overwrite=True`."
 
             ds = cutout.data
             if 'prepared_features' not in ds.attrs:
@@ -201,7 +201,8 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
 
             if not missing_features and not overwrite:
                 logger.info(f"All available features {cutout.available_features} have already been prepared, so nothing to do."
-                            f" Use `overwrite=True` to re-create {cutout.name}.nc and {cutout.name}.sindex.pickle.")
+                            f" Use `overwrite=True` to re-create {cutout.path.name} and"
+                            f" {cutout.path.with_suffix('.sindex.pickle').name}.")
                 return
 
             ds = get_missing_data(cutout, missing_features, freq, tmpdir=tmpdir)
@@ -213,7 +214,7 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
 
         # Write to a temporary file in the same directory first and then move back,
         # because we might still want to load data from the original file in the process
-        directory, filename = os.path.split(cutout.cutout_fn)
+        directory, filename = os.path.split(str(cutout.path))
         fd, target = mkstemp(suffix=filename, dir=directory)
         os.close(fd)
 
@@ -224,9 +225,9 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
         if not cutout.is_view:
             cutout.data.close()
 
-        if os.path.exists(cutout.cutout_fn):
-            os.unlink(cutout.cutout_fn)
-        os.rename(target, cutout.cutout_fn)
+        if cutout.path.exists():
+            cutout.path.unlink()
+        os.rename(target, cutout.path)
     finally:
         # ds is the last reference to the temporary files:
         # - we remove it from this scope, and
@@ -239,11 +240,11 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
             rmtree(tmpdir)
 
     # Re-open
-    cutout.data = xr.open_dataset(cutout.cutout_fn, cache=False)
+    cutout.data = xr.open_dataset(cutout.path, cache=False)
     prepared_features = cutout.data.attrs.get('prepared_features')
     if not isinstance(prepared_features, list):
         cutout.data.attrs['prepared_features'] = [prepared_features]
 
     # Save spatial index
-    sindex_fn = os.path.join(cutout.cutout_dir, cutout.name + ".sindex.pickle")
+    sindex_fn = cutout.path.with_suffix(".sindex.pickle")
     cutout._grid_cells.to_file(sindex_fn)

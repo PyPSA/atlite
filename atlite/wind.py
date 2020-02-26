@@ -21,8 +21,6 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 """
 import numpy as np
 
-from . import config
-
 import logging
 logger = logging.getLogger(__name__)
 

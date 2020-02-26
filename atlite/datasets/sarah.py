@@ -27,8 +27,6 @@ import xarray as xr
 from dask import delayed
 from functools import partial
 
-from .. import config
-
 import logging
 logger = logging.getLogger(__name__)
 
@@ -67,7 +65,7 @@ def _get_filenames(sarah_dir, period):
         pattern = os.path.join(sarah_dir, directory, "*.nc")
         files = pd.Series(glob.glob(os.path.join(sarah_dir, directory, "*.nc")))
         assert not files.empty, \
-            f"No files found at {pattern}. Make sure config.sarah_dir points to the correct directory!"
+            f"No files found at {pattern}. Make sure sarah_dir points to the correct directory!"
 
         files.index = pd.to_datetime(files.str.extract(r"SI.in(\d{8})", expand=False))
         return files.sort_index()
@@ -100,7 +98,7 @@ def _get_filenames(sarah_dir, period):
     return files.sort_index()
 
 def get_coords(time, x, y, **creation_parameters):
-    files = _get_filenames(creation_parameters.get('sarah_dir', config.sarah_dir), time)
+    files = _get_filenames(creation_parameters['sarah_dir'], time)
 
     res = creation_parameters.get('resolution', resolution)
 
@@ -147,8 +145,8 @@ def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None, **creatio
     ds = ds.assign_coords(x=x, y=y)
     return ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
 
-def _get_data_sarah(coords, period, **creation_parameters):
-    files = _get_filenames(creation_parameters['sarah_dir'], period)
+def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
+    files = _get_filenames(sarah_dir, period)
     res = creation_parameters.get('resolution', resolution)
     chunks = creation_parameters.get('chunks', {'time': 12})
 
@@ -215,9 +213,6 @@ def _get_data_sarah(coords, period, **creation_parameters):
     return ds
 
 def get_data_sarah(coords, period, **creation_parameters):
-    # In a distributed setting the workers don't have access to the config module
-    creation_parameters.setdefault("sarah_dir", config.sarah_dir)
-
     return delayed(_get_data_sarah)(coords, period, **creation_parameters)
 
 def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):

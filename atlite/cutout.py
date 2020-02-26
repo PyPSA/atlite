@@ -35,11 +35,11 @@ import numpy as np
 import os, sys
 from warnings import warn
 from shapely.geometry import box
+from pathlib import Path
 
 import logging
 logger = logging.getLogger(__name__)
 
-from . import config
 from . import datasets, utils
 
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
@@ -47,26 +47,21 @@ from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
 from .gis import GridCells
 from .data import requires_coords, requires_windowed, cutout_prepare
 
-class Cutout(object):
+class Cutout:
     dataset_module = None
 
-    def __init__(self, name=None, data=None, cutout_dir=None, **cutoutparams):
+    def __init__(self, path=None, data=None, cutout_dir=None, **cutoutparams):
+        if cutout_dir is not None:
+            warn("The argument `cutout_dir` has been deprecated in favour of just `path`", DeprecationWarning)
+            path = Path(cutout_dir) / path
+        elif isinstance(path, xr.Dataset):
+            data = path
+            path = Path("unnamed.nc")
+        else:
+            path = Path(path)
 
-        if isinstance(name, xr.Dataset):
-            data = name
-            name = data.attrs.get("name", "unnamed")
-
-        dirname, name = os.path.split(name)
-        if dirname:
-            cutout_dir = dirname
-        elif cutout_dir is None:
-            if config.cutout_dir:
-                cutout_dir = utils.construct_filepath(config.cutout_dir)
-            else:
-                cutout_dir = "."
-
-        self.name = name
-        self.cutout_dir = cutout_dir
+        if not path.suffix and not path.is_dir():
+            path = path.with_suffix(".nc")
 
         if 'bounds' in cutoutparams:
             x1, y1, x2, y2 = cutoutparams.pop('bounds')
@@ -89,20 +84,18 @@ class Cutout(object):
         if data is None:
             self.is_view = False
 
-            if os.path.isfile(self.cutout_fn):
-                data = xr.open_dataset(self.cutout_fn, cache=False)
+            if path.is_file():
+                data = xr.open_dataset(str(path), cache=False)
                 prepared_features = data.attrs.get('prepared_features')
                 assert prepared_features is not None, \
-                    f"{self.cutout_fn} does not have the required attribute `prepared_features`"
+                    f"{self.name} does not have the required attribute `prepared_features`"
                 if not isinstance(prepared_features, list):
                     data.attrs['prepared_features'] = [prepared_features]
-                # TODO we might want to compare the provided `cutoutparams` with what is saved
-            elif os.path.isdir(os.path.join(self.cutout_dir, self.name)):
-                data = utils.migrate_from_cutout_directory(os.path.join(self.cutout_dir, self.name),
-                                                           self.name, self.cutout_fn, cutoutparams)
+            elif path.is_dir():
+                data = utils.migrate_from_cutout_directory(path)
                 self.is_view = True
             else:
-                logger.info(f"Cutout {self.name} not found in directory {self.cutout_dir}, building new one")
+                logger.info(f"Cutout {path} not found, building new one")
 
                 if {"x", "y", "time"}.difference(cutoutparams):
                     raise RuntimeError("Arguments `x`, `y` and `time` need to be specified (or `bounds` instead of `x` and `y`)")
@@ -128,12 +121,13 @@ class Cutout(object):
             logger.warning("No module given as argument nor in the dataset. Falling back to 'era5'.")
             data.attrs['module'] = 'era5'
 
+        self.path = path
         self.data = data
         self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
 
     @property
-    def cutout_fn(self):
-        return os.path.join(self.cutout_dir, self.name + ".nc")
+    def name(self):
+        return self.path.stem
 
     @property
     def projection(self):
@@ -181,13 +175,13 @@ class Cutout(object):
         if self._grid_cells_cache is not None:
             return self._grid_cells_cache
 
-        sindex_fn = os.path.join(self.cutout_dir, self.name + ".sindex.pickle")
+        sindex_fn = self.path.with_suffix(".sindex.pickle")
         grid_cells = None
-        if not self.is_view and os.path.exists(sindex_fn):
+        if not self.is_view and sindex_fn.exists():
             try:
                 grid_cells = GridCells.from_file(sindex_fn)
             except (EOFError, OSError):
-                logger.warning(f"Couldn't read GridCells from cache {sindex_fn}. Reconstructing ...")
+                logger.warning(f"Couldn't read GridCells from cache {sindex_fn.name}. Reconstructing ...")
 
         if grid_cells is None:
             grid_cells = GridCells.from_cutout(self)
@@ -210,14 +204,15 @@ class Cutout(object):
             x1, y1, x2, y2 = bounds
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
-        return Cutout(self.name, data)
+        return Cutout(self.path.name, data)
 
     def __repr__(self):
         return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} prepared_features={} is_view={}>'
                 .format(self.name,
                         self.coords['x'].values[0], self.coords['x'].values[-1],
                         self.coords['y'].values[0], self.coords['y'].values[-1],
-                        self.coords['time'].values[0], self.coords['time'].values[-1],
+                        np.datetime_as_string(self.coords['time'].values[0], unit='D'),
+                        np.datetime_as_string(self.coords['time'].values[-1], unit='D'),
                         list(self.prepared_features),
                         self.is_view))
 

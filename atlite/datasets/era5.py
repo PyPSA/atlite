@@ -22,7 +22,6 @@ Light-weight version of Aarhus RE Atlas for converting weather data to power sys
 """
 
 import os
-from ..utils import construct_filepath
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -31,7 +30,6 @@ from dask import delayed
 import logging
 logger = logging.getLogger(__name__)
 
-from .. import config
 from .common import retrieve_data, get_data_gebco_height
 
 # Model and Projection Settings
@@ -66,7 +64,7 @@ def _add_height(ds):
 
 def _area(xs, ys):
     # North, West, South, East. Default: global
-    return [ys.start, xs.start, ys.stop, xs.stop]
+    return [ys.stop, xs.start, ys.start, xs.stop]
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
     """Rename 'longitude' and 'latitude' columns to 'x' and 'y'
@@ -204,9 +202,9 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
     else:
         raise TypeError(f"{period} should be one of pd.Timestamp or pd.Period")
 
-    gebco_path = creation_parameters.pop('gebco_path', config.gebco_path)
+    gebco_path = creation_parameters.pop('gebco_path', None)
     if gebco_path and feature == 'height':
-        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], construct_filepath(config.gebco_path))
+        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], gebco_path)
 
     if creation_parameters:
         logger.debug(f"Unused creation_parameters: {', '.join(creation_parameters)}")
@@ -229,12 +227,9 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
     if func is None:
         raise NotImplementedError(f"Feature '{feature}' has not been implemented for dataset era5")
 
-
     ds = delayed(func)(retrieval_params)
 
     if sanitize and sanitize_func is not None:
         ds = delayed(sanitize_func)(ds)
 
     return ds
-
-

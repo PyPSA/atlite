@@ -17,7 +17,13 @@
 """
 Renewable Energy Atlas Lite (Atlite)
 
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+NCEP dataset
+
+DEPRECATED
+----------
+
+The ncep dataset module has not been ported to Atlite v0.2, yet. Use Atlite v0.0.2 to use it,
+for the time being!
 """
 
 import pandas as pd
@@ -28,8 +34,6 @@ import glob
 import tempfile
 import subprocess
 import shutil
-
-from .. import config
 
 engine = 'pynio'
 projection = 'latlong'
