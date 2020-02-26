@@ -18,6 +18,10 @@
 Renewable Energy Atlas Lite (Atlite)
 
 Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+
+This dataset module reads data from the CMSAF SARAH data available from
+https://wui.cmsaf.eu/safira/action/viewDoiDetails?acronym=SARAH_V002_01 or
+https://wui.cmsaf.eu/safira/action/viewICDRDetails?acronym=SARAH_V002_ICDR
 """
 
 import os, glob
@@ -125,12 +129,11 @@ def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None, **creatio
     ys = slice(*y[[0,-1]])
 
     lx, rx = x[[0, -1]]
-    uy, ly = y[[0, -1]]
+    ly, uy = y[[0, -1]]
     dx = float(rx - lx)/float(len(x)-1)
     dy = float(uy - ly)/float(len(y)-1)
 
-    del creation_parameters['x'], creation_parameters['y']
-    creation_parameters.pop("sarah_dir", None)
+    del creation_parameters['x'], creation_parameters['y'], creation_parameters['sarah_dir']
 
     ds = get_era5_data(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir,
                        x=xs, y=ys, dx=dx, dy=dy, **creation_parameters)
@@ -218,8 +221,8 @@ def get_data_sarah(coords, period, **creation_parameters):
 def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
     if feature == 'influx':
         ds = delayed(xr.merge)([
-            get_data_sarah(coords, period, **creation_parameters),
-            get_data_era5(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir, **creation_parameters)
+            get_data_era5(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir, **creation_parameters),
+            get_data_sarah(coords, period, **creation_parameters)
         ])
     elif feature == 'temperature':
         ds = get_data_era5(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir, **creation_parameters)
