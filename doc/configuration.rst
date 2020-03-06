@@ -7,6 +7,8 @@
 Configuration
 #############
 
+.. warning:: The configuration system described in this page has not been released.
+
 Different settings of Atlite are set with defaults that
 suit people in their first steps.
 
