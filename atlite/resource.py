@@ -176,7 +176,7 @@ def get_oedb_windturbineconfig(search=None, **search_params):
     Download the configuration of a windturbine model from the OEDB database
     into the local 'windturbine_dir'.
     The OEDB database can be viewed here:
-    https://openenergy-platform.org/dataedit/view/supply/turbine_library
+    https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library
     (2019-07-22)
     Only one turbine configuration is downloaded at a time, if the
     search parameters yield an ambigious result, no data is downloaded.
