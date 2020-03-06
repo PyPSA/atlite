@@ -49,16 +49,16 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     return ds
 
 def _get_filenames(sarah_dir, period):
-    def _filenames_for_dir(directory):
-        pattern = os.path.join(sarah_dir, directory, "*.nc")
-        files = pd.Series(glob.glob(os.path.join(sarah_dir, directory, "*.nc")))
+    def _filenames_starting_with(name):
+        pattern = os.path.join(sarah_dir, "**", f"{name}*.nc")
+        files = pd.Series(glob.glob(pattern, recursive=True)))
         assert not files.empty, \
             f"No files found at {pattern}. Make sure sarah_dir points to the correct directory!"
 
         files.index = pd.to_datetime(files.str.extract(r"SI.in(\d{8})", expand=False))
         return files.sort_index()
-    files = pd.concat(dict(sis=_filenames_for_dir("sis"),
-                           sid=_filenames_for_dir("sid")),
+    files = pd.concat(dict(sis=_filenames_starting_with("SIS"),
+                           sid=_filenames_starting_with("SID")),
                       join="inner", axis=1)
 
     if isinstance(period, (str, slice)):
