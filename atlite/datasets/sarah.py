@@ -51,7 +51,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
 def _get_filenames(sarah_dir, period):
     def _filenames_starting_with(name):
         pattern = os.path.join(sarah_dir, "**", f"{name}*.nc")
-        files = pd.Series(glob.glob(pattern, recursive=True)))
+        files = pd.Series(glob.glob(pattern, recursive=True))
         assert not files.empty, \
             f"No files found at {pattern}. Make sure sarah_dir points to the correct directory!"
 
