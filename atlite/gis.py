@@ -164,12 +164,12 @@ class GridCells:
 
     @staticmethod
     def from_file(filename):
-        with open(filename, mode='rb') as f:
-            return pickle.load(f)
+        pass
 
     def to_file(self, filename):
-        with open(filename, mode='wb') as f:
-            pickle.dump(self, f, protocol=-1)
+        # Turns out the spatial index gets distorted by pickling, so we turn this
+        # into a no-op, until we figure out a work-around
+        pass
 
     def indicatormatrix(self, shapes, shapes_projection='latlong'):
         shapes = reproject_shapes(shapes, shapes_projection, self.projection)

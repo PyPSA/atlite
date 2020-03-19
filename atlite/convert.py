@@ -14,6 +14,7 @@ import pandas as pd
 import datetime as dt
 import scipy as sp, scipy.sparse
 from operator import itemgetter
+from pathlib import Path
 
 from .aggregate import aggregate_sum, aggregate_matrix
 from .gis import spdiag, compute_indicatormatrix
@@ -386,7 +387,7 @@ def wind(cutout, turbine, smooth=False, **params):
         1074 – 1088. doi:10.1016/j.energy.2015.09.071
     """
 
-    if isinstance(turbine, str):
+    if isinstance(turbine, (str, Path)):
         turbine = get_windturbineconfig(turbine)
 
     if smooth:
@@ -453,7 +454,7 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
         Eurosun (ISES Europe Solar Congress).
     """
 
-    if isinstance(panel, str):
+    if isinstance(panel, (str, Path)):
         panel = get_solarpanelconfig(panel)
     if not callable(orientation):
         orientation = get_orientation(orientation)
