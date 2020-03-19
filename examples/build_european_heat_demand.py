@@ -16,7 +16,7 @@ import scipy as sp
 
 import atlite
 
-cutout = atlite.Cutout('europe-2011-2014')
+cutout = atlite.Cutout(path='europe-2011.nc')
 
 #list of grid cells
 grid_cells = cutout.grid_cells()
