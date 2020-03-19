@@ -79,7 +79,6 @@ solar thermal collectors and heating demand.
 
    introduction
    installation
-   configuration
 
 .. toctree::
    :hidden:
@@ -87,6 +86,7 @@ solar thermal collectors and heating demand.
    :caption: Examples
 
    examples/create_cutout.ipynb
+   examples/create_cutout_SARAH.ipynb
    examples/plotting_with_atlite.ipynb
    examples/logfiles_and_messages.ipynb
    examples/more_examples.rst
