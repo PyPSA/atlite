@@ -12,30 +12,32 @@ dependencies:
 
   # GIS dependencies have to come all from conda-forge
   # because of missing C libraries in pip wrappers
-  - conda-forge::pyproj=1.9.6
-  - conda-forge::rasterio=1.0.25
-  - conda-forge::shapely=1.6.4
-  - conda-forge::geopandas=0.5.1
-  - conda-forge::rtree=0.8.3
+  - conda-forge::pyproj=2.6.0
+  - conda-forge::rasterio=1.1.3
+  - conda-forge::shapely=1.7.0
+  - conda-forge::geopandas=0.7.0
+  - conda-forge::rtree=0.9.4
 
   # Following suggestion from nbsphinx documentation, install this from conda-forge
-  - pandoc=2.7.3
+  - pandoc=2.9.2.1
 
   - pip
   - pip:
     # Install parent directory = use atlite setup.py
     - ..
     - bottleneck==1.2.1
-    - cdsapi==0.1.6
-    - dask==2.2.0
-    - numpy==1.17
-    - pandas==0.25.0
+    - cdsapi==0.2.7
+    - dask==2.15.0
+    - numpy==1.18.1
+    - pandas==1.0.3
     - progressbar2==3.41.0
     - pyyaml==5.1.2
-    - xarray==0.12.3
-    - scipy==1.3.0
+    - xarray==0.15.1
+    - scipy==1.4.1
     - toolz==0.10.0
-    - sphinx
+    # temporarily pin sphinx version as recommended in https://github.com/readthedocs/readthedocs.org/issues/6870
+    # to fix RTD bug.
+    - sphinx==3.0.0
     - sphinx_rtd_theme
     - nbsphinx
     - nbsphinx_link
