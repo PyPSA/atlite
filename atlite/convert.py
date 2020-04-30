@@ -219,9 +219,9 @@ def soil_temperature(cutout, **params):
 def convert_heat_demand(ds, threshold, a, constant, hour_shift):
     #Temperature is in Kelvin; take daily average
     T = ds['temperature']
-    T.coords['time'].values += np.timedelta64(dt.timedelta(hours=hour_shift))
+    T = T.assign_coords(time=(T.coords['time'] + np.timedelta64(dt.timedelta(hours=hour_shift))))
 
-    T = ds['temperature'].resample(time="1D").mean(dim='time')
+    T = T.resample(time="1D").mean(dim='time')
     threshold += 273.15
     heat_demand = a*(threshold - T)
 
