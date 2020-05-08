@@ -51,8 +51,8 @@ def _add_height(ds):
 
 def _area(coords):
     # North, West, South, East. Default: global
-    x0, x1 = coords['x'].values[[0,-1]]
-    y0, y1 = coords['y'].values[[0,-1]]
+    x0, x1 = coords['x'].min().item(), coords['x'].max().item()
+    y0, y1 = coords['y'].min().item(), coords['y'].max().item()
     return [y1, x0, y0, x1]
 
 
