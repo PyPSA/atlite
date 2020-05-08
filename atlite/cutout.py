@@ -101,8 +101,8 @@ class Cutout:
         # Ensure correct ordering of slices
         x = cutoutparams['x']
         y = cutoutparams['y']
-        cutoutparams['x'] = slice(*sorted(x.start, x.stop))
-        cutoutparams['y'] = slice(*sorted(y.start, y.stop))
+        cutoutparams['x'] = slice(*sorted([x.start, x.stop]))
+        cutoutparams['y'] = slice(*sorted([y.start, y.stop]))
 
         if {'years', 'months'}.intersection(cutoutparams):
             warn("The arguments `years` and `months` have been deprecated in favour of `time`", DeprecationWarning)
