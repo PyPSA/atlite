@@ -98,11 +98,6 @@ class Cutout:
             if 'xs' in cutoutparams: cutoutparams['x'] = cutoutparams.pop('xs')
             if 'ys' in cutoutparams: cutoutparams['y'] = cutoutparams.pop('ys')
 
-        # Ensure correct ordering of slices
-        x = cutoutparams['x']
-        y = cutoutparams['y']
-        cutoutparams['x'] = slice(*sorted([x.start, x.stop]))
-        cutoutparams['y'] = slice(*sorted([y.start, y.stop]))
 
         if {'years', 'months'}.intersection(cutoutparams):
             warn("The arguments `years` and `months` have been deprecated in favour of `time`", DeprecationWarning)
@@ -129,7 +124,14 @@ class Cutout:
                 logger.info(f"Cutout {path} not found, building new one")
 
                 if {"x", "y", "time"}.difference(cutoutparams):
-                    raise RuntimeError("Arguments `x`, `y` and `time` need to be specified (or `bounds` instead of `x` and `y`)")
+                    raise RuntimeError("Arguments `x`, `y` and `time` need to be "
+                                       "specified (or `bounds` instead of `x` and `y`)")
+
+                # Ensure correct ordering of slices
+                x = cutoutparams['x']
+                y = cutoutparams['y']
+                cutoutparams['x'] = slice(*sorted([x.start, x.stop]))
+                cutoutparams['y'] = slice(*sorted([y.start, y.stop]))
 
                 if 'module' not in cutoutparams:
                     logger.warning("`module` was not specified, falling back to 'era5'")
