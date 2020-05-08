@@ -91,13 +91,18 @@ class Cutout:
 
         if 'bounds' in cutoutparams:
             x1, y1, x2, y2 = cutoutparams.pop('bounds')
-            cutoutparams.update(x=slice(x1, x2),
-                                y=slice(y1, y2))
+            cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
 
         if {'xs', 'ys'}.intersection(cutoutparams):
             warn("The arguments `xs` and `ys` have been deprecated in favour of `x` and `y`", DeprecationWarning)
             if 'xs' in cutoutparams: cutoutparams['x'] = cutoutparams.pop('xs')
             if 'ys' in cutoutparams: cutoutparams['y'] = cutoutparams.pop('ys')
+
+        # Ensure correct ordering of slices
+        x = cutoutparams['x']
+        y = cutoutparams['y']
+        cutoutparams['x'] = slice(*sorted(x.start, x.stop))
+        cutoutparams['y'] = slice(*sorted(y.start, y.stop))
 
         if {'years', 'months'}.intersection(cutoutparams):
             warn("The arguments `years` and `months` have been deprecated in favour of `time`", DeprecationWarning)
