@@ -49,9 +49,12 @@ def _add_height(ds):
     ds = ds.drop('z')
     return ds
 
-def _area(xs, ys):
+def _area(coords):
     # North, West, South, East. Default: global
-    return [ys.stop, xs.start, ys.start, xs.stop]
+    x0, x1 = coords['x'].min().item(), coords['x'].max().item()
+    y0, y1 = coords['y'].min().item(), coords['y'].max().item()
+    return [y1, x0, y0, x1]
+
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
     """Rename 'longitude' and 'latitude' columns to 'x' and 'y'
@@ -168,10 +171,10 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
     assert tmpdir is not None
 
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
-                        'area': _area(creation_parameters.pop('x'),
-                                      creation_parameters.pop('y')),
+                        'area': _area(coords),
                         'tmpdir': tmpdir,
                         'chunks': creation_parameters.pop('chunks', None)}
+
 
     if {'dx', 'dy'}.issubset(creation_parameters):
         retrieval_params['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
