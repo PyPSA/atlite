@@ -13,6 +13,8 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 from dask import delayed
+from ..gis import maybe_swap_spatial_dims
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -63,6 +65,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     """
 
     ds = ds.rename({'longitude': 'x', 'latitude': 'y'})
+    ds = maybe_swap_spatial_dims(ds)
     if add_lon_lat:
         ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     return ds
@@ -139,7 +142,8 @@ def sanitize_inflow(ds):
     return ds
 
 def get_data_temperature(retrieval_params):
-    ds = retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'], **retrieval_params)
+    ds = retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'],
+                       **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
     ds = ds.rename({'t2m': 'temperature', 'stl4': 'soil temperature'})
