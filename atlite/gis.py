@@ -27,6 +27,7 @@ import rasterio as rio
 import rasterio.warp
 from rasterio.warp import Resampling
 from rtree.index import Index
+from shapely.strtree import STRtree
 
 import logging
 logger = logging.getLogger(__name__)
@@ -121,29 +122,15 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
 
     dest = reproject_shapes(dest, dest_proj, orig_proj)
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
+    tree = STRtree(orig)
+    idx = dict((id(o), i) for i, o in enumerate(orig))
 
-    try:
-        from rtree.index import Index
-
-        idx = Index()
-        for j, o in enumerate(orig):
-            idx.insert(j, o.bounds)
-
-        for i, d in enumerate(dest):
-            for j in idx.intersection(d.bounds):
-                o = orig[j]
+    for i, d in enumerate(dest):
+        for o in tree.query(d):
+            if o.intersects(d):
+                j = idx[id(o)]
                 area = d.intersection(o).area
                 indicator[i,j] = area/o.area
-
-    except ImportError:
-        logger.warning("Rtree is not available. Falling back to slower algorithm.")
-
-        dest_prepped = list(map(prep, dest))
-
-        for i,j in product(range(len(dest)), range(len(orig))):
-            if dest_prepped[i].intersects(orig[j]):
-                area = dest[i].intersection(orig[j]).area
-                indicator[i,j] = area/orig[j].area
 
     return indicator
 
