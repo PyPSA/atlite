@@ -39,7 +39,7 @@ class Cutout:
 
     dataset_module = None
 
-    def __init__(self, path=None, data=None, cutout_dir=None, **cutoutparams):
+    def __init__(self, path="unnamed.nc", data=None, **cutoutparams):
         """
         Provide an Atlite cutout object.
 
@@ -77,12 +77,17 @@ class Cutout:
         time : (opt.) slice
 
         """
-        if cutout_dir is not None:
-            warn("The argument `cutout_dir` has been deprecated in favour of just `path`", DeprecationWarning)
-            path = Path(cutout_dir) / path
+
+        # Deprecate arguments 'name' and 'cutout_dir'. To be removed in later versions
+        # For now prefer them over new argument 'path' (only if specified).
+        name = cutoutparams.get("name", None)
+        cutout_dir = cutoutparams.get("cutout_dir", None)
+        if cutout_dir or name:
+            warn("The argument `cutout_dir` and `name` have been deprecated in "
+                 "favour of `path`.", DeprecationWarning)
+            path = Path(cutout_dir if cutout_dir else ".") / name if name else path
         elif isinstance(path, xr.Dataset):
             data = path
-            path = Path("unnamed.nc")
         else:
             path = Path(path)
 
@@ -94,13 +99,15 @@ class Cutout:
             cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
 
         if {'xs', 'ys'}.intersection(cutoutparams):
-            warn("The arguments `xs` and `ys` have been deprecated in favour of `x` and `y`", DeprecationWarning)
+            warn("The arguments `xs` and `ys` have been deprecated in favour of "
+                 "`x` and `y`", DeprecationWarning)
             if 'xs' in cutoutparams: cutoutparams['x'] = cutoutparams.pop('xs')
             if 'ys' in cutoutparams: cutoutparams['y'] = cutoutparams.pop('ys')
 
 
         if {'years', 'months'}.intersection(cutoutparams):
-            warn("The arguments `years` and `months` have been deprecated in favour of `time`", DeprecationWarning)
+            warn("The arguments `years` and `months` have been deprecated in "
+                 "favour of `time`", DeprecationWarning)
             assert 'years' in cutoutparams
             months = cutoutparams.pop("months", slice(1, 12))
             years = cutoutparams.pop("years")
@@ -113,8 +120,8 @@ class Cutout:
             if path.is_file():
                 data = xr.open_dataset(str(path), cache=False)
                 prepared_features = data.attrs.get('prepared_features')
-                assert prepared_features is not None, \
-                    f"{self.name} does not have the required attribute `prepared_features`"
+                assert prepared_features is not None, (f"{self.name} does not"
+                            " have the required attribute `prepared_features`")
                 if not isinstance(prepared_features, list):
                     data.attrs['prepared_features'] = [prepared_features]
             elif path.is_dir():
@@ -124,8 +131,8 @@ class Cutout:
                 logger.info(f"Cutout {path} not found, building new one")
 
                 if {"x", "y", "time"}.difference(cutoutparams):
-                    raise RuntimeError("Arguments `x`, `y` and `time` need to be "
-                                       "specified (or `bounds` instead of `x` and `y`)")
+                    raise RuntimeError("Arguments `x`, `y` and `time` need to "
+                            "be specified (or `bounds` instead of `x` and `y`)")
 
                 # Ensure correct ordering of slices
                 x = cutoutparams['x']
@@ -134,11 +141,13 @@ class Cutout:
                 cutoutparams['y'] = slice(*sorted([y.start, y.stop]))
 
                 if 'module' not in cutoutparams:
-                    logger.warning("`module` was not specified, falling back to 'era5'")
+                    logger.warning("`module` was not specified, falling back "
+                                   "to 'era5'")
 
-                data = xr.Dataset(attrs={'module': cutoutparams.pop('module', 'era5'),
-                                         'prepared_features': [],
-                                         'creation_parameters': str(cutoutparams)})
+                data = xr.Dataset(attrs=
+                                  {'module': cutoutparams.pop('module', 'era5'),
+                                   'prepared_features': [],
+                                   'creation_parameters': str(cutoutparams)})
         else:
             # User-provided dataset
             # TODO needs to be checked, sanitized and marked as immutable (is_view)
@@ -147,16 +156,19 @@ class Cutout:
         if 'module' in cutoutparams:
             module = cutoutparams.pop('module')
             if module != data.attrs.get('module'):
-                logger.warning("Selected module '{}' disagrees with specification in dataset '{}'. Taking your choice."
-                               .format(module, data.attrs.get('module')))
+                logger.warning(f"Selected module '{module}' disagrees with "
+                      f"specification in dataset '{data.attrs.get('module')}'. "
+                      "Taking your choice.")
                 data.attrs['module'] = module
         elif 'module' not in data.attrs:
-            logger.warning("No module given as argument nor in the dataset. Falling back to 'era5'.")
+            logger.warning("No module given as argument nor in the dataset. "
+                           "Falling back to 'era5'.")
             data.attrs['module'] = 'era5'
 
         self.path = path
         self.data = data
-        self.dataset_module = sys.modules['atlite.datasets.' + self.data.attrs['module']]
+        self.dataset_module = sys.modules['atlite.datasets.' +
+                                          self.data.attrs['module']]
 
     @property
     def name(self):
@@ -168,7 +180,10 @@ class Cutout:
 
     @property
     def available_features(self):
-        return set(self.dataset_module.features) if self.dataset_module and not self.is_view else set()
+        if self.dataset_module and not self.is_view:
+            return set(self.dataset_module.features)
+        else:
+            return set()
 
     @property
     @requires_coords
@@ -177,7 +192,8 @@ class Cutout:
 
     @property
     def meta(self):
-        warn("The `meta` attribute is deprecated in favour of direct access to `data`", DeprecationWarning)
+        warn("The `meta` attribute is deprecated in favour of direct "
+             "access to `data`", DeprecationWarning)
         return xr.Dataset(self.coords, attrs=self.data.attrs)
 
     @property
@@ -191,7 +207,8 @@ class Cutout:
 
     @property
     def prepared(self):
-        warn("The `prepared` attribute is deprecated in favour of the fine-grained `prepared_features` list", DeprecationWarning)
+        warn("The `prepared` attribute is deprecated in favour of the "
+             "fine-grained `prepared_features` list", DeprecationWarning)
         return self.prepared_features == self.available_features
 
     @property
@@ -229,7 +246,8 @@ class Cutout:
         return Cutout(self.path.name, data)
 
     def __repr__(self):
-        return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} prepared_features={} is_view={}>'
+        return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} '
+                'prepared_features={} is_view={}>'
                 .format(self.name,
                         self.coords['x'].values[0], self.coords['x'].values[-1],
                         self.coords['y'].values[0], self.coords['y'].values[-1],
