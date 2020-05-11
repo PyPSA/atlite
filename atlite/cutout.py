@@ -77,8 +77,9 @@ class Cutout:
         time : (opt.) slice
 
         """
+        name = cutoutparams.get("name", None)
         if cutout_dir or name:
-            warn("The arguments `cutout_dir` and `name` have been deprecated in 
+            warn("The arguments `cutout_dir` and `name` have been deprecated in "
                  "favour of `path`.", DeprecationWarning)
             path = Path(cutout_dir if cutout_dir else ".") / name if name else path
         elif isinstance(path, xr.Dataset):
