@@ -8,22 +8,16 @@ Created on Wed May  6 15:23:13 2020
 
 # IDEAS for tests
 
-import os
-import xarray as xr
-from xarray import Dataset
 import pandas as pd
-import urllib3
-from atlite.datasets.sarah import get_data_era5
-urllib3.disable_warnings()
-
 import atlite
 from atlite import Cutout
 from xarray.testing import assert_allclose, assert_equal
+import numpy as np
 
 
 time='2013-01-01'
-x0 = -14
-y0 = 51
+x0 = -4
+y0 = 56
 x1 = 1.5
 y1 = 61
 
@@ -36,64 +30,65 @@ def test_odd_bounds_coords():
     assert_equal(cutout.data.coords.to_dataset(), ref.data.coords.to_dataset())
 
 
+def test_xy_coords():
+    cutout = Cutout(path="era5_odd_bounds", module="era5", time=time,
+                    x=slice(x0, x1), y = slice(y0, y1))
+    assert_equal(cutout.data.coords.to_dataset(), ref.data.coords.to_dataset())
 
 
-# era5_xy = Cutout(path="era5_xy", module="era5",
-#                   x=slice(x0, x1), y = slice(y0, y1), time=time)
-
-# era5_xy_reversed = Cutout(path="era5_xy", module="era5",
-#                           x=slice(x1, x0), y = slice(y1, y0), time=time)
-
-# era5_xy_tuple = Cutout(path="era5_xy", module="era5",
-#                   x=(-14.1, 1.512), y =(50.94, 61.123), time=time)
+def test_xy_reversed_coords():
+    cutout = Cutout(path="era5_odd_bounds", module="era5", time=time,
+                    x=slice(x1, x0), y = slice(y1, y0))
+    assert_equal(cutout.data.coords.to_dataset(), ref.data.coords.to_dataset())
 
 
+# I think this would be nice to have
 
-# assert_equal(era5.data.coords.to_dataset(), era5_odd_bounds.data.coords.to_dataset())
-# assert_allclose(era5.data.wnd100m, era5_odd_bounds.data.wnd100m,
-#                 atol=1e-5, rtol=1e-5)
-
-
-
-
+# def test_xy_tuple_coords():
+#     cutout = Cutout(path="era5_odd_bounds", module="era5", time=time,
+#                     x=(-14.1, 1.512), y =(50.94, 61.123))
+#     assert_equal(cutout.data.coords.to_dataset(), ref.data.coords.to_dataset())
 
 
-# %%
-
-# period = pd.Period(time)
-# influx = atlite.datasets.era5.get_data(era5.coords, period, 'influx', tmpdir='era5_temps')
-# influx = influx.compute()
-
-# temperature = atlite.datasets.era5.get_data(era5.coords, period, 'temperature', tmpdir='era5_temps')
-# temperature.compute()
-# %%
-
-# if os.path.exists('sarah_test.nc'):
-#     os.remove('sarah_test.nc')
-# creation_params = dict(time="2013-12-03",
-#                        x = [-14, 1.5], y = [50, 61],
-#                        sarah_dir='/home/vres/climate-data/sarah_v2')
-# sarah = atlite.Cutout(path="sarah_test", module="sarah", **creation_params)
-
-# sarah.prepare()
-
-# data = atlite.datasets.sarah.get_data_sarah(sarah.coords, pd.Period('2013'),
-#                                             **creation_params).compute()
-# data.influx_direct.isnull().sum().compute()
+def test_time_sclice_coords():
+    cutout = Cutout(path="era5_odd_bounds", module="era5",
+                    time=('2013-01-01 00:00', '2013-01-01 23:00'),
+                    x=slice(x0, x1), y = slice(y0, y1))
+    assert_equal(cutout.data.coords.to_dataset(), ref.data.coords.to_dataset())
 
 
+def test_time_period_coords():
+    cutout = Cutout(path="era5_odd_bounds", module="era5",
+                    time=pd.Period('2013-01-01'),
+                    x=slice(x0, x1), y = slice(y0, y1))
+    assert_equal(cutout.data.coords.to_dataset(), ref.data.coords.to_dataset())
 
-# sarah.data.influx_direct.sel(time=sarah.data.time[12]).plot()
+
+def test_module_assignment():
+    assert ref.dataset_module == atlite.datasets.era5
 
 
-# import os
-# import atlite
+def test_grid_coords():
+    gcoords = ref.grid_coordinates()
+    spatial = ref.data.stack(spatial=['y', 'x'])['spatial'].data
+    spatial = np.array([[s[1], s[0]] for s in spatial])
+    np.testing.assert_equal(gcoords, spatial)
 
-# cutout = atlite.Cutout(path="../cutouts/test-cutout-sarah2_europe.nc",
-#         bounds=(-12, 41.8, 33. 64.8),
-#         module="sarah",
-#         time=slice("2013-01-01", "2013-12-31"),
-#         sarah_dir='/home/vres/climate-data/sarah_v2')
 
-# cutout.prepare()
+# Extent is different from bounds
+def test_extent():
+    np.testing.assert_array_equal(ref.extent,[x0, x1, y0, y1])
+
+
+def test_indicator_matrix():
+    # This should be the grid cell at the lower left corner
+    cell = ref.grid_cells[0]
+    indicator = ref.indicatormatrix([cell])
+    assert indicator[0, 0] == 1.
+    assert indicator.sum() == 1
+    # This should be the grid cell at the lower left corner
+    cell = ref.grid_cells[-2]
+    indicator = ref.indicatormatrix([cell])
+    assert indicator[0, -2] == 1.
+    assert indicator.sum() == 1
 
