@@ -22,11 +22,12 @@ x1 = 1.5
 y1 = 61.
 
 
-ref = Cutout(name="creation_ref", module="era5", bounds=(x0, y0, x1, y1), time=time)
+ref = Cutout(path="creation_ref", module="era5", bounds=(x0, y0, x1, y1), time=time)
 
 new_feature_tests = False
 
 def test_odd_bounds_coords():
+    #
     cutout = Cutout(path="odd_bounds", module="era5", time=time,
                     bounds=(x0-0.1, y0-0.02, x1+0.03, y1+0.13))
     assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
@@ -47,7 +48,7 @@ def test_xy_reversed_coords():
 if new_feature_tests:
     def test_xy_tuple_coords():
         cutout = Cutout(path="xy_tuple", module="era5", time=time,
-                        x=(-14.1, 1.512), y =(50.94, 61.123))
+                        x=(x0, x1), y=(y0, y1))
         assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
 
 
