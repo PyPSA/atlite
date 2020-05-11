@@ -39,7 +39,7 @@ class Cutout:
 
     dataset_module = None
 
-    def __init__(self, path=None, data=None, cutout_dir=None, **cutoutparams):
+    def __init__(self, path="unnamed.nc", data=None, cutout_dir=None, **cutoutparams):
         """
         Provide an Atlite cutout object.
 
@@ -77,10 +77,10 @@ class Cutout:
         time : (opt.) slice
 
         """
-        if cutout_dir is not None:
-            warn("The argument `cutout_dir` has been deprecated in favour of "
-                 "just `path`", DeprecationWarning)
-            path = Path(cutout_dir) / path
+        if cutout_dir or name:
+            warn("The arguments `cutout_dir` and `name` have been deprecated in 
+                 "favour of `path`.", DeprecationWarning)
+            path = Path(cutout_dir if cutout_dir else ".") / name if name else path
         elif isinstance(path, xr.Dataset):
             data = path
             path = Path("unnamed.nc")
