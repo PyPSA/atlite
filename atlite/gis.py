@@ -134,41 +134,6 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
 
     return indicator
 
-class GridCells:
-    def __init__(self, grid_cells, sindex, projection):
-        self.grid_cells = grid_cells
-        self.sindex = sindex
-        self.projection = projection
-
-    @classmethod
-    def from_cutout(cls, cutout):
-        coords = cutout.grid_coordinates()
-        span = (coords[cutout.shape[1]+1] - coords[0]) / 2
-        grid_cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
-        sindex = Index((j, o.bounds, None) for j, o in enumerate(grid_cells))
-
-        return cls(grid_cells, sindex, cutout.projection)
-
-    @staticmethod
-    def from_file(filename):
-        pass
-
-    def to_file(self, filename):
-        # Turns out the spatial index gets distorted by pickling, so we turn this
-        # into a no-op, until we figure out a work-around
-        pass
-
-    def indicatormatrix(self, shapes, shapes_projection='latlong'):
-        shapes = reproject_shapes(shapes, shapes_projection, self.projection)
-        indicator = sp.sparse.lil_matrix((len(shapes), len(self.grid_cells)), dtype=np.float)
-
-        for i, s in enumerate(shapes):
-            for j in self.sindex.intersection(s.bounds):
-                o = self.grid_cells[j]
-                area = s.intersection(o).area
-                indicator[i,j] = area/o.area
-
-        return indicator
 
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
     swaps = {}
