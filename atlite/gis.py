@@ -27,6 +27,7 @@ import rasterio as rio
 import rasterio.warp
 from rasterio.warp import Resampling
 from rtree.index import Index
+from shapely.strtree import STRtree
 
 import logging
 logger = logging.getLogger(__name__)
@@ -121,67 +122,18 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
 
     dest = reproject_shapes(dest, dest_proj, orig_proj)
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
+    tree = STRtree(orig)
+    idx = dict((id(o), i) for i, o in enumerate(orig))
 
-    try:
-        from rtree.index import Index
-
-        idx = Index()
-        for j, o in enumerate(orig):
-            idx.insert(j, o.bounds)
-
-        for i, d in enumerate(dest):
-            for j in idx.intersection(d.bounds):
-                o = orig[j]
+    for i, d in enumerate(dest):
+        for o in tree.query(d):
+            if o.intersects(d):
+                j = idx[id(o)]
                 area = d.intersection(o).area
                 indicator[i,j] = area/o.area
 
-    except ImportError:
-        logger.warning("Rtree is not available. Falling back to slower algorithm.")
-
-        dest_prepped = list(map(prep, dest))
-
-        for i,j in product(range(len(dest)), range(len(orig))):
-            if dest_prepped[i].intersects(orig[j]):
-                area = dest[i].intersection(orig[j]).area
-                indicator[i,j] = area/orig[j].area
-
     return indicator
 
-class GridCells:
-    def __init__(self, grid_cells, sindex, projection):
-        self.grid_cells = grid_cells
-        self.sindex = sindex
-        self.projection = projection
-
-    @classmethod
-    def from_cutout(cls, cutout):
-        coords = cutout.grid_coordinates()
-        span = (coords[cutout.shape[1]+1] - coords[0]) / 2
-        grid_cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
-        sindex = Index((j, o.bounds, None) for j, o in enumerate(grid_cells))
-
-        return cls(grid_cells, sindex, cutout.projection)
-
-    @staticmethod
-    def from_file(filename):
-        pass
-
-    def to_file(self, filename):
-        # Turns out the spatial index gets distorted by pickling, so we turn this
-        # into a no-op, until we figure out a work-around
-        pass
-
-    def indicatormatrix(self, shapes, shapes_projection='latlong'):
-        shapes = reproject_shapes(shapes, shapes_projection, self.projection)
-        indicator = sp.sparse.lil_matrix((len(shapes), len(self.grid_cells)), dtype=np.float)
-
-        for i, s in enumerate(shapes):
-            for j in self.sindex.intersection(s.bounds):
-                o = self.grid_cells[j]
-                area = s.intersection(o).area
-                indicator[i,j] = area/o.area
-
-        return indicator
 
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
     swaps = {}

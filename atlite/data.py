@@ -207,8 +207,7 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
 
             if not missing_features and not overwrite:
                 logger.info(f"All available features {cutout.available_features} have already been prepared, so nothing to do."
-                            f" Use `overwrite=True` to re-create {cutout.path.name} and"
-                            f" {cutout.path.with_suffix('.sindex.pickle').name}.")
+                            f" Use `overwrite=True` to re-create {cutout.path.name} .")
                 return
 
             ds = get_missing_data(cutout, missing_features, freq, tmpdir=tmpdir)
@@ -251,6 +250,3 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
     if not isinstance(prepared_features, list):
         cutout.data.attrs['prepared_features'] = [prepared_features]
 
-    # Save spatial index
-    sindex_fn = cutout.path.with_suffix(".sindex.pickle")
-    cutout._grid_cells.to_file(sindex_fn)
