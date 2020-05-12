@@ -64,13 +64,7 @@ def _get_filenames(sarah_dir, period):
     if isinstance(period, (str, slice)):
         selector = period
     elif isinstance(period, pd.Period):
-        if isinstance(period.freq, pd.tseries.frequencies.Day):
-            format_string = "%Y-%m-%d"
-        elif isinstance(period.freq, pd.tseries.offsets.MonthOffset):
-            format_string = "%Y-%m"
-        else:
-            format_string = "%Y-%m"
-        selector = period.strftime(format_string)
+        selector = str(period)
     elif isinstance(period, pd.Timestamp):
         # Files are daily, anyway
         selector = period.strftime("%Y-%m-%d")
