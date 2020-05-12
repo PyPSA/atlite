@@ -49,6 +49,9 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     return ds
 
 def _get_filenames(sarah_dir, period):
+    assert isinstance(period, (pd.Period, str, slice)), \
+            ('Argument "period" not of correct type.')
+
     def _filenames_starting_with(name):
         pattern = os.path.join(sarah_dir, "**", f"{name}*.nc")
         files = pd.Series(glob.glob(pattern, recursive=True))
@@ -62,26 +65,13 @@ def _get_filenames(sarah_dir, period):
                       join="inner", axis=1)
 
     if isinstance(period, (str, slice)):
-        selector = period
+        files = files.loc[period]
     elif isinstance(period, pd.Period):
-        if isinstance(period.freq, pd.tseries.frequencies.Day):
-            format_string = "%Y-%m-%d"
-        elif isinstance(period.freq, pd.tseries.offsets.MonthOffset):
-            format_string = "%Y-%m"
-        else:
-            format_string = "%Y-%m"
-        selector = period.strftime(format_string)
-    elif isinstance(period, pd.Timestamp):
-        # Files are daily, anyway
-        selector = period.strftime("%Y-%m-%d")
-    else:
-        raise TypeError(f"{period} should be one of pd.Timestamp or pd.Period")
+        files = files.loc[(files.index >= period.start_time) &
+                          (files.index <= period.end_time)]
 
-    files = files.loc[selector]
-    if isinstance(files, pd.Series):
-        files = pd.DataFrame([files], index=[pd.Timestamp(selector)])
-
-    assert not files.empty, f"Files have not been found in {sarah_dir} for {period}"
+    if files.empty:
+        logger.error(f"Files have not been found in {sarah_dir} for {period}")
 
     return files.sort_index()
 

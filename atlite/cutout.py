@@ -74,7 +74,6 @@ class Cutout:
             Outer longitudinal bounds for the cutout (west, east).
         y : (opt.) slice
             Outer latitudinal bounds for the cutout (south, north).
-        time : (opt.) slice
 
         """
 
@@ -137,8 +136,11 @@ class Cutout:
                 # Ensure correct ordering of slices
                 x = cutoutparams['x']
                 y = cutoutparams['y']
+                time = cutoutparams['time']
                 cutoutparams['x'] = slice(*sorted([x.start, x.stop]))
                 cutoutparams['y'] = slice(*sorted([y.start, y.stop]))
+                if not isinstance(time, slice):
+                    cutoutparams['time'] = slice(time, time)
 
                 if 'module' not in cutoutparams:
                     logger.warning("`module` was not specified, falling back "
