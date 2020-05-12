@@ -34,6 +34,7 @@ from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
 from .gis import compute_indicatormatrix
 from .data import requires_coords, requires_windowed, cutout_prepare
+from .utils import CachedAttribute
 
 class Cutout:
 
@@ -219,18 +220,12 @@ class Cutout:
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
         return np.asarray((np.ravel(xs), np.ravel(ys))).T
 
-    _grid_cells_cache = None
-    @property
-    def grid_cells(self):
-        if self._grid_cells_cache is not None:
-            return self._grid_cells_cache
 
+    @CachedAttribute
+    def grid_cells(self):
         coords = self.grid_coordinates()
         span = (coords[self.shape[1]+1] - coords[0]) / 2
         grid_cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
-
-        # Cache
-        self._grid_cells_cache = grid_cells
         return grid_cells
 
 
