@@ -126,8 +126,8 @@ class Windows(object):
 
         vars = cutout.data.data_vars.keys()
         if cutout.dataset_module:
-            feautures = cutout.dataset_module.features
-            dataset_vars = sum((features[f] for f in features), [])
+            mfeatures = cutout.dataset_module.features
+            dataset_vars = sum((mfeatures[f] for f in features), [])
             vars = vars & dataset_vars
         self.data = cutout.data[list(vars)]
         self.group_kws = group_kws
