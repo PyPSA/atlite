@@ -27,7 +27,7 @@ Closes # (if applicable).
 <!--- If you're unsure about any of these, don't hesitate to ask. We're here to help! -->
 - [ ] I tested my contribution locally and it seems to work fine.
 - [ ] I locally ran `pytest` inside the repository and no unexpected problems came up.
-- [ ] I have documented the changes to the code.
+- [ ] I have adjusted the docstrings in the code appropriately.
 - [ ] I have documented the effects of my code changes in the documentation `doc/`.
 - [ ] I have added newly introduced dependencies to `environment.yaml` file.
 - [ ] I have added a note to release notes `doc/release_notes.rst`.
