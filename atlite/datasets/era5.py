@@ -48,7 +48,7 @@ def _add_height(ds):
     if 'time' in z.coords:
         z = z.isel(time=0, drop=True)
     ds['height'] = z/g0
-    ds = ds.drop('z')
+    ds = ds.drop_vars('z')
     return ds
 
 def _area(coords):
@@ -101,7 +101,7 @@ def get_data_wind(retrieval_params):
     ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
                      .assign_attrs(units=ds['u100'].attrs['units'],
                                    long_name="100 metre wind speed"))
-    ds = ds.drop(['u100', 'v100'])
+    ds = ds.drop_vars(['u100', 'v100'])
     ds = ds.rename({'fsr': 'roughness'})
 
     return ds
@@ -127,7 +127,7 @@ def get_data_influx(retrieval_params):
         (ds['ssrd'] - ds['influx_direct'])
         .assign_attrs(units='J m**-2',
                       long_name='Surface diffuse solar radiation downwards'))
-    ds = ds.drop(['ssrd', 'ssr'])
+    ds = ds.drop_vars(['ssrd', 'ssr'])
 
     # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
     for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
