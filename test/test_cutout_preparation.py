@@ -17,6 +17,9 @@ import atlite
 from atlite import Cutout
 from xarray.testing import assert_allclose, assert_equal
 import numpy as np
+from tempfile import mkdtemp
+from shutil import rmtree
+
 
 time='2013-01-01'
 x0 = -4
@@ -25,16 +28,10 @@ x1 = 1.5
 y1 = 61
 path="era5_test"
 
-tmp_dir = Path('tmp_files_test')
-if tmp_dir.exists():
-    for nc in tmp_dir.iterdir():
-        os.remove(nc)
-    tmp_dir.rmdir()
-tmp_dir.mkdir()
+tmp_dir = Path(mkdtemp())
 
 ref = Cutout(path=tmp_dir / path, module="era5", bounds=(x0, y0, x1, y1), time=time)
 ref.prepare()
-
 
 
 def test_old_style_loading_args():
@@ -166,6 +163,4 @@ def test_dummy_delete_tmp_dir():
     Ignore this test its only purpose is to delete temporary cutout files
     created for the test run
     '''
-    for nc in tmp_dir.iterdir():
-        os.remove(nc)
-    tmp_dir.rmdir()
+    rmtree(tmp_dir)
