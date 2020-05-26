@@ -36,8 +36,7 @@ resolution = 0.2
 
 features = {
     'influx': ['influx_toa', 'influx_direct', 'influx_diffuse', 'influx', 'albedo'],
-    'temperature': ['temperature', 'soil_temperature'],
-}
+    'temperature': ['temperature', 'soil_temperature']}
 
 static_features = {}
 
@@ -55,10 +54,11 @@ def _get_filenames(sarah_dir, period):
     def _filenames_starting_with(name):
         pattern = os.path.join(sarah_dir, "**", f"{name}*.nc")
         files = pd.Series(glob.glob(pattern, recursive=True))
-        assert not files.empty, \
-            f"No files found at {pattern}. Make sure sarah_dir points to the correct directory!"
+        assert not files.empty, (f"No files found at {pattern}. Make sure "
+                                 "sarah_dir points to the correct directory!")
 
-        files.index = pd.to_datetime(files.str.extract(r"SI.in(\d{8})", expand=False))
+        files.index = pd.to_datetime(files.str.extract(r"SI.in(\d{8})",
+                                                       expand=False))
         return files.sort_index()
     files = pd.concat(dict(sis=_filenames_starting_with("SIS"),
                            sid=_filenames_starting_with("SID")),
@@ -80,8 +80,9 @@ def get_coords(time, x, y, **creation_parameters):
 
     res = creation_parameters.get('resolution', resolution)
 
+    offset = pd.offsets.DateOffset(days=1)
     coords = {'time': pd.date_range(start=files.index[0],
-                                    end=files.index[-1] + pd.offsets.DateOffset(days=1),
+                                    end=files.index[-1] + offset,
                                     closed="left", freq="h")}
     if res is not None:
         coords.update({'lon': np.r_[-65. + (65. % res):65.01:res],
@@ -96,7 +97,8 @@ def get_coords(time, x, y, **creation_parameters):
 
     return ds
 
-def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
+def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None,
+                  **creation_parameters):
     x = coords.indexes['x']
     y = coords.indexes['y']
     xs = slice(*x[[0,-1]])
@@ -107,7 +109,8 @@ def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None, **creatio
     dx = float(rx - lx)/float(len(x)-1)
     dy = float(uy - ly)/float(len(y)-1)
 
-    del creation_parameters['x'], creation_parameters['y'], creation_parameters['sarah_dir']
+    del (creation_parameters['x'], creation_parameters['y'],
+         creation_parameters['sarah_dir'])
 
     ds = get_era5_data(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir,
                        x=xs, y=ys, dx=dx, dy=dy, **creation_parameters)
@@ -144,11 +147,13 @@ def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
             return y
 
         def _interpolate(a):
-            return a.map_blocks(partial(np.apply_along_axis, _interpolate1d, -1), dtype=a.dtype)
+            return a.map_blocks(partial(np.apply_along_axis, _interpolate1d, -1),
+                                dtype=a.dtype)
 
         data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
         dtypes = {da.dtype for da in data_vars}
-        assert len(dtypes) == 1, "interpolate only supports datasets with homogeneous dtype"
+        assert len(dtypes) == 1, \
+            "interpolate only supports datasets with homogeneous dtype"
 
         return xr.apply_ufunc(_interpolate, ds,
                               input_core_dims=[[dim]],
@@ -192,15 +197,18 @@ def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
 def get_data_sarah(coords, period, **creation_parameters):
     return delayed(_get_data_sarah)(coords, period, **creation_parameters)
 
-def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
+def get_data(coords, period, feature, sanitize=True, tmpdir=None,
+             **creation_parameters):
     if feature == 'influx':
         ds = delayed(xr.merge)([
-            get_data_era5(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir, **creation_parameters),
-            get_data_sarah(coords, period, **creation_parameters)
-        ])
+            get_data_era5(coords, period, feature, sanitize=sanitize,
+                          tmpdir=tmpdir, **creation_parameters),
+            get_data_sarah(coords, period, **creation_parameters)])
     elif feature == 'temperature':
-        ds = get_data_era5(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir, **creation_parameters)
+        ds = get_data_era5(coords, period, feature, sanitize=sanitize,
+                           tmpdir=tmpdir, **creation_parameters)
     else:
-        raise NotImplementedError(f"Feature '{feature}' has not been implemented for dataset sarah")
+        raise NotImplementedError(f"Feature '{feature}' has not been "
+                                  "implemented for dataset sarah")
 
     return ds

@@ -33,7 +33,8 @@ def make_optional_progressbar(show, prefix, max_value=None):
         ]
         if not prefix.endswith(": "):
             prefix = prefix.strip() + ": "
-        maybe_progressbar = pgb.ProgressBar(prefix=prefix, widgets=widgets, max_value=max_value)
+        maybe_progressbar = pgb.ProgressBar(prefix=prefix, widgets=widgets,
+                                            max_value=max_value)
     else:
         maybe_progressbar = lambda x: x
 
@@ -49,7 +50,8 @@ def migrate_from_cutout_directory(old_cutout_dir):
         minT, maxT = meta.indexes['time'][[0, -1]].strftime("%Y-%m")
 
         logger.warning(textwrap.dedent(f"""
-            Found an old-style directory-like cutout. It can manually be recreated using
+            Found an old-style directory-like cutout. It can manually be
+            recreated using
 
             cutout = atlite.Cutout("{newname}",
                                    module="{module}",
@@ -62,11 +64,14 @@ def migrate_from_cutout_directory(old_cutout_dir):
         """))
 
         try:
-            data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"), combine="by_coords")
+            data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"),
+                                     combine="by_coords")
             data.attrs.update(meta.attrs)
-            logger.warning("Migration successful. You can save the cutout to a new file with `cutout.prepare()`")
+            logger.warning("Migration successful. You can save the cutout to a "
+                           "new file with `cutout.prepare()`")
         except xr.MergeError:
-            logger.exception("Automatic migration failed. Re-create the cutout with the command above!")
+            logger.exception("Automatic migration failed. Re-create the cutout "
+                             "with the command above!")
             raise
 
     data.attrs['prepared_features'] = list(sys.modules['atlite.datasets.' + data.attrs["module"]].features)

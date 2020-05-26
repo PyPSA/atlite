@@ -15,6 +15,7 @@ import dask
 from tempfile import mkstemp, mkdtemp
 from shutil import rmtree
 from dask.diagnostics import ProgressBar
+from xarray.core.groupby import DatasetGroupBy
 
 import logging
 logger = logging.getLogger(__name__)
@@ -72,7 +73,8 @@ def requires_coords(f):
     def wrapper(cutout, *args, **kwargs):
         if not cutout.data.coords:
             creation_parameters = _get_creation_parameters(cutout.data)
-            cutout.data = cutout.data.merge(cutout.dataset_module.get_coords(**creation_parameters))
+            coords = cutout.dataset_module.get_coords(**creation_parameters)
+            cutout.data = cutout.data.merge(coords)
         return f(cutout, *args, **kwargs)
     return wrapper
 
@@ -99,7 +101,8 @@ def create_windows(cutout, features, window_type, allow_dask):
     missing_features = features - set(cutout.data.attrs.get('prepared_features', []))
 
     if missing_features:
-        logger.error(f"The following features need to be prepared first: {', '.join(missing_features)}. Will try anyway!")
+        logger.error(f"The following features need to be prepared first: "
+                     f"{', '.join(missing_features)}. Will try anyway!")
 
     if window_type is False:
         return [cutout.data]
@@ -118,11 +121,13 @@ class Windows(object):
         elif isinstance(window_type, dict):
             group_kws.update(window_type)
         else:
-            raise RuntimeError(f"Type of `window_type` (`{type(window_type)}`) is unsupported")
+            raise RuntimeError(f"Type of `window_type` (`{type(window_type)}`) "
+                               "is unsupported")
 
         vars = cutout.data.data_vars.keys()
         if cutout.dataset_module:
-            dataset_vars = sum((cutout.dataset_module.features[f] for f in features), [])
+            mfeatures = cutout.dataset_module.features
+            dataset_vars = sum((mfeatures[f] for f in features), [])
             vars = vars & dataset_vars
         self.data = cutout.data[list(vars)]
         self.group_kws = group_kws
@@ -132,7 +137,8 @@ class Windows(object):
         else:
             self.maybe_load = lambda it: (ds.load() for ds in it)
 
-        self.groupby = xr.core.groupby.DatasetGroupBy(self.data, self.data.coords['time'], **self.group_kws)
+        self.groupby = DatasetGroupBy(self.data, self.data.coords['time'],
+                                      **self.group_kws)
 
     def __iter__(self):
         return self.maybe_load(self.groupby._iter_grouped())
@@ -162,10 +168,9 @@ def get_missing_data(cutout, features, freq=None, tmpdir=None):
         if feature in cutout.dataset_module.static_features:
             feature_data = get_feature_data(timeindex[0])
         else:
+            prange = pd.period_range(timeindex[0], timeindex[-1], freq=freq)
             feature_data = dask.delayed(xr.concat)(
-                map(get_feature_data, pd.period_range(timeindex[0], timeindex[-1], freq=freq)),
-                dim='time'
-            ).reindex(time=timeindex)
+                map(get_feature_data, prange), dim='time').reindex(time=timeindex)
 
         datasets.append(feature_data)
 
@@ -194,19 +199,24 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
         ds = None
 
         if cutout.is_view:
-            assert features is None, f"It's not possible to add features to a view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first."
-            assert not os.path.exists(cutout.path) or overwrite, f"Not overwriting {cutout.path} with a view, unless `overwrite=True`."
+            assert features is None, (f"It's not possible to add features to a"
+            " view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first.")
+            assert not os.path.exists(cutout.path) or overwrite, (
+                f"Not overwriting {cutout.path} with a view, unless "
+                "`overwrite=True`.")
 
             ds = cutout.data
             if 'prepared_features' not in ds.attrs:
                 logger.warning("Using empty `prepared_features`!")
                 ds.attrs['prepared_features'] = []
         else:
-            features = set(features if features is not None else cutout.available_features)
+            features = set(features if features is not None
+                           else cutout.available_features)
             missing_features = features - cutout.prepared_features
 
             if not missing_features and not overwrite:
-                logger.info(f"All available features {cutout.available_features} have already been prepared, so nothing to do."
+                logger.info(f"All available features {cutout.available_features}"
+                            " have already been prepared, so nothing to do."
                             f" Use `overwrite=True` to re-create {cutout.path.name} .")
                 return
 

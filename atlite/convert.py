@@ -147,8 +147,9 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
         results = sum(results)
 
     if capacity_factor:
-        assert aggregate_func is aggregate_sum, \
-            "The arguments `matrix`, `shapes` and `layout` are incompatible with capacity_factor"
+        assert aggregate_func is aggregate_sum, (
+            "The arguments `matrix`, `shapes` and `layout` are incompatible "
+            "with capacity_factor")
         results /= cutout.data['time'].size
 
     if per_unit or return_capacity:
@@ -271,7 +272,8 @@ def heat_demand(cutout, threshold=15., a=1., constant=0., hour_shift=0., **param
 
 ## solar thermal collectors
 
-def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model, c0, c1, t_store):
+def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model,
+                          c0, c1, t_store):
     # convert storage temperature to Kelvin in line with reanalysis data
     t_store += 273.15
 
@@ -279,7 +281,8 @@ def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model, c0, c1,
     # http://rda.ucar.edu/datasets/ds094.0/#metadata/detailed.html?_do=y
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    irradiation = TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model, clearsky_model)
+    irradiation = TiltedIrradiation(ds, solar_position, surface_orientation,
+                                    trigon_model, clearsky_model)
 
     # overall efficiency; can be negative, so need to remove negative values below
     eta = c0 - c1*((t_store - ds['temperature'])/irradiation)
@@ -488,7 +491,8 @@ def runoff(cutout, smooth=None, lower_threshold_quantile=None,
 
     if lower_threshold_quantile is not None:
         if lower_threshold_quantile is True: lower_threshold_quantile = 5e-3
-        lower_threshold = pd.Series(result.values.ravel()).quantile(lower_threshold_quantile)
+        lower_threshold = pd.Series(result.values.ravel())\
+                            .quantile(lower_threshold_quantile)
         result = result.where(result >= lower_threshold, 0.)
 
     if normalize_using_yearly is not None:
@@ -505,15 +509,18 @@ def runoff(cutout, smooth=None, lower_threshold_quantile=None,
         years_overlap = slice(str(min(years)), str(max(years)))
 
         dim = result.dims[1 - result.get_axis_num('time')]
-        result *= ((xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim]) /
+        result *= ((xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(),
+                                 dims=[dim]) /
                    result.sel(time=years_overlap).sum('time'))
                    .reindex(countries=result.coords['countries']))
 
     return result
 
-def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False, show_progress=True, **kwargs):
+def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
+          show_progress=True, **kwargs):
     """
-    Compute inflow time-series for `plants` by aggregating over catchment basins from `hydrobasins`
+    Compute inflow time-series for `plants` by aggregating over catchment
+    basins from `hydrobasins`
 
     Parameters
     ----------
@@ -543,13 +550,17 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False, sh
     basins = hydrom.determine_basins(plants, hydrobasins, show_progress=show_progress)
 
     matrix = cutout.indicatormatrix(basins.shapes)
-    matrix_normalized = matrix / matrix.sum(axis=1) # compute the average surface runoff in each basin
+    # compute the average surface runoff in each basin
+    matrix_normalized = matrix / matrix.sum(axis=1)
+    _show_progress="Convert and aggregate runoff per basin" if show_progress else False
     runoff = cutout.runoff(matrix=matrix_normalized, index=basins.shapes.index,
                            weight_with_height=weight_with_height,
-                           show_progress="Convert and aggregate runoff per basin" if show_progress else False,
+                           show_progress=_show_progress,
                            **kwargs)
     # The hydrological parameters are in units of "m of water per day" and so
-    # they should be multiplied by 1000 and the basin area to convert to m3 d-1 = m3 h-1 / 24
+    # they should be multiplied by 1000 and the basin area to convert to m3
+    # d-1 = m3 h-1 / 24
     runoff *= (1000. / 24.) * xr.DataArray(basins.shapes.to_crs(dict(proj="aea")).area)
 
-    return hydrom.shift_and_aggregate_runoff_for_plants(basins, runoff, flowspeed, show_progress)
+    return hydrom.shift_and_aggregate_runoff_for_plants(basins, runoff, flowspeed,
+                                                        show_progress)

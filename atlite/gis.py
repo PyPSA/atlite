@@ -7,7 +7,8 @@
 """
 Renewable Energy Atlas Lite (Atlite)
 
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+Light-weight version of Aarhus RE Atlas for converting weather data to power
+systems data
 """
 
 import numpy as np
@@ -73,13 +74,15 @@ def reproject_shapes(shapes, p1, p2):
         if p2 == 'latlong':
             reproject_points = lambda x,y: p1(x, y, inverse=True)
         else:
-            raise NotImplementedError("`p1` can only be a RotProj if `p2` is latlong!")
+            raise NotImplementedError("`p1` can only be a RotProj if `p2` is "
+                                      "latlong!")
 
     if isinstance(p2, RotProj):
         shapes = reproject(shapes, p1, 'latlong')
         reproject_points = p2
     else:
-        reproject_points = partial(pyproj.transform, as_projection(p1), as_projection(p2))
+        reproject_points = partial(pyproj.transform, as_projection(p1),
+                                   as_projection(p2))
 
     def _reproject_shape(shape):
         return transform(reproject_points, shape)
