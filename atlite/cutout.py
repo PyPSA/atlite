@@ -19,6 +19,7 @@ Base class for Atlite.
 import netCDF4
 
 import xarray as xr
+import pandas as pd
 import numpy as np
 import os, sys
 from warnings import warn
@@ -207,6 +208,18 @@ class Cutout:
     def extent(self):
         return (list(self.coords["x"].values[[0, -1]]) +
                 list(self.coords["y"].values[[0, -1]]))
+
+    @property
+    def dx(self):
+        return (self.coords['x'][1] - self.coords['x'][0]).item()
+
+    @property
+    def dy(self):
+        return (self.coords['y'][1] - self.coords['y'][0]).item()
+
+    @property
+    def dt(self):
+        return pd.infer_freq(self.coords['time'].to_index())
 
     @property
     def prepared(self):

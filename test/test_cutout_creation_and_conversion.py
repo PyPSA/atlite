@@ -75,6 +75,23 @@ if new_feature_tests:
         assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
 
 
+def test_dx_dy_dt():
+    """
+    Test the properties dx, dy, dt of atlite.Cutout. The spatial resolution
+    can be changed through the creation_params dx and dy, the time resolution
+    is hard coded (deep in the modules...) to one hour.
+    """
+    dx = 0.5
+    dy = 1
+    cutout = Cutout(path="resolution", module="era5",
+                    time=slice('2013-01-01', '2013-01-01'),
+                    x=slice(x0, x1), y = slice(y0, y1),
+                    dx=dx, dy=dy)
+    assert dx == cutout.dx
+    assert dy == cutout.dy
+    assert 'H' == cutout.dt
+
+
 def test_module_assignment():
     assert ref.dataset_module == atlite.datasets.era5
 
