@@ -203,7 +203,7 @@ def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
     else:
         ds = ds.fillna(0)
 
-    ds = ds.resample('h').mean()
+    ds = ds.resample(time='h').mean()
 
     ds['influx_diffuse'] = (
         (ds['SIS'] -
