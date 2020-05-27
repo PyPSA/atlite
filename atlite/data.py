@@ -148,35 +148,12 @@ class Windows(object):
 
 def get_missing_data(cutout, features, freq=None, tmpdir=None):
     creation_parameters = _get_creation_parameters(cutout.data)
-    creation_parameters.pop('time', None)
-    timeindex = cutout.coords.indexes['time']
     datasets = []
-
-    def get_feature_data(period):
-        return cutout.dataset_module.get_data(
-            cutout.data.coords,
-            period,
-            feature,
-            tmpdir=tmpdir,
-            **creation_parameters)
-
-    if freq is None:
-        dt = timeindex[-1] - timeindex[0]
-        if dt.days <= 1:
-            freq = 'D'
-        elif dt.days < 90:
-            freq = 'M'
-        else:
-            freq = 'A'
+    get_data = cutout.dataset_module.get_data
 
     for feature in features:
-        if feature in cutout.dataset_module.static_features:
-            feature_data = get_feature_data(timeindex[0])
-        else:
-            prange = pd.period_range(timeindex[0], timeindex[-1], freq=freq)
-            feature_data = dask.delayed(xr.concat)(
-                map(get_feature_data, prange), dim='time').reindex(time=timeindex)
-
+        feature_data = get_data(cutout, feature, tmpdir=tmpdir,
+                                **creation_parameters)
         datasets.append(feature_data)
 
     datasets, = dask.compute(datasets)

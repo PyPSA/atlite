@@ -22,29 +22,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def as_slice(zs, pad=True):
-    if not isinstance(zs, slice):
-        first, second, last = np.asarray(zs)[[0, 1, -1]]
-        dz = 0.1 * (second - first) if pad else 0.
-        zs = slice(first - dz, last + dz)
-    return zs
+# def as_slice(zs, pad=True):
+#     if not isinstance(zs, slice):
+#         first, second, last = np.asarray(zs)[[0, 1, -1]]
+#         dz = 0.1 * (second - first) if pad else 0.
+#         zs = slice(first - dz, last + dz)
+#     return zs
 
 
-# Model and Projection Settings
+# Model, Projection and Resolution Settings
 projection = 'latlong'
-resolution = 0.2
-
-features = {
-    'influx': [
-        'influx_toa',
-        'influx_direct',
-        'influx_diffuse',
-        'influx',
-        'albedo'],
-    'temperature': [
-        'temperature',
-        'soil_temperature']}
-
+dx = 0.05
+dy = 0.05
+dt = '30m'
+features = {'influx': ['influx_direct', 'influx_diffuse',]}
 static_features = {}
 
 
@@ -56,9 +47,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     return ds
 
 
-def _get_filenames(sarah_dir, period):
-    assert isinstance(period, (pd.Period, str, slice)), \
-        ('Argument "period" not of correct type.')
+def get_filenames(sarah_dir, coords):
 
     def _filenames_starting_with(name):
         pattern = os.path.join(sarah_dir, "**", f"{name}*.nc")
@@ -73,55 +62,15 @@ def _get_filenames(sarah_dir, period):
                            sid=_filenames_starting_with("SID")),
                       join="inner", axis=1)
 
-    if isinstance(period, (str, slice)):
-        files = files.loc[period]
-    elif isinstance(period, pd.Period):
-        files = files.loc[(files.index >= period.start_time) &
-                          (files.index <= period.end_time)]
+    start = coords['time'].to_index()[0]
+    end = coords['time'].to_index()[-1]
 
-    if files.empty:
-        logger.error(f"Files have not been found in {sarah_dir} for {period}")
+    if (start < files.index[0]) or (end > files.index[-1]):
+        logger.error(f"Files in {sarah_dir} do not cover the whole time span "
+                     f" {start}-{end}")
 
-    return files.sort_index()
+    return files.loc[(files.index >= start) & (files.index <= end)].sort_index()
 
-
-def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None,
-                  **creation_parameters):
-    x = coords.indexes['x']
-    y = coords.indexes['y']
-    xs = slice(*x[[0, -1]])
-    ys = slice(*y[[0, -1]])
-
-    lx, rx = x[[0, -1]]
-    ly, uy = y[[0, -1]]
-    dx = float(rx - lx) / float(len(x) - 1)
-    dy = float(uy - ly) / float(len(y) - 1)
-
-    del (creation_parameters['x'], creation_parameters['y'],
-         creation_parameters['sarah_dir'])
-
-    ds = get_era5_data(
-        coords,
-        period,
-        feature,
-        sanitize=sanitize,
-        tmpdir=tmpdir,
-        x=xs,
-        y=ys,
-        dx=dx,
-        dy=dy,
-        **creation_parameters)
-
-    if feature == 'influx':
-        ds = ds[['influx_toa', 'albedo']]
-    elif feature == 'temperature':
-        ds = ds[['temperature']]
-    else:
-        raise NotImplementedError(
-            "Support only 'influx' and 'temperature' from ERA5")
-
-    ds = ds.assign_coords(x=x, y=y)
-    return ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
 
 
 def interpolate(ds, dim='time'):
@@ -162,9 +111,11 @@ def interpolate(ds, dim='time'):
                           keep_attrs=True)
 
 
-def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
-    files = _get_filenames(sarah_dir, period)
-    res = creation_parameters.get('resolution', resolution)
+def get_data(cutout, feature, tmpdir, **creation_parameters):
+
+    sarah_dir = creation_parameters['sarah_dir']
+
+    files = get_filenames(sarah_dir, cutout.coords)
     # we only chunk on 'time' as the reprojection below requires the whole grid
     chunks = creation_parameters.get('chunks', {'time': 12})
 
@@ -173,7 +124,7 @@ def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
     ds = xr.merge([ds_sis, ds_sid])
 
     ds = _rename_and_clean_coords(ds, add_lon_lat=False)
-    ds = ds.sel(x=as_slice(coords['x']), y=as_slice(coords['y']))
+    ds = ds.sel(x=cutout.coords['x'], y=cutout.coords['y'])
 
     if creation_parameters.pop('interpolate', False):
         ds = interpolate(ds)
@@ -189,31 +140,11 @@ def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
             units='W m-2'))
     ds = ds.rename({'SID': 'influx_direct'}).drop_vars('SIS')
 
-    if res is not None:
-        ds = regrid(ds, coords['x'], coords['y'],
-                    resampling=Resampling.average)
+    # if res is not None:
+    #     ds = regrid(ds, coords['x'], coords['y'],
+    #                 resampling=Resampling.average)
 
     ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
 
     return ds
 
-
-def get_data_sarah(coords, period, **creation_parameters):
-    return delayed(_get_data_sarah)(coords, period, **creation_parameters)
-
-
-def get_data(coords, period, feature, sanitize=True, tmpdir=None,
-             **creation_parameters):
-    if feature == 'influx':
-        ds = delayed(xr.merge)([
-            get_data_era5(coords, period, feature, sanitize=sanitize,
-                          tmpdir=tmpdir, **creation_parameters),
-            get_data_sarah(coords, period, **creation_parameters)])
-    elif feature == 'temperature':
-        ds = get_data_era5(coords, period, feature, sanitize=sanitize,
-                           tmpdir=tmpdir, **creation_parameters)
-    else:
-        raise NotImplementedError(f"Feature '{feature}' has not been "
-                                  "implemented for dataset sarah")
-
-    return ds

@@ -61,12 +61,6 @@ def _add_height(ds):
     return ds
 
 
-def _area(coords):
-    # North, West, South, East. Default: global
-    x0, x1 = coords['x'].min().item(), coords['x'].max().item()
-    y0, y1 = coords['y'].min().item(), coords['y'].max().item()
-    return [y1, x0, y0, x1]
-
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
     """Rename 'longitude' and 'latitude' columns to 'x' and 'y'
@@ -172,16 +166,19 @@ def get_data_height(retrieval_params):
     return ds
 
 
-def get_data(
-        coords,
-        period,
-        feature,
-        sanitize=True,
-        tmpdir=None,
-        **creation_parameters):
+def _area(coords):
+    # North, West, South, East. Default: global
+    x0, x1 = coords['x'].min().item(), coords['x'].max().item()
+    y0, y1 = coords['y'].min().item(), coords['y'].max().item()
+    return [y1, x0, y0, x1]
+
+
+def get_data(coords, period, feature, sanitize=True, tmpdir=None,
+             **creation_parameters):
 
     assert tmpdir is not None
 
+    # TODO use period creation code from old data.py
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
                         'area': _area(coords),
                         'tmpdir': tmpdir,
