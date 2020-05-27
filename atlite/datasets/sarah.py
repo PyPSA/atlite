@@ -8,7 +8,10 @@
 Module containing specific operations for creating cutouts from the SARAH2 dataset.
 """
 
-import os, glob
+from ..gis import regrid, Resampling, maybe_swap_spatial_dims
+from .era5 import get_data as get_era5_data
+import os
+import glob
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -21,24 +24,29 @@ logger = logging.getLogger(__name__)
 
 def as_slice(zs, pad=True):
     if not isinstance(zs, slice):
-        first, second, last = np.asarray(zs)[[0,1,-1]]
+        first, second, last = np.asarray(zs)[[0, 1, -1]]
         dz = 0.1 * (second - first) if pad else 0.
         zs = slice(first - dz, last + dz)
     return zs
 
-from ..gis import regrid, Resampling, maybe_swap_spatial_dims
-
-from .era5 import get_data as get_era5_data
 
 # Model and Projection Settings
 projection = 'latlong'
 resolution = 0.2
 
 features = {
-    'influx': ['influx_toa', 'influx_direct', 'influx_diffuse', 'influx', 'albedo'],
-    'temperature': ['temperature', 'soil_temperature']}
+    'influx': [
+        'influx_toa',
+        'influx_direct',
+        'influx_diffuse',
+        'influx',
+        'albedo'],
+    'temperature': [
+        'temperature',
+        'soil_temperature']}
 
 static_features = {}
+
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
     ds = ds.rename({'lon': 'x', 'lat': 'y'})
@@ -47,9 +55,10 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
         ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     return ds
 
+
 def _get_filenames(sarah_dir, period):
     assert isinstance(period, (pd.Period, str, slice)), \
-            ('Argument "period" not of correct type.')
+        ('Argument "period" not of correct type.')
 
     def _filenames_starting_with(name):
         pattern = os.path.join(sarah_dir, "**", f"{name}*.nc")
@@ -75,6 +84,7 @@ def _get_filenames(sarah_dir, period):
 
     return files.sort_index()
 
+
 def get_coords(time, x, y, **creation_parameters):
     files = _get_filenames(creation_parameters['sarah_dir'], time)
 
@@ -97,30 +107,41 @@ def get_coords(time, x, y, **creation_parameters):
 
     return ds
 
+
 def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None,
                   **creation_parameters):
     x = coords.indexes['x']
     y = coords.indexes['y']
-    xs = slice(*x[[0,-1]])
-    ys = slice(*y[[0,-1]])
+    xs = slice(*x[[0, -1]])
+    ys = slice(*y[[0, -1]])
 
     lx, rx = x[[0, -1]]
     ly, uy = y[[0, -1]]
-    dx = float(rx - lx)/float(len(x)-1)
-    dy = float(uy - ly)/float(len(y)-1)
+    dx = float(rx - lx) / float(len(x) - 1)
+    dy = float(uy - ly) / float(len(y) - 1)
 
     del (creation_parameters['x'], creation_parameters['y'],
          creation_parameters['sarah_dir'])
 
-    ds = get_era5_data(coords, period, feature, sanitize=sanitize, tmpdir=tmpdir,
-                       x=xs, y=ys, dx=dx, dy=dy, **creation_parameters)
+    ds = get_era5_data(
+        coords,
+        period,
+        feature,
+        sanitize=sanitize,
+        tmpdir=tmpdir,
+        x=xs,
+        y=ys,
+        dx=dx,
+        dy=dy,
+        **creation_parameters)
 
     if feature == 'influx':
         ds = ds[['influx_toa', 'albedo']]
     elif feature == 'temperature':
         ds = ds[['temperature']]
     else:
-        raise NotImplementedError("Support only 'influx' and 'temperature' from ERA5")
+        raise NotImplementedError(
+            "Support only 'influx' and 'temperature' from ERA5")
 
     ds = ds.assign_coords(x=x, y=y)
     return ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
@@ -138,8 +159,10 @@ def interpolate(ds, dim='time'):
     '''
     def _interpolate1d(y):
         nan = np.isnan(y)
-        if nan.all() or not nan.any(): return y
-        x = lambda z: z.nonzero()[0]
+        if nan.all() or not nan.any():
+            return y
+
+        def x(z): return z.nonzero()[0]
         y = np.array(y)
         y[nan] = np.interp(x(nan), x(~nan), y[~nan])
         return y
@@ -182,20 +205,25 @@ def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
 
     ds = ds.resample('h').mean()
 
-    ds['influx_diffuse'] = ((ds['SIS'] - ds['SID'])
-                            .assign_attrs(long_name='Surface Diffuse Shortwave Flux',
-                                            units='W m-2'))
+    ds['influx_diffuse'] = (
+        (ds['SIS'] -
+         ds['SID']) .assign_attrs(
+            long_name='Surface Diffuse Shortwave Flux',
+            units='W m-2'))
     ds = ds.rename({'SID': 'influx_direct'}).drop_vars('SIS')
 
     if res is not None:
-        ds = regrid(ds, coords['x'], coords['y'], resampling=Resampling.average)
+        ds = regrid(ds, coords['x'], coords['y'],
+                    resampling=Resampling.average)
 
     ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
 
     return ds
 
+
 def get_data_sarah(coords, period, **creation_parameters):
     return delayed(_get_data_sarah)(coords, period, **creation_parameters)
+
 
 def get_data(coords, period, feature, sanitize=True, tmpdir=None,
              **creation_parameters):
