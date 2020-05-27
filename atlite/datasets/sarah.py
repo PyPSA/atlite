@@ -176,30 +176,16 @@ def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
     ds = ds.sel(x=as_slice(coords['x']), y=as_slice(coords['y']))
 
     if creation_parameters.pop('interpolate', False):
-        # if the data is not chunked, use the standard xarray function
-        if chunks.get('time', -1) == -1:
-            ds = ds.interpolate_na(dim='time')
-        else:
-            ds = interpolate(ds)
+        ds = interpolate(ds)
     else:
         ds = ds.fillna(0)
 
-    def hourly_mean(ds):
-        ds1 = ds.isel(time=slice(None, None, 2))
-        ds2 = ds.isel(time=slice(1, None, 2))
-        ds2 = ds2.assign_coords(time=ds2.indexes['time'] - pd.Timedelta(30, 'm'))
-        ds = ((ds1 + ds2)/2)
-        ds.attrs = ds1.attrs
-        for v in ds.variables:
-            ds[v].attrs = ds1[v].attrs
-        return ds
-
-    ds = hourly_mean(ds)
+    ds = ds.resample('h').mean()
 
     ds['influx_diffuse'] = ((ds['SIS'] - ds['SID'])
                             .assign_attrs(long_name='Surface Diffuse Shortwave Flux',
                                             units='W m-2'))
-    ds = ds.rename({'SID': 'influx_direct'}).drop('SIS')
+    ds = ds.rename({'SID': 'influx_direct'}).drop_vars('SIS')
 
     if res is not None:
         ds = regrid(ds, coords['x'], coords['y'], resampling=Resampling.average)
