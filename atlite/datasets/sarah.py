@@ -8,26 +8,16 @@
 Module containing specific operations for creating cutouts from the SARAH2 dataset.
 """
 
-from ..gis import regrid, Resampling, maybe_swap_spatial_dims
-from .era5 import get_data as get_era5_data
+from ..gis import regrid, Resampling
 import os
 import glob
 import pandas as pd
 import numpy as np
 import xarray as xr
-from dask import delayed
 from functools import partial
 
 import logging
 logger = logging.getLogger(__name__)
-
-
-# def as_slice(zs, pad=True):
-#     if not isinstance(zs, slice):
-#         first, second, last = np.asarray(zs)[[0, 1, -1]]
-#         dz = 0.1 * (second - first) if pad else 0.
-#         zs = slice(first - dz, last + dz)
-#     return zs
 
 
 # Model, Projection and Resolution Settings
@@ -37,14 +27,6 @@ dy = 0.05
 dt = '30m'
 features = {'influx': ['influx_direct', 'influx_diffuse',]}
 static_features = {}
-
-
-def _rename_and_clean_coords(ds, add_lon_lat=True):
-    ds = ds.rename({'lon': 'x', 'lat': 'y'})
-    ds = maybe_swap_spatial_dims(ds)
-    if add_lon_lat:
-        ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
-    return ds
 
 
 def get_filenames(sarah_dir, coords):
@@ -65,9 +47,9 @@ def get_filenames(sarah_dir, coords):
     start = coords['time'].to_index()[0]
     end = coords['time'].to_index()[-1]
 
-    if (start < files.index[0]) or (end > files.index[-1]):
-        logger.error(f"Files in {sarah_dir} do not cover the whole time span "
-                     f" {start}-{end}")
+    if (start < files.index[0]) or (end.date() > files.index[-1]):
+        logger.error(f"Files in {sarah_dir} do not cover the whole time span:"
+                     f"\n\t{start} until {end}")
 
     return files.loc[(files.index >= start) & (files.index <= end)].sort_index()
 
@@ -111,40 +93,40 @@ def interpolate(ds, dim='time'):
                           keep_attrs=True)
 
 
+def as_slice(zs, pad=True):
+    if not isinstance(zs, slice):
+        first, second, last = np.asarray(zs)[[0, 1, -1]]
+        dz = 0.1 * (second - first) if pad else 0.
+        zs = slice(first - dz, last + dz)
+    return zs
+
+
 def get_data(cutout, feature, tmpdir, **creation_parameters):
 
     sarah_dir = creation_parameters['sarah_dir']
+    coords = cutout.coords
+    interpolate = creation_parameters.pop('interpolate', False)
 
-    files = get_filenames(sarah_dir, cutout.coords)
+    files = get_filenames(sarah_dir, coords)
     # we only chunk on 'time' as the reprojection below requires the whole grid
     chunks = creation_parameters.get('chunks', {'time': 12})
 
     ds_sis = xr.open_mfdataset(files.sis, combine='by_coords', chunks=chunks)
     ds_sid = xr.open_mfdataset(files.sid, combine='by_coords', chunks=chunks)
     ds = xr.merge([ds_sis, ds_sid])
+    ds = ds.sel(lon=as_slice(coords['lon']), lat=as_slice(coords['lat']))
 
-    ds = _rename_and_clean_coords(ds, add_lon_lat=False)
-    ds = ds.sel(x=cutout.coords['x'], y=cutout.coords['y'])
+    # Interpolate, resample and possible regrid
+    ds = interpolate(ds) if interpolate else ds.fillna(0)
+    ds = ds.resample(time=cutout.dt).mean()
+    if (cutout.dx != dx) or (cutout.dy != dy):
+        print('yes')
+        ds = regrid(ds, coords['lon'], coords['lat'], resampling=Resampling.average)
 
-    if creation_parameters.pop('interpolate', False):
-        ds = interpolate(ds)
-    else:
-        ds = ds.fillna(0)
-
-    ds = ds.resample(time='h').mean()
-
-    ds['influx_diffuse'] = (
-        (ds['SIS'] -
-         ds['SID']) .assign_attrs(
-            long_name='Surface Diffuse Shortwave Flux',
-            units='W m-2'))
+    dif_attrs = dict(long_name='Surface Diffuse Shortwave Flux', units='W m-2')
+    ds['influx_diffuse'] = (ds['SIS'] - ds['SID']) .assign_attrs(**dif_attrs)
     ds = ds.rename({'SID': 'influx_direct'}).drop_vars('SIS')
+    ds = ds.assign_coords(x=ds.coords['lon'], y=ds.coords['lat'])
 
-    # if res is not None:
-    #     ds = regrid(ds, coords['x'], coords['y'],
-    #                 resampling=Resampling.average)
-
-    ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
-
-    return ds
+    return ds.swap_dims({'lon': 'x', 'lat':'y'})
 

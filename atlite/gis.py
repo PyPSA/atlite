@@ -243,23 +243,19 @@ def regrid(ds, dimx, dimy, **kwargs):
 
     data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
     dtypes = {da.dtype for da in data_vars}
-    assert len(
-        dtypes) == 1, "regrid can only reproject datasets with homogeneous dtype"
+    assert len(dtypes) == 1, \
+        "regrid can only reproject datasets with homogeneous dtype"
 
     return (xr.apply_ufunc(_reproject,
                            ds,
-                           input_core_dims=[[namey,
-                                             namex]],
-                           output_core_dims=[['yout',
-                                              'xout']],
+                           input_core_dims=[[namey, namex]],
+                           output_core_dims=[['yout', 'xout']],
                            output_dtypes=[dtypes.pop()],
                            output_sizes={'yout': dst_shape[0],
                                          'xout': dst_shape[1]},
                            dask='parallelized',
-                           kwargs=kwargs) .rename({'yout': namey,
-                                                   'xout': namex}) .assign_coords(**{namey: (namey,
-                                                                                             dimy,
-                                                                                             ds.coords[namey].attrs),
-                                                                                     namex: (namex,
-                                                                                             dimx,
-                                                                                             ds.coords[namex].attrs)}) .assign_attrs(**ds.attrs))
+                           kwargs=kwargs)
+            .rename({'yout': namey, 'xout': namex})
+            .assign_coords(**{namey: (namey, dimy, ds.coords[namey].attrs),
+                              namex: (namex, dimx, ds.coords[namex].attrs)})
+            .assign_attrs(**ds.attrs))

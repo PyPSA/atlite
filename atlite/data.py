@@ -206,8 +206,7 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True,
                     f" Use `overwrite=True` to re-create {cutout.path.name} .")
                 return
 
-            ds = get_missing_data(
-                cutout, missing_features, freq, tmpdir=tmpdir)
+            ds = get_missing_data(cutout, missing_features, freq, tmpdir=tmpdir)
 
             # Merge with existing cutout
             ds = xr.merge([cutout.data, ds])
