@@ -125,9 +125,47 @@ def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None,
     ds = ds.assign_coords(x=x, y=y)
     return ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
 
+
+def interpolate(ds, dim='time'):
+    '''
+    Interpolate NaNs in a dataset along a chunked dimension.
+
+    This function is similar to similar to xr.Dataset.interpolate_na but can
+    be used for interpolating along an chunked dimensions (default 'time'').
+    As the sarah data has mulitple nan in the areas of dawn and nightfall
+    and the data is per default chunked along the time axis, use this function
+    to interpolate those nans.
+    '''
+    def _interpolate1d(y):
+        nan = np.isnan(y)
+        if nan.all() or not nan.any(): return y
+        x = lambda z: z.nonzero()[0]
+        y = np.array(y)
+        y[nan] = np.interp(x(nan), x(~nan), y[~nan])
+        return y
+
+    def _interpolate(a):
+        return a.map_blocks(partial(np.apply_along_axis, _interpolate1d, -1),
+                            dtype=a.dtype)
+
+    data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
+    dtypes = {da.dtype for da in data_vars}
+    assert len(dtypes) == 1, \
+        "interpolate only supports datasets with homogeneous dtype"
+
+    return xr.apply_ufunc(_interpolate, ds,
+                          input_core_dims=[[dim]],
+                          output_core_dims=[[dim]],
+                          output_dtypes=[dtypes.pop()],
+                          output_sizes={dim: len(ds.indexes[dim])},
+                          dask='allowed',
+                          keep_attrs=True)
+
+
 def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
     files = _get_filenames(sarah_dir, period)
     res = creation_parameters.get('resolution', resolution)
+    # we only chunk on 'time' as the reprojection below requires the whole grid
     chunks = creation_parameters.get('chunks', {'time': 12})
 
     ds_sis = xr.open_mfdataset(files.sis, combine='by_coords', chunks=chunks)
@@ -137,38 +175,14 @@ def _get_data_sarah(coords, period, sarah_dir, **creation_parameters):
     ds = _rename_and_clean_coords(ds, add_lon_lat=False)
     ds = ds.sel(x=as_slice(coords['x']), y=as_slice(coords['y']))
 
-    def interpolate(ds, dim='time'):
-        def _interpolate1d(y):
-            nan = np.isnan(y)
-            if nan.all() or not nan.any(): return y
-            x = lambda z: z.nonzero()[0]
-            y = np.array(y)
-            y[nan] = np.interp(x(nan), x(~nan), y[~nan])
-            return y
-
-        def _interpolate(a):
-            return a.map_blocks(partial(np.apply_along_axis, _interpolate1d, -1),
-                                dtype=a.dtype)
-
-        data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
-        dtypes = {da.dtype for da in data_vars}
-        assert len(dtypes) == 1, \
-            "interpolate only supports datasets with homogeneous dtype"
-
-        return xr.apply_ufunc(_interpolate, ds,
-                              input_core_dims=[[dim]],
-                              output_core_dims=[[dim]],
-                              output_dtypes=[dtypes.pop()],
-                              output_sizes={dim: len(ds.indexes[dim])},
-                              dask='allowed',
-                              keep_attrs=True)
-
-    # We can't use interpolate_na, since it only works along non-chunked
-    # dimensions, and we can't chunk on spatial dimensions, since the
-    # reprojection below requires the whole grid
-
-    # ds.interpolate_na(dim='time')
-    ds = interpolate(ds)
+    if creation_parameters.pop('interpolate', False):
+        # if the data is not chunked, use the standard xarray function
+        if chunks.get('time', -1) == -1:
+            ds = ds.interpolate_na(dim='time')
+        else:
+            ds = interpolate(ds)
+    else:
+        ds = ds.fillna(0)
 
     def hourly_mean(ds):
         ds1 = ds.isel(time=slice(None, None, 2))
