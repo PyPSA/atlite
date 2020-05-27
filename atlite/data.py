@@ -20,6 +20,7 @@ from xarray.core.groupby import DatasetGroupBy
 import logging
 logger = logging.getLogger(__name__)
 
+
 def literal_eval_creation_parameters(node_or_string):
     """
     Safely evaluate an expression node or a string containing a Python
@@ -33,6 +34,7 @@ def literal_eval_creation_parameters(node_or_string):
         node_or_string = ast.parse(node_or_string, mode='eval')
     if isinstance(node_or_string, ast.Expression):
         node_or_string = node_or_string.body
+
     def _convert(node):
         if isinstance(node, ast.Constant):
             return node.value
@@ -65,18 +67,9 @@ def literal_eval_creation_parameters(node_or_string):
 
     return _convert(node_or_string)
 
+
 def _get_creation_parameters(data):
     return literal_eval_creation_parameters(data.attrs['creation_parameters'])
-
-def requires_coords(f):
-    @wraps(f)
-    def wrapper(cutout, *args, **kwargs):
-        if not cutout.data.coords:
-            creation_parameters = _get_creation_parameters(cutout.data)
-            coords = cutout.dataset_module.get_coords(**creation_parameters)
-            cutout.data = cutout.data.merge(coords)
-        return f(cutout, *args, **kwargs)
-    return wrapper
 
 
 class requires_windowed(object):
@@ -90,15 +83,19 @@ class requires_windowed(object):
         def wrapper(cutout, *args, **kwargs):
             features = kwargs.pop('features', self.features)
             window_type = kwargs.pop('windows', self.windows)
-            windows = create_windows(cutout, features, window_type, self.allow_dask)
+            windows = create_windows(
+                cutout, features, window_type, self.allow_dask)
 
             return f(cutout, *args, windows=windows, **kwargs)
 
         return wrapper
 
+
 def create_windows(cutout, features, window_type, allow_dask):
-    features = set(features if features is not None else cutout.available_features)
-    missing_features = features - set(cutout.data.attrs.get('prepared_features', []))
+    features = set(
+        features if features is not None else cutout.available_features)
+    missing_features = features - \
+        set(cutout.data.attrs.get('prepared_features', []))
 
     if missing_features:
         logger.error(f"The following features need to be prepared first: "
@@ -108,6 +105,7 @@ def create_windows(cutout, features, window_type, allow_dask):
         return [cutout.data]
     else:
         return Windows(cutout, features, window_type, allow_dask)
+
 
 class Windows(object):
     def __init__(self, cutout, features, window_type=None, allow_dask=False):
@@ -121,8 +119,9 @@ class Windows(object):
         elif isinstance(window_type, dict):
             group_kws.update(window_type)
         else:
-            raise RuntimeError(f"Type of `window_type` (`{type(window_type)}`) "
-                               "is unsupported")
+            raise RuntimeError(
+                f"Type of `window_type` (`{type(window_type)}`) "
+                "is unsupported")
 
         vars = cutout.data.data_vars.keys()
         if cutout.dataset_module:
@@ -146,14 +145,20 @@ class Windows(object):
     def __len__(self):
         return len(self.groupby)
 
+
 def get_missing_data(cutout, features, freq=None, tmpdir=None):
     creation_parameters = _get_creation_parameters(cutout.data)
     creation_parameters.pop('time', None)
     timeindex = cutout.coords.indexes['time']
     datasets = []
+
     def get_feature_data(period):
-        return cutout.dataset_module.get_data(cutout.data.coords, period, feature,
-                                              tmpdir=tmpdir, **creation_parameters)
+        return cutout.dataset_module.get_data(
+            cutout.data.coords,
+            period,
+            feature,
+            tmpdir=tmpdir,
+            **creation_parameters)
 
     if freq is None:
         dt = timeindex[-1] - timeindex[0]
@@ -178,7 +183,9 @@ def get_missing_data(cutout, features, freq=None, tmpdir=None):
 
     return xr.merge(datasets, compat='equals')
 
-def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=False):
+
+def cutout_prepare(cutout, features=None, freq=None, tmpdir=True,
+                   overwrite=False):
     """
     Prepare all or a given set of `features`
 
@@ -200,7 +207,8 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
 
         if cutout.is_view:
             assert features is None, (f"It's not possible to add features to a"
-            " view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first.")
+                                      " view, use `cutout.prepare()` to save it "
+                                      f"to {cutout.cutout_fn} first.")
             assert not os.path.exists(cutout.path) or overwrite, (
                 f"Not overwriting {cutout.path} with a view, unless "
                 "`overwrite=True`.")
@@ -215,12 +223,14 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
             missing_features = features - cutout.prepared_features
 
             if not missing_features and not overwrite:
-                logger.info(f"All available features {cutout.available_features}"
-                            " have already been prepared, so nothing to do."
-                            f" Use `overwrite=True` to re-create {cutout.path.name} .")
+                logger.info(
+                    f"All available features {cutout.available_features}"
+                    " have already been prepared, so nothing to do."
+                    f" Use `overwrite=True` to re-create {cutout.path.name} .")
                 return
 
-            ds = get_missing_data(cutout, missing_features, freq, tmpdir=tmpdir)
+            ds = get_missing_data(
+                cutout, missing_features, freq, tmpdir=tmpdir)
 
             # Merge with existing cutout
             ds = xr.merge([cutout.data, ds])
@@ -228,7 +238,8 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
             ds.attrs['prepared_features'].extend(missing_features)
 
         # Write to a temporary file in the same directory first and then move back,
-        # because we might still want to load data from the original file in the process
+        # because we might still want to load data from the original file in
+        # the process
         directory, filename = os.path.split(str(cutout.path))
         fd, target = mkstemp(suffix=filename, dir=directory)
         os.close(fd)
@@ -259,4 +270,3 @@ def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=Fals
     prepared_features = cutout.data.attrs.get('prepared_features')
     if not isinstance(prepared_features, list):
         cutout.data.attrs['prepared_features'] = [prepared_features]
-

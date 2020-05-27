@@ -8,6 +8,7 @@
 Module for downloading and curating data from ECMWFs ERA5 dataset (via CDS).
 """
 
+from .common import retrieve_data, get_data_gebco_height
 import os
 import pandas as pd
 import numpy as np
@@ -19,20 +20,28 @@ from ..gis import maybe_swap_spatial_dims
 import logging
 logger = logging.getLogger(__name__)
 
-from .common import retrieve_data, get_data_gebco_height
 
 # Model and Projection Settings
 projection = 'latlong'
 
 features = {
     'height': ['height'],
-    'wind': ['wnd100m', 'roughness'],
-    'influx': ['influx_toa', 'influx_direct', 'influx_diffuse', 'influx', 'albedo'],
-    'temperature': ['temperature', 'soil_temperature'],
-    'runoff': ['runoff']
-}
+    'wind': [
+        'wnd100m',
+        'roughness'],
+    'influx': [
+        'influx_toa',
+        'influx_direct',
+        'influx_diffuse',
+        'influx',
+        'albedo'],
+    'temperature': [
+        'temperature',
+        'soil_temperature'],
+    'runoff': ['runoff']}
 
 static_features = {'height'}
+
 
 def _add_height(ds):
     """Convert geopotential 'z' to geopotential height following [1]
@@ -47,9 +56,10 @@ def _add_height(ds):
     z = ds['z']
     if 'time' in z.coords:
         z = z.isel(time=0, drop=True)
-    ds['height'] = z/g0
+    ds['height'] = z / g0
     ds = ds.drop_vars('z')
     return ds
+
 
 def _area(coords):
     # North, West, South, East. Default: global
@@ -70,32 +80,14 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
         ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     return ds
 
-def get_coords(time, x, y, **creation_parameters):
-    # Reference of the quantities
-    # https://confluence.ecmwf.int/display/CKB/ERA5+data+documentation
-    # Geopotential is aka Orography in the CDS:
-    # https://confluence.ecmwf.int/pages/viewpage.action?pageId=78296105
-    #
-    # (shortName) | (name)                        | (paramId)
-    # z           | Geopotential (CDS: Orography) | 129
-
-    # time = timeindex_from_slice(time)
-    dx = creation_parameters.get("dx", 0.25)
-    dy = creation_parameters.get("dy", 0.25)
-
-    ds = xr.Dataset({'longitude': np.r_[-180:180:dx], 'latitude': np.r_[-90:90:dy],
-                     'time': pd.date_range(start="1979", end="now", freq="h")})
-
-    ds = _rename_and_clean_coords(ds)
-    ds = ds.sel(x=x, y=y, time=time)
-
-    return ds
-
 
 def get_data_wind(retrieval_params):
-    ds = retrieve_data(variable=['100m_u_component_of_wind',
-                                 '100m_v_component_of_wind',
-                                 'forecast_surface_roughness'], **retrieval_params)
+    ds = retrieve_data(
+        variable=[
+            '100m_u_component_of_wind',
+            '100m_v_component_of_wind',
+            'forecast_surface_roughness'],
+        **retrieval_params)
     ds = _rename_and_clean_coords(ds)
 
     ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
@@ -106,22 +98,26 @@ def get_data_wind(retrieval_params):
 
     return ds
 
+
 def sanitize_wind(ds):
     ds['roughness'] = ds['roughness'].where(ds['roughness'] >= 0.0, 2e-4)
     return ds
 
+
 def get_data_influx(retrieval_params):
-    ds = retrieve_data(variable=['surface_net_solar_radiation',
-                                 'surface_solar_radiation_downwards',
-                                 'toa_incident_solar_radiation',
-                                 'total_sky_direct_solar_radiation_at_surface'],
-                       **retrieval_params)
+    ds = retrieve_data(
+        variable=[
+            'surface_net_solar_radiation',
+            'surface_solar_radiation_downwards',
+            'toa_incident_solar_radiation',
+            'total_sky_direct_solar_radiation_at_surface'],
+        **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
 
     ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
     with np.errstate(divide='ignore', invalid='ignore'):
-        ds['albedo'] = (((ds['ssrd'] - ds['ssr'])/ds['ssrd']).fillna(0.)
+        ds['albedo'] = (((ds['ssrd'] - ds['ssr']) / ds['ssrd']).fillna(0.)
                         .assign_attrs(units='(0 - 1)', long_name='Albedo'))
     ds['influx_diffuse'] = (
         (ds['ssrd'] - ds['influx_direct'])
@@ -131,15 +127,17 @@ def get_data_influx(retrieval_params):
 
     # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
     for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
-        ds[a] = ds[a] / (60.*60.)
+        ds[a] = ds[a] / (60. * 60.)
         ds[a].attrs['units'] = 'W m**-2'
 
     return ds
+
 
 def sanitize_inflow(ds):
     for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
         ds[a] = ds[a].clip(min=0.)
     return ds
+
 
 def get_data_temperature(retrieval_params):
     ds = retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'],
@@ -150,6 +148,7 @@ def get_data_temperature(retrieval_params):
 
     return ds
 
+
 def get_data_runoff(retrieval_params):
     ds = retrieve_data(variable=['runoff'], **retrieval_params)
 
@@ -158,9 +157,11 @@ def get_data_runoff(retrieval_params):
 
     return ds
 
+
 def sanitize_runoff(ds):
     ds['runoff'] = ds['runoff'].clip(min=0.)
     return ds
+
 
 def get_data_height(retrieval_params):
     ds = retrieve_data(variable='orography', **retrieval_params)
@@ -170,7 +171,14 @@ def get_data_height(retrieval_params):
 
     return ds
 
-def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_parameters):
+
+def get_data(
+        coords,
+        period,
+        feature,
+        sanitize=True,
+        tmpdir=None,
+        **creation_parameters):
 
     assert tmpdir is not None
 
@@ -179,9 +187,10 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
                         'tmpdir': tmpdir,
                         'chunks': creation_parameters.pop('chunks', None)}
 
-
     if {'dx', 'dy'}.issubset(creation_parameters):
-        retrieval_params['grid'] = [creation_parameters.pop('dx'), creation_parameters.pop('dy')]
+        retrieval_params['grid'] = [
+            creation_parameters.pop('dx'),
+            creation_parameters.pop('dy')]
 
     if isinstance(period, pd.Period):
         retrieval_params['year'] = period.year
@@ -198,10 +207,12 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
 
     gebco_path = creation_parameters.pop('gebco_path', None)
     if gebco_path and feature == 'height':
-        return delayed(get_data_gebco_height)(coords.indexes['x'], coords.indexes['y'], gebco_path)
+        return delayed(get_data_gebco_height)(
+            coords.indexes['x'], coords.indexes['y'], gebco_path)
 
     if creation_parameters:
-        logger.debug(f"Unused creation_parameters: {', '.join(creation_parameters)}")
+        logger.debug(
+            f"Unused creation_parameters: {', '.join(creation_parameters)}")
 
     # Reference of the quantities
     # https://confluence.ecmwf.int/display/CKB/ERA5+data+documentation
@@ -219,7 +230,8 @@ def get_data(coords, period, feature, sanitize=True, tmpdir=None, **creation_par
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
     if func is None:
-        raise NotImplementedError(f"Feature '{feature}' has not been implemented for dataset era5")
+        raise NotImplementedError(
+            f"Feature '{feature}' has not been implemented for dataset era5")
 
     ds = delayed(func)(retrieval_params)
 

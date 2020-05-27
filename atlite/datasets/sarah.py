@@ -85,29 +85,6 @@ def _get_filenames(sarah_dir, period):
     return files.sort_index()
 
 
-def get_coords(time, x, y, **creation_parameters):
-    files = _get_filenames(creation_parameters['sarah_dir'], time)
-
-    res = creation_parameters.get('resolution', resolution)
-
-    offset = pd.offsets.DateOffset(days=1)
-    coords = {'time': pd.date_range(start=files.index[0],
-                                    end=files.index[-1] + offset,
-                                    closed="left", freq="h")}
-    if res is not None:
-        coords.update({'lon': np.r_[-65. + (65. % res):65.01:res],
-                       'lat': np.r_[-65. + (65. % res):65.01:res]})
-    else:
-        coords.update({'lon': np.r_[-65.:65.01:res],
-                       'lat': np.r_[-65.:65.01:res]})
-
-    ds = xr.Dataset(coords)
-    ds = _rename_and_clean_coords(ds)
-    ds = ds.sel(x=x, y=y, time=time)
-
-    return ds
-
-
 def get_data_era5(coords, period, feature, sanitize=True, tmpdir=None,
                   **creation_parameters):
     x = coords.indexes['x']

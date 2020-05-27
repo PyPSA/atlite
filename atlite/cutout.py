@@ -16,12 +16,19 @@ Base class for Atlite.
 # Refer to
 # https://github.com/pydata/xarray/issues/2535,
 # https://github.com/rasterio/rasterio-wheels/issues/12
+from .utils import CachedAttribute
+from .data import requires_windowed, cutout_prepare
+from .gis import get_coords, compute_indicatormatrix
+from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
+                      wind, pv, runoff, solar_thermal, soil_temperature)
+from . import datasets, utils
 import netCDF4
 
 import xarray as xr
 import pandas as pd
 import numpy as np
-import os, sys
+import os
+import sys
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
@@ -29,13 +36,6 @@ from pathlib import Path
 import logging
 logger = logging.getLogger(__name__)
 
-from . import datasets, utils
-
-from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
-                      wind, pv, runoff, solar_thermal, soil_temperature)
-from .gis import compute_indicatormatrix
-from .data import requires_coords, requires_windowed, cutout_prepare
-from .utils import CachedAttribute
 
 class Cutout:
 
@@ -84,9 +84,12 @@ class Cutout:
         name = cutoutparams.get("name", None)
         cutout_dir = cutoutparams.get("cutout_dir", None)
         if cutout_dir or name:
-            warn("The argument `cutout_dir` and `name` have been deprecated in "
-                 "favour of `path`.", DeprecationWarning)
-            path = Path(cutout_dir if cutout_dir else ".") / name if name else path
+            warn(
+                "The argument `cutout_dir` and `name` have been deprecated in "
+                "favour of `path`.",
+                DeprecationWarning)
+            path = Path(cutout_dir if cutout_dir else ".") / \
+                name if name else path
         elif isinstance(path, xr.Dataset):
             data = path
         else:
@@ -100,11 +103,13 @@ class Cutout:
             cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
 
         if {'xs', 'ys'}.intersection(cutoutparams):
-            warn("The arguments `xs` and `ys` have been deprecated in favour of "
-                 "`x` and `y`", DeprecationWarning)
-            if 'xs' in cutoutparams: cutoutparams['x'] = cutoutparams.pop('xs')
-            if 'ys' in cutoutparams: cutoutparams['y'] = cutoutparams.pop('ys')
-
+            warn(
+                "The arguments `xs` and `ys` have been deprecated in favour of "
+                "`x` and `y`", DeprecationWarning)
+            if 'xs' in cutoutparams:
+                cutoutparams['x'] = cutoutparams.pop('xs')
+            if 'ys' in cutoutparams:
+                cutoutparams['y'] = cutoutparams.pop('ys')
 
         if {'years', 'months'}.intersection(cutoutparams):
             warn("The arguments `years` and `months` have been deprecated in "
@@ -121,8 +126,8 @@ class Cutout:
             if path.is_file():
                 data = xr.open_dataset(str(path), cache=False)
                 prepared_features = data.attrs.get('prepared_features')
-                assert prepared_features is not None, (f"{self.name} does not"
-                            " have the required attribute `prepared_features`")
+                assert prepared_features is not None, (
+                    f"{self.name} does not" " have the required attribute `prepared_features`")
                 if not isinstance(prepared_features, list):
                     data.attrs['prepared_features'] = [prepared_features]
             elif path.is_dir():
@@ -131,38 +136,33 @@ class Cutout:
             else:
                 logger.info(f"Cutout {path} not found, building new one")
 
-                if {"x", "y", "time"}.difference(cutoutparams):
-                    raise RuntimeError("Arguments `x`, `y` and `time` need to "
-                            "be specified (or `bounds` instead of `x` and `y`)")
-
-                # Ensure correct ordering of slices
-                x = cutoutparams['x']
-                y = cutoutparams['y']
-                time = cutoutparams['time']
-                cutoutparams['x'] = slice(*sorted([x.start, x.stop]))
-                cutoutparams['y'] = slice(*sorted([y.start, y.stop]))
-                if not isinstance(time, slice):
-                    cutoutparams['time'] = slice(time, time)
+                coords = get_coords(**cutoutparams)
 
                 if 'module' not in cutoutparams:
                     logger.warning("`module` was not specified, falling back "
                                    "to 'era5'")
+                module = cutoutparams.pop('module', 'era5')
+                # TODO: check for dx, dy, x, y fine with module data
 
-                data = xr.Dataset(attrs=
-                                  {'module': cutoutparams.pop('module', 'era5'),
-                                   'prepared_features': [],
-                                   'creation_parameters': str(cutoutparams)})
+                data = xr.Dataset(
+                    coords=coords,
+                    attrs={
+                        'module': module,
+                        'prepared_features': [],
+                        'creation_parameters': str(cutoutparams)})
         else:
             # User-provided dataset
-            # TODO needs to be checked, sanitized and marked as immutable (is_view)
+            # TODO needs to be checked, sanitized and marked as immutable
+            # (is_view)
             self.is_view = True
 
         if 'module' in cutoutparams:
             module = cutoutparams.pop('module')
             if module != data.attrs.get('module'):
-                logger.warning(f"Selected module '{module}' disagrees with "
-                      f"specification in dataset '{data.attrs.get('module')}'. "
-                      "Taking your choice.")
+                logger.warning(
+                    f"Selected module '{module}' disagrees with "
+                    f"specification in dataset '{data.attrs.get('module')}'. "
+                    "Taking your choice.")
                 data.attrs['module'] = module
         elif 'module' not in data.attrs:
             logger.warning("No module given as argument nor in the dataset. "
@@ -180,7 +180,8 @@ class Cutout:
 
     @property
     def projection(self):
-        return self.data.attrs.get('projection', self.dataset_module.projection)
+        return self.data.attrs.get(
+            'projection', self.dataset_module.projection)
 
     @property
     def available_features(self):
@@ -190,7 +191,6 @@ class Cutout:
             return set()
 
     @property
-    @requires_coords
     def coords(self):
         return self.data.coords
 
@@ -235,14 +235,13 @@ class Cutout:
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
         return np.asarray((np.ravel(xs), np.ravel(ys))).T
 
-
     @CachedAttribute
     def grid_cells(self):
         coords = self.grid_coordinates()
-        span = (coords[self.shape[1]+1] - coords[0]) / 2
-        grid_cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
+        span = (coords[self.shape[1] + 1] - coords[0]) / 2
+        grid_cells = [box(*c)
+                      for c in np.hstack((coords - span, coords + span))]
         return grid_cells
-
 
     def sel(self, **kwargs):
         if 'bounds' in kwargs:
@@ -257,24 +256,27 @@ class Cutout:
 
     def __repr__(self):
         return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} '
-                'prepared_features={} is_view={}>'
-                .format(self.name,
-                        self.coords['x'].values[0], self.coords['x'].values[-1],
-                        self.coords['y'].values[0], self.coords['y'].values[-1],
-                        np.datetime_as_string(self.coords['time'].values[0], unit='D'),
-                        np.datetime_as_string(self.coords['time'].values[-1], unit='D'),
-                        list(self.prepared_features),
-                        self.is_view))
+                'prepared_features={} is_view={}>' .format(self.name,
+                                                           self.coords['x'].values[0],
+                                                           self.coords['x'].values[-1],
+                                                           self.coords['y'].values[0],
+                                                           self.coords['y'].values[-1],
+                                                           np.datetime_as_string(self.coords['time'].values[0],
+                                                                                 unit='D'),
+                                                           np.datetime_as_string(self.coords['time'].values[-1],
+                                                                                 unit='D'),
+                                                           list(self.prepared_features),
+                                                           self.is_view))
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
         return compute_indicatormatrix(self.grid_cells, shapes,
                                        self.projection, shapes_proj)
 
-    ## Preparation functions
+    # Preparation functions
 
     prepare = cutout_prepare
 
-    ## Conversion and aggregation functions
+    # Conversion and aggregation functions
 
     convert_and_aggregate = convert_and_aggregate
 
