@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 projection = 'latlong'
 dx = 0.05
 dy = 0.05
-dt = '30m'
+dt = '30min'
 features = {'influx': ['influx_direct', 'influx_diffuse',]}
 static_features = {}
 
@@ -120,7 +120,6 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     ds = interpolate(ds) if interpolate else ds.fillna(0)
     ds = ds.resample(time=cutout.dt).mean()
     if (cutout.dx != dx) or (cutout.dy != dy):
-        print('yes')
         ds = regrid(ds, coords['lon'], coords['lat'], resampling=Resampling.average)
 
     dif_attrs = dict(long_name='Surface Diffuse Shortwave Flux', units='W m-2')

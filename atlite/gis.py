@@ -51,8 +51,8 @@ def get_coords(**cutoutparams):
     dy = cutoutparams.get("dy", 0.25)
     dt = cutoutparams.get("dt", 'h')
 
-    ds = xr.Dataset({'x': np.r_[-180:180:dx],
-                     'y': np.r_[-90:90:dy],
+    ds = xr.Dataset({'x': np.arange(-180, 180, dx),
+                     'y': np.arange(-90, 90, dy),
                      'time': pd.date_range(start="1979", end="now", freq=dt)})
     ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     ds = ds.sel(x=x, y=y, time=time)

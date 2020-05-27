@@ -6,14 +6,20 @@
 
 """
 Module for downloading and curating data from ECMWFs ERA5 dataset (via CDS).
+
+For further reference see
+https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
-from .common import retrieve_data, get_data_gebco_height
 import os
 import pandas as pd
 import numpy as np
 import xarray as xr
 from dask import delayed
+from tempfile import mkstemp
+import weakref
+import cdsapi
+
 from ..gis import maybe_swap_spatial_dims
 
 
@@ -173,66 +179,100 @@ def _area(coords):
     return [y1, x0, y0, x1]
 
 
-def get_data(coords, period, feature, sanitize=True, tmpdir=None,
-             **creation_parameters):
+def retrieval_times(coords):
+    time = pd.Series(coords['time'])
+    time_span = time[0] - time[len(time)-1]
+    if len(time) == 1:
+        return [{'year': d.year, 'month': d.month, 'day': d.day,
+                 'time': d.strftime("%H:00")} for d in time]
+    if time_span.days <= 1:
+        return [{'year': d.year, 'month': d.month, 'day': d.day}
+                for d in time.dt.date.unique()]
+    elif time_span.days < 90:
+        return [{'year': year, 'month': month}
+                for month in time.dt.month.unique()
+                for year in time.dt.year.unique()]
+    else:
+        return [{'year': year} for year in time.dt.year.unique()]
+
+
+def noisy_unlink(path):
+    logger.info(f"Deleting file {path}")
+    try:
+        os.unlink(path)
+    except PermissionError:
+        logger.error(f"Unable to delete file {path}, as it is still in use.")
+
+
+def retrieve_data(product, chunks=None, tmpdir=None, **updates):
+    """Download data like ERA5 from the Climate Data Store (CDS)"""
+
+    # Default request
+    request = {
+        'product_type': 'reanalysis',
+        'format': 'netcdf',
+        'day': list(range(1, 31 + 1)),
+        'time': [
+            '00:00', '01:00', '02:00', '03:00', '04:00', '05:00',
+            '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
+            '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+            '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
+        ],
+        'month': list(range(1, 12 + 1)),
+        # 'area': [50, -1, 49, 1], # North, West, South, East. Default: global
+        # 'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude) and north-south resolution (latitude). Default: 0.25 x 0.25
+    }
+    request.update(updates)
+
+    assert {'year', 'month', 'variable'}.issubset(
+        request), "Need to specify at least 'variable', 'year' and 'month'"
+
+    result = cdsapi.Client(
+        progress=False
+    ).retrieve(
+        product,
+        request
+    )
+
+    fd, target = mkstemp(suffix='.nc', dir=tmpdir)
+    os.close(fd)
+
+    logger.info("Downloading request for {} variables to {}".format(
+        len(request['variable']), target))
+
+    result.download(target)
+
+    ds = xr.open_dataset(target, chunks=chunks or {})
+    if tmpdir is None:
+        logger.debug(f"Adding finalizer for {target}")
+        weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
+
+    return ds
+
+
+
+def get_data(cutout, feature, tmpdir, **creation_parameters):
 
     assert tmpdir is not None
+    assert feature in set(features) & set(static_features)
 
-    # TODO use period creation code from old data.py
+    coords = cutout.coords
+    sanitize = creation_parameters.get('sanitize', True)
+
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
                         'area': _area(coords),
                         'tmpdir': tmpdir,
-                        'chunks': creation_parameters.pop('chunks', None)}
-
-    if {'dx', 'dy'}.issubset(creation_parameters):
-        retrieval_params['grid'] = [
-            creation_parameters.pop('dx'),
-            creation_parameters.pop('dy')]
-
-    if isinstance(period, pd.Period):
-        retrieval_params['year'] = period.year
-        if isinstance(period.freq, pd.tseries.offsets.MonthOffset):
-            retrieval_params['month'] = period.month
-        elif isinstance(period.freq, pd.tseries.frequencies.Day):
-            retrieval_params['month'] = period.month
-            retrieval_params['day'] = period.day
-    elif isinstance(period, pd.Timestamp):
-        retrieval_params.update(year=period.year, month=period.month,
-                                day=period.day, time=period.strftime("%H:00"))
-    else:
-        raise TypeError(f"{period} should be one of pd.Timestamp or pd.Period")
-
-    gebco_path = creation_parameters.pop('gebco_path', None)
-    if gebco_path and feature == 'height':
-        return delayed(get_data_gebco_height)(
-            coords.indexes['x'], coords.indexes['y'], gebco_path)
-
-    if creation_parameters:
-        logger.debug(
-            f"Unused creation_parameters: {', '.join(creation_parameters)}")
-
-    # Reference of the quantities
-    # https://confluence.ecmwf.int/display/CKB/ERA5+data+documentation
-    # (shortName) | (name)                                      | (paramId)
-    # tisr        | TOA incident solar radiation                | 212
-    # ssrd        | Surface Solar Rad Downwards                 | 169
-    # ssr         | Surface net Solar Radiation                 | 176
-    # fdir        | Total sky direct solar radiation at surface | 228021
-    # ro          | Runoff                                      | 205
-    # 2t          | 2 metre temperature                         | 167
-    # sp          | Surface pressure                            | 134
-    # stl4        | Soil temperature level 4                    | 236
-    # fsr         | Forecast surface roughnes                   | 244
+                        'chunks': creation_parameters.pop('chunks', None),
+                        'grid': [cutout.dx, cutout.dy]}
 
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
-    if func is None:
-        raise NotImplementedError(
-            f"Feature '{feature}' has not been implemented for dataset era5")
 
-    ds = delayed(func)(retrieval_params)
-
-    if sanitize and sanitize_func is not None:
-        ds = delayed(sanitize_func)(ds)
-
-    return ds
+    datasets = []
+    for d in retrieval_times(coords):
+        retrieval_params.update(d)
+        ds = delayed(func)(retrieval_params)
+        if sanitize and sanitize_func is not None:
+            ds = delayed(sanitize_func)(ds)
+        datasets.append(ds)
+    return delayed(xr.concat)(datasets, dim='time')
