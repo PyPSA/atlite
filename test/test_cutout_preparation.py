@@ -56,17 +56,10 @@ def test_odd_bounds():
 
 def test_compare_with_get_data_era5():
     period = pd.Period(time)
-    influx = atlite.datasets.era5.get_data(ref.coords, period, 'influx', tmpdir=tmp_dir)
+    influx = atlite.datasets.era5.get_data(ref, 'influx', tmpdir=tmp_dir)
     influx = influx.compute()
     assert_allclose(influx.influx_toa, ref.data.influx_toa, atol=1e-5, rtol=1e-5)
 
-
-def test_get_era5_data_in_sarah_module():
-    period = pd.Period(time)
-    influx = atlite.datasets.sarah.get_data_era5(ref.coords, period, 'influx',
-                                tmpdir=tmp_dir, x=None, y=None, sarah_dir=None)
-    influx = influx.compute()
-    assert_allclose(influx.influx_toa, ref.data.influx_toa, atol=1e-5, rtol=1e-5)
 
 
 def test_pv():

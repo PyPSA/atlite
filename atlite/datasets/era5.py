@@ -220,7 +220,8 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
         ],
         'month': list(range(1, 12 + 1)),
         # 'area': [50, -1, 49, 1], # North, West, South, East. Default: global
-        # 'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude) and north-south resolution (latitude). Default: 0.25 x 0.25
+        # 'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude)
+        # and north-south resolution (latitude). Default: 0.25 x 0.25
     }
     request.update(updates)
 
@@ -254,7 +255,6 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
 def get_data(cutout, feature, tmpdir, **creation_parameters):
 
     assert tmpdir is not None
-    assert feature in set(features) & set(static_features)
 
     coords = cutout.coords
     sanitize = creation_parameters.get('sanitize', True)
