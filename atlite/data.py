@@ -16,6 +16,8 @@ from numpy import atleast_1d
 from tempfile import mkstemp, mkdtemp
 from shutil import rmtree
 from dask.diagnostics import ProgressBar
+from dask import delayed
+from xarray import merge
 from xarray.core.groupby import DatasetGroupBy
 import logging
 logger = logging.getLogger(__name__)
@@ -163,10 +165,13 @@ def get_missing_features(cutout, module, features, tmpdir=None):
     return xr.merge(datasets, compat='equals')
 
 
-def available_features():
+def available_features(module=None):
     features = {name: m.features for name, m in datamodules.items()}
-    return pd.DataFrame(features).unstack().dropna()\
-             .rename_axis(['module', 'feature']).rename('variables')
+    features =  pd.DataFrame(features).unstack().dropna() \
+                  .rename_axis(['module', 'feature']).rename('variables')
+    if module is not None:
+        features = features.reindex(atleast_1d(module), level='module')
+    return features.explode()
 
 
 def cutout_prepare(cutout, features=slice(None), tmpdir=True,
@@ -174,13 +179,14 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=True,
     """
 
     """
-    modules = cutout.data.attrs.get('module')
-    modules = atleast_1d(modules)
+    modules = atleast_1d(cutout.data.attrs.get('module'))
     features = atleast_1d(features)
 
+    projection = set(datamodules[m].projection for m in modules)
+    assert len(projection) == 1, f'Projections of {modules} not compatible'
+
     # target is series of all available variables for given module and features
-    target = (available_features().reindex(modules, level='module')
-              .loc[:, features].explode().drop_duplicates())
+    target = available_features(modules).loc[:, features].drop_duplicates()
 
     tmpdir = mkdtemp()
 
@@ -200,8 +206,12 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=True,
         for v in missing_vars:
             cutout.data[v] = cutout.data[v].assign_attrs(module=module)
 
-    cutout.data.attrs['module'] = modules
     cutout.data.attrs['prepared_features'] = list(target.index.unique('feature'))
+    cutout.data.attrs['projection'] = projection.pop()
+
+    with ProgressBar():
+        cutout.data.to_netcdf(cutout.path)
+
     return cutout
 
 

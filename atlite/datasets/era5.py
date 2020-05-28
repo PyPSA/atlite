@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 # Model and Projection Settings
-projection = 'latlon'
+projection = 'latlong'
 
 features = {
     'height': ['height'],

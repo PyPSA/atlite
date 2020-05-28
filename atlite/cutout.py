@@ -17,7 +17,7 @@ Base class for Atlite.
 # https://github.com/pydata/xarray/issues/2535,
 # https://github.com/rasterio/rasterio-wheels/issues/12
 from .utils import CachedAttribute
-from .data import requires_windowed, cutout_prepare
+from .data import requires_windowed, cutout_prepare, available_features
 from .gis import get_coords, compute_indicatormatrix
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
@@ -127,7 +127,8 @@ class Cutout:
                 data = xr.open_dataset(str(path), cache=False)
                 prepared_features = data.attrs.get('prepared_features')
                 assert prepared_features is not None, (
-                    f"{self.name} does not" " have the required attribute `prepared_features`")
+                    f"{self.name} does not" " have the required "
+                    "attribute `prepared_features`")
                 if not isinstance(prepared_features, list):
                     data.attrs['prepared_features'] = [prepared_features]
             elif path.is_dir():
@@ -171,24 +172,23 @@ class Cutout:
 
         self.path = path
         self.data = data
-        self.dataset_module = sys.modules['atlite.datasets.' +
-                                          self.data.attrs['module']]
 
     @property
     def name(self):
         return self.path.stem
 
     @property
+    def module(self):
+        return self.data.attrs.get('module')
+
+    @property
     def projection(self):
-        return self.data.attrs.get(
-            'projection', self.dataset_module.projection)
+        return self.data.attrs.get('projection')
+
 
     @property
     def available_features(self):
-        if self.dataset_module and not self.is_view:
-            return set(self.dataset_module.features)
-        else:
-            return set()
+        return available_features(self.module)
 
     @property
     def coords(self):
