@@ -12,13 +12,15 @@ import pandas as pd
 import xarray as xr
 import ast
 import dask
+from numpy import atleast_1d
 from tempfile import mkstemp, mkdtemp
 from shutil import rmtree
 from dask.diagnostics import ProgressBar
 from xarray.core.groupby import DatasetGroupBy
-
 import logging
 logger = logging.getLogger(__name__)
+
+from .datasets import modules as datamodules
 
 
 def literal_eval_creation_parameters(node_or_string):
@@ -146,10 +148,10 @@ class Windows(object):
         return len(self.groupby)
 
 
-def get_missing_data(cutout, features, freq=None, tmpdir=None):
+def get_missing_features(cutout, module, features, tmpdir=None):
     creation_parameters = _get_creation_parameters(cutout.data)
     datasets = []
-    get_data = cutout.dataset_module.get_data
+    get_data = datamodules[module].get_data
 
     for feature in features:
         feature_data = get_data(cutout, feature, tmpdir=tmpdir,
@@ -161,88 +163,127 @@ def get_missing_data(cutout, features, freq=None, tmpdir=None):
     return xr.merge(datasets, compat='equals')
 
 
-def cutout_prepare(cutout, features=None, freq=None, tmpdir=True,
+def available_features():
+    features = {name: m.features for name, m in datamodules.items()}
+    return pd.DataFrame(features).unstack().dropna()\
+             .rename_axis(['module', 'feature']).rename('variables')
+
+
+def cutout_prepare(cutout, features=slice(None), tmpdir=True,
                    overwrite=False):
     """
-    Prepare all or a given set of `features`
 
-    Download `features` in slices with frequency `freq` and merge them into the
-    cutout data. If `tmpdir` is True, a directory for intermediate files is
-    created and cleaned up after use. Use `tmpdir = <existing directory>` to
-    keep intermediate files.
     """
+    modules = cutout.data.attrs.get('module')
+    modules = atleast_1d(modules)
+    features = atleast_1d(features)
 
-    if tmpdir is True:
-        tmpdir = mkdtemp()
-        keep_tmpdir = False
-    else:
-        keep_tmpdir = True
+    # target is series of all available variables for given module and features
+    target = (available_features().reindex(modules, level='module')
+              .loc[:, features].explode().drop_duplicates())
 
-    try:
-        # Make sure the variable ds is defined in the finally block
-        ds = None
+    tmpdir = mkdtemp()
 
-        if cutout.is_view:
-            assert features is None, (f"It's not possible to add features to a"
-                                      " view, use `cutout.prepare()` to save it "
-                                      f"to {cutout.cutout_fn} first.")
-            assert not os.path.exists(cutout.path) or overwrite, (
-                f"Not overwriting {cutout.path} with a view, unless "
-                "`overwrite=True`.")
+    for module in target.index.unique('module'):
+        missing_vars = target[module]
+        if not overwrite:
+            missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
+        if missing_vars.empty:
+            continue
+        missing_features = missing_vars.index.unique('feature')
+        ds = get_missing_features(cutout, module, missing_features, tmpdir=tmpdir)
 
-            ds = cutout.data
-            if 'prepared_features' not in ds.attrs:
-                logger.warning("Using empty `prepared_features`!")
-                ds.attrs['prepared_features'] = []
-        else:
-            features = set(features if features is not None
-                           else cutout.available_features)
-            missing_features = features - cutout.prepared_features
+        attrs = cutout.data.assign_attrs(ds.attrs)
+        cutout.data = xr.merge([ds[missing_vars.values], cutout.data],
+                               join='exact')\
+                        .assign_attrs(cutout.data.attrs)
+        for v in missing_vars:
+            cutout.data[v] = cutout.data[v].assign_attrs(module=module)
 
-            if not missing_features and not overwrite:
-                logger.info(
-                    f"All available features {cutout.available_features}"
-                    " have already been prepared, so nothing to do."
-                    f" Use `overwrite=True` to re-create {cutout.path.name} .")
-                return
+    cutout.data.attrs['module'] = modules
+    cutout.data.attrs['prepared_features'] = list(target.index.unique('feature'))
+    return cutout
 
-            ds = get_missing_data(cutout, missing_features, freq, tmpdir=tmpdir)
 
-            # Merge with existing cutout
-            ds = xr.merge([cutout.data, ds])
-            ds.attrs.update(cutout.data.attrs)
-            ds.attrs['prepared_features'].extend(missing_features)
 
-        # Write to a temporary file in the same directory first and then move back,
-        # because we might still want to load data from the original file in
-        # the process
-        directory, filename = os.path.split(str(cutout.path))
-        fd, target = mkstemp(suffix=filename, dir=directory)
-        os.close(fd)
 
-        with ProgressBar():
-            ds.to_netcdf(target)
 
-        ds.close()
-        if not cutout.is_view:
-            cutout.data.close()
 
-        if cutout.path.exists():
-            cutout.path.unlink()
-        os.rename(target, cutout.path)
-    finally:
-        # ds is the last reference to the temporary files:
-        # - we remove it from this scope, and
-        # - fire up the garbage collector,
-        # => xarray's file manager closes them and we can remove tmpdir
-        del ds
-        gc.collect()
 
-        if not keep_tmpdir:
-            rmtree(tmpdir)
 
-    # Re-open
-    cutout.data = xr.open_dataset(cutout.path, cache=False)
-    prepared_features = cutout.data.attrs.get('prepared_features')
-    if not isinstance(prepared_features, list):
-        cutout.data.attrs['prepared_features'] = [prepared_features]
+
+
+
+    # if tmpdir is True:
+    #     tmpdir = mkdtemp()
+    #     keep_tmpdir = False
+    # else:
+    #     keep_tmpdir = True
+    # try:
+    #     # Make sure the variable ds is defined in the finally block
+    #     ds = None
+
+    #     if cutout.is_view:
+    #         assert features is None, (f"It's not possible to add features to a"
+    #                                   " view, use `cutout.prepare()` to save it "
+    #                                   f"to {cutout.path} first.")
+    #         assert not os.path.exists(cutout.path) or overwrite, (
+    #             f"Not overwriting {cutout.path} with a view, unless "
+    #             "`overwrite=True`.")
+
+    #         ds = cutout.data
+    #         if 'prepared_features' not in ds.attrs:
+    #             logger.warning("Using empty `prepared_features`!")
+    #             ds.attrs['prepared_features'] = []
+    #     else:
+    #         features = set(features if features is not None
+    #                        else cutout.available_features)
+    #         missing_features = features - cutout.prepared_features
+
+    #         if not missing_features and not overwrite:
+    #             logger.info(
+    #                 f"All available features {cutout.available_features}"
+    #                 " have already been prepared, so nothing to do."
+    #                 f" Use `overwrite=True` to re-create {cutout.path.name} .")
+    #             return
+
+    #         ds = get_missing_features(cutout, missing_features, tmpdir=tmpdir)
+
+    #         # Merge with existing cutout
+    #         ds = xr.merge([cutout.data, ds])
+    #         ds.attrs.update(cutout.data.attrs)
+    #         ds.attrs['prepared_features'].extend(missing_features)
+
+    #     # Write to a temporary file in the same directory first and then move back,
+    #     # because we might still want to load data from the original file in
+    #     # the process
+    #     directory, filename = os.path.split(str(cutout.path))
+    #     fd, target = mkstemp(suffix=filename, dir=directory)
+    #     os.close(fd)
+
+    #     with ProgressBar():
+    #         ds.to_netcdf(target)
+
+    #     ds.close()
+    #     if not cutout.is_view:
+    #         cutout.data.close()
+
+    #     if cutout.path.exists():
+    #         cutout.path.unlink()
+    #     os.rename(target, cutout.path)
+    # finally:
+    #     # ds is the last reference to the temporary files:
+    #     # - we remove it from this scope, and
+    #     # - fire up the garbage collector,
+    #     # => xarray's file manager closes them and we can remove tmpdir
+    #     del ds
+    #     gc.collect()
+
+    #     if not keep_tmpdir:
+    #         rmtree(tmpdir)
+
+    # # Re-open
+    # cutout.data = xr.open_dataset(cutout.path, cache=False)
+    # prepared_features = cutout.data.attrs.get('prepared_features')
+    # if not isinstance(prepared_features, list):
+    #     cutout.data.attrs['prepared_features'] = [prepared_features]

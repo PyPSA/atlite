@@ -261,7 +261,7 @@ class Cutout:
                 'x = {:.2f} ⟷ {:.2f}, dx = {:.2f}\n'
                 'y = {:.2f} ⟷ {:.2f}, dy = {:.2f}\n'
                 'time = {} ⟷ {}, dt = {}\n'
-                'prepared_features={} is_view={}'
+                'prepared_features = {}\nis_view = {}'
                 .format(self.name,
                         self.coords['x'].values[0],
                         self.coords['x'].values[-1],

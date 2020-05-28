@@ -39,11 +39,10 @@ features = {
         'influx_toa',
         'influx_direct',
         'influx_diffuse',
-        'influx',
         'albedo'],
     'temperature': [
         'temperature',
-        'soil_temperature'],
+        'soil temperature'],
     'runoff': ['runoff']}
 
 static_features = {'height'}
@@ -228,12 +227,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
     assert {'year', 'month', 'variable'}.issubset(
         request), "Need to specify at least 'variable', 'year' and 'month'"
 
-    result = cdsapi.Client(
-        progress=False
-    ).retrieve(
-        product,
-        request
-    )
+    result = cdsapi.Client(progress=False).retrieve(product, request)
 
     fd, target = mkstemp(suffix='.nc', dir=tmpdir)
     os.close(fd)
