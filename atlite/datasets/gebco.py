@@ -15,8 +15,8 @@ from dask import delayed
 import logging
 logger = logging.getLogger(__name__)
 
-
-features = {'height'}
+projection = 'latlong'
+features = {'height': ['height']}
 
 
 def get_data_gebco_height(xs, ys, gebco_path=None):
