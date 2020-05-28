@@ -268,11 +268,14 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
+
     datasets = []
     for d in retrieval_times(coords):
         retrieval_params.update(d)
         ds = delayed(func)(retrieval_params)
         if sanitize and sanitize_func is not None:
             ds = delayed(sanitize_func)(ds)
+        if feature in static_features:
+            return ds
         datasets.append(ds)
     return delayed(xr.concat)(datasets, dim='time')
