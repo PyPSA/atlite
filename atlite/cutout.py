@@ -255,18 +255,26 @@ class Cutout:
         return Cutout(self.path.name, data)
 
     def __repr__(self):
-        return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}-{} '
-                'prepared_features={} is_view={}>' .format(self.name,
-                                                           self.coords['x'].values[0],
-                                                           self.coords['x'].values[-1],
-                                                           self.coords['y'].values[0],
-                                                           self.coords['y'].values[-1],
-                                                           np.datetime_as_string(self.coords['time'].values[0],
-                                                                                 unit='D'),
-                                                           np.datetime_as_string(self.coords['time'].values[-1],
-                                                                                 unit='D'),
-                                                           list(self.prepared_features),
-                                                           self.is_view))
+        start = np.datetime_as_string(self.coords['time'].values[0], unit='D')
+        end = np.datetime_as_string(self.coords['time'].values[-1], unit='D')
+        return ('Cutout "{}" \n'
+                'x = {:.2f} ⟷ {:.2f}, dx = {:.2f}\n'
+                'y = {:.2f} ⟷ {:.2f}, dy = {:.2f}\n'
+                'time = {} ⟷ {}, dt = {}\n'
+                'prepared_features={} is_view={}'
+                .format(self.name,
+                        self.coords['x'].values[0],
+                        self.coords['x'].values[-1],
+                        self.dx,
+                        self.coords['y'].values[0],
+                        self.coords['y'].values[-1],
+                        self.dy,
+                        start,
+                        end,
+                        self.dt,
+                        list(self.prepared_features),
+                        self.is_view))
+
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
         return compute_indicatormatrix(self.grid_cells, shapes,
