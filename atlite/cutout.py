@@ -137,7 +137,7 @@ class Cutout:
             else:
                 logger.info(f"Cutout {path} not found, building new one")
 
-                coords = get_coords(**cutoutparams)
+                coords = get_coords(cutoutparams)
 
                 if 'module' not in cutoutparams:
                     logger.warning("`module` was not specified, falling back "
@@ -150,7 +150,7 @@ class Cutout:
                     attrs={
                         'module': module,
                         'prepared_features': [],
-                        'creation_parameters': str(cutoutparams)})
+                        **cutoutparams})
         else:
             # User-provided dataset
             # TODO needs to be checked, sanitized and marked as immutable

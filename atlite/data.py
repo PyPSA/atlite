@@ -23,57 +23,6 @@ logger = logging.getLogger(__name__)
 from .datasets import modules as datamodules
 
 
-def literal_eval_creation_parameters(node_or_string):
-    """
-    Safely evaluate an expression node or a string containing a Python
-    expression.  The string or node provided may only consist of the following
-    Python literal structures: strings, bytes, numbers, tuples, lists, dicts,
-    sets, booleans, slices and None.
-
-    Variant: of ast.literal_eval
-    """
-    if isinstance(node_or_string, str):
-        node_or_string = ast.parse(node_or_string, mode='eval')
-    if isinstance(node_or_string, ast.Expression):
-        node_or_string = node_or_string.body
-
-    def _convert(node):
-        if isinstance(node, ast.Constant):
-            return node.value
-        elif isinstance(node, (ast.Str, ast.Bytes)):
-            return node.s
-        elif isinstance(node, ast.Num):
-            return node.n
-        elif isinstance(node, ast.Tuple):
-            return tuple(map(_convert, node.elts))
-        elif isinstance(node, ast.List):
-            return list(map(_convert, node.elts))
-        elif isinstance(node, ast.Set):
-            return set(map(_convert, node.elts))
-        elif isinstance(node, ast.Dict):
-            return dict((_convert(k), _convert(v))
-                        for k, v in zip(node.keys, node.values))
-        elif isinstance(node, ast.NameConstant):
-            return node.value
-        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
-            operand = _convert(node.operand)
-            if isinstance(operand, (int, float, complex)):
-                if isinstance(node.op, ast.UAdd):
-                    return + operand
-                else:
-                    return - operand
-        elif isinstance(node, ast.Call) and node.func.id == 'slice':
-            return slice(*map(_convert, node.args))
-
-        raise ValueError('malformed creation parameters: ' + repr(node))
-
-    return _convert(node_or_string)
-
-
-def _get_creation_parameters(data):
-    return literal_eval_creation_parameters(data.attrs['creation_parameters'])
-
-
 class requires_windowed(object):
     def __init__(self, features, windows=None, allow_dask=False):
         self.features = features
@@ -149,13 +98,12 @@ class Windows(object):
 
 
 def get_missing_features(cutout, module, features, tmpdir=None):
-    creation_parameters = _get_creation_parameters(cutout.data)
+    parameters = cutout.data.attrs
     datasets = []
     get_data = datamodules[module].get_data
 
     for feature in features:
-        feature_data = get_data(cutout, feature, tmpdir=tmpdir,
-                                **creation_parameters)
+        feature_data = get_data(cutout, feature, tmpdir=tmpdir, **parameters)
         datasets.append(feature_data)
 
     ds = xr.merge(datasets, compat='equals')
@@ -178,6 +126,12 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=True,
     """
 
     """
+    if tmpdir is True:
+        tmpdir = mkdtemp()
+        keep_tmpdir = False
+    else:
+        keep_tmpdir = True
+
     modules = atleast_1d(cutout.data.attrs.get('module'))
     features = atleast_1d(features)
 
@@ -187,7 +141,8 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=True,
     # target is series of all available variables for given module and features
     target = available_features(modules).loc[:, features].drop_duplicates()
 
-    tmpdir = mkdtemp()
+    cutout.data.attrs['prepared_features'] = list(target.index.unique('feature'))
+    cutout.data.attrs['projection'] = projection.pop()
 
     for module in target.index.unique('module'):
         missing_vars = target[module]
@@ -198,25 +153,19 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=True,
         missing_features = missing_vars.index.unique('feature')
         ds = get_missing_features(cutout, module, missing_features, tmpdir=tmpdir)
         ds = ds[missing_vars.values]
-        cutout.data.attrs.update(ds.attrs)
+        ds = ds.assign_attrs(cutout.data.attrs)
 
         logger.info(f'Calculating and writing with module {module}:')
         with ProgressBar():
-            ds.to_netcdf(cutout.path)
+            mode = 'a' if cutout.path.exists() else 'w'
+            ds.to_netcdf(cutout.path, mode=mode)
 
-        # attrs = cutout.data.attrs
-        # attrs.update(ds.attrs)
-        # cutout.data = merge([, cutout.data], join='exact')
-
-        # cutout.data.attrs.update(attrs)
-
+    if not keep_tmpdir:
+        rmtree(tmpdir)
 
     # # TODO time resampling here
-    cutout.data.attrs['prepared_features'] = list(target.index.unique('feature'))
-    cutout.data.attrs['projection'] = projection.pop()
     cutout.data = xr.open_dataset(cutout.path, cache=False)
 
-    
     return cutout
 
 

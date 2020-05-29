@@ -70,5 +70,5 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     path = creation_parameters['gebco_path']
     coords = cutout.coords
 
-    return delayed(get_data_gebco_height)(coords['x'], coords['y'], path)
+    return get_data_gebco_height(coords['x'], coords['y'], path)
 

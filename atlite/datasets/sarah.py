@@ -8,7 +8,8 @@
 Module containing specific operations for creating cutouts from the SARAH2 dataset.
 """
 
-from ..gis import regrid, Resampling
+from ..gis import regrid
+from rasterio.warp import Resampling
 import os
 import glob
 import pandas as pd
@@ -117,7 +118,6 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
 
     sarah_dir = creation_parameters['sarah_dir']
     coords = cutout.coords
-    interpolate = creation_parameters.pop('interpolate', False)
     parallel = creation_parameters.get('parallel', False)
     # we only chunk on 'time' as the reprojection below requires the whole grid
     chunks = creation_parameters.get('chunks', {'time': 20})
@@ -130,7 +130,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     ds = ds.sel(lon=as_slice(coords['lon']), lat=as_slice(coords['lat']))
 
     # Interpolate, resample and possible regrid
-    ds = interpolate(ds) if interpolate else ds.fillna(0)
+    ds = interpolate(ds)
     ds = ds if cutout.dt == '30min' else hourly_mean(ds)
     if (cutout.dx != dx) or (cutout.dy != dy):
         ds = regrid(ds, coords['lon'], coords['lat'], resampling=Resampling.average)

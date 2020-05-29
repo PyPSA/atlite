@@ -14,42 +14,36 @@ systems data
 import numpy as np
 import pandas as pd
 import xarray as xr
-import pickle
 import scipy as sp
 import scipy.sparse
 from collections import OrderedDict
 from warnings import warn
-from itertools import product
 from functools import partial
 import pyproj
-from shapely.prepared import prep
 from shapely.ops import transform
-from shapely.geometry import box
 import rasterio as rio
 import rasterio.warp
-from rasterio.warp import Resampling
-from rtree.index import Index
 from shapely.strtree import STRtree
 
 import logging
 logger = logging.getLogger(__name__)
 
 
-def get_coords(**cutoutparams):
+def get_coords(cutoutparams):
     if {"x", "y", "time"}.difference(cutoutparams):
         raise RuntimeError("Arguments `x`, `y` and `time` need to "
                            "be specified (or `bounds` instead of `x` and `y`)")
 
-    x = cutoutparams['x']
-    y = cutoutparams['y']
-    time = cutoutparams['time']
-
-    x = slice(*sorted([x.start, x.stop]))
-    y = slice(*sorted([y.start, y.stop]))
-
     dx = cutoutparams.get("dx", 0.25)
     dy = cutoutparams.get("dy", 0.25)
     dt = cutoutparams.get("dt", 'h')
+
+    x = cutoutparams.pop('x')
+    y = cutoutparams.pop('y')
+    time = cutoutparams.pop('time')
+
+    x = slice(*sorted([x.start, x.stop]))
+    y = slice(*sorted([y.start, y.stop]))
 
     ds = xr.Dataset({'x': np.arange(-180, 180, dx),
                      'y': np.arange(-90, 90, dy),

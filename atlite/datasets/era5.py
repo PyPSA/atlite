@@ -277,6 +277,6 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
         datasets.append(ds)
         if feature in static_features:
                 return dask.compute(*datasets)[0]
-    with dask.diagnostics.ProgressBar():
+    with dask.diagnostics.ProgressBar(2):
         res = dask.compute(*datasets)
     return xr.concat(res, dim='time')
