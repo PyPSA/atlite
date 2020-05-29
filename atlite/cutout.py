@@ -39,8 +39,8 @@ logger = logging.getLogger(__name__)
 
 class Cutout:
 
-    dataset_module = None
-
+    # TODO update docstring with all possible cutout_params
+    # also from different modules
     def __init__(self, path="unnamed.nc", data=None, **cutoutparams):
         """
         Provide an Atlite cutout object.

@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+logging.getLogger("cdsapi").setLevel(logging.ERROR)
+
 
 # Model and Projection Settings
 projection = 'latlong'
