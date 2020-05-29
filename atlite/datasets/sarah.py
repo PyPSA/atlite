@@ -118,11 +118,12 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     sarah_dir = creation_parameters['sarah_dir']
     coords = cutout.coords
     interpolate = creation_parameters.pop('interpolate', False)
-
-    files = get_filenames(sarah_dir, coords)
+    parallel = creation_parameters.get('parallel', False)
     # we only chunk on 'time' as the reprojection below requires the whole grid
     chunks = creation_parameters.get('chunks', {'time': 20})
-    open_kwargs = dict(chunks=chunks, parallel=True)
+
+    files = get_filenames(sarah_dir, coords)
+    open_kwargs = dict(chunks=chunks, parallel=parallel)
     ds_sis = xr.open_mfdataset(files.sis, combine='by_coords', **open_kwargs)
     ds_sid = xr.open_mfdataset(files.sid, combine='by_coords', **open_kwargs)
     ds = xr.merge([ds_sis, ds_sid])
