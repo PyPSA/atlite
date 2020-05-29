@@ -115,11 +115,14 @@ def hourly_mean(ds):
     return ds
 
 def get_data(cutout, feature, tmpdir, **creation_parameters):
+    '''
+    TODO: Note that chunking is only available on time axis.
+    '''
+    coords = cutout.coords
 
     sarah_dir = creation_parameters['sarah_dir']
-    coords = cutout.coords
-    parallel = creation_parameters.get('parallel', False)
-    # we only chunk on 'time' as the reprojection below requires the whole grid
+    parallel = creation_parameters.get('sarah_parallel', False)
+    interpolate = creation_parameters.get('sarah_interpolate', False)
     chunks = creation_parameters.get('chunks', {'time': 20})
 
     files = get_filenames(sarah_dir, coords)
@@ -130,7 +133,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     ds = ds.sel(lon=as_slice(coords['lon']), lat=as_slice(coords['lat']))
 
     # Interpolate, resample and possible regrid
-    ds = interpolate(ds)
+    ds = interpolate(ds) if interpolate else ds.fillna(0)
     ds = ds if cutout.dt == '30min' else hourly_mean(ds)
     if (cutout.dx != dx) or (cutout.dy != dy):
         ds = regrid(ds, coords['lon'], coords['lat'], resampling=Resampling.average)
