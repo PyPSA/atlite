@@ -15,6 +15,7 @@ import os
 import pandas as pd
 import numpy as np
 import xarray as xr
+import dask
 from dask import delayed
 from tempfile import mkstemp
 import weakref
@@ -26,6 +27,8 @@ from ..gis import maybe_swap_spatial_dims
 import logging
 logger = logging.getLogger(__name__)
 
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Model and Projection Settings
 projection = 'latlong'
@@ -227,7 +230,8 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
     assert {'year', 'month', 'variable'}.issubset(
         request), "Need to specify at least 'variable', 'year' and 'month'"
 
-    result = cdsapi.Client(progress=False).retrieve(product, request)
+    result = cdsapi.Client(progress=False, info_callback=False)\
+                   .retrieve(product, request)
 
     fd, target = mkstemp(suffix='.nc', dir=tmpdir)
     os.close(fd)
@@ -269,7 +273,9 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
         ds = delayed(func)(retrieval_params)
         if sanitize and sanitize_func is not None:
             ds = delayed(sanitize_func)(ds)
-        if feature in static_features:
-            return ds
         datasets.append(ds)
-    return delayed(xr.concat)(datasets, dim='time')
+        if feature in static_features:
+                return dask.compute(*datasets)[0]
+    with dask.diagnostics.ProgressBar():
+        res = dask.compute(*datasets)
+    return xr.concat(res, dim='time')

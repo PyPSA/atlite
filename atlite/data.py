@@ -16,8 +16,6 @@ from numpy import atleast_1d
 from tempfile import mkstemp, mkdtemp
 from shutil import rmtree
 from dask.diagnostics import ProgressBar
-from dask import delayed
-from xarray import merge
 from xarray.core.groupby import DatasetGroupBy
 import logging
 logger = logging.getLogger(__name__)
@@ -160,9 +158,10 @@ def get_missing_features(cutout, module, features, tmpdir=None):
                                 **creation_parameters)
         datasets.append(feature_data)
 
-    datasets, = dask.compute(datasets)
-
-    return xr.merge(datasets, compat='equals')
+    ds = xr.merge(datasets, compat='equals')
+    for v in ds:
+        ds[v].attrs.update(dict(module=module))
+    return ds
 
 
 def available_features(module=None):
@@ -198,20 +197,26 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=True,
             continue
         missing_features = missing_vars.index.unique('feature')
         ds = get_missing_features(cutout, module, missing_features, tmpdir=tmpdir)
+        ds = ds[missing_vars.values]
+        cutout.data.attrs.update(ds.attrs)
 
-        attrs = cutout.data.assign_attrs(ds.attrs)
-        cutout.data = xr.merge([ds[missing_vars.values], cutout.data],
-                               join='exact')\
-                        .assign_attrs(cutout.data.attrs)
-        for v in missing_vars:
-            cutout.data[v] = cutout.data[v].assign_attrs(module=module)
+        logger.info(f'Calculating and writing with module {module}:')
+        with ProgressBar():
+            ds.to_netcdf(cutout.path)
 
+        # attrs = cutout.data.attrs
+        # attrs.update(ds.attrs)
+        # cutout.data = merge([, cutout.data], join='exact')
+
+        # cutout.data.attrs.update(attrs)
+
+
+    # # TODO time resampling here
     cutout.data.attrs['prepared_features'] = list(target.index.unique('feature'))
     cutout.data.attrs['projection'] = projection.pop()
+    cutout.data = xr.open_dataset(cutout.path, cache=False)
 
-    with ProgressBar():
-        cutout.data.to_netcdf(cutout.path)
-
+    
     return cutout
 
 

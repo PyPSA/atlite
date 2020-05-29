@@ -100,6 +100,18 @@ def as_slice(zs, pad=True):
         zs = slice(first - dz, last + dz)
     return zs
 
+def hourly_mean(ds):
+    '''
+    Resample time data to 1H frequency, preserves chunks sizes
+    '''
+    ds1 = ds.isel(time=slice(None, None, 2))
+    ds2 = ds.isel(time=slice(1, None, 2))
+    ds2 = ds2.assign_coords(time=ds2.indexes['time'] - pd.Timedelta(30, 'm'))
+    ds = ((ds1 + ds2)/2)
+    ds.attrs = ds1.attrs
+    for v in ds.variables:
+        ds[v].attrs = ds1[v].attrs
+    return ds
 
 def get_data(cutout, feature, tmpdir, **creation_parameters):
 
@@ -109,16 +121,16 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
 
     files = get_filenames(sarah_dir, coords)
     # we only chunk on 'time' as the reprojection below requires the whole grid
-    chunks = creation_parameters.get('chunks', {'time': 12})
-
-    ds_sis = xr.open_mfdataset(files.sis, combine='by_coords', chunks=chunks)
-    ds_sid = xr.open_mfdataset(files.sid, combine='by_coords', chunks=chunks)
+    chunks = creation_parameters.get('chunks', {'time': 20})
+    open_kwargs = dict(chunks=chunks, parallel=True)
+    ds_sis = xr.open_mfdataset(files.sis, combine='by_coords', **open_kwargs)
+    ds_sid = xr.open_mfdataset(files.sid, combine='by_coords', **open_kwargs)
     ds = xr.merge([ds_sis, ds_sid])
     ds = ds.sel(lon=as_slice(coords['lon']), lat=as_slice(coords['lat']))
 
     # Interpolate, resample and possible regrid
     ds = interpolate(ds) if interpolate else ds.fillna(0)
-    ds = ds.resample(time=cutout.dt).mean()
+    ds = ds if cutout.dt == '30min' else hourly_mean(ds)
     if (cutout.dx != dx) or (cutout.dy != dy):
         ds = regrid(ds, coords['lon'], coords['lat'], resampling=Resampling.average)
 
