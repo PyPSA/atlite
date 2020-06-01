@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016-2020 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -29,19 +29,31 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def get_coords(cutoutparams):
-    if {"x", "y", "time"}.difference(cutoutparams):
-        raise RuntimeError("Arguments `x`, `y` and `time` need to "
-                           "be specified (or `bounds` instead of `x` and `y`)")
+def get_coords(x, y, time, dx=0.25, dy=0.25, dt='h', **kwargs):
+    """
+    Create an cutout coordinate system on the basis of slices and step sizes.
 
-    dx = cutoutparams.get("dx", 0.25)
-    dy = cutoutparams.get("dy", 0.25)
-    dt = cutoutparams.get("dt", 'h')
+    Parameters
+    ----------
+    x : slice
+        Numerical slices with lower and upper bound of the x dimension.
+    y : slice
+        Numerical slices with lower and upper bound of the y dimension.
+    time : slice
+        Slice with strings with lower and upper bound of the time dimension.
+    dx : float, optional
+        Step size of the x coordinate. The default is 0.25.
+    dy : float, optional
+        Step size of the y coordinate. The default is 0.25.
+    dt : str, optional
+        Frequency of the time coordinate. The default is 'h'.
 
-    x = cutoutparams.pop('x')
-    y = cutoutparams.pop('y')
-    time = cutoutparams.pop('time')
-
+    Returns
+    -------
+    ds : xarray.Dataset
+        Dataset with x, y and time variables, representing the whole coordinate
+        system.
+    """
     x = slice(*sorted([x.start, x.stop]))
     y = slice(*sorted([y.start, y.stop]))
 

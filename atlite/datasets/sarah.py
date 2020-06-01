@@ -31,7 +31,22 @@ static_features = {}
 
 
 def get_filenames(sarah_dir, coords):
+    """
+    Get all files in directory `sarah_dir` relevent for coordinates `coords`.
 
+    This function parses all files in the sarah directory which lay in the time
+    span of the coordinates.
+
+    Parameters
+    ----------
+    sarah_dir : str
+    coords : atlite.Cutout.coords
+
+    Returns
+    -------
+    pd.DataFrame with two columns `sis` and `sid` for and timeindex for all
+    relevant files.
+    """
     def _filenames_starting_with(name):
         pattern = os.path.join(sarah_dir, "**", f"{name}*.nc")
         files = pd.Series(glob.glob(pattern, recursive=True))
@@ -57,15 +72,15 @@ def get_filenames(sarah_dir, coords):
 
 
 def interpolate(ds, dim='time'):
-    '''
+    """
     Interpolate NaNs in a dataset along a chunked dimension.
 
-    This function is similar to similar to xr.Dataset.interpolate_na but can
-    be used for interpolating along an chunked dimensions (default 'time'').
-    As the sarah data has mulitple nan in the areas of dawn and nightfall
+    This function is similar to xr.Dataset.interpolate_na but can
+    be used for interpolating along a chunked dimensions (default 'time'').
+    As the sarah data has mulitple NaN's in the areas of dawn and nightfall
     and the data is per default chunked along the time axis, use this function
-    to interpolate those nans.
-    '''
+    to interpolate.
+    """
     def _interpolate1d(y):
         nan = np.isnan(y)
         if nan.all() or not nan.any():
@@ -95,6 +110,7 @@ def interpolate(ds, dim='time'):
 
 
 def as_slice(zs, pad=True):
+    """Convert index to slice. This speeds up the indexing."""
     if not isinstance(zs, slice):
         first, second, last = np.asarray(zs)[[0, 1, -1]]
         dz = 0.1 * (second - first) if pad else 0.
@@ -102,9 +118,12 @@ def as_slice(zs, pad=True):
     return zs
 
 def hourly_mean(ds):
-    '''
-    Resample time data to 1H frequency, preserves chunks sizes
-    '''
+    """
+    Resample time data to one hour frequency.
+
+    In contrast to the standard xarray resample function this preserves chunks
+    sizes along the time dimension.
+    """
     ds1 = ds.isel(time=slice(None, None, 2))
     ds2 = ds.isel(time=slice(1, None, 2))
     ds2 = ds2.assign_coords(time=ds2.indexes['time'] - pd.Timedelta(30, 'm'))
@@ -114,10 +133,36 @@ def hourly_mean(ds):
         ds[v].attrs = ds1[v].attrs
     return ds
 
+
 def get_data(cutout, feature, tmpdir, **creation_parameters):
-    '''
-    TODO: Note that chunking is only available on time axis.
-    '''
+    """
+    Load stored SARAH data and reformat to matching the given cutout.
+
+    This function loads and resamples the stored SARAH data for a given
+    `atlite.Cutout`.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+    feature : str
+        Name of the feature data to retrieve. Must be in
+        `atlite.datasets.sarah.features`
+    **creation_parameters :
+        Mandatory arguments are:
+            * 'sarah_dir', str. Directory of the stored SARAH data.
+        Possible arguments are:
+            * 'sarah_parallel', bool. Whether to load stored files in parallel
+            mode. Default is False.
+            * 'sarah_interpolate', bool. Whether to interpolate areas of dawn
+            and nightfall. This might slow down the loading process if only
+            a few cores are available.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset of dask arrays of the retrieved variables.
+
+    """
     coords = cutout.coords
 
     sarah_dir = creation_parameters['sarah_dir']

@@ -39,8 +39,6 @@ logger = logging.getLogger(__name__)
 
 class Cutout:
 
-    # TODO update docstring with all possible cutout_params
-    # also from different modules
     def __init__(self, path="unnamed.nc", data=None, **cutoutparams):
         """
         Provide an Atlite cutout object.
@@ -137,7 +135,8 @@ class Cutout:
             else:
                 logger.info(f"Cutout {path} not found, building new one")
 
-                coords = get_coords(cutoutparams)
+                coords = get_coords(cutoutparams.pop('x'), cutoutparams.pop('y'),
+                                    cutoutparams.pop('time'), **cutoutparams)
 
                 if 'module' not in cutoutparams:
                     logger.warning("`module` was not specified, falling back "

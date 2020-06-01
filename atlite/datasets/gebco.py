@@ -68,7 +68,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     if 'gebco_path' not in creation_parameters:
         logger.error('Argument "gebco_path" not defined')
     path = creation_parameters['gebco_path']
-    coords = cutout.coords
 
+    coords = cutout.coords
     return get_data_gebco_height(coords['x'], coords['y'], path)
 

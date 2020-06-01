@@ -54,7 +54,7 @@ static_features = {'height'}
 
 
 def _add_height(ds):
-    """Convert geopotential 'z' to geopotential height following [1]
+    """Convert geopotential 'z' to geopotential height following [1].
 
     References
     ----------
@@ -73,11 +73,11 @@ def _add_height(ds):
 
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
-    """Rename 'longitude' and 'latitude' columns to 'x' and 'y'
+    """Rename 'longitude' and 'latitude' columns to 'x' and 'y'.
 
-    Optionally (add_lon_lat, default:True) preserves latitude and longitude columns as 'lat' and 'lon'.
+    Optionally (add_lon_lat, default:True) preserves latitude and longitude
+    columns as 'lat' and 'lon'.
     """
-
     ds = ds.rename({'longitude': 'x', 'latitude': 'y'})
     ds = maybe_swap_spatial_dims(ds)
     if add_lon_lat:
@@ -86,6 +86,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
 
 
 def get_data_wind(retrieval_params):
+    """Get wind data for given retrieval parameters."""
     ds = retrieve_data(
         variable=[
             '100m_u_component_of_wind',
@@ -104,11 +105,13 @@ def get_data_wind(retrieval_params):
 
 
 def sanitize_wind(ds):
+    """Sanitize retrieved wind data."""
     ds['roughness'] = ds['roughness'].where(ds['roughness'] >= 0.0, 2e-4)
     return ds
 
 
 def get_data_influx(retrieval_params):
+    """Get influx data for given retrieval parameters."""
     ds = retrieve_data(
         variable=[
             'surface_net_solar_radiation',
@@ -138,12 +141,14 @@ def get_data_influx(retrieval_params):
 
 
 def sanitize_inflow(ds):
+    """Sanitize retrieved inflow data."""
     for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
         ds[a] = ds[a].clip(min=0.)
     return ds
 
 
 def get_data_temperature(retrieval_params):
+    """Get wind temperature for given retrieval parameters."""
     ds = retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'],
                        **retrieval_params)
 
@@ -154,6 +159,7 @@ def get_data_temperature(retrieval_params):
 
 
 def get_data_runoff(retrieval_params):
+    """Get runoff data for given retrieval parameters."""
     ds = retrieve_data(variable=['runoff'], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
@@ -163,11 +169,13 @@ def get_data_runoff(retrieval_params):
 
 
 def sanitize_runoff(ds):
+    """Sanitize retrieved runoff data."""
     ds['runoff'] = ds['runoff'].clip(min=0.)
     return ds
 
 
 def get_data_height(retrieval_params):
+    """Get height data for given retrieval parameters."""
     ds = retrieve_data(variable='orography', **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
@@ -184,12 +192,31 @@ def _area(coords):
 
 
 def retrieval_times(coords):
+    """
+    Get list of retrieval cdsapi arguments for time dimension in coordinates.
+
+    According to the time span in the coords argument, the entries in the list
+    specify either
+
+    * days, if number of days in coords is less or equal 10
+    * months, if number of days is less or equal 90
+    * years else
+
+    Parameters
+    ----------
+    coords : atlite.Cutout.coords
+
+    Returns
+    -------
+    list of dicts witht retrieval arguments
+
+    """
     time = pd.Series(coords['time'])
     time_span = time[0] - time[len(time)-1]
     if len(time) == 1:
         return [{'year': d.year, 'month': d.month, 'day': d.day,
                  'time': d.strftime("%H:00")} for d in time]
-    if time_span.days <= 1:
+    if time_span.days <= 10:
         return [{'year': d.year, 'month': d.month, 'day': d.day}
                 for d in time.dt.date.unique()]
     elif time_span.days < 90:
@@ -201,6 +228,7 @@ def retrieval_times(coords):
 
 
 def noisy_unlink(path):
+    """Delete file at given path."""
     logger.info(f"Deleting file {path}")
     try:
         os.unlink(path)
@@ -209,8 +237,7 @@ def noisy_unlink(path):
 
 
 def retrieve_data(product, chunks=None, tmpdir=None, **updates):
-    """Download data like ERA5 from the Climate Data Store (CDS)"""
-
+    """Download data like ERA5 from the Climate Data Store (CDS)."""
     # Default request
     request = {
         'product_type': 'reanalysis',
@@ -237,9 +264,6 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
     fd, target = mkstemp(suffix='.nc', dir=tmpdir)
     os.close(fd)
 
-    logger.info("Downloading request for {} variables to {}".format(
-        len(request['variable']), target))
-
     result.download(target)
 
     ds = xr.open_dataset(target, chunks=chunks or {})
@@ -252,10 +276,32 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
 
 
 def get_data(cutout, feature, tmpdir, **creation_parameters):
+    """
+    Retrieve data from ECMWFs ERA5 dataset (via CDS).
 
-    assert tmpdir is not None
+    This front-end function downloads data for a specific feature and formats
+    it to match the given Cutout.
 
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+    feature : str
+        Name of the feature data to retrieve. Must be in
+        `atlite.datasets.era5.features`
+    tmpdir : str/Path
+        Directory where the temporary netcdf files are stored.
+    **creation_parameters :
+        Additional keyword arguments. The only effective argument is 'sanitize'
+        (default True) which sets sanitization of the data on or off.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset of dask arrays of the retrieved variables.
+
+    """
     coords = cutout.coords
+
     sanitize = creation_parameters.get('sanitize', True)
 
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
@@ -267,6 +313,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
+    logger.info(f"Downloading requested variables to {tmpdir}.")
 
     datasets = []
     for d in retrieval_times(coords):
