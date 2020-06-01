@@ -21,10 +21,13 @@ from .data import cutout_prepare, available_features
 from .gis import get_coords, compute_indicatormatrix
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
+from .datasets import modules as dmodules
+
 
 import xarray as xr
 import pandas as pd
 import numpy as np
+from numpy import atleast_1d
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
@@ -56,7 +59,7 @@ class Cutout:
         Parameters
         ----------
         path : str | path-like
-            NetCDF from which to load or where to store the cutout
+            NetCDF from which to load or where to store the cutout.
         module : str or list
             The dataset(s) which works as a basis for the cutout. Available
             modules are "era5", "sarah" and "gebco".
@@ -70,6 +73,7 @@ class Cutout:
         time : str | slice
             Time range to include in the cutout, e.g. "2011" or
             ("2011-01-05", "2011-01-25")
+            This is necessary when building a new cutout.
         bounds : GeoSeries.bounds | DataFrame, optional
             The outer bounds of the cutout or as a DataFrame
             containing (min.long, min.lat, max.long, max.lat).
@@ -116,10 +120,7 @@ class Cutout:
 
         path = Path(path).with_suffix(".nc")
 
-        if 'bounds' in cutoutparams:
-            x1, y1, x2, y2 = cutoutparams.pop('bounds')
-            cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
-
+        # Backward compatibility for xs, ys, months and years
         if {'xs', 'ys'}.intersection(cutoutparams):
             warn(
                 "The arguments `xs` and `ys` have been deprecated in favour of "
@@ -135,9 +136,11 @@ class Cutout:
             assert 'years' in cutoutparams
             months = cutoutparams.pop("months", slice(1, 12))
             years = cutoutparams.pop("years")
-            cutoutparams["time"] = slice("{}-{}".format(years.start, months.start),
-                                         "{}-{}".format(years.stop, months.stop))
+            cutoutparams["time"] = slice(f"{years.start}-{months.start}",
+                                         f"{years.stop}-{months.stop}")
 
+        # Two cases. Either cutout exists -> take the data. Or it does not
+        # exist, build a new one
         if path.is_file():
             data = xr.open_dataset(str(path), cache=False)
             if 'module' in cutoutparams:
@@ -150,17 +153,30 @@ class Cutout:
 
         else:
             logger.info(f"Cutout {path} not found, building new one")
-            assert 'x' in cutoutparams
-            assert 'y' in cutoutparams
-            assert 'time' in cutoutparams
-            assert 'module' in cutoutparams
 
-            coords = get_coords(cutoutparams.pop('x'), cutoutparams.pop('y'),
-                                cutoutparams.pop('time'), **cutoutparams)
+            if 'bounds' in cutoutparams:
+                x1, y1, x2, y2 = cutoutparams.pop('bounds')
+                cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
+
+            try:
+                x = cutoutparams.pop('x')
+                y = cutoutparams.pop('y')
+                time = cutoutparams.pop('time')
+                module = cutoutparams.pop('module')
+            except KeyError:
+                raise KeyError("Arguments 'time' and 'module' must be "
+                               "specified. Spatial bounds must either be "
+                               "passed via argument 'bounds' or 'x' and 'y'.")
+
             # TODO: check for dx, dy, x, y fine with module requirements
+            coords = get_coords(x, y, time, **cutoutparams)
 
-            attrs = {'module': cutoutparams.pop('module'),
-                     'prepared_features': [], **cutoutparams}
+            projection = set(dmodules[m].projection for m in atleast_1d(module))
+            assert len(projection) == 1, (
+                f'Projections of {module} not compatible')
+            cutoutparams.update({'projection': projection.pop()})
+
+            attrs = {'module': module, 'prepared_features': [], **cutoutparams}
             data = xr.Dataset(coords=coords, attrs = attrs)
 
         self.path = path
@@ -250,11 +266,11 @@ class Cutout:
     def __repr__(self):
         start = np.datetime_as_string(self.coords['time'].values[0], unit='D')
         end = np.datetime_as_string(self.coords['time'].values[-1], unit='D')
-        return ('Cutout "{}" \n'
-                'x = {:.2f} ⟷ {:.2f}, dx = {:.2f}\n'
-                'y = {:.2f} ⟷ {:.2f}, dy = {:.2f}\n'
-                'time = {} ⟷ {}, dt = {}\n'
-                'prepared_features = {}'
+        return ('<Cutout "{}">\n'
+                ' x = {:.2f} ⟷ {:.2f}, dx = {:.2f}\n'
+                ' y = {:.2f} ⟷ {:.2f}, dy = {:.2f}\n'
+                ' time = {} ⟷ {}, dt = {}\n'
+                ' prepared_features = {}'
                 .format(self.name,
                         self.coords['x'].values[0],
                         self.coords['x'].values[-1],

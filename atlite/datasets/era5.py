@@ -28,6 +28,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 import urllib3
+logger.warning('Disable urllib3 and cdsapi warnings.')
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 logging.getLogger("cdsapi").setLevel(logging.ERROR)
 
