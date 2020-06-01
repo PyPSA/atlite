@@ -46,7 +46,8 @@ def get_coords(x, y, time, dx=0.25, dy=0.25, dt='h', **kwargs):
     dy : float, optional
         Step size of the y coordinate. The default is 0.25.
     dt : str, optional
-        Frequency of the time coordinate. The default is 'h'.
+        Frequency of the time coordinate. The default is 'h'. Valid are all
+        pandas offset aliases.
 
     Returns
     -------

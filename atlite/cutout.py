@@ -17,7 +17,7 @@ Base class for Atlite.
 # https://github.com/pydata/xarray/issues/2535,
 # https://github.com/rasterio/rasterio-wheels/issues/12
 from .utils import CachedAttribute
-from .data import requires_windowed, cutout_prepare, available_features
+from .data import cutout_prepare, available_features
 from .gis import get_coords, compute_indicatormatrix
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
@@ -39,20 +39,17 @@ logger = logging.getLogger(__name__)
 
 class Cutout:
 
-    def __init__(self, path="unnamed.nc", data=None, **cutoutparams):
+    def __init__(self, path, data=None, **cutoutparams):
         """
         Provide an Atlite cutout object.
 
-        Create a cutout object to use atlite operations on it.
-        Based on the provided parameters, atlite first checks
-        whether this cutout already exists on disk and if yes,
-        loads this cutout.
+        Create a cutout object to use atlite operations on it. Based on the
+        provided parameters, atlite first checks whether this cutout already
+        exists on disk and if yes, loads this cutout.
 
-        If the cutout does not yet exist on disk, then atlite
-        creates an "unprepared" cutout object containing all the
-        necessary information for creating the requested cutout,
-        but does not yet create ("prepare") it fully.
-        The process of preparing has to be manually started by
+        If the cutout does not yet exist on disk, then atlite creates an
+        "unprepared" cutout object. This does not yet contain the full data.
+        The process of preparing (loading the data) can then be started with
         `cutout.prepare()`.
 
         Parameters
@@ -61,19 +58,51 @@ class Cutout:
             NetCDF from which to load or where to store the cutout
         data : (opt.) xr.Dataset
             Specify the NetCDF data directly
-        module : ["era5","ncep","cordex","sarah"]
-            The dataset which works as a basis for the cutout
-            creation.
+        module : str or list
+            The dataset(s) which works as a basis for the cutout. Available
+            modules are "era5", "sarah" and "gebco".
+            If more than one module is given, their order determines how atlite
+            fills up missing features when preparing the cutout with
+            `Cutout.prepare()`. For example `influx_diffuse` is provided by
+            the `sarah` and the `era5` module. Prioritizing sarah and setting
+            module=['sarah', 'era5'] will load `influx_diffuse` from the sarah
+            module and ignoring the era5 'influx_diffuse' data.
         time : str | slice
             Time range to include in the cutout, e.g. "2011" or
             ("2011-01-05", "2011-01-25")
-        bounds : (opt.) GeoSeries.bounds | DataFrame
+        bounds : GeoSeries.bounds | DataFrame, optional
             The outer bounds of the cutout or as a DataFrame
             containing (min.long, min.lat, max.long, max.lat).
-        x : (opt.) slice
+        x : slice, optional
             Outer longitudinal bounds for the cutout (west, east).
-        y : (opt.) slice
+        y : slice, optional
             Outer latitudinal bounds for the cutout (south, north).
+        dx : float, optional
+            Step size of the x coordinate. The default is 0.25.
+        dy : float, optional
+            Step size of the y coordinate. The default is 0.25.
+        dt : str, optional
+            Frequency of the time coordinate. The default is 'h'. Valid are all
+            pandas offset aliases.
+
+        Other Parameters
+        ----------------
+        chunks : dict
+            Chunks when opening netcdf files. We recommand to chunk only along
+            the time dimension.
+        sanitize : bool, default True
+            Whether to sanitize the data when preparing the cutout. Takes
+            effect for 'era5' data loading.
+        sarah_dir : str, Path
+            Directory of on-disk sarah data. This must be given when using the
+            sarah module.
+        interpolate : bool
+            Whether to interpolate NaN's in the data. This takes effect for
+            sarah data which has missing data for areas where dawn and
+            nightfall happens (ca. 30 min gap).
+        parallel : bool, default False
+            Whether to open dataset in parallel mode. Take effect for all
+            xr.open_mfdataset usages.
 
         """
 

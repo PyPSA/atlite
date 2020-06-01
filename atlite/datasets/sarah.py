@@ -166,8 +166,8 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     coords = cutout.coords
 
     sarah_dir = creation_parameters['sarah_dir']
-    parallel = creation_parameters.get('sarah_parallel', False)
-    interpolate = creation_parameters.get('sarah_interpolate', False)
+    parallel = creation_parameters.get('parallel', False)
+    interpolate = creation_parameters.get('interpolate', False)
     chunks = creation_parameters.get('chunks', {'time': 20})
 
     files = get_filenames(sarah_dir, coords)

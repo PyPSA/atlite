@@ -65,6 +65,23 @@ def get_data_gebco_height(xs, ys, gebco_path=None):
 
 
 def get_data(cutout, feature, tmpdir, **creation_parameters):
+    """
+    Get the gebco height data.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+    feature : str
+        Takes no effect, only here for consistency with other dataset modules.
+    tmpdir : str
+        Takes no effect, only here for consistency with other dataset modules.
+    **creation_parameters :
+        Must include `gebco_path`.
+
+    Returns
+    -------
+    xr.Dataset
+    """
     if 'gebco_path' not in creation_parameters:
         logger.error('Argument "gebco_path" not defined')
     path = creation_parameters['gebco_path']
