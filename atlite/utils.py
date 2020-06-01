@@ -47,7 +47,7 @@ def make_optional_progressbar(show, prefix, max_value=None):
     return maybe_progressbar
 
 
-def migrate_from_cutout_directory(old_cutout_dir):
+def migrate_from_cutout_directory(old_cutout_dir, path):
     old_cutout_dir = Path(old_cutout_dir)
     with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:
         newname = f"{old_cutout_dir.name}.nc"
@@ -86,7 +86,10 @@ def migrate_from_cutout_directory(old_cutout_dir):
     data.attrs['prepared_features'] = list(
         sys.modules['atlite.datasets.' + data.attrs["module"]].features)
 
-    return data
+    path = Path(path).with_suffix(".nc")
+    logger.info(f'Writing cutout data to {path}. Load it again using '
+                f'atlite.Cutout({path})')
+    data.to_netcdf(path)
 
 
 def timeindex_from_slice(timeslice):

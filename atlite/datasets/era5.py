@@ -313,7 +313,8 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
-    logger.info(f"Downloading requested variables to {tmpdir}.")
+    logger.info(f"Downloading requested variables for feature '{feature}' "
+                f"to {tmpdir}.")
 
     datasets = []
     for d in retrieval_times(coords):

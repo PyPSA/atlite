@@ -21,14 +21,10 @@ from .data import cutout_prepare, available_features
 from .gis import get_coords, compute_indicatormatrix
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
-from . import datasets, utils
-import netCDF4
 
 import xarray as xr
 import pandas as pd
 import numpy as np
-import os
-import sys
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
@@ -38,8 +34,13 @@ logger = logging.getLogger(__name__)
 
 
 class Cutout:
+    """
+    Cutout base class.
 
-    def __init__(self, path, data=None, **cutoutparams):
+    This class builds the starting point for most atlite functionalities.
+    """
+
+    def __init__(self, path, **cutoutparams):
         """
         Provide an Atlite cutout object.
 
@@ -56,11 +57,10 @@ class Cutout:
         ----------
         path : str | path-like
             NetCDF from which to load or where to store the cutout
-        data : (opt.) xr.Dataset
-            Specify the NetCDF data directly
         module : str or list
             The dataset(s) which works as a basis for the cutout. Available
             modules are "era5", "sarah" and "gebco".
+            This is necessary when building a new cutout.
             If more than one module is given, their order determines how atlite
             fills up missing features when preparing the cutout with
             `Cutout.prepare()`. For example `influx_diffuse` is provided by
@@ -105,25 +105,16 @@ class Cutout:
             xr.open_mfdataset usages.
 
         """
-
-        # Deprecate arguments 'name' and 'cutout_dir'. To be removed in later versions
-        # For now prefer them over new argument 'path' (only if specified).
         name = cutoutparams.get("name", None)
         cutout_dir = cutoutparams.get("cutout_dir", None)
         if cutout_dir or name:
-            warn(
-                "The argument `cutout_dir` and `name` have been deprecated in "
-                "favour of `path`.",
-                DeprecationWarning)
-            path = Path(cutout_dir if cutout_dir else ".") / \
-                name if name else path
-        elif isinstance(path, xr.Dataset):
-            data = path
-        else:
-            path = Path(path)
+            logger.warning(
+                "Old style format not supported. The argument `cutout_dir` "
+                "and `name` have been deprecated in favour of `path`. "
+                "You can migrate the old cutout directory using the function "
+                "`atlite.utils.migrate_from_cutout_directory()`")
 
-        if not path.suffix and not path.is_dir():
-            path = path.with_suffix(".nc")
+        path = Path(path).with_suffix(".nc")
 
         if 'bounds' in cutoutparams:
             x1, y1, x2, y2 = cutoutparams.pop('bounds')
@@ -147,56 +138,30 @@ class Cutout:
             cutoutparams["time"] = slice("{}-{}".format(years.start, months.start),
                                          "{}-{}".format(years.stop, months.stop))
 
-        if data is None:
-            self.is_view = False
-
-            if path.is_file():
-                data = xr.open_dataset(str(path), cache=False)
-                prepared_features = data.attrs.get('prepared_features')
-                assert prepared_features is not None, (
-                    f"{self.name} does not" " have the required "
-                    "attribute `prepared_features`")
-                if not isinstance(prepared_features, list):
-                    data.attrs['prepared_features'] = [prepared_features]
-            elif path.is_dir():
-                data = utils.migrate_from_cutout_directory(path)
-                self.is_view = True
-            else:
-                logger.info(f"Cutout {path} not found, building new one")
-
-                coords = get_coords(cutoutparams.pop('x'), cutoutparams.pop('y'),
-                                    cutoutparams.pop('time'), **cutoutparams)
-
-                if 'module' not in cutoutparams:
-                    logger.warning("`module` was not specified, falling back "
-                                   "to 'era5'")
-                module = cutoutparams.pop('module', 'era5')
-                # TODO: check for dx, dy, x, y fine with module data
-
-                data = xr.Dataset(
-                    coords=coords,
-                    attrs={
-                        'module': module,
-                        'prepared_features': [],
-                        **cutoutparams})
-        else:
-            # User-provided dataset
-            # TODO needs to be checked, sanitized and marked as immutable
-            # (is_view)
-            self.is_view = True
-
-        if 'module' in cutoutparams:
-            module = cutoutparams.pop('module')
-            if module != data.attrs.get('module'):
-                logger.warning(
-                    f"Selected module '{module}' disagrees with "
-                    f"specification in dataset '{data.attrs.get('module')}'. "
-                    "Taking your choice.")
+        if path.is_file():
+            data = xr.open_dataset(str(path), cache=False)
+            if 'module' in cutoutparams:
+                module = cutoutparams.pop('module')
+                if module != data.attrs.get('module'):
+                    logger.warning(
+                        f"Overwriting dataset module "
+                        f"{data.attrs.get('module')} with module {module}.")
                 data.attrs['module'] = module
-        elif 'module' not in data.attrs:
-            logger.warning("No module given as argument nor in the dataset. "
-                           "Falling back to 'era5'.")
-            data.attrs['module'] = 'era5'
+
+        else:
+            logger.info(f"Cutout {path} not found, building new one")
+            assert 'x' in cutoutparams
+            assert 'y' in cutoutparams
+            assert 'time' in cutoutparams
+            assert 'module' in cutoutparams
+
+            coords = get_coords(cutoutparams.pop('x'), cutoutparams.pop('y'),
+                                cutoutparams.pop('time'), **cutoutparams)
+            # TODO: check for dx, dy, x, y fine with module requirements
+
+            attrs = {'module': cutoutparams.pop('module'),
+                     'prepared_features': [], **cutoutparams}
+            data = xr.Dataset(coords=coords, attrs = attrs)
 
         self.path = path
         self.data = data
@@ -289,7 +254,7 @@ class Cutout:
                 'x = {:.2f} ⟷ {:.2f}, dx = {:.2f}\n'
                 'y = {:.2f} ⟷ {:.2f}, dy = {:.2f}\n'
                 'time = {} ⟷ {}, dt = {}\n'
-                'prepared_features = {}\nis_view = {}'
+                'prepared_features = {}'
                 .format(self.name,
                         self.coords['x'].values[0],
                         self.coords['x'].values[-1],
@@ -300,8 +265,7 @@ class Cutout:
                         start,
                         end,
                         self.dt,
-                        list(self.prepared_features),
-                        self.is_view))
+                        list(self.prepared_features)))
 
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
