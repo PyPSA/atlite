@@ -8,6 +8,7 @@ import sys
 import numpy as np
 import xarray as xr
 
+
 def get_orientation(name, **params):
     '''
     Definitions:
@@ -19,6 +20,7 @@ def get_orientation(name, **params):
         params = name
         name = params.pop('name', 'constant')
     return getattr(sys.modules[__name__], 'make_{}'.format(name))(**params)
+
 
 def make_latitude_optimal():
     """
@@ -53,12 +55,14 @@ def make_latitude_optimal():
         below_50 = lat.values <= np.deg2rad(50)
 
         slope[below_25] = 0.87 * lat.values[below_25]
-        slope[~below_25 & below_50] = 0.76 * lat.values[~below_25 & below_50] + np.deg2rad(0.31)
+        slope[~below_25 & below_50] = 0.76 * \
+            lat.values[~below_25 & below_50] + np.deg2rad(0.31)
         slope[~below_50] = np.deg2rad(40.)
 
         return dict(slope=xr.DataArray(slope, coords=lat.coords), azimuth=180.)
 
     return latitude_optimal
+
 
 def make_constant(slope, azimuth):
     slope = np.deg2rad(slope)
@@ -68,10 +72,12 @@ def make_constant(slope, azimuth):
         return dict(slope=slope, azimuth=azimuth)
     return constant
 
+
 def make_latitude(azimuth=180):
     def latitude(lon, lat, solar_position):
         return dict(slope=lat, azimuth=azimuth)
     return latitude
+
 
 def SurfaceOrientation(ds, solar_position, orientation):
     """

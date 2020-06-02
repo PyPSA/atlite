@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+
 def SolarPosition(ds):
     """
     Compute solar azimuth and altitude
@@ -44,34 +45,60 @@ def SolarPosition(ds):
     t = ds.indexes['time']
     n = xr.DataArray(t.to_julian_date(), [ds.indexes['time']]) - 2451545.0
 
-    L = 280.460 + 0.9856474 * n # mean longitude (deg)
-    g = np.deg2rad(357.528 + 0.9856003 * n) # mean anomaly (rad)
-    l = np.deg2rad(L + 1.915 * np.sin(g) + 0.020 * np.sin(2*g)) # ecliptic long. (rad)
-    ep = np.deg2rad(23.439 - 4e-7 * n) # obliquity of the ecliptic (rad)
+    L = 280.460 + 0.9856474 * n  # mean longitude (deg)
+    g = np.deg2rad(357.528 + 0.9856003 * n)  # mean anomaly (rad)
+    l = np.deg2rad(
+        L +
+        1.915 *
+        np.sin(g) +
+        0.020 *
+        np.sin(
+            2 *
+            g))  # ecliptic long. (rad)
+    ep = np.deg2rad(23.439 - 4e-7 * n)  # obliquity of the ecliptic (rad)
 
-    ra = np.arctan2(np.cos(ep) * np.sin(l), np.cos(l)) # right ascencion (rad)
+    ra = np.arctan2(np.cos(ep) * np.sin(l), np.cos(l))  # right ascencion (rad)
     lmst = (6.697375 + (ds['time.hour'] + ds['time.minute'] / 60.0) +
-            0.0657098242 * n) * 15. + ds['lon'] # local mean sidereal time (deg)
-    h = (np.deg2rad(lmst) - ra + np.pi) % (2*np.pi) - np.pi # hour angle (rad)
+            0.0657098242 * n) * 15. + ds['lon']  # local mean sidereal time (deg)
+    h = (np.deg2rad(lmst) - ra + np.pi) % (2 * np.pi) - \
+        np.pi  # hour angle (rad)
 
     dec = np.arcsin(np.sin(ep) * np.sin(l))            # declination (rad)
 
     # alt and az from [2]
     lat = np.deg2rad(ds['lat'])
-    # Clip before arcsin to prevent values < -1. from rounding errors; can cause NaNs later
-    alt = np.arcsin((np.sin(lat)*np.sin(dec) + np.cos(lat)*np.cos(dec)*np.cos(h)).clip(min=-1., max=1.)).rename('altitude')
+    # Clip before arcsin to prevent values < -1. from rounding errors; can
+    # cause NaNs later
+    alt = np.arcsin(
+        (np.sin(lat) *
+         np.sin(dec) +
+         np.cos(lat) *
+         np.cos(dec) *
+         np.cos(h)).clip(
+            min=-
+            1.,
+            max=1.)).rename('altitude')
 
-    az = np.arccos(((np.sin(dec)*np.cos(lat) - np.cos(dec)*np.sin(lat)*np.cos(h))/np.cos(alt)).clip(min=-1., max=1.))
-    az = az.where(h <= 0, 2*np.pi - az).rename('azimuth')
+    az = np.arccos(
+        ((np.sin(dec) *
+          np.cos(lat) -
+          np.cos(dec) *
+          np.sin(lat) *
+          np.cos(h)) /
+         np.cos(alt)).clip(
+            min=-
+            1.,
+            max=1.))
+    az = az.where(h <= 0, 2 * np.pi - az).rename('azimuth')
 
     if 'influx_toa' in ds:
-        atmospheric_insolation = ds['influx_toa'].rename('atmospheric insolation')
+        atmospheric_insolation = ds['influx_toa'].rename(
+            'atmospheric insolation')
     else:
         # [3]
-        atmospheric_insolation = (1366.1 * (1+0.033*np.cos(g)) * np.sin(alt)).rename('atmospheric insolation')
+        atmospheric_insolation = (1366.1 * (1 + 0.033 * np.cos(g)) * np.sin(alt))\
+                                 .rename('atmospheric insolation')
 
-    solar_position = xr.Dataset({da.name: da
-                                 for da in [alt,
-                                            az,
-                                            atmospheric_insolation]})
+    solar_position = xr.Dataset({da.name: da for da in
+                                 [alt, az, atmospheric_insolation]})
     return solar_position

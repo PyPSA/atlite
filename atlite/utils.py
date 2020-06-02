@@ -48,6 +48,7 @@ def make_optional_progressbar(show, prefix, max_value=None):
 
 
 def migrate_from_cutout_directory(old_cutout_dir, path):
+    """Convert an old style cutout directory to new style netcdf file"""
     old_cutout_dir = Path(old_cutout_dir)
     with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:
         newname = f"{old_cutout_dir.name}.nc"
@@ -74,9 +75,6 @@ def migrate_from_cutout_directory(old_cutout_dir, path):
             data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"),
                                      combine="by_coords")
             data.attrs.update(meta.attrs)
-            logger.warning(
-                "Migration successful. You can save the cutout to a "
-                "new file with `cutout.prepare()`")
         except xr.MergeError:
             logger.exception(
                 "Automatic migration failed. Re-create the cutout "
@@ -87,8 +85,8 @@ def migrate_from_cutout_directory(old_cutout_dir, path):
         sys.modules['atlite.datasets.' + data.attrs["module"]].features)
 
     path = Path(path).with_suffix(".nc")
-    logger.info(f'Writing cutout data to {path}. Load it again using '
-                f'atlite.Cutout({path})')
+    logger.info(f"Writing cutout data to {path}. When done, load it again using"
+                f"\n\n\tatlite.Cutout('{path}')")
     data.to_netcdf(path)
 
 
