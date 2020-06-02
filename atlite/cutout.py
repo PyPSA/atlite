@@ -144,7 +144,7 @@ class Cutout:
         # Two cases. Either cutout exists -> take the data.
         # Or not existent -> build a new one
         if path.is_file():
-            data = xr.open_dataset(str(path), cache=False)
+            data = xr.open_dataset(str(path), chunks={'time':20})
             if 'module' in cutoutparams:
                 module = cutoutparams.pop('module')
                 if module != data.attrs.get('module'):

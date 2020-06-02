@@ -16,6 +16,7 @@ import scipy as sp
 import scipy.sparse
 from operator import itemgetter
 from pathlib import Path
+from dask.diagnostics import ProgressBar
 
 from .aggregate import aggregate_sum, aggregate_matrix
 from .gis import spdiag, compute_indicatormatrix
@@ -95,10 +96,10 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     windows : windows.Windows
         Iterable access to consecutive time-slices of xr.Dataset
     """
-    if windows is None:
-        windows = [cutout.data]
-        if show_progress is True:
-            show_progress = False
+    # if windows is None:
+    #     windows = [cutout.data]
+    #     if show_progress is True:
+    #         show_progress = False
 
     if shapes is not None:
         if isinstance(shapes, pd.Series) and index is None:
@@ -137,12 +138,16 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
                      if convert_func.__name__.startswith('convert_')
                      else convert_func.__name__)
         prefix = 'Convert and aggregate `{}`: '.format(func_name)
-    maybe_progressbar = make_optional_progressbar(
-        show_progress, prefix, len(windows))
+    # maybe_progressbar = make_optional_progressbar(
+    #     show_progress, prefix, len(windows))
 
-    for ds in maybe_progressbar(windows):
-        da = convert_func(ds, **convert_kwds)
+    with ProgressBar():
+        da = convert_func(cutout.data, **convert_kwds)
         results.append(aggregate_func(da, **aggregate_kwds))
+
+    # for ds in maybe_progressbar(windows):
+    #     da = convert_func(ds, **convert_kwds)
+    #     results.append(aggregate_func(da, **aggregate_kwds))
 
     if 'time' in results[0].coords:
         results = xr.concat(results, dim='time')
@@ -182,7 +187,7 @@ def convert_temperature(ds):
     return ds['temperature'] - 273.15
 
 
-@requires_windowed(['temperature'])
+# @requires_windowed(['temperature'])
 def temperature(cutout, **params):
     return cutout.convert_and_aggregate(
         convert_func=convert_temperature, **params)
@@ -204,7 +209,7 @@ def convert_soil_temperature(ds):
     return (ds['soil temperature'] - 273.15).fillna(0.)
 
 
-@requires_windowed(['temperature'])
+# @requires_windowed(['temperature'])
 def soil_temperature(cutout, **params):
     return cutout.convert_and_aggregate(
         convert_func=convert_soil_temperature, **params)
@@ -226,7 +231,7 @@ def convert_heat_demand(ds, threshold, a, constant, hour_shift):
     return constant + heat_demand
 
 
-@requires_windowed(['temperature'])
+# @requires_windowed(['temperature'])
 def heat_demand(
         cutout,
         threshold=15.,
@@ -306,7 +311,7 @@ def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model,
     return output.where(output > 0., 0.)
 
 
-@requires_windowed(['influx', 'temperature'])
+# @requires_windowed(['influx', 'temperature'])
 def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
                   trigon_model="simple",
                   clearsky_model="simple",
@@ -375,7 +380,7 @@ def convert_wind(ds, turbine):
                           dask="parallelized")
 
 
-@requires_windowed(['wind'])
+# @requires_windowed(['wind'])
 def wind(cutout, turbine, smooth=False, **params):
     """
     Generate wind generation time-series
@@ -433,7 +438,7 @@ def convert_pv(
     return solar_panel
 
 
-@requires_windowed(['influx', 'temperature'])
+# @requires_windowed(['influx', 'temperature'])
 def pv(cutout, panel, orientation, clearsky_model=None, **params):
     """
     Convert downward-shortwave, upward-shortwave radiation flux and
@@ -502,7 +507,7 @@ def convert_runoff(ds, weight_with_height=True):
     return runoff
 
 
-@requires_windowed(['runoff', 'height'])
+# @requires_windowed(['runoff', 'height'])
 def runoff(cutout, smooth=None, lower_threshold_quantile=None,
            normalize_using_yearly=None, **params):
     result = cutout.convert_and_aggregate(
@@ -586,7 +591,10 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
     matrix = cutout.indicatormatrix(basins.shapes)
     # compute the average surface runoff in each basin
     matrix_normalized = matrix / matrix.sum(axis=1)
-    _show_progress = "Convert and aggregate runoff per basin" if show_progress else False
+    if show_progress:
+        _show_progress = "Convert and aggregate runoff per basin"
+    else:
+        _show_progress = False
     runoff = cutout.runoff(matrix=matrix_normalized, index=basins.shapes.index,
                            weight_with_height=weight_with_height,
                            show_progress=_show_progress,
