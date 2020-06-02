@@ -8,15 +8,13 @@
 General utility functions for internal use.
 """
 
+from .gis import maybe_swap_spatial_dims
 import progressbar as pgb
 from pathlib import Path
-from contextlib import contextmanager
 import pandas as pd
 import xarray as xr
 import textwrap
 import sys
-import os
-import pkg_resources
 import re
 
 import logging
@@ -81,6 +79,7 @@ def migrate_from_cutout_directory(old_cutout_dir, path):
                 "with the command above!")
             raise
 
+    data = maybe_swap_spatial_dims(data)
     data.attrs['prepared_features'] = list(
         sys.modules['atlite.datasets.' + data.attrs["module"]].features)
 
