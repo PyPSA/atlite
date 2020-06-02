@@ -18,8 +18,11 @@ from operator import itemgetter
 from pathlib import Path
 from dask.diagnostics import ProgressBar
 
+import logging
+logger = logging.getLogger(__name__)
+
 from .aggregate import aggregate_sum, aggregate_matrix
-from .gis import spdiag, compute_indicatormatrix
+from .gis import spdiag
 
 from .pv.solar_position import SolarPosition
 from .pv.irradiation import TiltedIrradiation
@@ -30,12 +33,7 @@ from . import hydro as hydrom
 from . import wind as windm
 
 from .resource import (get_windturbineconfig, get_solarpanelconfig,
-                       windturbine_rated_capacity_per_unit,
-                       solarpanel_rated_capacity_per_unit,
                        windturbine_smooth)
-
-from .utils import make_optional_progressbar
-from .data import requires_windowed
 
 
 def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
@@ -96,15 +94,10 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     windows : windows.Windows
         Iterable access to consecutive time-slices of xr.Dataset
     """
-    # if windows is None:
-    #     windows = [cutout.data]
-    #     if show_progress is True:
-    #         show_progress = False
 
     if shapes is not None:
         if isinstance(shapes, pd.Series) and index is None:
             index = shapes.index
-
         matrix = cutout.indicatormatrix(shapes, shapes_proj)
 
     if layout is not None:
@@ -124,35 +117,12 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
         if index is None:
             index = pd.RangeIndex(matrix.shape[0])
         aggregate_func = aggregate_matrix
-        aggregate_kwds = dict(matrix=matrix, index=index)
     else:
         aggregate_func = aggregate_sum
-        aggregate_kwds = {}
 
-    results = []
-
-    if isinstance(show_progress, str):
-        prefix = show_progress
-    else:
-        func_name = (convert_func.__name__[len('convert_'):]
-                     if convert_func.__name__.startswith('convert_')
-                     else convert_func.__name__)
-        prefix = 'Convert and aggregate `{}`: '.format(func_name)
-    # maybe_progressbar = make_optional_progressbar(
-    #     show_progress, prefix, len(windows))
-
-    with ProgressBar():
-        da = convert_func(cutout.data, **convert_kwds)
-        results.append(aggregate_func(da, **aggregate_kwds))
-
-    # for ds in maybe_progressbar(windows):
-    #     da = convert_func(ds, **convert_kwds)
-    #     results.append(aggregate_func(da, **aggregate_kwds))
-
-    if 'time' in results[0].coords:
-        results = xr.concat(results, dim='time')
-    else:
-        results = sum(results)
+    func_name = convert_func.__name__.lstrip('convert_')
+    logger.info(f'Convert and aggregate `{func_name}`: ')
+    results = convert_func(cutout.data, **convert_kwds)
 
     if capacity_factor:
         assert aggregate_func is aggregate_sum, (
@@ -169,6 +139,9 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     if per_unit:
         results = (results / capacity.astype(results.dtype)).fillna(0.)
 
+    with ProgressBar():
+        results.compute()
+
     if return_capacity:
         return results, capacity
     else:
@@ -176,8 +149,6 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
 
 
 # temperature
-
-
 def convert_temperature(ds):
     """Return outside temperature (useful for e.g. heat pump T-dependent
     coefficient of performance).

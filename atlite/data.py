@@ -204,7 +204,7 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
     if not keep_tmpdir:
         rmtree(tmpdir)
 
-    cutout.data = xr.open_dataset(cutout.path, cache=False)
+    cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 
     return cutout
 

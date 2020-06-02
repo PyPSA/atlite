@@ -308,7 +308,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
                         'area': _area(coords),
                         'tmpdir': tmpdir,
-                        'chunks': creation_parameters.pop('chunks', None),
+                        'chunks': cutout.chunks,
                         'grid': [cutout.dx, cutout.dy]}
 
     func = globals().get(f"get_data_{feature}")

@@ -88,14 +88,14 @@ class Cutout:
         dt : str, optional
             Frequency of the time coordinate. The default is 'h'. Valid are all
             pandas offset aliases.
+        chunks : dict
+            Chunks when opening netcdf files. For cutout preparation recommand
+            to chunk only along the time dimension. Defaults to {'time': 20}
         data : xr.Dataset
             User provided cutout data.
 
         Other Parameters
         ----------------
-        chunks : dict
-            Chunks when opening netcdf files. We recommand to chunk only along
-            the time dimension.
         sanitize : bool, default True
             Whether to sanitize the data when preparing the cutout. Takes
             effect for 'era5' data loading.
@@ -121,6 +121,8 @@ class Cutout:
                 "`atlite.utils.migrate_from_cutout_directory()`")
 
         path = Path(path).with_suffix(".nc")
+        chunks = cutoutparams.pop('chunks', {'time': 20})
+        storable_chunks = {f'chunks_{k}': v for k, v in chunks.items() if chunks}
 
         # Backward compatibility for xs, ys, months and years
         if {'xs', 'ys'}.intersection(cutoutparams):
@@ -141,10 +143,11 @@ class Cutout:
             cutoutparams["time"] = slice(f"{years.start}-{months.start}",
                                          f"{years.stop}-{months.stop}")
 
-        # Two cases. Either cutout exists -> take the data.
-        # Or not existent -> build a new one
+        # Three cases. First, cutout exists -> take the data.
+        # Second, data is given -> take it. Third, else -> build a new cutout
         if path.is_file():
-            data = xr.open_dataset(str(path), chunks={'time':20})
+            data = xr.open_dataset(str(path), chunks=chunks)
+            data.attrs.update(storable_chunks)
             if 'module' in cutoutparams:
                 module = cutoutparams.pop('module')
                 if module != data.attrs.get('module'):
@@ -179,7 +182,8 @@ class Cutout:
                 f'Projections of {module} not compatible')
             cutoutparams.update({'projection': projection.pop()})
 
-            attrs = {'module': module, 'prepared_features': [], **cutoutparams}
+            attrs = {'module': module, 'prepared_features': [],
+                     **storable_chunks, **cutoutparams}
             data = xr.Dataset(coords=coords, attrs = attrs)
 
         self.path = path
@@ -202,8 +206,15 @@ class Cutout:
         return available_features(self.module)
 
     @property
+    def chunks(self):
+        chunks = {k.lstrip('chunks_'): v for k, v in self.data.attrs.items()
+                  if k.startswith('chunks_')}
+        return None if chunks == {} else chunks
+
+    @property
     def coords(self):
         return self.data.coords
+
 
     @property
     def meta(self):
