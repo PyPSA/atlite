@@ -88,6 +88,8 @@ class Cutout:
         dt : str, optional
             Frequency of the time coordinate. The default is 'h'. Valid are all
             pandas offset aliases.
+        data : xr.Dataset
+            User provided cutout data.
 
         Other Parameters
         ----------------
@@ -139,8 +141,8 @@ class Cutout:
             cutoutparams["time"] = slice(f"{years.start}-{months.start}",
                                          f"{years.stop}-{months.stop}")
 
-        # Two cases. Either cutout exists -> take the data. Or it does not
-        # exist, build a new one
+        # Two cases. Either cutout exists -> take the data.
+        # Or not existent -> build a new one
         if path.is_file():
             data = xr.open_dataset(str(path), cache=False)
             if 'module' in cutoutparams:
@@ -150,9 +152,10 @@ class Cutout:
                         f"Overwriting dataset module "
                         f"{data.attrs.get('module')} with module {module}.")
                 data.attrs['module'] = module
-
+        elif 'data' in cutoutparams:
+            data = cutoutparams.pop('data')
         else:
-            logger.info(f"Cutout {path} not found, building new one")
+            logger.info(f"Building new cutout {path}")
 
             if 'bounds' in cutoutparams:
                 x1, y1, x2, y2 = cutoutparams.pop('bounds')
@@ -193,7 +196,6 @@ class Cutout:
     @property
     def projection(self):
         return self.data.attrs.get('projection')
-
 
     @property
     def available_features(self):
@@ -238,7 +240,8 @@ class Cutout:
 
     @property
     def prepared_features(self):
-        return set(self.data.attrs.get("prepared_features", []))
+        features = self.data.attrs.get("prepared_features", [])
+        return self.available_features.loc[:, features].drop_duplicates()
 
     def grid_coordinates(self):
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
@@ -261,7 +264,7 @@ class Cutout:
             x1, y1, x2, y2 = bounds
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
-        return Cutout(self.path.name, data)
+        return Cutout(self.path.name, data=data)
 
     def __repr__(self):
         start = np.datetime_as_string(self.coords['time'].values[0], unit='D')
@@ -271,16 +274,11 @@ class Cutout:
                 ' y = {:.2f} ⟷ {:.2f}, dy = {:.2f}\n'
                 ' time = {} ⟷ {}, dt = {}\n'
                 ' prepared_features = {}'
-                .format(self.name,
-                        self.coords['x'].values[0],
-                        self.coords['x'].values[-1],
-                        self.dx,
+                .format(self.name, self.coords['x'].values[0],
+                        self.coords['x'].values[-1], self.dx,
                         self.coords['y'].values[0],
-                        self.coords['y'].values[-1],
-                        self.dy,
-                        start,
-                        end,
-                        self.dt,
+                        self.coords['y'].values[-1], self.dy,
+                        start, end, self.dt,
                         list(self.prepared_features)))
 
 

@@ -24,10 +24,8 @@ y1 = 61.
 
 ref = Cutout(path="creation_ref", module="era5", bounds=(x0, y0, x1, y1), time=time)
 
-new_feature_tests = False
 
 def test_odd_bounds_coords():
-    #
     cutout = Cutout(path="odd_bounds", module="era5", time=time,
                     bounds=(x0-0.1, y0-0.02, x1+0.03, y1+0.13))
     assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
@@ -45,12 +43,6 @@ def test_xy_reversed_coords():
     assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
 
 
-if new_feature_tests:
-    def test_xy_tuple_coords():
-        cutout = Cutout(path="xy_tuple", module="era5", time=time,
-                        x=(x0, x1), y=(y0, y1))
-        assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
-
 
 def test_time_sclice_coords():
     cutout = Cutout(path="time_slice", module="era5",
@@ -58,21 +50,6 @@ def test_time_sclice_coords():
                     x=slice(x0, x1), y = slice(y0, y1))
     assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
 
-
-if new_feature_tests:
-    def test_time_tuple_coords():
-        cutout = Cutout(path="time_tuple", module="era5",
-                        time=('2013-01-01', '2013-01-01'),
-                        x=slice(x0, x1), y = slice(y0, y1))
-        assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
-
-
-if new_feature_tests:
-    def test_time_period_coords():
-        cutout = Cutout(path="time_period", module="era5",
-                        time=pd.Period('2013-01-01'),
-                        x=slice(x0, x1), y = slice(y0, y1))
-        assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
 
 
 def test_dx_dy_dt():
@@ -92,8 +69,17 @@ def test_dx_dy_dt():
     assert 'H' == cutout.dt
 
 
-def test_module_assignment():
-    assert ref.dataset_module == atlite.datasets.era5
+def test_available_features():
+    modules = ref.available_features.index.unique('module')
+    assert len(modules) == 1
+    assert modules[0] == 'era5'
+
+    cutout = Cutout(path="sarah_first", module=['sarah', 'era5'],
+                    time=slice('2013-01-01', '2013-01-01'),
+                    x=slice(x0, x1), y = slice(y0, y1))
+    modules = cutout.available_features.index.unique('module')
+    assert len(modules) == 2
+    assert len(cutout.available_features) > len(ref.available_features)
 
 
 def test_grid_coords():
@@ -102,6 +88,11 @@ def test_grid_coords():
     spatial = np.array([[s[1], s[0]] for s in spatial])
     np.testing.assert_equal(gcoords, spatial)
 
+
+def test_sel():
+    cutout = ref.sel(x=slice(x0+2, x1-1), y=slice(y0+1, y1-2))
+    assert cutout.coords['x'][0] - ref.coords['x'][0] == 2
+    assert cutout.coords['y'][-1] - ref.coords['y'][-1] == -2
 
 # Extent is different from bounds
 def test_extent():

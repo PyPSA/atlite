@@ -70,12 +70,12 @@ class Windows(object):
                 f"Type of `window_type` (`{type(window_type)}`) "
                 "is unsupported")
 
-        vars = cutout.data.data_vars.keys()
-        if cutout.dataset_module:
-            mfeatures = cutout.dataset_module.features
-            dataset_vars = sum((mfeatures[f] for f in features), [])
-            vars = vars & dataset_vars
-        self.data = cutout.data[list(vars)]
+        # vars = cutout.data.data_vars.keys()
+        # if cutout.dataset_module:
+        #     mfeatures = cutout.dataset_module.features
+        #     dataset_vars = sum((mfeatures[f] for f in features), [])
+        #     vars = vars & dataset_vars
+        self.data = cutout.data
         self.group_kws = group_kws
 
         if self.data.chunks is None or allow_dask:
@@ -181,14 +181,9 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
     modules = atleast_1d(cutout.data.attrs.get('module'))
     features = atleast_1d(features)
 
-    projection = set(datamodules[m].projection for m in modules)
-    assert len(projection) == 1, f'Projections of {modules} not compatible'
-
     # target is series of all available variables for given module and features
     target = available_features(modules).loc[:, features].drop_duplicates()
-
     cutout.data.attrs['prepared_features'] = list(target.index.unique('feature'))
-    cutout.data.attrs['projection'] = projection.pop()
 
     for module in target.index.unique('module'):
         missing_vars = target[module]
