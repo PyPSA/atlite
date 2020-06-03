@@ -11,6 +11,7 @@ All functions for converting weather data into energy system model data.
 import xarray as xr
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 import datetime as dt
 import scipy as sp
 from operator import itemgetter
@@ -109,7 +110,8 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
             da = da * layout
 
         if shapes is not None:
-            if isinstance(shapes, pd.Series) and index is None:
+            geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
+            if isinstance(shapes, geoseries_like) and index is None:
                 index = shapes.index
                 index.name = 'shapes' if index.name is None else index.name
             matrix = cutout.indicatormatrix(shapes, shapes_proj)
