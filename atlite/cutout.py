@@ -113,12 +113,12 @@ class Cutout:
         """
         name = cutoutparams.get("name", None)
         cutout_dir = cutoutparams.get("cutout_dir", None)
-        if cutout_dir or name:
-            logger.warning(
-                "Old style format not supported. The argument `cutout_dir` "
-                "and `name` have been deprecated in favour of `path`. "
-                "You can migrate the old cutout directory using the function "
-                "`atlite.utils.migrate_from_cutout_directory()`")
+        if cutout_dir or name or Path(path).is_dir():
+            raise ValueError(
+                "Old style format not supported. You can migrate the old "
+                "cutout directory using the function "
+                "`atlite.utils.migrate_from_cutout_directory()`. The argument "
+                "`cutout_dir` and `name` have been deprecated in favour of `path`.")
 
         path = Path(path).with_suffix(".nc")
         chunks = cutoutparams.pop('chunks', {'time': 20})
