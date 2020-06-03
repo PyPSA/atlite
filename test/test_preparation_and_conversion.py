@@ -108,9 +108,10 @@ def runoff_test(cutout):
     assert cap_factor.notnull().all()
     assert cap_factor.sum() > 0
 
-    q = np.quantile(cutout.data.height, 0.5)
-    lower_area = cutout.data.height <= q
-    higher_area = cutout.data.height > q
+    height = cutout.data.height.load()
+    q = np.quantile(height, 0.5)
+    lower_area = height <= q
+    higher_area = height > q
     assert cap_factor.where(lower_area).sum() < cap_factor.where(higher_area).sum()
 
     low_level_prod = cutout.runoff(layout=cap_factor.where(lower_area, 0))

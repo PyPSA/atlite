@@ -4,9 +4,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import numpy as np
+from numpy import pi
 import pandas as pd
 import xarray as xr
+from numpy import sin, cos, arcsin, arccos, arctan2, deg2rad
 
 
 def SolarPosition(ds):
@@ -43,62 +44,57 @@ def SolarPosition(ds):
     # up to h and dec from [1]
 
     t = ds.indexes['time']
-    n = xr.DataArray(t.to_julian_date(), [ds.indexes['time']]) - 2451545.0
+    chunks = {'time': ds.attrs.get('chunks_time', 20)}
+    n = xr.DataArray(t.to_julian_date(), [t]).chunk(chunks) - 2451545.0
+    hour = ds['time.hour'].chunk(chunks)
+    minute = ds['time.minute'].chunk(chunks)
 
     L = 280.460 + 0.9856474 * n  # mean longitude (deg)
-    g = np.deg2rad(357.528 + 0.9856003 * n)  # mean anomaly (rad)
-    l = np.deg2rad(
+    g = deg2rad(357.528 + 0.9856003 * n)  # mean anomaly (rad)
+    l = deg2rad(
         L +
         1.915 *
-        np.sin(g) +
+        sin(g) +
         0.020 *
-        np.sin(
-            2 *
-            g))  # ecliptic long. (rad)
-    ep = np.deg2rad(23.439 - 4e-7 * n)  # obliquity of the ecliptic (rad)
+        sin(2 * g))  # ecliptic long. (rad)
+    ep = deg2rad(23.439 - 4e-7 * n)  # obliquity of the ecliptic (rad)
 
-    ra = np.arctan2(np.cos(ep) * np.sin(l), np.cos(l))  # right ascencion (rad)
-    lmst = (6.697375 + (ds['time.hour'] + ds['time.minute'] / 60.0) +
+    ra = arctan2(cos(ep) * sin(l), cos(l))  # right ascencion (rad)
+    lmst = (6.697375 + (hour + minute / 60.0) +
             0.0657098242 * n) * 15. + ds['lon']  # local mean sidereal time (deg)
-    h = (np.deg2rad(lmst) - ra + np.pi) % (2 * np.pi) - \
-        np.pi  # hour angle (rad)
+    h = (deg2rad(lmst) - ra + pi) % (2 * pi) - \
+        pi  # hour angle (rad)
 
-    dec = np.arcsin(np.sin(ep) * np.sin(l))            # declination (rad)
+    dec = arcsin(sin(ep) * sin(l))            # declination (rad)
 
     # alt and az from [2]
-    lat = np.deg2rad(ds['lat'])
+    lat = deg2rad(ds['lat'])
     # Clip before arcsin to prevent values < -1. from rounding errors; can
     # cause NaNs later
-    alt = np.arcsin(
-        (np.sin(lat) *
-         np.sin(dec) +
-         np.cos(lat) *
-         np.cos(dec) *
-         np.cos(h)).clip(
-            min=-
-            1.,
-            max=1.)).rename('altitude')
+    alt = arcsin(
+        (sin(lat) *
+          sin(dec) +
+          cos(lat) *
+          cos(dec) *
+          cos(h)).clip(min=-1., max=1.)).rename('altitude')
 
-    az = np.arccos(
-        ((np.sin(dec) *
-          np.cos(lat) -
-          np.cos(dec) *
-          np.sin(lat) *
-          np.cos(h)) /
-         np.cos(alt)).clip(
-            min=-
-            1.,
-            max=1.))
-    az = az.where(h <= 0, 2 * np.pi - az).rename('azimuth')
+    az = arccos(
+        ((sin(dec) *
+          cos(lat) -
+          cos(dec) *
+          sin(lat) *
+          cos(h)) /
+          cos(alt)).clip(min=-1., max=1.))
+    az = az.where(h <= 0, 2 * pi - az).rename('azimuth')
 
     if 'influx_toa' in ds:
         atmospheric_insolation = ds['influx_toa'].rename(
             'atmospheric insolation')
     else:
         # [3]
-        atmospheric_insolation = (1366.1 * (1 + 0.033 * np.cos(g)) * np.sin(alt))\
-                                 .rename('atmospheric insolation')
+        atmospheric_insolation = (1366.1 * (1 + 0.033 * cos(g)) * sin(alt))\
+                                  .rename('atmospheric insolation')
 
-    solar_position = xr.Dataset({da.name: da for da in
-                                 [alt, az, atmospheric_insolation]})
+    vars = {da.name: da for da in [alt, az, atmospheric_insolation]}
+    solar_position = xr.Dataset(vars)
     return solar_position

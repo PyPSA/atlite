@@ -55,7 +55,7 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
         If given, it is used to aggregate the `grid_cells` to buses.
     index : pd.Index
         Buses
-    layout : X x Y - np.array or xr.DataArray
+    layout : X x Y - xr.DataArray
         The capacity to be build in each of the `grid_cells`.
     shapes : list or pd.Series of shapely.geometry.Polygon
         If given, matrix is constructed as indicatormatrix of the polygons, its
@@ -73,9 +73,8 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     capacity_factor : boolean
         If True, the capacity factor of the chosen resource for each grid cell
         is computed.
-    show_progress : boolean|string
-        Whether to show a progress bar if boolean and its label if given as a
-        string (defaults to True).
+    show_progress : boolean, default True
+        Whether to show a progress bar.
 
     Returns
     -------
@@ -95,52 +94,56 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
         Iterable access to consecutive time-slices of xr.Dataset
     """
 
-    if shapes is not None:
-        if isinstance(shapes, pd.Series) and index is None:
-            index = shapes.index
-        matrix = cutout.indicatormatrix(shapes, shapes_proj)
+    func_name = convert_func.__name__.replace('convert_', '')
+    logger.info(f"Convert and aggregate '{func_name}'.")
+    da = convert_func(cutout.data, **convert_kwds)
 
-    if layout is not None:
-        if isinstance(layout, xr.DataArray):
-            layout = layout.reindex_like(cutout.data)
-            layout, _ = xr.broadcast(layout, cutout.data[['x', 'y']])
-            layout = layout.stack(spatial=('y', 'x')).values
-        else:
-            assert layout.shape == cutout.shape
-        matrix = (layout.reshape((1, -1))
-                  if matrix is None
-                  else sp.sparse.csr_matrix(matrix).dot(spdiag(layout.ravel())))
+    is_factors = all(v is None for v in [layout, shapes, matrix])
 
-    if matrix is not None:
-        matrix = sp.sparse.csr_matrix(matrix)
-
-        if index is None:
-            index = pd.RangeIndex(matrix.shape[0])
-        aggregate_func = aggregate_matrix
+    if is_factors:
+        results = da.sum('time')
     else:
-        aggregate_func = aggregate_sum
+        if layout is not None:
+            if not isinstance(layout, xr.DataArray):
+                raise TypeError('Argument `layout` must be an xr.DataArray.')
+            layout = layout.reindex_like(cutout.data)
+            da = da * layout
 
-    func_name = convert_func.__name__.lstrip('convert_')
-    logger.info(f'Convert and aggregate `{func_name}`: ')
-    results = convert_func(cutout.data, **convert_kwds)
+        if shapes is not None:
+            if isinstance(shapes, pd.Series) and index is None:
+                index = shapes.index
+            matrix = cutout.indicatormatrix(shapes, shapes_proj)
+
+        if matrix is not None:
+            matrix = sp.sparse.csr_matrix(matrix)
+
+            if index is None:
+                index = pd.RangeIndex(matrix.shape[0])
+            results = aggregate_matrix(da, matrix=matrix, index=index)
+        else:
+            # da == layout * da
+            results = da.sum(['x', 'y'])
+
 
     if capacity_factor:
-        assert aggregate_func is aggregate_sum, (
-            "The arguments `matrix`, `shapes` and `layout` are incompatible "
-            "with capacity_factor")
-        results /= cutout.data['time'].size
+        assert is_factors, ("The arguments `matrix`, `shapes` and `layout` "
+                            "are incompatible with capacity_factor")
+        results /= results.coords['time'].size
 
     if per_unit or return_capacity:
-        assert aggregate_func is aggregate_matrix, \
-            "One of `matrix`, `shapes` and `layout` must be given for `per_unit`"
+        assert not is_factors, ("One of `matrix`, `shapes` and `layout` "
+                                "must be given for `per_unit`")
         capacity = xr.DataArray(np.asarray(
             matrix.sum(axis=1)).reshape(-1), [index])
 
-    if per_unit:
-        results = (results / capacity.astype(results.dtype)).fillna(0.)
+        if per_unit:
+            results = (results / capacity.astype(results.dtype)).fillna(0.)
 
-    with ProgressBar():
-        results.compute()
+    if show_progress:
+        with ProgressBar():
+            results.load()
+    else:
+        results.load()
 
     if return_capacity:
         return results, capacity
@@ -158,15 +161,12 @@ def convert_temperature(ds):
     return ds['temperature'] - 273.15
 
 
-# @requires_windowed(['temperature'])
 def temperature(cutout, **params):
     return cutout.convert_and_aggregate(
         convert_func=convert_temperature, **params)
 
 
 # soil temperature
-
-
 def convert_soil_temperature(ds):
     """Return soil temperature (useful for e.g. heat pump T-dependent
     coefficient of performance).
@@ -180,14 +180,12 @@ def convert_soil_temperature(ds):
     return (ds['soil temperature'] - 273.15).fillna(0.)
 
 
-# @requires_windowed(['temperature'])
 def soil_temperature(cutout, **params):
     return cutout.convert_and_aggregate(
         convert_func=convert_soil_temperature, **params)
 
 
 # heat demand
-
 def convert_heat_demand(ds, threshold, a, constant, hour_shift):
     # Temperature is in Kelvin; take daily average
     T = ds['temperature']
@@ -202,7 +200,6 @@ def convert_heat_demand(ds, threshold, a, constant, hour_shift):
     return constant + heat_demand
 
 
-# @requires_windowed(['temperature'])
 def heat_demand(
         cutout,
         threshold=15.,
@@ -260,7 +257,6 @@ def heat_demand(
 
 
 # solar thermal collectors
-
 def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model,
                           c0, c1, t_store):
     # convert storage temperature to Kelvin in line with reanalysis data
@@ -282,7 +278,6 @@ def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model,
     return output.where(output > 0., 0.)
 
 
-# @requires_windowed(['influx', 'temperature'])
 def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
                   trigon_model="simple",
                   clearsky_model="simple",
@@ -333,7 +328,6 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
 
 
 # wind
-
 def convert_wind(ds, turbine):
     """Convert wind speeds for turbine to wind energy generation."""
 
@@ -351,7 +345,6 @@ def convert_wind(ds, turbine):
                           dask="parallelized")
 
 
-# @requires_windowed(['wind'])
 def wind(cutout, turbine, smooth=False, **params):
     """
     Generate wind generation time-series
@@ -391,9 +384,8 @@ def wind(cutout, turbine, smooth=False, **params):
     return cutout.convert_and_aggregate(
         convert_func=convert_wind, turbine=turbine, **params)
 
+
 # solar PV
-
-
 def convert_pv(
         ds,
         panel,
@@ -409,7 +401,6 @@ def convert_pv(
     return solar_panel
 
 
-# @requires_windowed(['influx', 'temperature'])
 def pv(cutout, panel, orientation, clearsky_model=None, **params):
     """
     Convert downward-shortwave, upward-shortwave radiation flux and
@@ -467,8 +458,6 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
                                         **params)
 
 # hydro
-
-
 def convert_runoff(ds, weight_with_height=True):
     runoff = ds['runoff']
 
@@ -478,11 +467,9 @@ def convert_runoff(ds, weight_with_height=True):
     return runoff
 
 
-# @requires_windowed(['runoff', 'height'])
 def runoff(cutout, smooth=None, lower_threshold_quantile=None,
            normalize_using_yearly=None, **params):
-    result = cutout.convert_and_aggregate(
-        convert_func=convert_runoff, **params)
+    result = cutout.convert_and_aggregate(convert_func=convert_runoff, **params)
 
     if smooth is not None:
         if smooth is True:
@@ -544,7 +531,7 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
         Whether surface runoff should be weighted by potential height (probably
         better for coarser resolution).
     show_progress : bool
-        Whether to display progressbars.
+        Whether to display progressbars (Not effective since v0.2)
 
     References
     ----------
@@ -562,13 +549,8 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
     matrix = cutout.indicatormatrix(basins.shapes)
     # compute the average surface runoff in each basin
     matrix_normalized = matrix / matrix.sum(axis=1)
-    if show_progress:
-        _show_progress = "Convert and aggregate runoff per basin"
-    else:
-        _show_progress = False
     runoff = cutout.runoff(matrix=matrix_normalized, index=basins.shapes.index,
                            weight_with_height=weight_with_height,
-                           show_progress=_show_progress,
                            **kwargs)
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3

@@ -7,6 +7,7 @@
 import numpy as np
 import pandas as pd
 import xarray as xr
+from numpy import sin, cos, fmin, fmax, sqrt, deg2rad
 import logging
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
     # Ridley et al. (2010) http://dx.doi.org/10.1016/j.renene.2009.07.018 ,
     # Lauret et al. (2013):http://dx.doi.org/10.1016/j.renene.2012.01.049
 
-    sinaltitude = np.sin(solar_position['altitude'])
+    sinaltitude = sin(solar_position['altitude'])
     atmospheric_insolation = solar_position['atmospheric insolation']
 
     if clearsky_model is None:
@@ -35,12 +36,12 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
         # Simple Reindl model without ambient air temperature and
         # relative humidity
         fraction = (((k > 0.0) & (k <= 0.3)) *
-                    np.fmin(1.0, 1.020 - 0.254 * k + 0.0123 * sinaltitude) +
+                    fmin(1.0, 1.020 - 0.254 * k + 0.0123 * sinaltitude) +
                     ((k > 0.3) & (k < 0.78)) *
-                    np.fmin(0.97, np.fmax(0.1, 1.400 - 1.749 * k + 0.177 *
+                    fmin(0.97, fmax(0.1, 1.400 - 1.749 * k + 0.177 *
                                           sinaltitude)) +
                     (k >= 0.78) *
-                    np.fmax(0.1, 0.486 * k - 0.182 * sinaltitude))
+                    fmax(0.1, 0.486 * k - 0.182 * sinaltitude))
     elif clearsky_model == 'enhanced':
         # Enhanced Reindl model with ambient air temperature and relative
         # humidity
@@ -48,21 +49,21 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
         rh = ds['humidity']
 
         fraction = (((k > 0.0) & (k <= 0.3)) *
-                    np.fmin(1.0, 1.000 - 0.232 * k + 0.0239 * sinaltitude -
+                    fmin(1.0, 1.000 - 0.232 * k + 0.0239 * sinaltitude -
                             0.000682 * T + 0.0195 * rh) +
                     ((k > 0.3) & (k < 0.78)) *
-                    np.fmin(0.97, np.fmax(0.1, 1.329 - 1.716 * k + 0.267 *
+                    fmin(0.97, fmax(0.1, 1.329 - 1.716 * k + 0.267 *
                                           sinaltitude - 0.00357 * T +
                                           0.106 * rh)) +
                     (k >= 0.78) *
-                    np.fmax(0.1, 0.426 * k - 0.256 * sinaltitude + 0.00349 *
+                    fmax(0.1, 0.426 * k - 0.256 * sinaltitude + 0.00349 *
                             T + 0.0734 * rh))
     else:
         raise KeyError("`clearsky model` must be chosen from 'simple' and "
                        "'enhanced'")
 
     # Set diffuse fraction to one when the sun isn't up
-    # fraction = fraction.where(sinaltitude >= np.sin(np.deg2rad(threshold))).fillna(1.0)
+    # fraction = fraction.where(sinaltitude >= sin(deg2rad(threshold))).fillna(1.0)
     # fraction = fraction.rename('fraction index')
 
     return (influx * fraction).rename('diffuse horizontal')
@@ -76,7 +77,7 @@ def TiltedDiffuseIrrad(
         diffuse):
     # Hay-Davies Model
 
-    sinaltitude = np.sin(solar_position['altitude'])
+    sinaltitude = sin(solar_position['altitude'])
     atmospheric_insolation = solar_position['atmospheric insolation']
 
     cosincidence = surface_orientation['cosincidence']
@@ -86,7 +87,7 @@ def TiltedDiffuseIrrad(
 
     with np.errstate(divide='ignore', invalid='ignore'):
         # brightening factor
-        f = np.sqrt(direct / influx).fillna(0.)
+        f = sqrt(direct / influx).fillna(0.)
 
         # anisotropy factor
         A = direct / atmospheric_insolation
@@ -94,26 +95,25 @@ def TiltedDiffuseIrrad(
     # geometric factor
     R_b = cosincidence / sinaltitude
 
-    diffuse_t = ((1.0 - A) * ((1 + np.cos(surface_slope)) / 2.0) *
-                 (1.0 + f * np.sin(surface_slope / 2.0)**3)
+    diffuse_t = ((1.0 - A) * ((1 + cos(surface_slope)) / 2.0) *
+                 (1.0 + f * sin(surface_slope / 2.0)**3)
                  + A * R_b) * diffuse
 
     # fixup: clip all negative values (unclear why it gets negative)
     # note: REatlas does not do the fixup
     if logger.isEnabledFor(logging.WARNING):
-        if ((diffuse_t < 0.) & (sinaltitude > np.sin(np.deg2rad(1.)))).any():
+        if ((diffuse_t < 0.) & (sinaltitude > sin(deg2rad(1.)))).any():
             logger.warning(
                 'diffuse_t exhibits negative values above altitude threshold.')
 
     with np.errstate(invalid='ignore'):
-        diffuse_t.values[np.isnan(diffuse_t.values) |
-                         (diffuse_t.values < 0.)] = 0.
+        diffuse_t = diffuse_t.clip(min=0).fillna(0)
 
     return diffuse_t.rename('diffuse tilted')
 
 
 def TiltedDirectIrrad(solar_position, surface_orientation, direct):
-    sinaltitude = np.sin(solar_position['altitude'])
+    sinaltitude = sin(solar_position['altitude'])
     cosincidence = surface_orientation['cosincidence']
 
     # geometric factor
@@ -127,8 +127,7 @@ def _albedo(ds, influx):
         albedo = ds['albedo']
     elif 'outflux' in ds:
         with np.errstate(divide='ignore', invalid='ignore'):
-            albedo = (ds['outflux'] / influx)
-            albedo.values[albedo.values > 1.0] = 1.0
+            albedo = (ds['outflux'] / influx).clip(max=1.)
     else:
         raise AssertionError(
             "Need either albedo or outflux as a variable in the dataset. "
@@ -140,7 +139,7 @@ def _albedo(ds, influx):
 def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
     surface_slope = surface_orientation['slope']
     ground_t = influx * _albedo(ds, influx) * \
-        (1.0 - np.cos(surface_slope)) / 2.0
+        (1.0 - cos(surface_slope)) / 2.0
     return ground_t.rename('ground tilted')
 
 
@@ -167,8 +166,8 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model,
 
     if trigon_model == 'simple':
         k = surface_orientation['cosincidence'] / \
-            np.sin(solar_position['altitude'])
-        cos_surface_slope = np.cos(surface_orientation['slope'])
+            sin(solar_position['altitude'])
+        cos_surface_slope = cos(surface_orientation['slope'])
 
         influx = direct + diffuse
         direct_t = k * direct
@@ -193,9 +192,7 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model,
     # values, leading to big overall errors from the 1/sinaltitude factor.
     # => Suppress irradiation below solar altitudes of 1 deg.
 
-    cap_alt = solar_position['altitude'] < np.deg2rad(altitude_threshold)
-    total_t.values[(cap_alt |
-                   (direct + diffuse <= 0.01)).transpose(*total_t.dims).values] \
-            = 0.
+    cap_alt = solar_position['altitude'] < deg2rad(altitude_threshold)
+    total_t = total_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
 
     return total_t

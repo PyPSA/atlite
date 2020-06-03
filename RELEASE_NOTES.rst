@@ -37,3 +37,9 @@ New features
 * Atlite now has and uses a new configuration system.
   See the new section on `configuration <https://atlite.readthedocs.io/en/latest/configuration.html>`_
   for details.
+
+
+Breaking changes
+----------------
+* The argument `show_progress` of function `atlite.convert.convert_and_aggregate` does not take strings anymore. 
+* The argument `layout` of function `atlite.convert.convert_and_aggregate` must be a xarray.DataArray

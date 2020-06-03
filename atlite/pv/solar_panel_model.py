@@ -41,9 +41,7 @@ def _power_huld(irradiance, t_amb, pc):
                      pc['k_5'] * (np.log(G_)) ** 2) +
                pc['k_6'] * (T_ ** 2))
 
-        eff = eff.fillna(0.)
-        eff.values[eff.values <
-                   0] = 0.  # Also make sure efficiency can't be negative
+        eff = eff.fillna(0.).clip(min=0)
 
     return G_ * eff * pc.get('inverter_efficiency', 1.)
 
@@ -74,9 +72,7 @@ def _power_bofinger(irradiance, t_amb, pc):
 
     capacity = (pc['A'] + pc['B'] * 1000. + pc['C'] * np.log(1000.)) * 1e3
     power = irradiance * eta * (pc.get('inverter_efficiency', 1.) / capacity)
-    power.values[irradiance.transpose(*irradiance.dims).values < pc['threshold']] \
-            = 0.
-
+    power = power.where(irradiance >= pc['threshold'], 0)
     return power.rename('AC power')
 
 
