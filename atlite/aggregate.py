@@ -15,6 +15,7 @@ import dask
 
 
 def aggregate_matrix(da, matrix, index):
+    assert index.name is not None
     if isinstance(da.data, dask.array.core.Array):
         da = da.stack(spatial=('y', 'x'))
         return xr.apply_ufunc(
@@ -28,5 +29,4 @@ def aggregate_matrix(da, matrix, index):
         ).assign_coords(**{index.name: index})
     else:
         da = da.stack(spatial=('y', 'x')).transpose('spatial', 'time')
-        return xr.DataArray(matrix * da,
-                            [index, da.coords['time']])
+        return xr.DataArray(matrix * da, [index, da.coords['time']])

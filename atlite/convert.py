@@ -111,18 +111,14 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
         if shapes is not None:
             if isinstance(shapes, pd.Series) and index is None:
                 index = shapes.index
+                index.name = 'shapes' if index.name is None else index.name
             matrix = cutout.indicatormatrix(shapes, shapes_proj)
 
         if matrix is not None:
-            matrix = matrix.todense() if sp.sparse.issparse(matrix) else matrix
+            matrix = sp.sparse.csr_matrix(matrix)
             if index is None:
-                index = pd.RangeIndex(matrix.shape[0])
-            spatial = cutout.coords.to_dataset().stack(spatial= ['y', 'x']).spatial
-            coords = {'bus': index, 'spatial': spatial}
-            matrix = xr.DataArray(matrix, coords=coords, dims=('bus', 'spatial'))\
-                        .unstack('spatial')
-
-            results = da @ matrix
+                index = pd.RangeIndex(matrix.shape[0], name='shapes')
+            results = aggregate_matrix(da, matrix=matrix, index=index)
         else:
             # da == layout * da
             results = da.sum(['x', 'y'])
