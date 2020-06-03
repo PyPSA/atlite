@@ -21,7 +21,7 @@ from .data import cutout_prepare, available_features
 from .gis import get_coords, compute_indicatormatrix
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
-from .datasets import modules as dmodules
+from .datasets import modules as datamodules
 
 
 import xarray as xr
@@ -177,17 +177,18 @@ class Cutout:
             # TODO: check for dx, dy, x, y fine with module requirements
             coords = get_coords(x, y, time, **cutoutparams)
 
-            projection = set(dmodules[m].projection for m in atleast_1d(module))
-            assert len(projection) == 1, (
-                f'Projections of {module} not compatible')
-            cutoutparams.update({'projection': projection.pop()})
-
             attrs = {'module': module, 'prepared_features': [],
                      **storable_chunks, **cutoutparams}
             data = xr.Dataset(coords=coords, attrs = attrs)
 
+        # Check projections
+        modules = atleast_1d(data.attrs.get('module'))
+        projection = set(datamodules[m].projection for m in modules)
+        assert len(projection) == 1, f'Projections of {module} not compatible'
+
         self.path = path
         self.data = data
+
 
     @property
     def name(self):
@@ -199,7 +200,7 @@ class Cutout:
 
     @property
     def projection(self):
-        return self.data.attrs.get('projection')
+        return datamodules[atleast_1d(self.module)[0]].projection
 
     @property
     def available_features(self):
