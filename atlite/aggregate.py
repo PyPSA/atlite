@@ -12,8 +12,6 @@ import xarray as xr
 import dask
 
 
-def aggregate_sum(da):
-    return da.sum('time')
 
 
 def aggregate_matrix(da, matrix, index):

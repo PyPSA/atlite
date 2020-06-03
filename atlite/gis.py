@@ -20,6 +20,7 @@ from collections import OrderedDict
 from warnings import warn
 from functools import partial
 import pyproj
+import geopandas as gpd
 from shapely.ops import transform
 import rasterio as rio
 import rasterio.warp
@@ -166,7 +167,7 @@ def compute_indicatormatrix(
     I : sp.sparse.lil_matrix
       Indicatormatrix
     """
-
+    dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
     dest = reproject_shapes(dest, dest_proj, orig_proj)
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
     tree = STRtree(orig)

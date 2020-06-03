@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 import scipy as sp
-import scipy.sparse
 from operator import itemgetter
 from pathlib import Path
 from dask.diagnostics import ProgressBar
@@ -21,7 +20,7 @@ from dask.diagnostics import ProgressBar
 import logging
 logger = logging.getLogger(__name__)
 
-from .aggregate import aggregate_sum, aggregate_matrix
+from .aggregate import aggregate_matrix
 from .gis import spdiag
 
 from .pv.solar_position import SolarPosition
@@ -115,11 +114,15 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
             matrix = cutout.indicatormatrix(shapes, shapes_proj)
 
         if matrix is not None:
-            matrix = sp.sparse.csr_matrix(matrix)
-
+            matrix = matrix.todense() if sp.sparse.issparse(matrix) else matrix
             if index is None:
                 index = pd.RangeIndex(matrix.shape[0])
-            results = aggregate_matrix(da, matrix=matrix, index=index)
+            spatial = cutout.coords.to_dataset().stack(spatial= ['y', 'x']).spatial
+            coords = {'bus': index, 'spatial': spatial}
+            matrix = xr.DataArray(matrix, coords=coords, dims=('bus', 'spatial'))\
+                        .unstack('spatial')
+
+            results = da @ matrix
         else:
             # da == layout * da
             results = da.sum(['x', 'y'])
