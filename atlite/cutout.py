@@ -291,7 +291,7 @@ class Cutout:
                         self.coords['y'].values[0],
                         self.coords['y'].values[-1], self.dy,
                         start, end, self.dt,
-                        list(self.prepared_features)))
+                        list(self.prepared_features.index.unique('feature'))))
 
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
