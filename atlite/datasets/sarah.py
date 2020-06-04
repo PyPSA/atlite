@@ -151,11 +151,11 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
         Mandatory arguments are:
             * 'sarah_dir', str. Directory of the stored SARAH data.
         Possible arguments are:
-            * 'sarah_parallel', bool. Whether to load stored files in parallel
+            * 'parallel', bool. Whether to load stored files in parallel
             mode. Default is False.
             * 'sarah_interpolate', bool. Whether to interpolate areas of dawn
             and nightfall. This might slow down the loading process if only
-            a few cores are available.
+            a few cores are available. Default is True.
 
     Returns
     -------
@@ -168,7 +168,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
 
     sarah_dir = creation_parameters['sarah_dir']
     creation_parameters.setdefault('parallel', False)
-    creation_parameters.setdefault('interpolate', False)
+    creation_parameters.setdefault('sarah_interpolate', True)
 
     files = get_filenames(sarah_dir, coords)
     open_kwargs = dict(chunks=chunks, parallel=creation_parameters['parallel'])
@@ -178,7 +178,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     ds = ds.sel(lon=as_slice(coords['lon']), lat=as_slice(coords['lat']))
 
     # Interpolate, resample and possible regrid
-    if creation_parameters['interpolate']:
+    if creation_parameters['sarah_interpolate']:
         ds = interpolate(ds)
     else:
         ds.fillna(0)

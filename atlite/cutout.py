@@ -102,8 +102,8 @@ class Cutout:
         sarah_dir : str, Path
             Directory of on-disk sarah data. This must be given when using the
             sarah module.
-        interpolate : bool
-            Whether to interpolate NaN's in the data. This takes effect for
+        sarah_interpolate : bool, default True
+            Whether to interpolate NaN's in the SARAH data. This takes effect for
             sarah data which has missing data for areas where dawn and
             nightfall happens (ca. 30 min gap).
         parallel : bool, default False
