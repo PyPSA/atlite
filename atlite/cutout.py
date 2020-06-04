@@ -122,7 +122,7 @@ class Cutout:
 
         path = Path(path).with_suffix(".nc")
         chunks = cutoutparams.pop('chunks', {'time': 20})
-        storable_chunks = {f'chunks_{k}': v for k, v in (chunks or {}).items()}
+        storable_chunks = {f'chunksize_{k}': v for k, v in (chunks or {}).items()}
 
         # Backward compatibility for xs, ys, months and years
         if {'xs', 'ys'}.intersection(cutoutparams):
@@ -208,8 +208,8 @@ class Cutout:
 
     @property
     def chunks(self):
-        chunks = {k.lstrip('chunks_'): v for k, v in self.data.attrs.items()
-                  if k.startswith('chunks_')}
+        chunks = {k.lstrip('chunksize_'): v for k, v in self.data.attrs.items()
+                  if k.startswith('chunksize_')}
         return None if chunks == {} else chunks
 
     @property
@@ -252,7 +252,7 @@ class Cutout:
 
     @property
     def prepared_features(self):
-        features = self.data.attrs.get("prepared_features", [])
+        features = atleast_1d(self.data.attrs.get("prepared_features", []))
         return self.available_features.loc[:, features].drop_duplicates()
 
     def grid_coordinates(self):

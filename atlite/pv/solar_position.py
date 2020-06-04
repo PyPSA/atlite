@@ -43,7 +43,7 @@ def SolarPosition(ds):
     # up to h and dec from [1]
 
     t = ds.indexes['time']
-    chunks = {'time': ds.attrs.get('chunks_time', 20)}
+    chunks = {'time': ds.attrs.get('chunksize_time', 20)}
     n = xr.DataArray(t.to_julian_date(), [t]).chunk(chunks) - 2451545.0
     hour = ds['time.hour'].chunk(chunks)
     minute = ds['time.minute'].chunk(chunks)
