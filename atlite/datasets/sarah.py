@@ -167,18 +167,22 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     chunks = cutout.chunks
 
     sarah_dir = creation_parameters['sarah_dir']
-    parallel = creation_parameters.get('parallel', False)
-    interpolate = creation_parameters.get('interpolate', False)
+    creation_parameters.setdefault('parallel', False)
+    creation_parameters.setdefault('interpolate', False)
 
     files = get_filenames(sarah_dir, coords)
-    open_kwargs = dict(chunks=chunks, parallel=parallel)
+    open_kwargs = dict(chunks=chunks, parallel=creation_parameters['parallel'])
     ds_sis = xr.open_mfdataset(files.sis, combine='by_coords', **open_kwargs)
     ds_sid = xr.open_mfdataset(files.sid, combine='by_coords', **open_kwargs)
     ds = xr.merge([ds_sis, ds_sid])
     ds = ds.sel(lon=as_slice(coords['lon']), lat=as_slice(coords['lat']))
 
     # Interpolate, resample and possible regrid
-    ds = interpolate(ds) if interpolate else ds.fillna(0)
+    if creation_parameters['interpolate']:
+        ds = interpolate(ds)
+    else:
+        ds.fillna(0)
+
     ds = ds if cutout.dt == '30min' else hourly_mean(ds)
     if (cutout.dx != dx) or (cutout.dy != dy):
         ds = regrid(ds, coords['lon'], coords['lat'], resampling=Resampling.average)
