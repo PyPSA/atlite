@@ -17,6 +17,8 @@ import textwrap
 import sys
 import re
 
+from .datasets import modules as datamodules
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -82,7 +84,7 @@ def migrate_from_cutout_directory(old_cutout_dir, path):
 
     data = maybe_swap_spatial_dims(data)
     data.attrs['prepared_features'] = list(
-        atlite.datasets.modules[data.attrs["module"]].features)
+        datamodules[data.attrs["module"]].features)
 
     path = Path(path).with_suffix(".nc")
     logger.info(f"Writing cutout data to {path}. When done, load it again using"

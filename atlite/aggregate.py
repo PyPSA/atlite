@@ -11,9 +11,6 @@ Functions for aggregating results.
 import xarray as xr
 import dask
 
-
-
-
 def aggregate_matrix(da, matrix, index):
     if index.name is None:
         index.name = 'dim_0'
