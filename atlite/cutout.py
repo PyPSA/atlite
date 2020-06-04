@@ -122,7 +122,7 @@ class Cutout:
 
         path = Path(path).with_suffix(".nc")
         chunks = cutoutparams.pop('chunks', {'time': 20})
-        storable_chunks = {f'chunks_{k}': v for k, v in chunks.items() if chunks}
+        storable_chunks = {f'chunks_{k}': v for k, v in (chunks or {}).items()}
 
         # Backward compatibility for xs, ys, months and years
         if {'xs', 'ys'}.intersection(cutoutparams):
@@ -169,17 +169,17 @@ class Cutout:
                 y = cutoutparams.pop('y')
                 time = cutoutparams.pop('time')
                 module = cutoutparams.pop('module')
-            except KeyError:
-                raise KeyError("Arguments 'time' and 'module' must be "
-                               "specified. Spatial bounds must either be "
-                               "passed via argument 'bounds' or 'x' and 'y'.")
+            except KeyError as exc:
+                raise TypeError("Arguments 'time' and 'module' must be "
+                                "specified. Spatial bounds must either be "
+                                "passed via argument 'bounds' or 'x' and 'y'.") from exc
 
             # TODO: check for dx, dy, x, y fine with module requirements
             coords = get_coords(x, y, time, **cutoutparams)
 
             attrs = {'module': module, 'prepared_features': [],
                      **storable_chunks, **cutoutparams}
-            data = xr.Dataset(coords=coords, attrs = attrs)
+            data = xr.Dataset(coords=coords, attrs=attrs)
 
         # Check projections
         modules = atleast_1d(data.attrs.get('module'))
