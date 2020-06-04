@@ -14,3 +14,6 @@ atlite.egg-info/
 doc/.vscode/settings.json
 .vscode/settings.json
 test/*.nc
+examples/*.nc
+examples/*.csv
+examples/*.zip

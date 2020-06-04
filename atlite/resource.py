@@ -8,13 +8,12 @@
 Module for providing access to external ressources, like windturbine or pv panel configurations.
 """
 
-import os
+from .utils import arrowdict
 import yaml
 from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
 from pathlib import Path
-from textwrap import dedent
 import requests
 import pandas as pd
 import json
@@ -24,11 +23,13 @@ import pkg_resources
 import logging
 logger = logging.getLogger(name=__name__)
 
-from .utils import arrowdict
 
-RESOURCE_DIRECTORY = Path(pkg_resources.resource_filename(__name__, "resources"))
+RESOURCE_DIRECTORY = Path(
+    pkg_resources.resource_filename(
+        __name__, "resources"))
 WINDTURBINE_DIRECTORY = RESOURCE_DIRECTORY / "windturbine"
 SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
+
 
 def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
@@ -67,6 +68,7 @@ def get_windturbineconfig(turbine):
         P=np.max(conf['POW'])
     )
 
+
 def get_solarpanelconfig(panel):
     """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
 
@@ -81,6 +83,7 @@ def get_solarpanelconfig(panel):
 
     return conf
 
+
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
 
@@ -94,13 +97,15 @@ def solarpanel_rated_capacity_per_unit(panel):
         # one unit in the capacity layout is interpreted as one panel of a
         # capacity (A + 1000 * B + log(1000) * C) * 1000W/m^2 * (k / 1000)
         A, B, C = itemgetter('A', 'B', 'C')(panel)
-        return (A + B * 1000. + C * np.log(1000.))*1e3
+        return (A + B * 1000. + C * np.log(1000.)) * 1e3
+
 
 def windturbine_rated_capacity_per_unit(turbine):
     if isinstance(turbine, (str, Path)):
         turbine = get_windturbineconfig(turbine)
 
     return turbine['P']
+
 
 def windturbine_smooth(turbine, params=None):
     '''
@@ -136,8 +141,8 @@ def windturbine_smooth(turbine, params=None):
 
     def kernel(v_0):
         # all velocities in m/s
-        return (1./np.sqrt(2*np.pi*sigma*sigma) *
-                np.exp(-(v_0 - Delta_v)*(v_0 - Delta_v)/(2*sigma*sigma) ))
+        return (1. / np.sqrt(2 * np.pi * sigma * sigma) *
+                np.exp(-(v_0 - Delta_v) * (v_0 - Delta_v) / (2 * sigma * sigma)))
 
     def smooth(velocities, power):
         # interpolate kernel and power curve to the same, regular velocity grid
@@ -148,11 +153,12 @@ def windturbine_smooth(turbine, params=None):
         # convolve power and kernel
         # the downscaling is necessary because scipy expects the velocity
         # increments to be 1., but here, they are 0.1
-        convolution = 0.1*fftconvolve(power_reg, kernel_reg, mode='same')
+        convolution = 0.1 * fftconvolve(power_reg, kernel_reg, mode='same')
 
         # sample down so power curve doesn't get too long
         velocities_new = np.linspace(0., 35., 72)
-        power_new = eta * np.interp(velocities_new, velocities_reg, convolution)
+        power_new = eta * np.interp(velocities_new,
+                                    velocities_reg, convolution)
 
         return velocities_new, power_new
 
@@ -163,11 +169,10 @@ def windturbine_smooth(turbine, params=None):
     if any(turbine['POW'][np.where(turbine['V'] == 0.0)] > 1e-2):
         logger.warning(
             "Oversmoothing detected with parameters eta=%f, Delta_v=%f, sigma=%f. "
-            "Turbine generates energy at 0 m/s wind speeds.",
-            eta, Delta_v, sigma
-        )
+            "Turbine generates energy at 0 m/s wind speeds.", eta, Delta_v, sigma)
 
     return turbine
+
 
 def get_oedb_windturbineconfig(search=None, **search_params):
     """
@@ -203,12 +208,12 @@ def get_oedb_windturbineconfig(search=None, **search_params):
 
     """
 
-    ## Parse information of different allowed 'turbine' values
+    # Parse information of different allowed 'turbine' values
     if isinstance(search, int):
         search_params.setdefault('id', search)
         search = None
 
-    ## Retrieve and cache OEDB turbine data
+    # Retrieve and cache OEDB turbine data
     OEDB_URL = 'https://openenergy-platform.org/api/v0/schema/supply/tables/wind_turbine_library/rows'
 
     # Cache turbine request locally
@@ -223,8 +228,13 @@ def get_oedb_windturbineconfig(search=None, **search_params):
         df = pd.DataFrame.from_dict(result.json())
         _oedb_turbines = df[df.has_power_curve]
 
-    logger.info("Searching turbine power curve in OEDB database using " +
-                ", ".join(f"{k}='{v}'" for (k,v) in search_params.items()) + ".")
+    logger.info(
+        "Searching turbine power curve in OEDB database using " +
+        ", ".join(
+            f"{k}='{v}'" for (
+                k,
+                v) in search_params.items()) +
+        ".")
 
     # Working copy
     df = _oedb_turbines
@@ -237,19 +247,21 @@ def get_oedb_windturbineconfig(search=None, **search_params):
     if 'name' in search_params:
         selector &= df.name.str.contains(search_params['name'], case=False)
     if 'turbine_type' in search_params:
-        selector &= df.turbine_type.str.contains(search_params['name'], case=False)
+        selector &= df.turbine_type.str.contains(
+            search_params['name'], case=False)
     if 'manufacturer' in search_params:
-        selector &= df.manufacturer.str.contains(search_params['manufacturer'], case=False)
+        selector &= df.manufacturer.str.contains(
+            search_params['manufacturer'], case=False)
 
     df = df.loc[selector]
 
-    if len(df) < 1 :
+    if len(df) < 1:
         raise RuntimeError("No turbine found.")
-    elif len(df) > 1 :
+    elif len(df) > 1:
         raise RuntimeError(
             f"Provided information corresponds to {len(df)} turbines,"
-             " use `id` for an unambiguous search.\n" +
-            str(df[['id','manufacturer','turbine_type']])
+            " use `id` for an unambiguous search.\n" +
+            str(df[['id', 'manufacturer', 'turbine_type']])
         )
 
     # Convert to series for simpliticty
@@ -262,16 +274,22 @@ def get_oedb_windturbineconfig(search=None, **search_params):
 
     if not hub_height:
         hub_height = 100
-        logger.warning("No hub_height defined in dataset. Manual clean-up required."
-                       "Assuming a hub_height of 100m for now.")
+        logger.warning(
+            "No hub_height defined in dataset. Manual clean-up required."
+            "Assuming a hub_height of 100m for now.")
     elif isinstance(hub_height, str):
-        hub_heights = [float(t) for t in re.split(r"\s*;\s*", hub_height.strip()) if t]
+        hub_heights = [
+            float(t) for t in re.split(
+                r"\s*;\s*",
+                hub_height.strip()) if t]
 
         if len(hub_heights) > 1:
             hub_height = np.mean(hub_heights, dtype=int)
-            logger.warning("Multiple values for hub_height in dataset (%s). "
-                           "Manual clean-up required. Using the averge %dm for now.",
-                           hub_heights, hub_height)
+            logger.warning(
+                "Multiple values for hub_height in dataset (%s). "
+                "Manual clean-up required. Using the averge %dm for now.",
+                hub_heights,
+                hub_height)
         else:
             hub_height = hub_heights[0]
 
@@ -293,7 +311,10 @@ def get_oedb_windturbineconfig(search=None, **search_params):
 
     return turbineconf
 
+
 # Global caches
 _oedb_turbines = None
-windturbines = arrowdict({p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
-solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
+windturbines = arrowdict(
+    {p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
+solarpanels = arrowdict(
+    {p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})

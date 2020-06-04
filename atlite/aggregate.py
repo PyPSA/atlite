@@ -11,10 +11,9 @@ Functions for aggregating results.
 import xarray as xr
 import dask
 
-def aggregate_sum(da):
-    return da.sum('time')
-
 def aggregate_matrix(da, matrix, index):
+    if index.name is None:
+        index.name = 'dim_0'
     if isinstance(da.data, dask.array.core.Array):
         da = da.stack(spatial=('y', 'x'))
         return xr.apply_ufunc(
@@ -28,5 +27,4 @@ def aggregate_matrix(da, matrix, index):
         ).assign_coords(**{index.name: index})
     else:
         da = da.stack(spatial=('y', 'x')).transpose('spatial', 'time')
-        return xr.DataArray(matrix * da,
-                            [index, da.coords['time']])
+        return xr.DataArray(matrix * da, [index, da.coords['time']])

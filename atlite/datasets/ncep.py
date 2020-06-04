@@ -26,18 +26,27 @@ import shutil
 engine = 'pynio'
 projection = 'latlong'
 
+
 def convert_lons_lats_ncep(ds, xs, ys):
     if not isinstance(xs, slice):
-        first, second, last = np.asarray(xs)[[0,1,-1]]
-        xs = slice(first - 0.1*(second - first), last + 0.1*(second - first))
+        first, second, last = np.asarray(xs)[[0, 1, -1]]
+        xs = slice(first - 0.1 * (second - first),
+                   last + 0.1 * (second - first))
     if not isinstance(ys, slice):
-        first, second, last = np.asarray(ys)[[0,1,-1]]
-        ys = slice(first - 0.1*(second - first), last + 0.1*(second - first))
+        first, second, last = np.asarray(ys)[[0, 1, -1]]
+        ys = slice(first - 0.1 * (second - first),
+                   last + 0.1 * (second - first))
 
     ds = ds.sel(lat_0=ys)
 
     # Lons should go from -180. to +180.
-    if len(ds.coords['lon_0'].sel(lon_0=slice(xs.start + 360., xs.stop + 360.))):
+    if len(
+        ds.coords['lon_0'].sel(
+            lon_0=slice(
+            xs.start +
+            360.,
+            xs.stop +
+            360.))):
         ds = xr.concat([ds.sel(lon_0=slice(xs.start + 360., xs.stop + 360.)),
                         ds.sel(lon_0=xs)],
                        dim="lon_0")
@@ -51,14 +60,22 @@ def convert_lons_lats_ncep(ds, xs, ys):
     ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     return ds
 
+
 def convert_time_hourly_ncep(ds, drop_time_vars=True):
     # Combine initial_time0 and forecast_time0
-    ds = (ds
-          .stack(time=("initial_time0_hours", "forecast_time0"))
-          .assign_coords(time=np.ravel(ds.coords['initial_time0_hours'] + ds.coords['forecast_time0'] - pd.Timedelta('1h'))))
+    ds = (
+        ds .stack(
+            time=(
+                "initial_time0_hours",
+                "forecast_time0")) .assign_coords(
+            time=np.ravel(
+                ds.coords['initial_time0_hours'] +
+                ds.coords['forecast_time0'] -
+                pd.Timedelta('1h'))))
     if drop_time_vars:
         ds = ds.drop(['initial_time0', 'initial_time0_encoded'])
     return ds
+
 
 def convert_unaverage_ncep(ds):
     # the fields ending in _avg contain averages which have to be unaveraged by using
@@ -68,7 +85,8 @@ def convert_unaverage_ncep(ds):
 
     def unaverage(da, dim='forecast_time0'):
         coords = da.coords[dim]
-        y = da * xr.DataArray(np.arange(1, len(coords)+1), dims=[dim], coords={dim: coords})
+        y = da * xr.DataArray(np.arange(1, len(coords) + 1),
+                              dims=[dim], coords={dim: coords})
         return y - y.shift(**{dim: 1}).fillna(0.)
     for k, da in ds.items():
         if k.endswith('_avg'):
@@ -77,6 +95,7 @@ def convert_unaverage_ncep(ds):
 
     return ds
 
+
 def convert_unaccumulate_ncep(ds):
     # the fields ending in _acc contain values that are accumulated over the
     # forecast_time which have to be unaccumulated by using:
@@ -84,7 +103,8 @@ def convert_unaccumulate_ncep(ds):
     # \tilde x_1 = x_1
     # \tilde x_i = x_i - x_{i-1} \forall 1 < i <= 6
     # \end{equation}
-    # Source: http://rda.ucar.edu/datasets/ds094.1/#docs/FAQs_hrly_timeseries.html
+    # Source:
+    # http://rda.ucar.edu/datasets/ds094.1/#docs/FAQs_hrly_timeseries.html
 
     def unaccumulate(da, dim='forecast_time0'):
         return da - da.shift(**{dim: 1}).fillna(0.)
@@ -95,6 +115,7 @@ def convert_unaccumulate_ncep(ds):
 
     return ds
 
+
 def convert_clip_lower(ds, variable, a_min, value):
     """
     Set values of `variable` that are below `a_min` to `value`.
@@ -103,13 +124,17 @@ def convert_clip_lower(ds, variable, a_min, value):
     ds[variable] = ds[variable].where(ds[variable] > a_min).fillna(value)
     return ds
 
+
 def prepare_wnd10m_ncep(fn, yearmonth, xs, ys, engine=engine):
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = convert_time_hourly_ncep(ds)
-        ds['wnd10m'] = np.sqrt(ds['VGRD_P0_L103_GGA0']**2 + ds['UGRD_P0_L103_GGA0']**2)
+        ds['wnd10m'] = np.sqrt(
+            ds['VGRD_P0_L103_GGA0']**2 +
+            ds['UGRD_P0_L103_GGA0']**2)
         ds = ds.drop(['VGRD_P0_L103_GGA0', 'UGRD_P0_L103_GGA0'])
         yield yearmonth, ds
+
 
 def prepare_influx_ncep(fn, yearmonth, xs, ys, engine=engine):
     with xr.open_dataset(fn, engine=engine) as ds:
@@ -122,6 +147,7 @@ def prepare_influx_ncep(fn, yearmonth, xs, ys, engine=engine):
         ds = convert_clip_lower(ds, 'influx', a_min=0.1, value=0.)
         yield yearmonth, ds
 
+
 def prepare_outflux_ncep(fn, yearmonth, xs, ys, engine=engine):
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
@@ -133,6 +159,7 @@ def prepare_outflux_ncep(fn, yearmonth, xs, ys, engine=engine):
         ds = convert_clip_lower(ds, 'outflux', a_min=3., value=0.)
         yield yearmonth, ds
 
+
 def prepare_temperature_ncep(fn, yearmonth, xs, ys, engine=engine):
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
@@ -141,6 +168,7 @@ def prepare_temperature_ncep(fn, yearmonth, xs, ys, engine=engine):
         ds = ds.rename({'TMP_P0_L103_GGA0': 'temperature'})
         yield yearmonth, ds
 
+
 def prepare_soil_temperature_ncep(fn, yearmonth, xs, ys, engine=engine):
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
@@ -148,6 +176,7 @@ def prepare_soil_temperature_ncep(fn, yearmonth, xs, ys, engine=engine):
 
         ds = ds.rename({'TMP_P0_2L106_GGA0': 'soil temperature'})
         yield yearmonth, ds
+
 
 def prepare_runoff_ncep(fn, yearmonth, xs, ys, engine=engine):
     with xr.open_dataset(fn, engine=engine) as ds:
@@ -160,6 +189,7 @@ def prepare_runoff_ncep(fn, yearmonth, xs, ys, engine=engine):
         ds = ds.rename({'WATR_P8_L1_GGA0': 'runoff'})
         yield yearmonth, ds
 
+
 def prepare_height_ncep(fn, xs, ys, yearmonths, engine=engine):
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
@@ -167,14 +197,26 @@ def prepare_height_ncep(fn, xs, ys, yearmonths, engine=engine):
         for ym in yearmonths:
             yield ym, ds
 
+
 def prepare_roughness_ncep(fn, yearmonth, xs, ys, engine=engine):
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = ds.rename({'SFCR_P8_L1_GGA0': 'roughness'})
-        ds = ds.assign_coords(year=yearmonth[0]).assign_coords(month=yearmonth[1])
+        ds = ds.assign_coords(
+            year=yearmonth[0]).assign_coords(
+            month=yearmonth[1])
         yield yearmonth, ds
 
-def prepare_meta_ncep(xs, ys, year, month, template, height_config, module, engine=engine):
+
+def prepare_meta_ncep(
+        xs,
+        ys,
+        year,
+        month,
+        template,
+        height_config,
+        module,
+        engine=engine):
     fn = next(glob.iglob(template.format(year=year, month=month)))
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = ds.coords.to_dataset()
@@ -187,13 +229,15 @@ def prepare_meta_ncep(xs, ys, year, month, template, height_config, module, engi
 
     height_config = height_config.copy()
     height_tasks_func = height_config.pop('tasks_func')
-    height_task, = height_tasks_func(xs, ys, [(year, month)], meta_attrs={}, **height_config)
+    height_task, = height_tasks_func(
+        xs, ys, [(year, month)], meta_attrs={}, **height_config)
     height_prepare_func = height_task.pop('prepare_func')
     _, ds = next(height_prepare_func(**height_task))
 
     meta['height'] = ds['height']
 
     return meta
+
 
 def tasks_monthly_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs):
     return [dict(prepare_func=prepare_func,
@@ -203,11 +247,20 @@ def tasks_monthly_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs):
                  yearmonth=ym)
             for ym in yearmonths]
 
-def tasks_height_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs, **extra_args):
+
+def tasks_height_ncep(
+        xs,
+        ys,
+        yearmonths,
+        prepare_func,
+        template,
+        meta_attrs,
+        **extra_args):
     return [dict(prepare_func=prepare_func,
                  xs=xs, ys=ys, yearmonths=yearmonths,
                  fn=next(glob.iglob(template)),
                  **extra_args)]
+
 
 weather_data_config = {
     'influx': dict(tasks_func=tasks_monthly_ncep,
@@ -236,6 +289,9 @@ weather_data_config = {
                    template=os.path.join(config.ncep_dir, 'height/cdas1.20130101.splgrbanl.grb2'))
 }
 
-meta_data_config = dict(prepare_func=prepare_meta_ncep,
-                        template=os.path.join(config.ncep_dir, '{year}{month:0>2}/tmp2m.*.grb2'),
-                        height_config=weather_data_config['height'])
+meta_data_config = dict(
+    prepare_func=prepare_meta_ncep,
+    template=os.path.join(
+        config.ncep_dir,
+        '{year}{month:0>2}/tmp2m.*.grb2'),
+    height_config=weather_data_config['height'])

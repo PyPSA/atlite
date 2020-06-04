@@ -4,4 +4,6 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from . import era5, sarah
+from . import era5, sarah, gebco
+
+modules  = {'era5': era5, 'sarah': sarah, 'gebco': gebco}

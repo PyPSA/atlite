@@ -13,7 +13,6 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 
-import scipy.sparse as spp
 from collections import namedtuple
 from shapely.geometry import Point
 
@@ -24,12 +23,15 @@ logger = logging.getLogger(__name__)
 
 Basins = namedtuple('Basins', ['plants', 'meta', 'shapes'])
 
+
 def find_basin(shapes, lon, lat):
     hids = shapes.index[shapes.intersects(Point(lon, lat))]
     if len(hids) > 1:
-        logger.warning(f"The point ({lon}, {lat}) is in several basins: {hids}. "
-                        "Assuming the first one.")
+        logger.warning(
+            f"The point ({lon}, {lat}) is in several basins: {hids}. "
+            "Assuming the first one.")
     return hids[0]
+
 
 def find_upstream_basins(meta, hid):
     hids = [hid]
@@ -38,6 +40,7 @@ def find_upstream_basins(meta, hid):
         hids.extend(meta.index[meta['NEXT_DOWN'] == hids[i]])
         i += 1
     return hids
+
 
 def determine_basins(plants, hydrobasins, show_progress=True):
     if isinstance(hydrobasins, str):
@@ -48,8 +51,10 @@ def determine_basins(plants, hydrobasins, show_progress=True):
         "but received `type(hydrobasins) = {}`".format(type(hydrobasins))
     )
 
-    missing_columns = (pd.Index(['HYBAS_ID', 'DIST_MAIN', 'NEXT_DOWN', 'geometry'])
-                       .difference(hydrobasins.columns))
+    missing_columns = (pd.Index(['HYBAS_ID',
+                                 'DIST_MAIN',
+                                 'NEXT_DOWN',
+                                 'geometry']) .difference(hydrobasins.columns))
     assert missing_columns.empty, (
         "Couldn't find the column(s) {} in the hydrobasins dataset."
         .format(", ".join(missing_columns))
@@ -68,15 +73,23 @@ def determine_basins(plants, hydrobasins, show_progress=True):
     for p in maybe_progressbar(plants.itertuples()):
         hid = find_basin(shapes, p.lon, p.lat)
         plant_basins.append((hid, find_upstream_basins(meta, hid)))
-    plant_basins = pd.DataFrame(plant_basins, columns=['hid', 'upstream'], index=plants.index)
+    plant_basins = pd.DataFrame(
+        plant_basins, columns=[
+            'hid', 'upstream'], index=plants.index)
 
-    unique_basins = pd.Index(plant_basins['upstream'].sum()).unique().rename("hid")
-    return Basins(plant_basins, meta.loc[unique_basins], shapes.loc[unique_basins])
+    unique_basins = pd.Index(
+        plant_basins['upstream'].sum()).unique().rename("hid")
+    return Basins(
+        plant_basins,
+        meta.loc[unique_basins],
+        shapes.loc[unique_basins])
 
-def shift_and_aggregate_runoff_for_plants(basins, runoff, flowspeed=1, show_progress=True):
+
+def shift_and_aggregate_runoff_for_plants(
+        basins, runoff, flowspeed=1, show_progress=True):
     inflow = xr.DataArray(np.zeros((len(basins.plants), runoff.indexes["time"].size)),
                           [('plant', basins.plants.index),
-                           ('time' , runoff.coords["time"])])
+                           ('time', runoff.coords["time"])])
 
     maybe_progressbar = make_optional_progressbar(
         show_progress, "Shift and aggregate runoff by plant", len(basins.plants)

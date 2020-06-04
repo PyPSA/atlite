@@ -8,39 +8,47 @@
 General utility functions for internal use.
 """
 
+from .gis import maybe_swap_spatial_dims
 import progressbar as pgb
 from pathlib import Path
-from contextlib import contextmanager
 import pandas as pd
 import xarray as xr
 import textwrap
-import sys
-import os
-import pkg_resources
 import re
+
+from .datasets import modules as datamodules
 
 import logging
 logger = logging.getLogger(__name__)
+
 
 def make_optional_progressbar(show, prefix, max_value=None):
     if show:
         widgets = [
             pgb.widgets.Percentage(),
-            ' ', pgb.widgets.SimpleProgress(format='(%s)' % pgb.widgets.SimpleProgress.DEFAULT_FORMAT),
-            ' ', pgb.widgets.Bar(),
-            ' ', pgb.widgets.Timer(),
-            ' ', pgb.widgets.ETA()
-        ]
+            ' ',
+            pgb.widgets.SimpleProgress(
+                format='(%s)' %
+                pgb.widgets.SimpleProgress.DEFAULT_FORMAT),
+            ' ',
+            pgb.widgets.Bar(),
+            ' ',
+            pgb.widgets.Timer(),
+            ' ',
+            pgb.widgets.ETA()]
         if not prefix.endswith(": "):
             prefix = prefix.strip() + ": "
         maybe_progressbar = pgb.ProgressBar(prefix=prefix, widgets=widgets,
                                             max_value=max_value)
     else:
-        maybe_progressbar = lambda x: x
+        def maybe_progressbar(x):
+            return x
 
     return maybe_progressbar
 
-def migrate_from_cutout_directory(old_cutout_dir):
+
+def migrate_from_cutout_directory(old_cutout_dir, path):
+    """Convert an old style cutout directory to new style netcdf file"""
     old_cutout_dir = Path(old_cutout_dir)
     with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:
         newname = f"{old_cutout_dir.name}.nc"
@@ -67,20 +75,27 @@ def migrate_from_cutout_directory(old_cutout_dir):
             data = xr.open_mfdataset(str(old_cutout_dir / "[12]*.nc"),
                                      combine="by_coords")
             data.attrs.update(meta.attrs)
-            logger.warning("Migration successful. You can save the cutout to a "
-                           "new file with `cutout.prepare()`")
         except xr.MergeError:
-            logger.exception("Automatic migration failed. Re-create the cutout "
-                             "with the command above!")
+            logger.exception(
+                "Automatic migration failed. Re-create the cutout "
+                "with the command above!")
             raise
 
-    data.attrs['prepared_features'] = list(sys.modules['atlite.datasets.' + data.attrs["module"]].features)
+    data = maybe_swap_spatial_dims(data)
+    data.attrs['prepared_features'] = list(
+        datamodules[data.attrs["module"]].features)
 
+    path = Path(path).with_suffix(".nc")
+    logger.info(f"Writing cutout data to {path}. When done, load it again using"
+                f"\n\n\tatlite.Cutout('{path}')")
+    data.to_netcdf(path)
     return data
+
 
 def timeindex_from_slice(timeslice):
     end = pd.Timestamp(timeslice.end) + pd.offsets.DateOffset(months=1)
     return pd.date_range(timeslice.start, end, freq="1h", closed="left")
+
 
 class arrowdict(dict):
     """
@@ -113,11 +128,13 @@ class CachedAttribute(object):
     This decorator allows you to create a property which can be
     computed once and accessed many times. Sort of like memoization.
     '''
+
     def __init__(self, method, name=None, doc=None):
         # record the unbound-method and the name
         self.method = method
         self.name = name or method.__name__
         self.__doc__ = doc or method.__doc__
+
     def __get__(self, inst, cls):
         if inst is None:
             # instance attribute accessed on class, return self
@@ -125,6 +142,7 @@ class CachedAttribute(object):
             return self
         # compute, cache and return the instance's attribute value
         result = self.method(inst)
-        # setattr redefines the instance's attribute so this doesn't get called again
+        # setattr redefines the instance's attribute so this doesn't get called
+        # again
         setattr(inst, self.name, result)
         return result

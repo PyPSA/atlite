@@ -13,6 +13,7 @@ import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 
+
 def extrapolate_wind_speed(ds, to_height, from_height=None):
     """Extrapolate the wind speed from a given height above ground to another.
 
@@ -49,9 +50,8 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
         Retrieved 2019-02-15.
     """
 
-
     # Fast lane
-    to_name   = "wnd{h:0d}m".format(h=int(to_height))
+    to_name = "wnd{h:0d}m".format(h=int(to_height))
     if to_name in ds:
         return ds[to_name]
 
@@ -62,18 +62,18 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
         if len(heights) == 0:
             raise AssertionError("Wind speed is not in dataset")
 
-        from_height = heights[np.argmin(np.abs(heights-to_height))]
+        from_height = heights[np.argmin(np.abs(heights - to_height))]
 
     from_name = "wnd{h:0d}m".format(h=int(from_height))
 
     # Wind speed extrapolation
-    wnd_spd = ds[from_name] * ( np.log(to_height /ds['roughness'])
-                              / np.log(from_height/ds['roughness']))
+    wnd_spd = ds[from_name] * (np.log(to_height / ds['roughness'])
+                               / np.log(from_height / ds['roughness']))
 
     wnd_spd.attrs.update({"long name":
-                            "extrapolated {ht} m wind speed using logarithmic "
-                            "method with roughness and {hf} m wind speed"
-                            "".format(ht=to_height, hf=from_height),
-                          "units" : "m s**-1"})
+                          "extrapolated {ht} m wind speed using logarithmic "
+                          "method with roughness and {hf} m wind speed"
+                          "".format(ht=to_height, hf=from_height),
+                          "units": "m s**-1"})
 
     return wnd_spd.rename(to_name)

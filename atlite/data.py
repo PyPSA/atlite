@@ -4,259 +4,140 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import os
-import gc
-from functools import wraps
-import numpy as np
 import pandas as pd
 import xarray as xr
-import ast
-import dask
-from tempfile import mkstemp, mkdtemp
+from numpy import atleast_1d
+from tempfile import mkdtemp
 from shutil import rmtree
 from dask.diagnostics import ProgressBar
-from xarray.core.groupby import DatasetGroupBy
-
 import logging
 logger = logging.getLogger(__name__)
 
-def literal_eval_creation_parameters(node_or_string):
+from .datasets import modules as datamodules
+
+
+def get_features(cutout, module, features, tmpdir=None):
     """
-    Safely evaluate an expression node or a string containing a Python
-    expression.  The string or node provided may only consist of the following
-    Python literal structures: strings, bytes, numbers, tuples, lists, dicts,
-    sets, booleans, slices and None.
+    Load the feature data for a given module.
 
-    Variant: of ast.literal_eval
+    This get the data for a set of features from a module. All modules in
+    `atlite.datasets` all allowed.
     """
-    if isinstance(node_or_string, str):
-        node_or_string = ast.parse(node_or_string, mode='eval')
-    if isinstance(node_or_string, ast.Expression):
-        node_or_string = node_or_string.body
-    def _convert(node):
-        if isinstance(node, ast.Constant):
-            return node.value
-        elif isinstance(node, (ast.Str, ast.Bytes)):
-            return node.s
-        elif isinstance(node, ast.Num):
-            return node.n
-        elif isinstance(node, ast.Tuple):
-            return tuple(map(_convert, node.elts))
-        elif isinstance(node, ast.List):
-            return list(map(_convert, node.elts))
-        elif isinstance(node, ast.Set):
-            return set(map(_convert, node.elts))
-        elif isinstance(node, ast.Dict):
-            return dict((_convert(k), _convert(v))
-                        for k, v in zip(node.keys, node.values))
-        elif isinstance(node, ast.NameConstant):
-            return node.value
-        elif isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
-            operand = _convert(node.operand)
-            if isinstance(operand, (int, float, complex)):
-                if isinstance(node.op, ast.UAdd):
-                    return + operand
-                else:
-                    return - operand
-        elif isinstance(node, ast.Call) and node.func.id == 'slice':
-            return slice(*map(_convert, node.args))
-
-        raise ValueError('malformed creation parameters: ' + repr(node))
-
-    return _convert(node_or_string)
-
-def _get_creation_parameters(data):
-    return literal_eval_creation_parameters(data.attrs['creation_parameters'])
-
-def requires_coords(f):
-    @wraps(f)
-    def wrapper(cutout, *args, **kwargs):
-        if not cutout.data.coords:
-            creation_parameters = _get_creation_parameters(cutout.data)
-            coords = cutout.dataset_module.get_coords(**creation_parameters)
-            cutout.data = cutout.data.merge(coords)
-        return f(cutout, *args, **kwargs)
-    return wrapper
-
-
-class requires_windowed(object):
-    def __init__(self, features, windows=None, allow_dask=False):
-        self.features = features
-        self.windows = windows
-        self.allow_dask = allow_dask
-
-    def __call__(self, f):
-        @wraps(f)
-        def wrapper(cutout, *args, **kwargs):
-            features = kwargs.pop('features', self.features)
-            window_type = kwargs.pop('windows', self.windows)
-            windows = create_windows(cutout, features, window_type, self.allow_dask)
-
-            return f(cutout, *args, windows=windows, **kwargs)
-
-        return wrapper
-
-def create_windows(cutout, features, window_type, allow_dask):
-    features = set(features if features is not None else cutout.available_features)
-    missing_features = features - set(cutout.data.attrs.get('prepared_features', []))
-
-    if missing_features:
-        logger.error(f"The following features need to be prepared first: "
-                     f"{', '.join(missing_features)}. Will try anyway!")
-
-    if window_type is False:
-        return [cutout.data]
-    else:
-        return Windows(cutout, features, window_type, allow_dask)
-
-class Windows(object):
-    def __init__(self, cutout, features, window_type=None, allow_dask=False):
-        group_kws = {}
-        if window_type is None:
-            group_kws['grouper'] = pd.Grouper(freq="M")
-        elif isinstance(window_type, str):
-            group_kws['grouper'] = pd.Grouper(freq=window_type)
-        elif isinstance(window_type, (int, pd.Index, np.array)):
-            group_kws['bins'] = window_type
-        elif isinstance(window_type, dict):
-            group_kws.update(window_type)
-        else:
-            raise RuntimeError(f"Type of `window_type` (`{type(window_type)}`) "
-                               "is unsupported")
-
-        vars = cutout.data.data_vars.keys()
-        if cutout.dataset_module:
-            mfeatures = cutout.dataset_module.features
-            dataset_vars = sum((mfeatures[f] for f in features), [])
-            vars = vars & dataset_vars
-        self.data = cutout.data[list(vars)]
-        self.group_kws = group_kws
-
-        if self.data.chunks is None or allow_dask:
-            self.maybe_load = lambda it: it
-        else:
-            self.maybe_load = lambda it: (ds.load() for ds in it)
-
-        self.groupby = DatasetGroupBy(self.data, self.data.coords['time'],
-                                      **self.group_kws)
-
-    def __iter__(self):
-        return self.maybe_load(self.groupby._iter_grouped())
-
-    def __len__(self):
-        return len(self.groupby)
-
-def get_missing_data(cutout, features, freq=None, tmpdir=None):
-    creation_parameters = _get_creation_parameters(cutout.data)
-    creation_parameters.pop('time', None)
-    timeindex = cutout.coords.indexes['time']
+    parameters = cutout.data.attrs
     datasets = []
-    def get_feature_data(period):
-        return cutout.dataset_module.get_data(cutout.data.coords, period, feature,
-                                              tmpdir=tmpdir, **creation_parameters)
-
-    if freq is None:
-        dt = timeindex[-1] - timeindex[0]
-        if dt.days <= 1:
-            freq = 'D'
-        elif dt.days < 90:
-            freq = 'M'
-        else:
-            freq = 'A'
+    get_data = datamodules[module].get_data
 
     for feature in features:
-        if feature in cutout.dataset_module.static_features:
-            feature_data = get_feature_data(timeindex[0])
-        else:
-            prange = pd.period_range(timeindex[0], timeindex[-1], freq=freq)
-            feature_data = dask.delayed(xr.concat)(
-                map(get_feature_data, prange), dim='time').reindex(time=timeindex)
-
+        feature_data = get_data(cutout, feature, tmpdir=tmpdir, **parameters)
         datasets.append(feature_data)
 
-    datasets, = dask.compute(datasets)
+    ds = xr.merge(datasets, compat='equals')
+    for v in ds:
+        ds[v].attrs['module'] = module
+    return ds
 
-    return xr.merge(datasets, compat='equals')
 
-def cutout_prepare(cutout, features=None, freq=None, tmpdir=True, overwrite=False):
+def available_features(module=None):
     """
-    Prepare all or a given set of `features`
+    Inspect the available features of all or a selection of modules.
 
-    Download `features` in slices with frequency `freq` and merge them into the
-    cutout data. If `tmpdir` is True, a directory for intermediate files is
-    created and cleaned up after use. Use `tmpdir = <existing directory>` to
-    keep intermediate files.
+    Parameters
+    ----------
+    module : str/list, optional
+        Module name(s) which to inspect. The default None will result in all
+        modules
+
+    Returns
+    -------
+    pd.Series
+        A Series of all variables. The MultiIndex indicated which module
+        provides the variable and with which feature name the variable can be
+        obtained.
+
     """
+    features = {name: m.features for name, m in datamodules.items()}
+    features =  pd.DataFrame(features).unstack().dropna() \
+                  .rename_axis(index=['module', 'feature']).rename('variables')
+    if module is not None:
+        features = features.reindex(atleast_1d(module), level='module')
+    return features.explode()
 
-    if tmpdir is True:
+
+def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
+    """
+    Prepare all or a selection of features in a cutout.
+
+    This function loads the feature data of a cutout, e.g. influx or runoff.
+    When not specifying the `feature` argument, all available features will be
+    loaded. The function compares the variables which are already included in
+    the cutout with the available variables of the modules specified by the
+    cutout. It detects missing variables and stores them into the netcdf file
+    of the cutout.
+
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+    features : str/list, optional
+        Feature(s) to be prepared. The default slice(None) results in all
+        available features.
+    tmpdir : str/Path, optional
+        Directory in which temporary files (for example retrieved ERA5 netcdf
+        files) are stored. If set, the directory will not be deleted and the
+        intermediate files can be examined.
+    overwrite : bool, optional
+        Whether to overwrite variables which are already included in the
+        cutout. The default is False.
+
+    Returns
+    -------
+    cutout : atlite.Cutout
+        Cutout with prepared data. The variables are stored in `cutout.data`.
+
+    """
+    if tmpdir is None:
         tmpdir = mkdtemp()
         keep_tmpdir = False
     else:
         keep_tmpdir = True
 
-    try:
-        # Make sure the variable ds is defined in the finally block
-        ds = None
+    modules = atleast_1d(cutout.module)
+    features = atleast_1d(features)
+    prepared = set(cutout.data.attrs['prepared_features'])
 
-        if cutout.is_view:
-            assert features is None, (f"It's not possible to add features to a"
-            " view, use `cutout.prepare()` to save it to {cutout.cutout_fn} first.")
-            assert not os.path.exists(cutout.path) or overwrite, (
-                f"Not overwriting {cutout.path} with a view, unless "
-                "`overwrite=True`.")
+    # target is series of all available variables for given module and features
+    target = available_features(modules).loc[:, features].drop_duplicates()
 
-            ds = cutout.data
-            if 'prepared_features' not in ds.attrs:
-                logger.warning("Using empty `prepared_features`!")
-                ds.attrs['prepared_features'] = []
-        else:
-            features = set(features if features is not None
-                           else cutout.available_features)
-            missing_features = features - cutout.prepared_features
+    for module in target.index.unique('module'):
+        missing_vars = target[module]
+        if not overwrite:
+            missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
+        if missing_vars.empty:
+            continue
+        logger.info(f'Calculating and writing with module {module}:')
+        missing_features = missing_vars.index.unique('feature')
+        ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
+        ds = ds[missing_vars.values]
 
-            if not missing_features and not overwrite:
-                logger.info(f"All available features {cutout.available_features}"
-                            " have already been prepared, so nothing to do."
-                            f" Use `overwrite=True` to re-create {cutout.path.name} .")
-                return
-
-            ds = get_missing_data(cutout, missing_features, freq, tmpdir=tmpdir)
-
-            # Merge with existing cutout
-            ds = xr.merge([cutout.data, ds])
-            ds.attrs.update(cutout.data.attrs)
-            ds.attrs['prepared_features'].extend(missing_features)
-
-        # Write to a temporary file in the same directory first and then move back,
-        # because we might still want to load data from the original file in the process
-        directory, filename = os.path.split(str(cutout.path))
-        fd, target = mkstemp(suffix=filename, dir=directory)
-        os.close(fd)
+        ds = ds.assign_attrs(**cutout.data.attrs)
+        prepared |= set(missing_features)
+        ds = ds.assign_attrs(prepared_features = list(prepared))
+        # convert bool to int for netCDF4 storing
+        ds.attrs.update({k: v if not isinstance(v, bool) else int(v)
+                         for k,v in ds.attrs.items()})
 
         with ProgressBar():
-            ds.to_netcdf(target)
+            if cutout.path.exists():
+                mode = 'a'
+            else:
+                mode = 'w'
 
-        ds.close()
-        if not cutout.is_view:
-            cutout.data.close()
+            ds.to_netcdf(cutout.path, mode=mode)
 
-        if cutout.path.exists():
-            cutout.path.unlink()
-        os.rename(target, cutout.path)
-    finally:
-        # ds is the last reference to the temporary files:
-        # - we remove it from this scope, and
-        # - fire up the garbage collector,
-        # => xarray's file manager closes them and we can remove tmpdir
-        del ds
-        gc.collect()
+    if not keep_tmpdir:
+        rmtree(tmpdir)
 
-        if not keep_tmpdir:
-            rmtree(tmpdir)
+    cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 
-    # Re-open
-    cutout.data = xr.open_dataset(cutout.path, cache=False)
-    prepared_features = cutout.data.attrs.get('prepared_features')
-    if not isinstance(prepared_features, list):
-        cutout.data.attrs['prepared_features'] = [prepared_features]
+    return cutout
 
