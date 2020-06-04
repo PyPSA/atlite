@@ -110,7 +110,7 @@ def get_features(cutout, module, features, tmpdir=None):
 
     ds = xr.merge(datasets, compat='equals')
     for v in ds:
-        ds[v].attrs.update(dict(module=module))
+        ds[v].attrs['module'] = module
     return ds
 
 
@@ -134,7 +134,7 @@ def available_features(module=None):
     """
     features = {name: m.features for name, m in datamodules.items()}
     features =  pd.DataFrame(features).unstack().dropna() \
-                  .rename_axis(['module', 'feature']).rename('variables')
+                  .rename_axis(index=['module', 'feature']).rename('variables')
     if module is not None:
         features = features.reindex(atleast_1d(module), level='module')
     return features.explode()
@@ -178,7 +178,7 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
     else:
         keep_tmpdir = True
 
-    modules = atleast_1d(cutout.data.attrs.get('module'))
+    modules = atleast_1d(cutout.module)
     features = atleast_1d(features)
 
     # target is series of all available variables for given module and features
@@ -214,5 +214,4 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
     cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 
     return cutout
-
 

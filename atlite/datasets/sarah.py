@@ -181,7 +181,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     if creation_parameters['sarah_interpolate']:
         ds = interpolate(ds)
     else:
-        ds.fillna(0)
+        ds = ds.fillna(0)
 
     ds = ds if cutout.dt == '30min' else hourly_mean(ds)
     if (cutout.dx != dx) or (cutout.dy != dy):
@@ -193,4 +193,3 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     ds = ds.assign_coords(x=ds.coords['lon'], y=ds.coords['lat'])
 
     return ds.swap_dims({'lon': 'x', 'lat':'y'})
-

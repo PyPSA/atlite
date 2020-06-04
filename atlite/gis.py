@@ -109,7 +109,8 @@ def reproject_shapes(shapes, p1, p2):
 
     if isinstance(p1, RotProj):
         if p2 == 'latlong':
-            def reproject_points(x, y): return p1(x, y, inverse=True)
+            def reproject_points(x, y):
+                return p1(x, y, inverse=True)
         else:
             raise NotImplementedError("`p1` can only be a RotProj if `p2` is "
                                       "latlong!")

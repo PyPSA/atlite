@@ -40,7 +40,8 @@ def make_optional_progressbar(show, prefix, max_value=None):
         maybe_progressbar = pgb.ProgressBar(prefix=prefix, widgets=widgets,
                                             max_value=max_value)
     else:
-        def maybe_progressbar(x): return x
+        def maybe_progressbar(x):
+            return x
 
     return maybe_progressbar
 
@@ -81,7 +82,7 @@ def migrate_from_cutout_directory(old_cutout_dir, path):
 
     data = maybe_swap_spatial_dims(data)
     data.attrs['prepared_features'] = list(
-        sys.modules['atlite.datasets.' + data.attrs["module"]].features)
+        atlite.datasets.modules[data.attrs["module"]].features)
 
     path = Path(path).with_suffix(".nc")
     logger.info(f"Writing cutout data to {path}. When done, load it again using"
