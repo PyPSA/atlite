@@ -22,7 +22,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 from .aggregate import aggregate_matrix
-from .gis import spdiag
 
 from .pv.solar_position import SolarPosition
 from .pv.irradiation import TiltedIrradiation

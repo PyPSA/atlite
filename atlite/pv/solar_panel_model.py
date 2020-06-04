@@ -4,11 +4,8 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from operator import itemgetter
 
 import numpy as np
-import pandas as pd
-import xarray as xr
 
 # Huld model was copied from gsee -- global solar energy estimator
 # by Stefan Pfenninger

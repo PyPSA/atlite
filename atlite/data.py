@@ -4,15 +4,12 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-from functools import wraps
-import numpy as np
 import pandas as pd
 import xarray as xr
 from numpy import atleast_1d
 from tempfile import mkdtemp
 from shutil import rmtree
 from dask.diagnostics import ProgressBar
-from xarray.core.groupby import DatasetGroupBy
 import logging
 logger = logging.getLogger(__name__)
 

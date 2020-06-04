@@ -9,13 +9,11 @@ Module for providing access to external ressources, like windturbine or pv panel
 """
 
 from .utils import arrowdict
-import os
 import yaml
 from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
 from pathlib import Path
-from textwrap import dedent
 import requests
 import pandas as pd
 import json

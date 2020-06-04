@@ -10,7 +10,6 @@ from tempfile import mkstemp
 import os
 import subprocess
 import xarray as xr
-from dask import delayed
 
 import logging
 logger = logging.getLogger(__name__)

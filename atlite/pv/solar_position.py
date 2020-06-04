@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 from numpy import pi
-import pandas as pd
 import xarray as xr
 from numpy import sin, cos, arcsin, arccos, arctan2, deg2rad
 

@@ -13,7 +13,6 @@ import geopandas as gpd
 import pandas as pd
 import numpy as np
 
-import scipy.sparse as spp
 from collections import namedtuple
 from shapely.geometry import Point
 
