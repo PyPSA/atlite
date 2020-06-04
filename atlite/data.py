@@ -106,12 +106,10 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
 
     modules = atleast_1d(cutout.data.attrs.get('module'))
     features = atleast_1d(features)
+    prepared = set(cutout.data.attrs['prepared_features'])
 
     # target is series of all available variables for given module and features
     target = available_features(modules).loc[:, features].drop_duplicates()
-
-    # TODO move this line just before .to_netcdf
-    cutout.data.attrs['prepared_features'] = list(target.index.unique('feature'))
 
     for module in target.index.unique('module'):
         missing_vars = target[module]
@@ -123,11 +121,12 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         missing_features = missing_vars.index.unique('feature')
         ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
         ds = ds[missing_vars.values]
-        ds = ds.assign_attrs(cutout.data.attrs)
 
-        # netCDF4 does not permit boolean values. Convert to str to preserve
-        # information
-        ds.attrs.update({k:v if not isinstance(v, bool) else int(v)
+        ds = ds.assign_attrs(**cutout.data.attrs)
+        prepared |= set(missing_features)
+        ds = ds.assign_attrs(prepared_features = list(prepared))
+        # convert bool to int for netCDF4 storing
+        ds.attrs.update({k: v if not isinstance(v, bool) else int(v)
                          for k,v in ds.attrs.items()})
 
         with ProgressBar():
