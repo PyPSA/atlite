@@ -87,6 +87,7 @@ def migrate_from_cutout_directory(old_cutout_dir, path):
     logger.info(f"Writing cutout data to {path}. When done, load it again using"
                 f"\n\n\tatlite.Cutout('{path}')")
     data.to_netcdf(path)
+    return data
 
 
 def timeindex_from_slice(timeslice):

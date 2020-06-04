@@ -19,80 +19,6 @@ logger = logging.getLogger(__name__)
 from .datasets import modules as datamodules
 
 
-class requires_windowed(object):
-    def __init__(self, features, windows=None, allow_dask=False):
-        self.features = features
-        self.windows = windows
-        self.allow_dask = allow_dask
-
-    def __call__(self, f):
-        @wraps(f)
-        def wrapper(cutout, *args, **kwargs):
-            features = kwargs.pop('features', self.features)
-            window_type = kwargs.pop('windows', self.windows)
-            windows = create_windows(
-                cutout, features, window_type, self.allow_dask)
-
-            return f(cutout, *args, windows=windows, **kwargs)
-
-        return wrapper
-
-
-def create_windows(cutout, features, window_type, allow_dask):
-    features = set(
-        features if features is not None else cutout.available_features)
-    missing_features = features - \
-        set(cutout.data.attrs.get('prepared_features', []))
-
-    if missing_features:
-        logger.error(f"The following features need to be prepared first: "
-                     f"{', '.join(missing_features)}. Will try anyway!")
-
-    if window_type is False:
-        return [cutout.data]
-    else:
-        return Windows(cutout, features, window_type, allow_dask)
-
-
-class Windows(object):
-    def __init__(self, cutout, features, window_type=None, allow_dask=False):
-        group_kws = {}
-        if window_type is None:
-            group_kws['grouper'] = pd.Grouper(freq="M")
-        elif isinstance(window_type, str):
-            group_kws['grouper'] = pd.Grouper(freq=window_type)
-        elif isinstance(window_type, (int, pd.Index, np.array)):
-            group_kws['bins'] = window_type
-        elif isinstance(window_type, dict):
-            group_kws.update(window_type)
-        else:
-            raise RuntimeError(
-                f"Type of `window_type` (`{type(window_type)}`) "
-                "is unsupported")
-
-        # vars = cutout.data.data_vars.keys()
-        # if cutout.dataset_module:
-        #     mfeatures = cutout.dataset_module.features
-        #     dataset_vars = sum((mfeatures[f] for f in features), [])
-        #     vars = vars & dataset_vars
-        self.data = cutout.data
-        self.group_kws = group_kws
-
-        if self.data.chunks is None or allow_dask:
-            self.maybe_load = lambda it: it
-        else:
-            self.maybe_load = lambda it: (ds.load() for ds in it)
-
-        self.groupby = DatasetGroupBy(self.data, self.data.coords['time'],
-                                      **self.group_kws)
-
-    def __iter__(self):
-        return self.maybe_load(self.groupby._iter_grouped())
-
-    def __len__(self):
-        return len(self.groupby)
-
-
 def get_features(cutout, module, features, tmpdir=None):
     """
     Load the feature data for a given module.
@@ -183,6 +109,8 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
 
     # target is series of all available variables for given module and features
     target = available_features(modules).loc[:, features].drop_duplicates()
+
+    # TODO move this line just before .to_netcdf
     cutout.data.attrs['prepared_features'] = list(target.index.unique('feature'))
 
     for module in target.index.unique('module'):
@@ -197,15 +125,17 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         ds = ds[missing_vars.values]
         ds = ds.assign_attrs(cutout.data.attrs)
 
-        # netCDF4 does not permit boolean values. Convert to str to preserve information
-        ds.attrs.update({k:v if not isinstance(v, bool) else str(v) for k,v in ds.attrs.items()})
+        # netCDF4 does not permit boolean values. Convert to str to preserve
+        # information
+        ds.attrs.update({k:v if not isinstance(v, bool) else str(v)
+                         for k,v in ds.attrs.items()})
 
         with ProgressBar():
             if cutout.path.exists():
                 mode = 'a'
             else:
                 mode = 'w'
-            
+
             ds.to_netcdf(cutout.path, mode=mode)
 
     if not keep_tmpdir:

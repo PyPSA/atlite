@@ -16,13 +16,6 @@ Base class for Atlite.
 # Refer to
 # https://github.com/pydata/xarray/issues/2535,
 # https://github.com/rasterio/rasterio-wheels/issues/12
-from .utils import CachedAttribute
-from .data import cutout_prepare, available_features
-from .gis import get_coords, compute_indicatormatrix
-from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
-                      wind, pv, runoff, solar_thermal, soil_temperature)
-from .datasets import modules as datamodules
-
 
 import xarray as xr
 import pandas as pd
@@ -31,6 +24,13 @@ from numpy import atleast_1d
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
+
+from .utils import CachedAttribute
+from .data import cutout_prepare, available_features
+from .gis import get_coords, compute_indicatormatrix
+from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
+                      wind, pv, runoff, solar_thermal, soil_temperature)
+from .datasets import modules as datamodules
 
 import logging
 logger = logging.getLogger(__name__)

@@ -90,8 +90,6 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     ---------------------------------------------------
     convert_func : Function
         Callback like convert_wind, convert_pv
-    windows : windows.Windows
-        Iterable access to consecutive time-slices of xr.Dataset
     """
 
     func_name = convert_func.__name__.replace('convert_', '')
@@ -113,13 +111,12 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
             geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
             if isinstance(shapes, geoseries_like) and index is None:
                 index = shapes.index
-                index.name = 'shapes' if index.name is None else index.name
             matrix = cutout.indicatormatrix(shapes, shapes_proj)
 
         if matrix is not None:
             matrix = sp.sparse.csr_matrix(matrix)
             if index is None:
-                index = pd.RangeIndex(matrix.shape[0], name='shapes')
+                index = pd.RangeIndex(matrix.shape[0])
             results = aggregate_matrix(da, matrix=matrix, index=index)
         else:
             # da == layout * da
@@ -533,7 +530,7 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
         Whether surface runoff should be weighted by potential height (probably
         better for coarser resolution).
     show_progress : bool
-        Whether to display progressbars (Not effective since v0.2)
+        Whether to display progressbars.
 
     References
     ----------
@@ -553,7 +550,7 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
     matrix_normalized = matrix / matrix.sum(axis=1)
     runoff = cutout.runoff(matrix=matrix_normalized, index=basins.shapes.index,
                            weight_with_height=weight_with_height,
-                           **kwargs)
+                           show_progress=show_progress, **kwargs)
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3
     # d-1 = m3 h-1 / 24

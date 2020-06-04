@@ -163,6 +163,8 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
         Dataset of dask arrays of the retrieved variables.
 
     """
+    assert cutout.dt in ("30min", 'h', 'H', '1h', '1H')
+
     coords = cutout.coords
     chunks = cutout.chunks
 
