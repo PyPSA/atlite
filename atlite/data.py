@@ -127,7 +127,7 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
 
         # netCDF4 does not permit boolean values. Convert to str to preserve
         # information
-        ds.attrs.update({k:v if not isinstance(v, bool) else str(v)
+        ds.attrs.update({k:v if not isinstance(v, bool) else int(v)
                          for k,v in ds.attrs.items()})
 
         with ProgressBar():
