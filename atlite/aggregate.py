@@ -13,7 +13,7 @@ import dask
 
 def aggregate_matrix(da, matrix, index):
     if index.name is None:
-        index.name = 'dim_0'
+        index = index.rename('dim_0')
     if isinstance(da.data, dask.array.core.Array):
         da = da.stack(spatial=('y', 'x'))
         return xr.apply_ufunc(
