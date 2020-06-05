@@ -87,18 +87,11 @@ solar thermal collectors and heating demand.
 
    examples/create_cutout.ipynb
    examples/create_cutout_SARAH.ipynb
+   examples/historic-comparison-germany.ipynb
+   examples/using_gebco_heightmap.ipynb
    examples/plotting_with_atlite.ipynb
    examples/logfiles_and_messages.ipynb
    examples/more_examples.rst
-
-.. toctree::
-   :hidden:
-   :maxdepth: 1
-   :caption: User Guide
-
-   ug_cutout
-   ug_capacityfactors
-   ug_timeseries
 
 .. toctree::
    :hidden:

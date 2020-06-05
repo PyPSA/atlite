@@ -106,6 +106,9 @@ class Cutout:
             Whether to interpolate NaN's in the SARAH data. This takes effect for
             sarah data which has missing data for areas where dawn and
             nightfall happens (ca. 30 min gap).
+        gebco_path: str
+            Path to find the gebco netcdf file. Only necessary when including
+            the gebco module.
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.

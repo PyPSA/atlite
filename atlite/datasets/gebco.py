@@ -86,5 +86,9 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     path = creation_parameters['gebco_path']
 
     coords = cutout.coords
-    return get_data_gebco_height(coords['x'], coords['y'], path)
+    #assign time dimesion even if not used
+    return get_data_gebco_height(coords['x'], coords['y'], path)\
+            .to_dataset()\
+            .assign_coords(cutout.coords)
+
 

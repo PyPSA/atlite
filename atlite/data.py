@@ -117,7 +117,8 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         logger.info(f'Calculating and writing with module {module}:')
         missing_features = missing_vars.index.unique('feature')
         ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
-        ds = ds[missing_vars.values]
+        # make sure we don't loose any unused dimension by selecting
+        ds = ds[missing_vars.values].assign_coords(ds.coords)
 
         ds = ds.assign_attrs(**cutout.data.attrs)
         prepared |= set(missing_features)
