@@ -6,17 +6,14 @@ os:
   - linux
   - osx
 
-env:
-  - PYTHON_VERSION="3.7"
-  - PYTHON_VERSION="3.8"
-
 before_install:
   - wget https://raw.githubusercontent.com/trichter/conda4travis/latest/conda4travis.sh -O conda4travis.sh
   - source conda4travis.sh
 
 install:
-  - conda config --add pinned_packages python=$PYTHON_VERSION
-  - conda create -n atlite python pip wheel pytest
+  - conda config --set remote_max_retries 5
+  - conda config --set channel_priority strict
+  - conda create -n atlite python pip pytest
   - conda env update -n atlite --file=environment.yaml
   - conda activate atlite
   # - conda install -q -c conda-forge python-coveralls # don't install on appveyor
