@@ -10,6 +10,10 @@
     :target: https://anaconda.org/conda-forge/atlite
     :alt: Conda version
 
+.. image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
+    :target: https://travis-ci.org/PyPSA/atlite
+    :alt: Build status
+
 .. image:: https://img.shields.io/pypi/l/atlite.svg
     :target: License
 
