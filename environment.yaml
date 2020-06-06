@@ -10,14 +10,11 @@ dependencies:
   - dask>=0.18.0
   - netcdf4
   - progressbar2
+  - rasterio
+  - geopandas
+  - shapely
 
   # Recommended for pandas and xarray
   - bottleneck
   - numexpr
 
-  # GIS dependencies have to come all from conda-forge
-  - conda-forge::pyproj
-  - conda-forge::rasterio
-  - conda-forge::shapely
-  - conda-forge::libgdal
-  - conda-forge::geopandas
