@@ -40,3 +40,4 @@ deploy:
   skip_existing: true
   on:
     tags: true
+    condition: $TRAVIS_OS_NAME = linux # pypi deploy is broken on windows
