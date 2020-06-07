@@ -207,7 +207,6 @@ def retrieval_times(coords, static=False):
 
 def noisy_unlink(path):
     """Delete file at given path."""
-    logger.info(f"Deleting file {path}")
     try:
         os.unlink(path)
     except PermissionError:
@@ -280,11 +279,13 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
-    logger.info(f"Downloading data for feature '{feature}' to {tmpdir}.")
+    logger.info(f"Downloading data for feature '{feature}'.")
 
     ds = func(retrieval_params)
     if sanitize and sanitize_func is not None:
         ds = sanitize_func(ds)
     if is_static:
         ds = ds.squeeze().drop('time').assign_coords(time=cutout.data.time)
+    else:
+        ds = ds.sel(time=cutout.data.time)
     return ds

@@ -95,12 +95,6 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         Cutout with prepared data. The variables are stored in `cutout.data`.
 
     """
-    if tmpdir is None:
-        tmpdir = mkdtemp()
-        keep_tmpdir = False
-    else:
-        keep_tmpdir = True
-
     modules = atleast_1d(cutout.module)
     features = atleast_1d(features)
     prepared = set(cutout.data.attrs['prepared_features'])
@@ -134,9 +128,6 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
                 mode = 'w'
 
             ds.to_netcdf(cutout.path, mode=mode)
-
-    if not keep_tmpdir:
-        rmtree(tmpdir)
 
     cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 
