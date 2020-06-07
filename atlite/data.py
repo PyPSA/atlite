@@ -9,6 +9,9 @@ import xarray as xr
 from numpy import atleast_1d
 from tempfile import mkdtemp
 from shutil import rmtree
+import dask
+from dask.delayed import Delayed
+from dask.utils import SerializableLock
 from dask.diagnostics import ProgressBar
 import logging
 logger = logging.getLogger(__name__)
@@ -21,15 +24,19 @@ def get_features(cutout, module, features, tmpdir=None):
     Load the feature data for a given module.
 
     This get the data for a set of features from a module. All modules in
-    `atlite.datasets` all allowed.
+    `atlite.datasets` are allowed.
     """
     parameters = cutout.data.attrs
+    lock = SerializableLock()
     datasets = []
     get_data = datamodules[module].get_data
 
     for feature in features:
-        feature_data = get_data(cutout, feature, tmpdir=tmpdir, **parameters)
+        feature_data = get_data(cutout, feature, tmpdir=tmpdir, lock=lock, **parameters)
         datasets.append(feature_data)
+
+    if len(datasets) >= 1 and isinstance(datasets[0], Delayed):
+        datasets = dask.compute(*datasets)
 
     ds = xr.merge(datasets, compat='equals')
     for v in ds:

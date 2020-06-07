@@ -277,7 +277,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
 
 
 
-def get_data(cutout, feature, tmpdir, **creation_parameters):
+def get_data(cutout, feature, tmpdir, lock, **creation_parameters):
     """
     Retrieve data from ECMWFs ERA5 dataset (via CDS).
 
@@ -311,20 +311,22 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
                         'chunks': cutout.chunks,
                         'grid': [cutout.dx, cutout.dy],
                         'tmpdir': tmpdir,
-                        'lock': SerializableLock()}
+                        'lock': lock}
 
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
     logger.info(f"Downloading data for feature '{feature}' to {tmpdir}.")
 
-    datasets = []
-    for d in retrieval_times(coords):
-        ds = delayed(func)({**retrieval_params, **d})
+    def retrieve_once(time):
+        ds = delayed(func)({**retrieval_params, **time})
         if sanitize and sanitize_func is not None:
             ds = delayed(sanitize_func)(ds)
-        datasets.append(ds)
-        if feature in static_features:
-                return dask.compute(*datasets)[0]
-    datasets = dask.compute(*datasets)
-    return xr.concat(datasets, dim='time')
+        return ds
+
+    if feature in static_features:
+        return retrieve_once(retrieval_times(coords)[0])
+
+    datasets = map(retrieve_once, retrieval_times(coords))
+
+    return delayed(xr.concat)(datasets, dim='time')
