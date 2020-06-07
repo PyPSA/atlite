@@ -16,6 +16,7 @@ import numpy as np
 import xarray as xr
 from tempfile import mkstemp
 import cdsapi
+import weakref
 
 from ..gis import maybe_swap_spatial_dims
 
@@ -203,6 +204,17 @@ def retrieval_times(coords, static=False):
                 'time': list(time.strftime("%H:00").unique())}
 
 
+
+def noisy_unlink(path):
+    """Delete file at given path."""
+    logger.info(f"Deleting file {path}")
+    try:
+        os.unlink(path)
+    except PermissionError:
+        logger.error(f"Unable to delete file {path}, as it is still in use.")
+
+
+
 def retrieve_data(product, chunks=None, tmpdir=None, **updates):
     """Download data like ERA5 from the Climate Data Store (CDS)."""
     # Default request
@@ -221,6 +233,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
     result.download(target)
 
     ds = xr.open_dataset(target, chunks=chunks)
+    if tmpdir is None:
+        logger.debug(f"Adding finalizer for {target}")
+        weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
     return ds
 
 
@@ -270,4 +285,6 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     ds = func(retrieval_params)
     if sanitize and sanitize_func is not None:
         ds = sanitize_func(ds)
+    if is_static:
+        ds = ds.squeeze().drop('time').assign_coords(time=cutout.data.time)
     return ds
