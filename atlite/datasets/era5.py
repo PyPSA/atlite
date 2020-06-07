@@ -12,13 +12,9 @@ https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
 import os
-import pandas as pd
 import numpy as np
 import xarray as xr
-import dask
-from dask import delayed
 from tempfile import mkstemp
-import weakref
 import cdsapi
 
 from ..gis import maybe_swap_spatial_dims
@@ -256,6 +252,8 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     """
     sanitize = creation_parameters.get('sanitize', True)
 
+    # add chunk and tmpdir argument to the parameters, these two will be
+    # fetched out later in retrieve_data
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
                         'area': _area(cutout.coords),
                         'tmpdir': tmpdir,
