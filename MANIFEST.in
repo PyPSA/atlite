@@ -1,3 +1,0 @@
-include atlite/resources/*/*.yaml
-include README.rst LICENSE.txt
-#include requirements.yml
