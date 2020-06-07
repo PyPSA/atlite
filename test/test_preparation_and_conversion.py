@@ -7,6 +7,7 @@ Created on Mon May 11 11:15:41 2020
 """
 
 import os
+import pytest
 from pathlib import Path
 import pandas as pd
 import geopandas as gpd
@@ -53,7 +54,7 @@ def pv_test(cutout):
                         layout=cap_factor)
 
     assert production.notnull().all()
-    assert (production.sel(time=time+ ' 00:00') == 0)
+    assert (production.sel(time=TIME+ ' 00:00') == 0)
 
     # Now compare with optimal orienation
     cap_factor_opt = cutout.pv(atlite.resource.solarpanels.CdTe, 'latitude_optimal')
@@ -63,7 +64,7 @@ def pv_test(cutout):
     production_opt = cutout.pv(atlite.resource.solarpanels.CdTe, 'latitude_optimal',
                             layout=cap_factor_opt)
 
-    assert (production_opt.sel(time=time+ ' 00:00') == 0)
+    assert (production_opt.sel(time=TIME+ ' 00:00') == 0)
 
     assert production_opt.sum() > production.sum()
 
@@ -125,102 +126,90 @@ def runoff_test(cutout):
 # def test_hydro():
 #     plants = pd.DataFrame({'lon' : [x0, x1],
 #                            'lat': [y0, y1]})
-#     basins = gpd.GeoDataFrame(dict(geometry=[ref_era5.grid_cells[0], ref_era5.grid_cells[-1]],
+#     basins = gpd.GeoDataFrame(dict(geometry=[cutout_era5.grid_cells[0], cutout_era5.grid_cells[-1]],
 #                                    HYBAS_ID = [0,1],
 #                                    DIST_MAIN = 10,
 #                                    NEXT_DOWN = None), index=[0,1], crs=dict(proj="aea"))
-#     ref_era5.hydro(plants, basins)
+#     cutout_era5.hydro(plants, basins)
 
 
 # %% Prepare cutouts to test
 
 
-time='2013-01-01'
-x0 = -4
-y0 = 56
-x1 = 1.5
-y1 = 61
-sarah_dir = '/home/vres/climate-data/sarah_v2'
+TIME = '2013-01-01'
+BOUNDS = (-4, 56, 1.5, 61)
+SARAH_DIR = os.getenv('SARAH_DIR', '/home/vres/climate-data/sarah_v2')
 
 
-era5path="era5_test"
-sarahpath='mixed_test'
+@pytest.fixture(scope='session')
+def cutout_era5(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5")
+    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=TIME)
+    cutout.prepare()
+    return cutout
 
-tmp_dir = Path(mkdtemp())
-
-ref_era5 = Cutout(path=tmp_dir / era5path, module="era5", bounds=(x0, y0, x1, y1),
-                  time=time)
-ref_era5.prepare()
-
-
-if os.path.exists(sarah_dir):
-    ref_sarah = Cutout(path=tmp_dir / sarahpath, module=["sarah", "era5"],
-                       bounds=(x0, y0, x1, y1), time=time,
-                       sarah_dir=sarah_dir)
-    ref_sarah.prepare()
-    test_sarah = True
-else:
-    logging.warn("'sarah_dir' is not a valid path, skipping tests for sarah module.")
-    test_sarah = False
-
-
-# %% Pure era5 tests
-
-def test_data_module_arguments_era5():
-    """
-    All data variables should have an attribute to which module thay belong
-    """
-    for v in ref_era5.data:
-        assert ref_era5.data.attrs['module'] == 'era5'
-
-
-def test_compare_with_get_data_era5():
-    """
-    The prepared data should be exactly the same as from the low level function
-    """
-    influx = atlite.datasets.era5.get_data(ref_era5, 'influx', tmpdir=tmp_dir)
-    assert_allclose(influx.influx_toa, ref_era5.data.influx_toa, atol=1e-5, rtol=1e-5)
+@pytest.fixture(scope='session')
+def cutout_sarah(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("sarah")
+    cutout = Cutout(path=tmp_path / "sarah", module=["sarah", "era5"],
+                    bounds=BOUNDS, time=TIME, sarah_dir=SARAH_DIR)
+    cutout.prepare()
+    return cutout
 
 
 
-# %% Apply predefined test functions to cutouts
-
-def test_prepared_features_era5():
-    return prepared_features_test(ref_era5)
-
-def test_pv_era5():
-    return pv_test(ref_era5)
 
 
-def test_wind_era5():
-    return wind_test(ref_era5)
+class TestERA5:
+    @staticmethod
+    def test_data_module_arguments_era5(cutout_era5):
+        """
+        All data variables should have an attribute to which module thay belong
+        """
+        for v in cutout_era5.data:
+            assert cutout_era5.data.attrs['module'] == 'era5'
 
-def test_runoff_era5():
-    return runoff_test(ref_era5)
+    @staticmethod
+    def test_compare_with_get_data_era5(cutout_era5, tmp_path):
+        """
+        The prepared data should be exactly the same as from the low level function
+        """
+        influx = atlite.datasets.era5.get_data(cutout_era5, 'influx', tmpdir=tmp_path)
+        assert_allclose(influx.influx_toa, cutout_era5.data.influx_toa, atol=1e-5, rtol=1e-5)
+
+    @staticmethod
+    def test_prepared_features_era5(cutout_era5):
+        return prepared_features_test(cutout_era5)
+
+    @staticmethod
+    def test_pv_era5(cutout_era5):
+        return pv_test(cutout_era5)
+
+    @staticmethod
+    def test_wind_era5(cutout_era5):
+        return wind_test(cutout_era5)
+
+    @staticmethod
+    def test_runoff_era5(cutout_era5):
+        return runoff_test(cutout_era5)
 
 
-if test_sarah:
+@pytest.mark.skipif(not os.path.exists(SARAH_DIR),
+                    reason="'sarah_dir' is not a valid path")
+class TestSarah:
 
-    def test_prepared_features_sarah():
-        return prepared_features_test(ref_sarah)
+    @staticmethod
+    def test_prepared_features_sarah(cutout_sarah):
+        return prepared_features_test(cutout_sarah)
 
-    def test_pv_sarah():
-        return pv_test(ref_sarah)
+    @staticmethod
+    def test_pv_sarah(cutout_sarah):
+        return pv_test(cutout_sarah)
 
+    @staticmethod
+    def test_wind_sarah(cutout_sarah):
+        return wind_test(cutout_sarah)
 
-    def test_wind_sarah():
-        return wind_test(ref_sarah)
-
-    def test_runoff_sarah():
-        return runoff_test(ref_sarah)
-
-
-
-# %% Finally delete the temporary directory
-
-def test_dummy_delete_tmp_dir():
-    '''
-    Ignore this test its only purpose is to delete temporary cutout files
-    created for the test run
-    '''
-    rmtree(tmp_dir)
+    @staticmethod
+    def test_runoff_sarah(cutout_sarah):
+        return runoff_test(cutout_sarah)
