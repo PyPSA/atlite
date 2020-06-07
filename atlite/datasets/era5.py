@@ -192,86 +192,39 @@ def _area(coords):
     return [y1, x0, y0, x1]
 
 
-def retrieval_times(coords):
-    """
-    Get list of retrieval cdsapi arguments for time dimension in coordinates.
-
-    According to the time span in the coords argument, the entries in the list
-    specify either
-
-    * days, if number of days in coords is less or equal 10
-    * months, if number of days is less or equal 90
-    * years else
-
-    Parameters
-    ----------
-    coords : atlite.Cutout.coords
-
-    Returns
-    -------
-    list of dicts witht retrieval arguments
-
-    """
-    time = pd.Series(coords['time'])
-    time_span = time[0] - time[len(time)-1]
-    if len(time) == 1:
-        return [{'year': d.year, 'month': d.month, 'day': d.day,
-                 'time': d.strftime("%H:00")} for d in time]
-    if time_span.days <= 10:
-        return [{'year': d.year, 'month': d.month, 'day': d.day}
-                for d in time.dt.date.unique()]
-    elif time_span.days < 90:
-        return [{'year': year, 'month': month}
-                for month in time.dt.month.unique()
-                for year in time.dt.year.unique()]
+def retrieval_times(coords, static=False):
+    """Get cdsapi retrieval parameters for the time dimension in coords."""
+    time = coords['time'].to_index()
+    if static:
+        return {'year': [str(time.year[0])],
+                'month': [str(time.month[0])],
+                'day': [str(time.day[0])],
+                'time': ['00:00']}
     else:
-        return [{'year': year} for year in time.dt.year.unique()]
-
-
-def noisy_unlink(path):
-    """Delete file at given path."""
-    logger.info(f"Deleting file {path}")
-    try:
-        os.unlink(path)
-    except PermissionError:
-        logger.error(f"Unable to delete file {path}, as it is still in use.")
+        return {'year': list(time.year.unique()),
+                'month': list(time.month.unique()),
+                'day': list(time.day.unique()),
+                'time': list(time.strftime("%H:00").unique())}
 
 
 def retrieve_data(product, chunks=None, tmpdir=None, **updates):
     """Download data like ERA5 from the Climate Data Store (CDS)."""
     # Default request
-    request = {
-        'product_type': 'reanalysis',
-        'format': 'netcdf',
-        'day': list(range(1, 31 + 1)),
-        'time': [
-            '00:00', '01:00', '02:00', '03:00', '04:00', '05:00',
-            '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-            '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-            '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
-        ],
-        'month': list(range(1, 12 + 1)),
-        # 'area': [50, -1, 49, 1], # North, West, South, East. Default: global
-        # 'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude)
-        # and north-south resolution (latitude). Default: 0.25 x 0.25
-    }
+    request = {'product_type': 'reanalysis',
+               'format': 'netcdf'}
     request.update(updates)
 
-    assert {'year', 'month', 'variable'}.issubset(
-        request), "Need to specify at least 'variable', 'year' and 'month'"
+    assert {'year', 'month', 'variable'}.issubset(request), (
+        "Need to specify at least 'variable', 'year' and 'month'")
 
-    result = cdsapi.Client(progress=False).retrieve(product, request)
+    result = cdsapi.Client().retrieve(product, request)
 
     fd, target = mkstemp(suffix='.nc', dir=tmpdir)
     os.close(fd)
 
     result.download(target)
 
-    ds = xr.open_dataset(target, chunks=chunks or {})
-    if tmpdir is None:
-        logger.debug(f"Adding finalizer for {target}")
-        weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
-
+    ds = xr.open_dataset(target, chunks=chunks)
     return ds
 
 
@@ -301,30 +254,22 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
         Dataset of dask arrays of the retrieved variables.
 
     """
-    coords = cutout.coords
-
     sanitize = creation_parameters.get('sanitize', True)
 
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
-                        'area': _area(coords),
+                        'area': _area(cutout.coords),
                         'tmpdir': tmpdir,
                         'chunks': cutout.chunks,
                         'grid': [cutout.dx, cutout.dy]}
+    is_static = feature in static_features
+    retrieval_params.update(retrieval_times(cutout.coords, static=is_static))
 
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
     logger.info(f"Downloading data for feature '{feature}' to {tmpdir}.")
 
-    datasets = []
-    for d in retrieval_times(coords):
-        retrieval_params.update(d)
-        ds = delayed(func)(retrieval_params)
-        if sanitize and sanitize_func is not None:
-            ds = delayed(sanitize_func)(ds)
-        datasets.append(ds)
-        if feature in static_features:
-                return dask.compute(*datasets)[0]
-    with dask.diagnostics.ProgressBar(2):
-        res = dask.compute(*datasets)
-    return xr.concat(res, dim='time')
+    ds = func(retrieval_params)
+    if sanitize and sanitize_func is not None:
+        ds = sanitize_func(ds)
+    return ds
