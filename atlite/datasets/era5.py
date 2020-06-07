@@ -17,6 +17,7 @@ import numpy as np
 import xarray as xr
 import dask
 from dask import delayed
+from dask.utils import SerializableLock
 from tempfile import mkstemp
 import weakref
 import cdsapi
@@ -29,8 +30,8 @@ logger = logging.getLogger(__name__)
 
 import urllib3
 logger.warning('Disable urllib3 and cdsapi warnings.')
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-logging.getLogger("cdsapi").setLevel(logging.ERROR)
+# urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# logging.getLogger("cdsapi").setLevel(logging.ERROR)
 
 
 # Model and Projection Settings
@@ -237,7 +238,7 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
-def retrieve_data(product, chunks=None, tmpdir=None, **updates):
+def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     """Download data like ERA5 from the Climate Data Store (CDS)."""
     # Default request
     request = {
@@ -260,12 +261,18 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
     assert {'year', 'month', 'variable'}.issubset(
         request), "Need to specify at least 'variable', 'year' and 'month'"
 
-    result = cdsapi.Client(progress=False).retrieve(product, request)
+    result = cdsapi.Client().retrieve(product, request)
 
     fd, target = mkstemp(suffix='.nc', dir=tmpdir)
     os.close(fd)
 
-    result.download(target)
+    try:
+        if lock is not None:
+            lock.acquire()
+        result.download(target)
+    finally:
+        if lock is not None:
+            lock.release()
 
     ds = xr.open_dataset(target, chunks=chunks or {})
     if tmpdir is None:
@@ -307,9 +314,10 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
 
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
                         'area': _area(coords),
-                        'tmpdir': tmpdir,
                         'chunks': cutout.chunks,
-                        'grid': [cutout.dx, cutout.dy]}
+                        'grid': [cutout.dx, cutout.dy],
+                        'tmpdir': tmpdir,
+                        'lock': SerializableLock()}
 
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
@@ -318,13 +326,11 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
 
     datasets = []
     for d in retrieval_times(coords):
-        retrieval_params.update(d)
-        ds = delayed(func)(retrieval_params)
+        ds = delayed(func)({**retrieval_params, **d})
         if sanitize and sanitize_func is not None:
             ds = delayed(sanitize_func)(ds)
         datasets.append(ds)
         if feature in static_features:
                 return dask.compute(*datasets)[0]
-    with dask.diagnostics.ProgressBar(2):
-        res = dask.compute(*datasets)
-    return xr.concat(res, dim='time')
+    datasets = dask.compute(*datasets)
+    return xr.concat(datasets, dim='time')
