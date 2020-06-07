@@ -210,17 +210,17 @@ def retrieval_times(coords):
     time = pd.Series(coords['time'])
     time_span = time.iloc[-1] - time.iloc[0]
     if len(time) == 1:
-        return [{'year': d.year, 'month': d.month, 'day': d.day,
+        return [{'year': str(d.year), 'month': str(d.month), 'day': str(d.day),
                  'time': d.strftime("%H:00")} for d in time]
     if time_span.days <= 10:
-        return [{'year': d.year, 'month': d.month, 'day': d.day}
+        return [{'year': str(d.year), 'month': str(d.month), 'day': str(d.day)}
                 for d in time.dt.date.unique()]
     elif time_span.days < 90:
-        return [{'year': year, 'month': month}
+        return [{'year': str(year), 'month': str(month)}
                 for month in time.dt.month.unique()
                 for year in time.dt.year.unique()]
     else:
-        return [{'year': year} for year in time.dt.year.unique()]
+        return [{'year': str(year)} for year in time.dt.year.unique()]
 
 
 def noisy_unlink(path):
