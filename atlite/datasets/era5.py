@@ -214,7 +214,7 @@ def retrieval_times(coords):
 
     """
     time = pd.Series(coords['time'])
-    time_span = time[0] - time[len(time)-1]
+    time_span = time.iloc[-1] - time.iloc[0]
     if len(time) == 1:
         return [{'year': d.year, 'month': d.month, 'day': d.day,
                  'time': d.strftime("%H:00")} for d in time]
