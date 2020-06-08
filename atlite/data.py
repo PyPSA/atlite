@@ -69,6 +69,11 @@ def available_features(module=None):
     return features.explode()
 
 
+def non_bool_dict(d):
+    """Convert bool to int for netCDF4 storing"""
+    return {k: v if not isinstance(v, bool) else int(v) for k,v in d.items()}
+
+
 def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
     """
     Prepare all or a selection of features in a cutout.
@@ -109,7 +114,7 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
 
     modules = atleast_1d(cutout.module)
     features = atleast_1d(features)
-    prepared = set(cutout.data.attrs['prepared_features'])
+    prepared = set(atleast_1d(cutout.data.attrs['prepared_features']))
 
     # target is series of all available variables for given module and features
     target = available_features(modules).loc[:, features].drop_duplicates()
@@ -123,28 +128,28 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         logger.info(f'Calculating and writing with module {module}:')
         missing_features = missing_vars.index.unique('feature')
         ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
-        # make sure we don't loose any unused dimension by selecting
-        ds = ds[missing_vars.values].assign_coords(ds.coords)
-
-        ds = ds.assign_attrs(**cutout.data.attrs)
         prepared |= set(missing_features)
-        ds = ds.assign_attrs(prepared_features = list(prepared))
-        # convert bool to int for netCDF4 storing
-        ds.attrs.update({k: v if not isinstance(v, bool) else int(v)
-                         for k,v in ds.attrs.items()})
 
+        ds = cutout.data.merge(ds[missing_vars.values])\
+                            .assign_attrs(**cutout.data.attrs, **ds.attrs)
+        ds.attrs = non_bool_dict(cutout.data.attrs)
+        ds.attrs.update({'prepared_features': list(prepared)})
+
+        # write data to tmp file, copy it to original data, this is much saver
+        # than appending variables
+        tmp = cutout.path.parent / ('tmp_' + cutout.path.stem)
         with ProgressBar():
-            if cutout.path.exists():
-                mode = 'a'
-            else:
-                mode = 'w'
+            ds.to_netcdf(tmp)
+            ds.close()
+        cutout.data.close()
+        if cutout.path.exists():
+            cutout.path.unlink()
+        tmp.rename(cutout.path)
 
-            ds.to_netcdf(cutout.path, mode=mode)
+        cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 
     if not keep_tmpdir:
         rmtree(tmpdir)
-
-    cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 
     return cutout
 

@@ -19,7 +19,8 @@ from atlite import Cutout
 from xarray.testing import assert_allclose, assert_equal
 import numpy as np
 import logging
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mkstemp
+from pathlib import Path
 from shutil import rmtree
 
 
@@ -36,6 +37,15 @@ def prepared_features_test(cutout):
     """
     assert set(cutout.prepared_features) == set(cutout.data)
 
+
+def update_feature_test(cutout):
+    """atlite should be able to overwrite a feature."""
+    tmp = Path(mkstemp(suffix='.nc')[1])
+    tmp.unlink()
+    to_update = atlite.Cutout(tmp, data=cutout.data.drop_vars('influx_direct'))
+    to_update.prepare('influx', overwrite=True)
+    assert_equal(to_update.data.influx_direct, cutout.data.influx_direct)
+    tmp.unlink()
 
 
 def pv_test(cutout):
@@ -180,6 +190,10 @@ class TestERA5:
     @staticmethod
     def test_prepared_features_era5(cutout_era5):
         return prepared_features_test(cutout_era5)
+
+    @staticmethod
+    def test_update_feature_era5(cutout_era5):
+        return update_feature_test(cutout_era5)
 
     @staticmethod
     def test_pv_era5(cutout_era5):

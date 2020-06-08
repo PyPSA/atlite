@@ -320,8 +320,8 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     if feature in static_features:
         return (retrieve_once(retrieval_times(coords, static=True))
-                .squeeze().drop('time').assign_coords(time=coords['time']))
+                .squeeze().drop('time'))
 
     datasets = map(retrieve_once, retrieval_times(coords))
 
-    return xr.concat(datasets, dim='time')
+    return xr.concat(datasets, dim='time').sel(time=coords['time'])
