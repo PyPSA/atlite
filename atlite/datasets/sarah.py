@@ -134,7 +134,7 @@ def hourly_mean(ds):
     return ds
 
 
-def get_data(cutout, feature, tmpdir, **creation_parameters):
+def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     """
     Load stored SARAH data and reformat to matching the given cutout.
 

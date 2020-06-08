@@ -17,6 +17,7 @@ import numpy as np
 import xarray as xr
 import dask
 from dask import delayed
+from dask.utils import SerializableLock
 from tempfile import mkstemp
 import weakref
 import cdsapi
@@ -26,12 +27,6 @@ from ..gis import maybe_swap_spatial_dims
 
 import logging
 logger = logging.getLogger(__name__)
-
-import urllib3
-logger.warning('Disable urllib3 and cdsapi warnings.')
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-logging.getLogger("cdsapi").setLevel(logging.ERROR)
-
 
 # Model and Projection Settings
 projection = 'latlong'
@@ -213,19 +208,19 @@ def retrieval_times(coords):
 
     """
     time = pd.Series(coords['time'])
-    time_span = time[0] - time[len(time)-1]
+    time_span = time.iloc[-1] - time.iloc[0]
     if len(time) == 1:
-        return [{'year': d.year, 'month': d.month, 'day': d.day,
+        return [{'year': str(d.year), 'month': str(d.month), 'day': str(d.day),
                  'time': d.strftime("%H:00")} for d in time]
     if time_span.days <= 10:
-        return [{'year': d.year, 'month': d.month, 'day': d.day}
+        return [{'year': str(d.year), 'month': str(d.month), 'day': str(d.day)}
                 for d in time.dt.date.unique()]
     elif time_span.days < 90:
-        return [{'year': year, 'month': month}
+        return [{'year': str(year), 'month': str(month)}
                 for month in time.dt.month.unique()
                 for year in time.dt.year.unique()]
     else:
-        return [{'year': year} for year in time.dt.year.unique()]
+        return [{'year': str(year)} for year in time.dt.year.unique()]
 
 
 def noisy_unlink(path):
@@ -237,7 +232,7 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
-def retrieve_data(product, chunks=None, tmpdir=None, **updates):
+def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     """Download data like ERA5 from the Climate Data Store (CDS)."""
     # Default request
     request = {
@@ -260,12 +255,18 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
     assert {'year', 'month', 'variable'}.issubset(
         request), "Need to specify at least 'variable', 'year' and 'month'"
 
-    result = cdsapi.Client(progress=False).retrieve(product, request)
+    result = cdsapi.Client().retrieve(product, request)
 
     fd, target = mkstemp(suffix='.nc', dir=tmpdir)
     os.close(fd)
 
-    result.download(target)
+    try:
+        if lock is not None:
+            lock.acquire()
+        result.download(target)
+    finally:
+        if lock is not None:
+            lock.release()
 
     ds = xr.open_dataset(target, chunks=chunks or {})
     if tmpdir is None:
@@ -276,7 +277,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, **updates):
 
 
 
-def get_data(cutout, feature, tmpdir, **creation_parameters):
+def get_data(cutout, feature, tmpdir, lock, **creation_parameters):
     """
     Retrieve data from ECMWFs ERA5 dataset (via CDS).
 
@@ -307,24 +308,25 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
 
     retrieval_params = {'product': 'reanalysis-era5-single-levels',
                         'area': _area(coords),
-                        'tmpdir': tmpdir,
                         'chunks': cutout.chunks,
-                        'grid': [cutout.dx, cutout.dy]}
+                        'grid': [cutout.dx, cutout.dy],
+                        'tmpdir': tmpdir,
+                        'lock': lock}
 
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
     logger.info(f"Downloading data for feature '{feature}' to {tmpdir}.")
 
-    datasets = []
-    for d in retrieval_times(coords):
-        retrieval_params.update(d)
-        ds = delayed(func)(retrieval_params)
+    def retrieve_once(time):
+        ds = delayed(func)({**retrieval_params, **time})
         if sanitize and sanitize_func is not None:
             ds = delayed(sanitize_func)(ds)
-        datasets.append(ds)
-        if feature in static_features:
-                return dask.compute(*datasets)[0]
-    with dask.diagnostics.ProgressBar(2):
-        res = dask.compute(*datasets)
-    return xr.concat(res, dim='time')
+        return ds
+
+    if feature in static_features:
+        return retrieve_once(retrieval_times(coords)[0])
+
+    datasets = map(retrieve_once, retrieval_times(coords))
+
+    return delayed(xr.concat)(datasets, dim='time')
