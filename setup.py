@@ -24,7 +24,7 @@ setup(
                       'numexpr',
                       'xarray>=0.11.2',
                       'dask>=0.18.0',
-                      'rasterio',
+                      'rasterio>=1.0',
                       'shapely',
                       'progressbar2',
                       'geopandas'],
