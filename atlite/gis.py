@@ -199,7 +199,7 @@ def regrid(ds, dimx, dimy, **kwargs):
     **kwargs :
       Arguments passed to rio.wrap.reproject; of note:
       - resampling is one of gis.Resampling.{average,cubic,bilinear,nearest}
-      - src_crs, dst_crs define the different crs (default: latlong)
+      - src_crs, dst_crs define the different crs (default: EPSG 4326, ie latlong)
     """
     namex = dimx.name
     namey = dimy.name
