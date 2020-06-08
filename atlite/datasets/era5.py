@@ -310,7 +310,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     sanitize_func = globals().get(f"sanitize_{feature}")
 
     logger.info(f"Requesting and downloading data for feature '{feature}' to "
-                "{tmpdir}.")
+                f"{tmpdir}.")
 
     def retrieve_once(time):
         ds = func({**retrieval_params, **time})
