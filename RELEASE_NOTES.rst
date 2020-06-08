@@ -26,6 +26,8 @@ Major changes
     you can now use `Cutout.data.load()` to load all of the
     cutouts data into memory.  
     *(Warning: Requires a large enough memory.)*
+* The order of coordinates (indices) for `Cutouts` changed: `x` and `y` (e.g. longitude and latitude) are now
+    both ascending (before: `x` ascending and `y` descending).
 
 New features
 ------------
@@ -42,4 +44,8 @@ New features
 Breaking changes
 ----------------
 * The argument `show_progress` of function `atlite.convert.convert_and_aggregate` does not take strings anymore. 
-* The argument `layout` of function `atlite.convert.convert_and_aggregate` must be a xarray.DataArray
+* The argument `layout` of function `atlite.convert.convert_and_aggregate` must be a `xarray.DataArray`.
+* Due to the change of the order of coordinates in cutouts the order of coordinates in `matrix` passed to `convert_*` functions
+    changed likewise: `x` and `y` are both ascending now.
+* Due to the change of the order of coordinates in cutouts the order of elements returned by `grid_coordinates()` has changed.
+* Due to the change of the order of coordinates in cutouts the order of elements in the attribute `grid_cells` has changed.

@@ -259,11 +259,15 @@ class Cutout:
         return self.available_features.loc[:, features].drop_duplicates()
 
     def grid_coordinates(self):
+        logger.warning("The order of elements returned by `grid_coordinates` changed. "
+                       "Check the output of your workflow for correctness.")
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
         return np.asarray((np.ravel(xs), np.ravel(ys))).T
 
     @CachedAttribute
     def grid_cells(self):
+        logger.warning("The order of elements in `grid_cells` changed. "
+                       "Check the output of your workflow for correctness.")
         coords = self.grid_coordinates()
         span = (coords[self.shape[1] + 1] - coords[0]) / 2
         grid_cells = [box(*c)
