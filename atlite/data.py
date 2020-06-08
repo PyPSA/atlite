@@ -9,8 +9,7 @@ import xarray as xr
 from numpy import atleast_1d
 from tempfile import mkdtemp
 from shutil import rmtree
-import dask
-from dask.delayed import Delayed
+from dask import delayed, compute
 from dask.utils import SerializableLock
 from dask.diagnostics import ProgressBar
 import logging
@@ -32,11 +31,11 @@ def get_features(cutout, module, features, tmpdir=None):
     get_data = datamodules[module].get_data
 
     for feature in features:
-        feature_data = get_data(cutout, feature, tmpdir=tmpdir, lock=lock, **parameters)
+        feature_data = delayed(get_data)(cutout, feature, tmpdir=tmpdir,
+                                         lock=lock, **parameters)
         datasets.append(feature_data)
 
-    if len(datasets) >= 1 and isinstance(datasets[0], Delayed):
-        datasets = dask.compute(*datasets)
+    datasets = compute(*datasets)
 
     ds = xr.merge(datasets, compat='equals')
     for v in ds:

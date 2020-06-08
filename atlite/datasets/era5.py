@@ -15,18 +15,15 @@ import os
 import pandas as pd
 import numpy as np
 import xarray as xr
-import dask
-from dask import delayed
-from dask.utils import SerializableLock
 from tempfile import mkstemp
 import weakref
 import cdsapi
 
 from ..gis import maybe_swap_spatial_dims
 
-
 import logging
 logger = logging.getLogger(__name__)
+logging.getLogger("cdsapi").setLevel(logging.ERROR)
 
 # Model and Projection Settings
 projection = 'latlong'
@@ -187,7 +184,7 @@ def _area(coords):
     return [y1, x0, y0, x1]
 
 
-def retrieval_times(coords):
+def retrieval_times(coords, static=False):
     """
     Get list of retrieval cdsapi arguments for time dimension in coordinates.
 
@@ -208,7 +205,12 @@ def retrieval_times(coords):
 
     """
     time = pd.Series(coords['time'])
+    if static:
+        return {'year': str(time[0].year), 'month': str(time[0].month),
+                'day': str(time[0].day), 'time': time[0].strftime("%H:00")}
+
     time_span = time.iloc[-1] - time.iloc[0]
+
     if len(time) == 1:
         return [{'year': str(d.year), 'month': str(d.month), 'day': str(d.day),
                  'time': d.strftime("%H:00")} for d in time]
@@ -238,18 +240,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     request = {
         'product_type': 'reanalysis',
         'format': 'netcdf',
-        'day': list(range(1, 31 + 1)),
-        'time': [
-            '00:00', '01:00', '02:00', '03:00', '04:00', '05:00',
-            '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-            '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-            '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
-        ],
-        'month': list(range(1, 12 + 1)),
-        # 'area': [50, -1, 49, 1], # North, West, South, East. Default: global
-        # 'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude)
-        # and north-south resolution (latitude). Default: 0.25 x 0.25
-    }
+        'time': ["%02d:00" %i for i in range(1,24)],
+        'day': [str(i) for i in range(1, 31 + 1)],
+        'month': [str(i) for i in range(1, 12 + 1)]}
     request.update(updates)
 
     assert {'year', 'month', 'variable'}.issubset(
@@ -277,7 +270,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
 
 
 
-def get_data(cutout, feature, tmpdir, lock, **creation_parameters):
+def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     """
     Retrieve data from ECMWFs ERA5 dataset (via CDS).
 
@@ -316,17 +309,19 @@ def get_data(cutout, feature, tmpdir, lock, **creation_parameters):
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
-    logger.info(f"Downloading data for feature '{feature}' to {tmpdir}.")
+    logger.info(f"Requesting and downloading data for feature '{feature}' to "
+                "{tmpdir}.")
 
     def retrieve_once(time):
-        ds = delayed(func)({**retrieval_params, **time})
+        ds = func({**retrieval_params, **time})
         if sanitize and sanitize_func is not None:
-            ds = delayed(sanitize_func)(ds)
+            ds = sanitize_func(ds)
         return ds
 
     if feature in static_features:
-        return retrieve_once(retrieval_times(coords)[0])
+        return (retrieve_once(retrieval_times(coords, static=True))
+                .squeeze().drop('time').assign_coords(time=coords['time']))
 
     datasets = map(retrieve_once, retrieval_times(coords))
 
-    return delayed(xr.concat)(datasets, dim='time')
+    return xr.concat(datasets, dim='time')
