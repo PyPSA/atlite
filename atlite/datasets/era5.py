@@ -240,7 +240,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     request = {
         'product_type': 'reanalysis',
         'format': 'netcdf',
-        'time': ["%02d:00" %i for i in range(1,24)],
+        'time': ["%02d:00" %i for i in range(24)],
         'day': [str(i) for i in range(1, 31 + 1)],
         'month': [str(i) for i in range(1, 12 + 1)]}
     request.update(updates)
