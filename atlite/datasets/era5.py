@@ -227,7 +227,7 @@ def retrieval_times(coords, static=False):
 
 def noisy_unlink(path):
     """Delete file at given path."""
-    logger.info(f"Deleting file {path}")
+    logger.debug(f"Deleting file {path}")
     try:
         os.unlink(path)
     except PermissionError:
@@ -245,8 +245,8 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         'month': [str(i) for i in range(1, 12 + 1)]}
     request.update(updates)
 
-    assert {'year', 'month', 'variable'}.issubset(
-        request), "Need to specify at least 'variable', 'year' and 'month'"
+    assert {'year', 'month', 'variable'}.issubset(request), (
+        "Need to specify at least 'variable', 'year' and 'month'")
 
     result = cdsapi.Client().retrieve(product, request)
 
