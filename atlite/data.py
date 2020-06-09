@@ -7,7 +7,7 @@
 import pandas as pd
 import xarray as xr
 from numpy import atleast_1d
-from tempfile import mkdtemp
+from tempfile import mkdtemp, _get_candidate_names as tmpname
 from shutil import rmtree
 from dask import delayed, compute
 from dask.utils import SerializableLock
@@ -137,7 +137,8 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
 
         # write data to tmp file, copy it to original data, this is much saver
         # than appending variables
-        tmp = cutout.path.parent / ('tmp_' + cutout.path.stem)
+        tstr = next(tmpname())
+        tmp = cutout.path.parent / (f'tmp_{tstr}' + cutout.path.stem + '.nc')
         with ProgressBar():
             ds.to_netcdf(tmp)
             ds.close()
