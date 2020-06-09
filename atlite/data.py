@@ -138,7 +138,7 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         # write data to tmp file, copy it to original data, this is much saver
         # than appending variables
         tstr = next(tmpname())
-        tmp = cutout.path.parent / (f'tmp_{tstr}' + cutout.path.stem + '.nc')
+        tmp = cutout.path.parent / f'tmp_{tstr}_{cutout.path.stem}.nc'
         with ProgressBar():
             ds.to_netcdf(tmp)
             ds.close()
@@ -153,4 +153,3 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         rmtree(tmpdir)
 
     return cutout
-
