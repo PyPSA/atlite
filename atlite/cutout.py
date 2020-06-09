@@ -28,7 +28,7 @@ from pyproj import CRS
 
 from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
-from .gis import get_coords, compute_indicatormatrix
+from .gis import get_coords, compute_indicatormatrix, grid_cell_areas
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
 from .datasets import modules as datamodules
@@ -274,6 +274,8 @@ class Cutout:
         grid_cells = [box(*c)
                       for c in np.hstack((coords - span, coords + span))]
         return grid_cells
+
+    grid_cell_areas = CachedAttribute(grid_cell_areas)
 
     def sel(self, **kwargs):
         if 'bounds' in kwargs:

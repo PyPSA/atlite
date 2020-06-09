@@ -14,6 +14,7 @@ systems data
 import numpy as np
 import pandas as pd
 import xarray as xr
+import xarray.ufuncs as xu
 import scipy as sp
 import scipy.sparse
 from collections import OrderedDict
@@ -98,6 +99,23 @@ def reproject(shapes, p1, p2):
 
 
 reproject.__doc__ = reproject_shapes.__doc__
+
+
+def grid_cell_areas(cutout):
+    """
+    Compute the area of each grid cell in km2
+    """
+    if cutout.crs == CRS.from_epsg(4326):
+        # use equation derived in https://www.pmel.noaa.gov/maillists/tmap/ferret_users/fu_2004/msg00023.html
+        y = cutout.coords['y']
+        dy = cutout.dy
+        area_km2 = ((2 * np.pi * R**2) * (dx / 360) *
+                    abs(xu.sin(xu.deg2rad(y + dy / 2)) - xu.sin(xu.deg2rad(y - dy/2))) * (dx/360))
+        return area_km2
+    else:
+        grid_cells = reproject_shapes(cutout.grid_cells, cutout.crs, 3035)
+        return xr.DataArray(np.array([c.area for c in grid_cells]).reshape(cutout.shape) / 1e6,
+                            coords=cutout.coords, dims=['y', 'x'])
 
 
 def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
