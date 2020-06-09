@@ -28,8 +28,8 @@ from ..gis import maybe_swap_spatial_dims
 import logging
 logger = logging.getLogger(__name__)
 
-# Model and Projection Settings
-projection = 'latlong'
+# Model and CRS Settings
+crs = 4326
 
 features = {
     'height': ['height'],

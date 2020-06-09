@@ -21,8 +21,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# Model, Projection and Resolution Settings
-projection = 'latlong'
+# Model, CRS and Resolution Settings
+crs = 4326
 dx = 0.05
 dy = 0.05
 dt = '30min'

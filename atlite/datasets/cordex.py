@@ -23,12 +23,13 @@ from operator import itemgetter
 import os
 import glob
 
-from ..gis import RotProj
-
-# Model and Projection Settings
+# Model and CRS Settings
 model = 'MPI-M-MPI-ESM-LR'
-projection = RotProj(dict(proj='ob_tran', o_proj='latlong', lon_0=180,
-                          o_lon_p=-162, o_lat_p=39.25))
+
+crs = 4326 # TODO
+# something like the following is correct
+# crs = pyproj.crs.DerivedGeographicCRS(4326, pcrs.coordinate_operation.RotatedLatitudeLongitudeConversion(??))
+# RotProj(dict(proj='ob_tran', o_proj='latlong', lon_0=180, o_lon_p=-162, o_lat_p=39.25))
 
 
 def rename_and_clean_coords(ds):

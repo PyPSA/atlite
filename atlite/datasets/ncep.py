@@ -24,7 +24,7 @@ import subprocess
 import shutil
 
 engine = 'pynio'
-projection = 'latlong'
+crs = 4326
 
 
 def convert_lons_lats_ncep(ds, xs, ys):

@@ -14,7 +14,7 @@ import xarray as xr
 import logging
 logger = logging.getLogger(__name__)
 
-projection = 'latlong'
+crs = 4326
 features = {'height': ['height']}
 
 

@@ -24,6 +24,7 @@ from numpy import atleast_1d
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
+from pyproj import CRS
 
 from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
@@ -184,10 +185,10 @@ class Cutout:
                      **storable_chunks, **cutoutparams}
             data = xr.Dataset(coords=coords, attrs=attrs)
 
-        # Check projections
+        # Check compatibility of CRS
         modules = atleast_1d(data.attrs.get('module'))
-        projection = set(datamodules[m].projection for m in modules)
-        assert len(projection) == 1, f'Projections of {module} not compatible'
+        crs = set(CRS(datamodules[m].crs) for m in modules)
+        assert len(crs) == 1, f'CRS of {module} not compatible'
 
         self.path = path
         self.data = data
@@ -202,8 +203,8 @@ class Cutout:
         return self.data.attrs.get('module')
 
     @property
-    def projection(self):
-        return datamodules[atleast_1d(self.module)[0]].projection
+    def crs(self):
+        return CRS(datamodules[atleast_1d(self.module)[0]].crs)
 
     @property
     def available_features(self):
@@ -301,9 +302,8 @@ class Cutout:
                         list(self.prepared_features.index.unique('feature'))))
 
 
-    def indicatormatrix(self, shapes, shapes_proj='latlong'):
-        return compute_indicatormatrix(self.grid_cells, shapes,
-                                       self.projection, shapes_proj)
+    def indicatormatrix(self, shapes, shapes_crs=4326):
+        return compute_indicatormatrix(self.grid_cells, shapes, self.crs, shapes_crs)
 
     # Preparation functions
 

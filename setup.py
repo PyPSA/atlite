@@ -41,6 +41,7 @@ setup(
                       'shapely',
                       'toolz',
                       'progressbar2',
+                      'pyproj>=2',
                       'geopandas',
                       'cdsapi'],
     extras_require = {

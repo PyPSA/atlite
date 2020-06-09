@@ -59,10 +59,9 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     shapes : list or pd.Series of shapely.geometry.Polygon
         If given, matrix is constructed as indicatormatrix of the polygons, its
         index determines the bus index on the time-series.
-    shapes_proj : str or pyproj.Proj
-        Defaults to 'latlong'. If different to the map projection of the
-        cutout, the shapes are reprojected using pyproj.transform to match
-        cutout.projection (defaults to 'latlong').
+    shapes_crs : pyproj.CRS or compatible
+        If different to the map crs of the cutout, the shapes are
+        transformed to match cutout.crs (defaults to EPSG:4326).
     per_unit : boolean
         Returns the time-series in per-unit units, instead of in MW (defaults
         to False).
