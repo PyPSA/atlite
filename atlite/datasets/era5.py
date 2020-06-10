@@ -14,7 +14,6 @@ https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 import os
 import numpy as np
 import xarray as xr
-import time
 from tempfile import mkstemp
 import weakref
 import cdsapi
@@ -267,7 +266,6 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         yearstr = ', '.join(atleast_1d(request['year']))
         variables = atleast_1d(request['variable'])
         varstr = ''.join(['\n\t * ' + v + f' ({yearstr})' for v in variables])
-        time.sleep(0.015) # ensure processbar has totally left the space
         logger.info(f"CDS: Downloading variables {varstr}\n")
         result.download(target)
 

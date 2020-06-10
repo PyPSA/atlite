@@ -124,7 +124,7 @@ class Cutout:
                 "`cutout_dir` and `name` have been deprecated in favour of `path`.")
 
         path = Path(path).with_suffix(".nc")
-        chunks = cutoutparams.pop('chunks', {'time': 20})
+        chunks = cutoutparams.pop('chunks', {'time': 100})
         storable_chunks = {f'chunksize_{k}': v for k, v in (chunks or {}).items()}
 
         # Backward compatibility for xs, ys, months and years
