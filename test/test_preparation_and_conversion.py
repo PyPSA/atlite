@@ -38,14 +38,11 @@ def prepared_features_test(cutout):
     assert set(cutout.prepared_features) == set(cutout.data)
 
 
-def update_feature_test(cutout):
+def update_feature_test(cutout, red):
     """atlite should be able to overwrite a feature."""
-    tmp = Path(mkstemp(suffix='.nc')[1])
-    tmp.unlink()
-    to_update = atlite.Cutout(tmp, data=cutout.data.drop_vars('influx_direct'))
-    to_update.prepare('influx', overwrite=True)
-    assert_equal(to_update.data.influx_direct, cutout.data.influx_direct)
-    tmp.unlink()
+    red.data = cutout.data.drop_vars('influx_direct')
+    red.prepare('influx', overwrite=True)
+    assert_equal(red.data.influx_direct, cutout.data.influx_direct)
 
 
 def pv_test(cutout):
@@ -159,6 +156,13 @@ def cutout_era5(tmp_path_factory):
     return cutout
 
 @pytest.fixture(scope='session')
+def cutout_era5_reduced(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5_red")
+    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=TIME)
+    return cutout
+
+
+@pytest.fixture(scope='session')
 def cutout_sarah(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("sarah")
     cutout = Cutout(path=tmp_path / "sarah", module=["sarah", "era5"],
@@ -192,8 +196,8 @@ class TestERA5:
         return prepared_features_test(cutout_era5)
 
     @staticmethod
-    def test_update_feature_era5(cutout_era5):
-        return update_feature_test(cutout_era5)
+    def test_update_feature_era5(cutout_era5, cutout_era5_reduced):
+        return update_feature_test(cutout_era5, cutout_era5_reduced)
 
     @staticmethod
     def test_pv_era5(cutout_era5):
