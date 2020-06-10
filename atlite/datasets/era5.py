@@ -247,8 +247,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     assert {'year', 'month', 'variable'}.issubset(request), (
         "Need to specify at least 'variable', 'year' and 'month'")
 
-    result = cdsapi.Client(quiet=True, info_callback=logger.debug)\
-                .retrieve(product, request)
+    result = cdsapi.Client(info_callback=logger.debug,
+                           debug=logging.DEBUG >= logging.root.level)\
+                   .retrieve(product, request)
 
     fd, target = mkstemp(suffix='.nc', dir=tmpdir)
     os.close(fd)
@@ -309,7 +310,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
-    logger.info(f"Downloading data for feature '{feature}' to {tmpdir}.")
+    logger.info(f" Downloading feature '{feature}' to {tmpdir}")
 
     def retrieve_once(time):
         ds = func({**retrieval_params, **time})
