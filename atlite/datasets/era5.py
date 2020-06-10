@@ -12,16 +12,26 @@ https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
 import os
-import pandas as pd
 import numpy as np
 import xarray as xr
+import time
 from tempfile import mkstemp
 import weakref
 import cdsapi
-
+import logging
+from numpy import atleast_1d
 from ..gis import maybe_swap_spatial_dims
 
-import logging
+# Null context for running a with statements wihout any context
+try:
+    from contextlib import nullcontext
+except ImportError:
+    # for Python verions < 3.7:
+    import contextlib
+    @contextlib.contextmanager
+    def nullcontext():
+        yield
+
 logger = logging.getLogger(__name__)
 
 # Model and Projection Settings
@@ -187,12 +197,10 @@ def retrieval_times(coords, static=False):
     """
     Get list of retrieval cdsapi arguments for time dimension in coordinates.
 
-    According to the time span in the coords argument, the entries in the list
-    specify either
-
-    * days, if number of days in coords is less or equal 10
-    * months, if number of days is less or equal 90
-    * years else
+    If static is False, this function creates a query for each year in the
+    time axis in coords. This ensures not running into query limits of the
+    cdsapi. If static is True, the function return only one set of parameters
+    for the very first time point.
 
     Parameters
     ----------
@@ -203,25 +211,20 @@ def retrieval_times(coords, static=False):
     list of dicts witht retrieval arguments
 
     """
-    time = pd.Series(coords['time'])
+    time = coords['time'].to_index()
     if static:
         return {'year': str(time[0].year), 'month': str(time[0].month),
                 'day': str(time[0].day), 'time': time[0].strftime("%H:00")}
 
-    time_span = time.iloc[-1] - time.iloc[0]
-
-    if len(time) == 1:
-        return [{'year': str(d.year), 'month': str(d.month), 'day': str(d.day),
-                 'time': d.strftime("%H:00")} for d in time]
-    if time_span.days <= 10:
-        return [{'year': str(d.year), 'month': str(d.month), 'day': str(d.day)}
-                for d in time.dt.date.unique()]
-    elif time_span.days < 90:
-        return [{'year': str(year), 'month': str(month)}
-                for month in time.dt.month.unique()
-                for year in time.dt.year.unique()]
-    else:
-        return [{'year': str(year)} for year in time.dt.year.unique()]
+    times = []
+    for year in time.year.unique():
+        t = time[time.year==year]
+        query = {'year': str(year),
+                 'month': list(t.month.unique()),
+                 'day': list(t.day.unique()),
+                 'time': ["%02d:00" %h for h in t.hour.unique()]}
+        times.append(query)
+    return times
 
 
 def noisy_unlink(path):
@@ -234,33 +237,37 @@ def noisy_unlink(path):
 
 
 def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
-    """Download data like ERA5 from the Climate Data Store (CDS)."""
-    # Default request
+    """
+    Download data like ERA5 from the Climate Data Store (CDS).
+
+    If you want to track the state of your request go to
+    https://cds.climate.copernicus.eu/cdsapp#!/yourrequests
+    """
     request = {
         'product_type': 'reanalysis',
-        'format': 'netcdf',
-        'time': ["%02d:00" %i for i in range(24)],
-        'day': [str(i) for i in range(1, 31 + 1)],
-        'month': [str(i) for i in range(1, 12 + 1)]}
+        'format': 'netcdf'}
     request.update(updates)
 
     assert {'year', 'month', 'variable'}.issubset(request), (
-        "Need to specify at least 'variable', 'year' and 'month'")
+            "Need to specify at least 'variable', 'year' and 'month'")
 
-    result = cdsapi.Client(info_callback=logger.debug,
-                           debug=logging.DEBUG >= logging.root.level)\
-                   .retrieve(product, request)
+    client = cdsapi.Client(info_callback=logger.debug,
+                            debug=logging.DEBUG >= logging.root.level)
+    result = client.retrieve(product, request)
 
-    fd, target = mkstemp(suffix='.nc', dir=tmpdir)
-    os.close(fd)
+    if lock is None:
+        lock = nullcontext()
 
-    try:
-        if lock is not None:
-            lock.acquire()
+    with lock:
+        fd, target = mkstemp(suffix='.nc', dir=tmpdir)
+        os.close(fd)
+
+        yearstr = ', '.join(atleast_1d(request['year']))
+        variables = atleast_1d(request['variable'])
+        varstr = ''.join(['\n\t * ' + v + f' ({yearstr})' for v in variables])
+        time.sleep(0.015) # ensure processbar has totally left the space
+        logger.info(f"CDS: Downloading variables {varstr}\n")
         result.download(target)
-    finally:
-        if lock is not None:
-            lock.release()
 
     ds = xr.open_dataset(target, chunks=chunks or {})
     if tmpdir is None:
@@ -310,7 +317,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
-    logger.info(f" Downloading feature '{feature}' to {tmpdir}")
+    logger.info(f'Requesting data for feature {feature}...')
 
     def retrieve_once(time):
         ds = func({**retrieval_params, **time})

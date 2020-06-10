@@ -7,7 +7,7 @@
 import pandas as pd
 import xarray as xr
 from numpy import atleast_1d
-from tempfile import mkdtemp, _get_candidate_names as tmpname
+from tempfile import mkdtemp, _get_candidate_names as tmpname, tempdir
 from shutil import rmtree
 from dask import delayed, compute
 from dask.utils import SerializableLock
@@ -111,6 +111,8 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         keep_tmpdir = False
     else:
         keep_tmpdir = True
+
+    logger.info(f'Storing temporary files in {tmpdir}')
 
     modules = atleast_1d(cutout.module)
     features = atleast_1d(features)
