@@ -109,10 +109,12 @@ def grid_cell_areas(cutout):
         # use equation derived in https://www.pmel.noaa.gov/maillists/tmap/ferret_users/fu_2004/msg00023.html
         y = cutout.coords['y']
         dy = cutout.dy
-        area_km2 = ((2 * np.pi * R**2) * (dx / 360) *
-                    abs(xu.sin(xu.deg2rad(y + dy / 2)) - xu.sin(xu.deg2rad(y - dy/2))) * (dx/360))
+        R = 6371.0 # Authalic radius (radius for a sphere with the same surface area as the earth)
+        area_km2 = (R**2 * xu.deg2rad(dx) *
+                    abs(xu.sin(xu.deg2rad(y + dy / 2)) - xu.sin(xu.deg2rad(y - dy/2))))
         return area_km2
     else:
+        # transform to ETRS LAEA (https://epsg.io/3035)
         grid_cells = reproject_shapes(cutout.grid_cells, cutout.crs, 3035)
         return xr.DataArray(np.array([c.area for c in grid_cells]).reshape(cutout.shape) / 1e6,
                             coords=cutout.coords, dims=['y', 'x'])
