@@ -6,8 +6,9 @@
 
 import pandas as pd
 import xarray as xr
+import os
 from numpy import atleast_1d
-from tempfile import mkdtemp, _get_candidate_names as tmpname, tempdir
+from tempfile import mkstemp, mkdtemp
 from shutil import rmtree
 from dask import delayed, compute
 from dask.utils import SerializableLock
@@ -139,15 +140,22 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
 
         # write data to tmp file, copy it to original data, this is much saver
         # than appending variables
-        tstr = next(tmpname())
-        tmp = cutout.path.parent / f'tmp_{tstr}_{cutout.path.stem}.nc'
+        directory, filename = os.path.split(str(cutout.path))
+        fd, tmp = mkstemp(suffix=filename, dir=directory)
+        os.close(fd)
+
         with ProgressBar():
             ds.to_netcdf(tmp)
-            ds.close()
-        cutout.data.close()
+        ds.close()
+
+        # make sure we not closing any fetched data
+        if cutout.data._file_obj is not None:
+            if cutout.data._file_obj._filename == str(cutout.path.resolve()):
+                cutout.data.close()
+
         if cutout.path.exists():
             cutout.path.unlink()
-        tmp.rename(cutout.path)
+        os.rename(tmp, cutout.path)
 
         cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 

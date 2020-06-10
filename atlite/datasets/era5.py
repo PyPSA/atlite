@@ -126,7 +126,9 @@ def get_data_influx(retrieval_params):
 
     ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
     with np.errstate(divide='ignore', invalid='ignore'):
-        ds['albedo'] = (((ds['ssrd'] - ds['ssr']) / ds['ssrd']).fillna(0.)
+        ds['albedo'] = (((ds['ssrd'] - ds['ssr']) /
+                         ds['ssrd'].where(ds['ssrd'] != 0))
+                        .fillna(0.)
                         .assign_attrs(units='(0 - 1)', long_name='Albedo'))
     ds['influx_diffuse'] = (
         (ds['ssrd'] - ds['influx_direct'])

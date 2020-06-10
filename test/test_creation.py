@@ -93,7 +93,7 @@ def test_grid_coords(ref):
 
 
 def test_sel(ref):
-    cutout = ref.sel(x=slice(X0+2, X1-1), y=slice(Y0+1, Y1-2))
+    cutout = ref.sel('dummy', x=slice(X0+2, X1-1), y=slice(Y0+1, Y1-2))
     assert cutout.coords['x'][0] - ref.coords['x'][0] == 2
     assert cutout.coords['y'][-1] - ref.coords['y'][-1] == -2
 

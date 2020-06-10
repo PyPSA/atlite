@@ -270,7 +270,7 @@ class Cutout:
                       for c in np.hstack((coords - span, coords + span))]
         return grid_cells
 
-    def sel(self, **kwargs):
+    def sel(self, path, **kwargs):
         if 'bounds' in kwargs:
             bounds = kwargs.pop('bounds')
             buffer = kwargs.pop('buffer', 0)
@@ -279,7 +279,7 @@ class Cutout:
             x1, y1, x2, y2 = bounds
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
-        return Cutout(self.path.name, data=data)
+        return Cutout(path, data=data)
 
     def __repr__(self):
         start = np.datetime_as_string(self.coords['time'].values[0], unit='D')
