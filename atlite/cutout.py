@@ -124,7 +124,7 @@ class Cutout:
                 "`cutout_dir` and `name` have been deprecated in favour of `path`.")
 
         path = Path(path).with_suffix(".nc")
-        chunks = cutoutparams.pop('chunks', {'time': 20})
+        chunks = cutoutparams.pop('chunks', {'time': 100})
         storable_chunks = {f'chunksize_{k}': v for k, v in (chunks or {}).items()}
 
         # Backward compatibility for xs, ys, months and years
@@ -274,7 +274,7 @@ class Cutout:
                       for c in np.hstack((coords - span, coords + span))]
         return grid_cells
 
-    def sel(self, **kwargs):
+    def sel(self, path, **kwargs):
         if 'bounds' in kwargs:
             bounds = kwargs.pop('bounds')
             buffer = kwargs.pop('buffer', 0)
@@ -283,7 +283,7 @@ class Cutout:
             x1, y1, x2, y2 = bounds
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
-        return Cutout(self.path.name, data=data)
+        return Cutout(path, data=data)
 
     def __repr__(self):
         start = np.datetime_as_string(self.coords['time'].values[0], unit='D')
