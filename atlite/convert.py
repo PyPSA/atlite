@@ -37,7 +37,7 @@ from .resource import (get_windturbineconfig, get_solarpanelconfig,
 
 def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
                           index=None, layout=None, shapes=None,
-                          shapes_proj='latlong', per_unit=False,
+                          shapes_crs=4326, per_unit=False,
                           return_capacity=False, capacity_factor=False,
                           show_progress=True, **convert_kwds):
     """
@@ -109,7 +109,7 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
             geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
             if isinstance(shapes, geoseries_like) and index is None:
                 index = shapes.index
-            matrix = cutout.indicatormatrix(shapes, shapes_proj)
+            matrix = cutout.indicatormatrix(shapes, shapes_crs)
 
         if matrix is not None:
             matrix = sp.sparse.csr_matrix(matrix)
