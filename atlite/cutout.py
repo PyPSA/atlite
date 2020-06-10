@@ -20,6 +20,7 @@ Base class for Atlite.
 import xarray as xr
 import pandas as pd
 import numpy as np
+from tempfile import mktemp
 from numpy import atleast_1d
 from warnings import warn
 from shapely.geometry import box
@@ -274,10 +275,12 @@ class Cutout:
                       for c in np.hstack((coords - span, coords + span))]
         return grid_cells
 
-    def sel(self, path, **kwargs):
-        if 'bounds' in kwargs:
-            bounds = kwargs.pop('bounds')
-            buffer = kwargs.pop('buffer', 0)
+    def sel(self, path=None, bounds=None, buffer=0, **kwargs):
+        if path is None:
+            path = mktemp(prefix=f"{cutout.path.stem}-", suffix=cutout.path.suffix,
+                          dir=cutout.path.parent)
+
+        if 'bounds' is not None:
             if buffer > 0:
                 bounds = box(*bounds).buffer(buffer).bounds
             x1, y1, x2, y2 = bounds
