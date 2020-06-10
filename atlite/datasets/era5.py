@@ -19,6 +19,15 @@ from tempfile import mkstemp
 import weakref
 import cdsapi
 
+try:
+    from contextlib import nullcontext
+except ImportError:
+    # nullcontext was introduced in Python 3.7, so let's add a fallback for 3.6
+    import contextlib
+    @contextlib.contextmanager
+    def nullcontext():
+        yield
+
 from ..gis import maybe_swap_spatial_dims
 
 import logging
@@ -247,19 +256,26 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     assert {'year', 'month', 'variable'}.issubset(request), (
         "Need to specify at least 'variable', 'year' and 'month'")
 
-    result = cdsapi.Client(quiet=True, info_callback=logger.debug)\
-                .retrieve(product, request)
+    client = cdsapi.Client(quiet=True, info_callback=logger.debug)
+    result = client.retrieve(product, request)
 
-    fd, target = mkstemp(suffix='.nc', dir=tmpdir)
-    os.close(fd)
+    if len(request['year']) > 1:
+        timedesc = f"{request['year'][0]}-{request['year'][-1]}"
+    else:
+        year = request['year'][0]
+        timedesc = f"{year}.{request['month'][0]}-{year}.{request['month'][-1]}"
 
-    try:
-        if lock is not None:
-            lock.acquire()
+    logger.info(f"CDS: Requested variable {request['variable']} from {product} for {timedesc}")
+
+    if lock is None:
+        lock = nullcontext()
+
+    with lock:
+        fd, target = mkstemp(suffix='.nc', dir=tmpdir)
+        os.close(fd)
+
+        logger.info(f"CDS: Downloading variable {request['variable']} for {timedesc} to {target}")
         result.download(target)
-    finally:
-        if lock is not None:
-            lock.release()
 
     ds = xr.open_dataset(target, chunks=chunks or {})
     if tmpdir is None:
@@ -308,8 +324,6 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
-
-    logger.info(f"Downloading data for feature '{feature}' to {tmpdir}.")
 
     def retrieve_once(time):
         ds = func({**retrieval_params, **time})
