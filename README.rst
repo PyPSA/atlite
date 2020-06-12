@@ -95,7 +95,7 @@ Authors and Copyright
 
 Copyright (C) 2016-2020 lightweight The Atlite Authors.
 
-.. include:: AUTHORS.rst
+.. include:: `AUTHORS.rst`_
     :start-after: headline-marker
 
 Licence
