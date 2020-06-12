@@ -36,26 +36,26 @@ resources low.
 What Atlite can do
 ====================
 
-Atlite can process the following weather data fields
+Atlite can process the following weather data fields and can convert them into following power-system relevant time series for any subsets of a full weather data base.
 
-* Temperature
-* Downward short-wave radiation
-* Upward short-wave radiation
-* Wind 
-* Runoff
-* Surface roughness
-* Height maps
-* Soil temperature
+.. image:: doc/workflow.png
 
-and can convert them into following power-system relevant time series
+.. * Temperature
+.. * Downward short-wave radiation
+.. * Upward short-wave radiation
+.. * Wind 
+.. * Runoff
+.. * Surface roughness
+.. * Height maps
+.. * Soil temperature
 
-* Wind power generation for a given turbine type
-* Solar PV power generation for a given panel type
-* Solar thermal collector heat output
-* Hydroelectric inflow (simplified)
-* Heating demand (based on the degree-day approximation)
 
-for any subsets of a full weather data base.
+.. * Wind power generation for a given turbine type
+.. * Solar PV power generation for a given panel type
+.. * Solar thermal collector heat output
+.. * Hydroelectric inflow (simplified)
+.. * Heating demand (based on the degree-day approximation)
+
 
 Atlite was initially developed by the `Renewable Energy Group
 <https://fias.uni-frankfurt.de/physics/schramm/renewable-energy-system-and-network-analysis/>`_
