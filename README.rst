@@ -93,10 +93,8 @@ to file issues or make pull requests.
 Authors and Copyright
 ---------------------
 
-Copyright (C) 2016-2020 lightweight The Atlite Authors.
-
-.. include:: `AUTHORS.rst`_
-    :start-after: headline-marker
+Copyright (C) 2016-2020 The Atlite Authors.
+See `AUTHORS.rst`_ for details.
 
 Licence
 =======
