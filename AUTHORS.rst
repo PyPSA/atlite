@@ -29,7 +29,7 @@ Major contributions until now from:
 | 2016-2019          | Tom Brown            | * FIAS Frankfurt     |
 |                    |                      | * KIT Karlsruhe      |
 +--------------------+----------------------+----------------------+
-+ 2016-2017          | Gorm Andresen        | Aarhus University    |
+| 2016-2017          | Gorm Andresen        | Aarhus University    |
 +--------------------+----------------------+----------------------+
 | 2016-2017          | David Schlachtberger | FIAS Frankfurt       |
 +--------------------+----------------------+----------------------+
