@@ -33,9 +33,6 @@ resources low.
 ..   combined with ERA5 temperature).
 
 
-What Atlite can do
-====================
-
 Atlite can process the following weather data fields and can convert them into following power-system relevant time series for any subsets of a full weather data base.
 
 .. image:: doc/workflow.png
@@ -65,6 +62,30 @@ for the `CoNDyNet project <http://condynet.de/>`_, financed by the
 <https://www.bmbf.de/en/index.html>`_ as part of the `Stromnetze
 Research Initiative
 <http://forschung-stromnetze.info/projekte/grundlagen-und-konzepte-fuer-effiziente-dezentrale-stromnetze/>`_.
+
+
+
+Installation
+============
+
+To install you need a working installation running Python 3.6 or above
+and we strongly recommend using either miniconda or anaconda for package
+management.
+
+To install the current stable version:
+
+with ``conda`` from `conda-forge`_
+
+.. code:: shell
+       conda install -c conda-forge atlite
+with ``pip`` from `pypi`_
+
+.. code:: shell
+       pip install atlite
+to install the most recent upstream version from `GitHub`_
+
+.. code:: shell
+       pip install git+https://github.com/pypsa/atlite.git
 
 
 Documentation
