@@ -31,13 +31,13 @@ climatestr = '\n' + '\n\n'.join([' ◦ ' + s for s in climatedata]) + '\n'
 processedstr = '\n' + '\n\n\n'.join([' ◦ ' + s for s in processeddata]) + '\n'
 
 # defaults for boxes and arrows
-kwargs = dict(verticalalignment='center', fontsize=14, color='#212121',)
-arrowkwargs = dict(head_width=.2, width=0.13, head_length=0.05, edgecolor='None',
-                   length_includes_head=True, color='grey', alpha=0.7)
+kwargs = dict(verticalalignment='center', fontsize=14, color='#545454',)
+arrowkwargs = dict(head_width=.2, width=0.13, head_length=0.05, edgecolor='white',
+                   length_includes_head=True, color='lightgray', alpha=1)
 y = 0.5
 
 # First arrow
-ax.text(0.01, y, ' Retrieve Data', fontsize=14, color='white',
+ax.text(0.01, y, ' Retrieve Data', fontsize=14, color='gray',
         verticalalignment='center')
 ax.arrow(0.01, y, 0.14, 0., **arrowkwargs)
 
@@ -47,7 +47,7 @@ ax.text(0.17, y, climatestr, **kwargs,
                   boxstyle='round'))
 
 # Second arrow
-ax.text(0.5, y, ' Process Data', fontsize=14, color='white', verticalalignment='center')
+ax.text(0.5, y, ' Process Data', fontsize=14, color='gray', verticalalignment='center')
 ax.arrow(0.5, y, 0.14, 0, **arrowkwargs)
 
 # Second Box
@@ -57,4 +57,4 @@ ax.text(0.66, y, processedstr, **kwargs,
 
 
 fig.tight_layout(pad=0)
-fig.savefig('workflow.png')
+fig.savefig('workflow.png', dpi=150)
