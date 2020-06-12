@@ -136,12 +136,9 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
             ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
             prepared |= set(missing_features)
 
-            ds = (cutout.data
-                  .merge(ds[missing_vars.values])
-                  .assign_attrs(
-                      prepared_features=list(prepared),
-                      **non_bool_dict(cutout.data.attrs),
-                      **ds.attrs))
+            cutout.data.attrs.update(dict(prepared_features=list(prepared)))
+            ds = (cutout.data.merge(ds[missing_vars.values])
+                  .assign_attrs(**non_bool_dict(cutout.data.attrs), **ds.attrs))
 
             # write data to tmp file, copy it to original data, this is much safer
             # than appending variables
@@ -153,11 +150,10 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
                 ds.to_netcdf(tmp)
             ds.close()
 
-            # make sure we are only closing data, if it points to the file we want to update
-            if (
-                    cutout.data._file_obj is not None and
-                    cutout.data._file_obj._filename == str(cutout.path.resolve())
-            ):
+            # make sure we are only closing data, if it points to the file
+            # we want to update
+            if (cutout.data._file_obj is not None and
+                cutout.data._file_obj._filename == str(cutout.path.resolve())):
                 cutout.data.close()
 
             if cutout.path.exists():

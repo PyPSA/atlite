@@ -279,10 +279,10 @@ class Cutout:
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):
         if path is None:
-            path = mktemp(prefix=f"{cutout.path.stem}-", suffix=cutout.path.suffix,
-                          dir=cutout.path.parent)
+            path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
+                          dir=self.path.parent)
 
-        if 'bounds' is not None:
+        if bounds is not None:
             if buffer > 0:
                 bounds = box(*bounds).buffer(buffer).bounds
             x1, y1, x2, y2 = bounds
