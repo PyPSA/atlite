@@ -94,7 +94,8 @@ Authors and Copyright
 ---------------------
 
 Copyright (C) 2016-2020 The Atlite Authors.
-See `AUTHORS.rst`_ for details.
+
+See the `AUTHORS`_ for details.
 
 Licence
 =======
@@ -118,6 +119,8 @@ See the individual files for license details.
 .. _GitHub: https://github.com/pypsa/atlite
 
 .. _documentation on getting started: https://atlite.readthedocs.io/en/latest/getting-started.html
+
+.. _AUTHORS: AUTHORS.rst
 
 .. _GPL-3.0-or-later: LICENSES/GPL-3.0-or-later.txt
 .. _BSD-2-Clause: LICENSES/BSD-2-Clause.txt
