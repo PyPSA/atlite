@@ -20,10 +20,10 @@ resources low.
 
 .. * `NCEP Climate Forecast System <http://rda.ucar.edu/datasets/ds094.1/>`_ hourly
 ..   historical reanalysis weather data available on a 0.2 x 0.2 degree global grid
-* `ECMWF ERA5
-  <https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation>`_ hourly
-  historical reanalysis weather data on an approximately 0.25 x 0.25 deg global
-  grid
+.. * `ECMWF ERA5
+..   <https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation>`_ hourly
+..   historical reanalysis weather data on an approximately 0.25 x 0.25 deg global
+..   grid
 .. * `EURO-CORDEX Climate Change Projection <http://www.euro-cordex.net/>`_
 ..   three-hourly up until 2100, available on a 0.11 x 0.11 degree grid for Europe
 .. * `CMSAF SARAH-2
