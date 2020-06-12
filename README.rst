@@ -10,7 +10,7 @@ Atlite
 
 Atlite is a `free software`_, `xarray`_-based Python library for
 converting weather data (like wind speeds, solar influx) into energy systems data.
-It is designed to by lightweight and work with big weather datasets
+It has a  lightweight design and works with big weather datasets
 while keeping the resource requirements especially on CPU and RAM
 resources low.
 
@@ -93,7 +93,7 @@ to file issues or make pull requests.
 Authors and Copyright
 ---------------------
 
-Copyright (C) 2016-2019 The Atlite Authors.
+Copyright (C) 2016-2020 lightweight The Atlite Authors.
 
 .. include:: AUTHORS.rst
     :start-after: headline-marker
