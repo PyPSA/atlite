@@ -6,6 +6,7 @@
 
 name: atlite
 channels:
+  - defaults
   - conda-forge
 dependencies:
   - python>=3.6
@@ -17,16 +18,16 @@ dependencies:
   - dask>=0.18.0
   - progressbar2
   - yaml
+  - pyproj
+  - libgdal
+  - geopandas
+  - rtree
   - cdsapi
+  - rasterio>=1.0
+  - geopandas
+  - shapely
 
   # Recommended for pandas and xarray
   - bottleneck
   - numexpr
 
-  # GIS dependencies have to come all from conda-forge
-  - conda-forge::pyproj
-  - conda-forge::rasterio
-  - conda-forge::shapely
-  - conda-forge::libgdal
-  - conda-forge::geopandas
-  - conda-forge::rtree

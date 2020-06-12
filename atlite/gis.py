@@ -25,6 +25,8 @@ from shapely.ops import transform
 import rasterio as rio
 import rasterio.warp
 from shapely.strtree import STRtree
+from rasterio.warp import Resampling
+from rasterio.crs import CRS
 
 import logging
 logger = logging.getLogger(__name__)
@@ -227,7 +229,7 @@ def regrid(ds, dimx, dimy, **kwargs):
     **kwargs :
       Arguments passed to rio.wrap.reproject; of note:
       - resampling is one of gis.Resampling.{average,cubic,bilinear,nearest}
-      - src_crs, dst_crs define the different crs (default: EPSG:4326)
+      - src_crs, dst_crs define the different crs (default: EPSG 4326, ie latlong)
     """
     namex = dimx.name
     namey = dimy.name
@@ -242,8 +244,8 @@ def regrid(ds, dimx, dimy, **kwargs):
     kwargs.update(dst_shape=dst_shape,
                   src_transform=src_transform,
                   dst_transform=dst_transform)
-    kwargs.setdefault("src_crs", dict(init='EPSG:4326'))
-    kwargs.setdefault("dst_crs", dict(init='EPSG:4326'))
+    kwargs.setdefault("src_crs", CRS.from_epsg(4326))
+    kwargs.setdefault("dst_crs", CRS.from_epsg(4326))
 
     def _reproject(src, dst_shape, **kwargs):
         dst = np.empty(src.shape[:-2] + dst_shape, dtype=src.dtype)
