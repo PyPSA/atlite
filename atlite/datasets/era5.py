@@ -326,8 +326,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
         return ds
 
     if feature in static_features:
-        return (retrieve_once(retrieval_times(coords, static=True))
-                .squeeze().drop('time'))
+        return retrieve_once(retrieval_times(coords, static=True)).squeeze()
 
     datasets = map(retrieve_once, retrieval_times(coords))
 
