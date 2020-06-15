@@ -8,20 +8,14 @@ Created on Mon May 11 11:15:41 2020
 
 import os
 import pytest
-from pathlib import Path
-import pandas as pd
-import geopandas as gpd
 import urllib3
+import geopandas as gpd
 urllib3.disable_warnings()
 
 import atlite
 from atlite import Cutout
 from xarray.testing import assert_allclose, assert_equal
 import numpy as np
-import logging
-from tempfile import mkdtemp, mkstemp
-from pathlib import Path
-from shutil import rmtree
 
 
 # %% Predefine tests for cutout
@@ -62,6 +56,17 @@ def pv_test(cutout):
 
     assert production.notnull().all()
     assert (production.sel(time=TIME+ ' 00:00') == 0)
+
+    cells = gpd.GeoDataFrame({'geometry': cutout.grid_cells})
+    cells = cells.assign(regions=['lower']*200 + ['upper']*(len(cells)-200))
+    shapes = cells.dissolve('regions')
+    production, capacity = cutout.pv(atlite.resource.solarpanels.CdTe,
+                                     orientation, layout=cap_factor,
+                                     shapes=shapes, return_capacity=True)
+    cap_per_region = (cells.assign(cap_factor=cap_factor.stack(spatial=['y','x']))
+                          .groupby('regions').cap_factor.sum())
+
+    assert all(cap_per_region == capacity)
 
     # Now compare with optimal orienation
     cap_factor_opt = cutout.pv(atlite.resource.solarpanels.CdTe, 'latitude_optimal')
