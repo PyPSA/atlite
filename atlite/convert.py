@@ -13,10 +13,10 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import datetime as dt
-import scipy as sp
 from operator import itemgetter
 from pathlib import Path
 from dask.diagnostics import ProgressBar
+from scipy.sparse import csr_matrix
 
 import logging
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
             matrix = cutout.indicatormatrix(shapes, shapes_proj)
 
         if matrix is not None:
-            matrix = sp.sparse.csr_matrix(matrix)
+            matrix = csr_matrix(matrix)
             if index is None:
                 index = pd.RangeIndex(matrix.shape[0])
             results = aggregate_matrix(da, matrix=matrix, index=index)
@@ -130,8 +130,8 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     if per_unit or return_capacity:
         assert not is_factors, ("One of `matrix`, `shapes` and `layout` "
                                 "must be given for `per_unit`")
-        capacity = xr.DataArray(np.asarray(
-            matrix.sum(axis=1)).reshape(-1), [index])
+        caps = matrix * csr_matrix(layout.stack(spatial=['y', 'x'])).T
+        capacity = xr.DataArray(np.asarray(caps.todense()).flatten(), [index])
 
         if per_unit:
             results = (results / capacity.astype(results.dtype)).fillna(0.)
