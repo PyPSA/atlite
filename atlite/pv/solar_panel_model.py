@@ -30,7 +30,7 @@ def _power_huld(irradiance, t_amb, pc):
     # normalized irradiance
     G_ = irradiance / pc['r_irradiance']
 
-    log_G_ = np.log(G_.where(G_!=0))
+    log_G_ = np.log(G_.where(G_>0))
     # NB: np.log without base implies base e or ln
     eff = (1 + pc['k_1'] * log_G_ + pc['k_2'] * (log_G_) ** 2 +
            T_ * (pc['k_3'] + pc['k_4'] * log_G_ + pc['k_5'] * log_G_ ** 2) +
