@@ -269,7 +269,8 @@ def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model,
 
     # overall efficiency; can be negative, so need to remove negative values
     # below
-    eta = c0 - c1 * ((t_store - ds['temperature']) / irradiation)
+    eta = c0 - c1 * ((t_store - ds['temperature']) /
+                     irradiation.where(irradiation!=0)).fillna(0)
 
     output = irradiation * eta
 
