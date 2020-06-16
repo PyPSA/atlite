@@ -30,15 +30,13 @@ def _power_huld(irradiance, t_amb, pc):
     # normalized irradiance
     G_ = irradiance / pc['r_irradiance']
 
-    # Suppress divide-by-zero and invalid-value warnings in log for G_ = 0
-    with np.errstate(invalid='ignore', divide='ignore'):
-        # NB: np.log without base implies base e or ln
-        eff = (1 + pc['k_1'] * np.log(G_) + pc['k_2'] * (np.log(G_)) ** 2 +
-               T_ * (pc['k_3'] + pc['k_4'] * np.log(G_) +
-                     pc['k_5'] * (np.log(G_)) ** 2) +
-               pc['k_6'] * (T_ ** 2))
+    log_G_ = np.log(G_.where(G_>0))
+    # NB: np.log without base implies base e or ln
+    eff = (1 + pc['k_1'] * log_G_ + pc['k_2'] * (log_G_) ** 2 +
+           T_ * (pc['k_3'] + pc['k_4'] * log_G_ + pc['k_5'] * log_G_ ** 2) +
+           pc['k_6'] * (T_ ** 2))
 
-        eff = eff.fillna(0.).clip(min=0)
+    eff = eff.fillna(0.).clip(min=0)
 
     return G_ * eff * pc.get('inverter_efficiency', 1.)
 
@@ -56,16 +54,16 @@ def _power_bofinger(irradiance, t_amb, pc):
 
     fraction = (pc['NOCT'] - pc['Tamb']) / pc['Intc']
 
-    with np.errstate(divide='ignore', invalid='ignore'):
-        eta_ref = (
-            pc['A'] +
-            pc['B'] *
-            irradiance +
-            pc['C'] *
-            np.log(irradiance))
-        eta = (eta_ref *
-               (1. + pc['D'] * (fraction * irradiance + (t_amb - pc['Tstd']))) /
-               (1. + pc['D'] * fraction / pc['ta'] * eta_ref * irradiance))
+    eta_ref = (
+        pc['A'] +
+        pc['B'] *
+        irradiance +
+        pc['C'] *
+        np.log(irradiance.where(irradiance!=0)))
+    eta = (eta_ref *
+           (1. + pc['D'] * (fraction * irradiance + (t_amb - pc['Tstd']))) /
+           (1. + pc['D'] * fraction / pc['ta'] * eta_ref * irradiance)
+           ).fillna(0)
 
     capacity = (pc['A'] + pc['B'] * 1000. + pc['C'] * np.log(1000.)) * 1e3
     power = irradiance * eta * (pc.get('inverter_efficiency', 1.) / capacity)
