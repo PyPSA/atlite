@@ -548,6 +548,11 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False, sh
                            **kwargs)
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3 d-1 = m3 h-1 / 24
-    runoff *= (1000. / 24.) * xr.DataArray(basins.shapes.to_crs(dict(proj="aea")).area)
+    bounds = basins.shapes.total_bounds
+    # Least distortion in Albers Equals Area comes from centering the projection over basin shapes
+    proj = '+proj=aea +lon_0={} +lat_1={} +lat_2={}'.format(
+        (bounds[0] + bounds[2]) / 2, bounds[1], bounds[3]
+    )
+    runoff *= (1000. / 24.) * xr.DataArray(basins.shapes.to_crs(proj).area)
 
     return hydrom.shift_and_aggregate_runoff_for_plants(basins, runoff, flowspeed, show_progress)
