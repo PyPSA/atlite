@@ -124,6 +124,9 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     return ds
 
 def prepare_meta_era5(xs, ys, year, month, module):
+    product = 'reanalysis-era5-single-levels'
+    if int(year) < 1979: product += '-preliminary-back-extension'
+    
     # Reference of the quantities
     # https://confluence.ecmwf.int/display/CKB/ERA5+data+documentation
     # Geopotential is aka Orography in the CDS:
@@ -131,7 +134,7 @@ def prepare_meta_era5(xs, ys, year, month, module):
     #
     # (shortName) | (name)                        | (paramId)
     # z           | Geopotential (CDS: Orography) | 129
-    with _get_data(variable='orography',
+    with _get_data(product=product, variable='orography',
                    year=year, month=month, day=1,
                    area=_area(xs, ys)) as ds:
         ds = _rename_and_clean_coords(ds)
@@ -175,6 +178,9 @@ def prepare_for_sarah(year, month, xs, ys, dx, dy, chunks=None):
 def prepare_month_era5(year, month, xs, ys):
     area = _area(xs, ys)
 
+    product = 'reanalysis-era5-single-levels'
+    if int(year) < 1979: product += '-preliminary-back-extension'
+
     # Reference of the quantities
     # https://confluence.ecmwf.int/display/CKB/ERA5+data+documentation
     # (shortName) | (name)                                      | (paramId)
@@ -188,7 +194,7 @@ def prepare_month_era5(year, month, xs, ys):
     # stl4        | Soil temperature level 4                    | 236
     # fsr         | Forecast surface roughnes                   | 244
 
-    with _get_data(area=area, year=year, month=month,
+    with _get_data(product=product, area=area, year=year, month=month,
                    variable=[
                        '100m_u_component_of_wind',
                        '100m_v_component_of_wind',
@@ -201,7 +207,7 @@ def prepare_month_era5(year, month, xs, ys):
                        'toa_incident_solar_radiation',
                        'total_sky_direct_solar_radiation_at_surface'
                    ]) as ds, \
-         _get_data(area=area, year=year, month=month, day=1,
+         _get_data(product=product, area=area, year=year, month=month, day=1,
                    variable=['forecast_surface_roughness', 'orography']) as ds_m:
 
         ds_m = ds_m.isel(time=0, drop=True)
