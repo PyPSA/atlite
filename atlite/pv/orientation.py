@@ -39,10 +39,9 @@ def make_latitude_optimal():
     """
 
     def latitude_optimal(lon, lat, solar_position):
-        if (lat < 0).any():
-            raise NotImplementedError('Not implemented for negative latitudes')
-
+  
         slope = np.empty_like(lat.values)
+        azimuth = np.empty_like(lat.values)
 
         below_25 = lat.values <= np.deg2rad(25)
         below_50 = lat.values <= np.deg2rad(50)
@@ -51,7 +50,15 @@ def make_latitude_optimal():
         slope[~below_25 & below_50] = 0.76 * lat.values[~below_25 & below_50] + np.deg2rad(0.31)
         slope[~below_50] = np.deg2rad(40.)
 
-        return dict(slope=xr.DataArray(slope, coords=lat.coords), azimuth=180.)
+        azimuth[azimuth <= 0] = 0
+        azimuth[azimuth > 0]  = 180.
+
+        d = dict(
+                slope=xr.DataArray(slope, coords=lat.coords),
+                azimuth=xr.DataArray(azimuth, coords=lat.coords)
+            )
+        
+        return d
 
     return latitude_optimal
 
