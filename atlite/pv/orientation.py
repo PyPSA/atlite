@@ -46,8 +46,8 @@ def make_latitude_optimal():
         below_25 = np.abs(lat.values) <= np.deg2rad(25)
         below_50 = np.abs(lat.values) <= np.deg2rad(50)
 
-        slope[below_25] = 0.87 * lat.values[below_25]
-        slope[~below_25 & below_50] = 0.76 * lat.values[~below_25 & below_50] + np.deg2rad(0.31)
+        slope[below_25] = 0.87 * np.abs(lat.values[below_25])
+        slope[~below_25 & below_50] = 0.76 * np.abs(lat.values[~below_25 & below_50]) + np.deg2rad(0.31)
         slope[~below_50] = np.deg2rad(40.)
 
         # South orientation for panels on northern hemisphere
