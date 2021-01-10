@@ -25,6 +25,7 @@ from numpy import atleast_1d
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
+import geopandas as gpd
 
 from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
@@ -262,20 +263,29 @@ class Cutout:
         return self.available_features.loc[:, features].drop_duplicates()
 
     def grid_coordinates(self):
+        warn("The function grid_coordinates has been deprecated in favour of "
+             "`grid`", DeprecationWarning)
         logger.warning("The order of elements returned by `grid_coordinates` changed. "
                        "Check the output of your workflow for correctness.")
-        xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
-        return np.asarray((np.ravel(xs), np.ravel(ys))).T
+        return self.grid[['x', 'y']].values
 
-    @CachedAttribute
     def grid_cells(self):
+        warn("The function grid_cells has been deprecated in favour of `grid`",
+             DeprecationWarning)
         logger.warning("The order of elements in `grid_cells` changed. "
                        "Check the output of your workflow for correctness.")
-        coords = self.grid_coordinates()
+        return self.grid.geometry.to_list()
+
+
+    @CachedAttribute
+    def grid(self):
+        xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
+        coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
         span = (coords[self.shape[1] + 1] - coords[0]) / 2
-        grid_cells = [box(*c)
-                      for c in np.hstack((coords - span, coords + span))]
-        return grid_cells
+        cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
+        return gpd.GeoDataFrame({'x': coords[:, 0], 'y': coords[:, 1],
+                                 'geometry': cells,})
+
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):
         if path is None:
@@ -307,7 +317,7 @@ class Cutout:
 
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
-        return compute_indicatormatrix(self.grid_cells, shapes,
+        return compute_indicatormatrix(self.grid, shapes,
                                        self.projection, shapes_proj)
 
     # Preparation functions
