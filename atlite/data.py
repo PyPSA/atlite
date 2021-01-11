@@ -153,7 +153,7 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
             # make sure we are only closing data, if it points to the file
             # we want to update
             if (cutout.data._file_obj is not None and
-                cutout.data._file_obj._filename == str(cutout.path.resolve())):
+                cutout.path.samefile(cutout.data._file_obj._filename)):
                 cutout.data.close()
 
             if cutout.path.exists():
