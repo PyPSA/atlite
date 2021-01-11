@@ -23,7 +23,7 @@ def aggregate_matrix(da, matrix, index):
             output_core_dims=[[index.name]],
             dask='parallelized',
             output_dtypes=[da.dtype],
-            output_sizes={index.name: index.size}
+            dask_gufunc_kwargs = dict(output_sizes={index.name: index.size})
         ).assign_coords(**{index.name: index})
     else:
         da = da.stack(spatial=('y', 'x')).transpose('spatial', 'time')
