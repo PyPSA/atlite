@@ -2,7 +2,7 @@ language: bash
 sudo: false # Use container-based infrastructure
 
 os:
-  # - windows
+  - windows
   - linux
   - osx
 
