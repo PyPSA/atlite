@@ -264,8 +264,8 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
 
         yearstr = ', '.join(atleast_1d(request['year']))
         variables = atleast_1d(request['variable'])
-        varstr = ''.join(['\n\t * ' + v + f' ({yearstr})' for v in variables])
-        logger.info(f"CDS: Downloading variables {varstr}\n")
+        varstr = ''.join(['\t * ' + v + f' ({yearstr})\n' for v in variables])
+        logger.info(f"CDS: Downloading variables\n{varstr}")
         result.download(target)
 
     ds = xr.open_dataset(target, chunks=chunks or {})

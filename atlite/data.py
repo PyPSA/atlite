@@ -75,7 +75,7 @@ def non_bool_dict(d):
     return {k: v if not isinstance(v, bool) else int(v) for k,v in d.items()}
 
 
-def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
+def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
     """
     Prepare all or a selection of features in a cutout.
 
@@ -119,7 +119,7 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         logger.info(f'Storing temporary files in {tmpdir}')
 
         modules = atleast_1d(cutout.module)
-        features = atleast_1d(features)
+        features = atleast_1d(features) if features else slice(None)
         prepared = set(atleast_1d(cutout.data.attrs['prepared_features']))
 
         # target is series of all available variables for given module and features
@@ -153,7 +153,7 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
             # make sure we are only closing data, if it points to the file
             # we want to update
             if (cutout.data._file_obj is not None and
-                cutout.data._file_obj._filename == str(cutout.path.resolve())):
+                cutout.path.samefile(cutout.data._file_obj._filename)):
                 cutout.data.close()
 
             if cutout.path.exists():
