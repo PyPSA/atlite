@@ -13,9 +13,10 @@ before_install:
 install:
   - conda config --set remote_max_retries 5
   - conda config --set channel_priority strict
-  - conda create -n atlite python pip pytest
-  - conda env update -n atlite --file=environment.yaml
-  - conda activate atlite
+  - conda install mamba=0.7.7 -c conda-forge -y
+  - mamba create -n atlite python pip pytest
+  - mamba env update -n atlite --file=environment.yaml
+  - mamba activate atlite
   # - conda install -q -c conda-forge python-coveralls # don't install on appveyor
   - pip install --no-cache-dir .
 
