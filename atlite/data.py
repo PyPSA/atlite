@@ -8,7 +8,7 @@ import pandas as pd
 import xarray as xr
 import os
 from numpy import atleast_1d
-from tempfile import mkstemp, mkdtemp
+from tempfile import mkstemp, TemporaryDirectory
 from shutil import rmtree
 from dask import delayed, compute
 from dask.utils import SerializableLock
@@ -108,7 +108,8 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
 
     """
     if tmpdir is None:
-        tmpdir = mkdtemp()
+        tempdirectory = TemporaryDirectory()
+        tmpdir = tempdirectory.name
         keep_tmpdir = False
     else:
         keep_tmpdir = True
@@ -143,8 +144,7 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
             # write data to tmp file, copy it to original data, this is much safer
             # than appending variables
             directory, filename = os.path.split(str(cutout.path))
-            fd, tmp = mkstemp(suffix=filename, dir=directory)
-            os.close(fd)
+            fd, tmp = mkstemp(suffix=filename, dir=directory); os.close(fd)
 
             with ProgressBar():
                 ds.to_netcdf(tmp)
@@ -167,6 +167,6 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
             ds.close()
 
         if not keep_tmpdir:
-            rmtree(tmpdir)
+            tempdirectory.cleanup()
 
     return cutout
