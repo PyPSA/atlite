@@ -11,7 +11,7 @@ before_install:
   - source conda4travis.sh
 
 install:
-  - conda install mamba=0.1.2 -c conda-forge # fix the version for faster installation
+  - conda install -c conda-forge mamba 
   - mamba env create -f environment.yaml
   - conda activate atlite
   - mamba install pip pytest
