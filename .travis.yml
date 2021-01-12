@@ -13,8 +13,8 @@ before_install:
 install:
   - conda install mamba=0.1.2 -c conda-forge # fix the version for faster installation
   - mamba env create -f environment.yaml
+  - mamba install -n atlite pip pytest
   - conda activate atlite
-  - mamba install pip pytest
   # - conda install -q -c conda-forge python-coveralls # don't install on appveyor
   - pip install --no-cache-dir .
 
