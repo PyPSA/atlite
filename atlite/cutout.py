@@ -26,6 +26,7 @@ from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
 import geopandas as gpd
+import pyproj
 
 from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
@@ -263,14 +264,14 @@ class Cutout:
         return self.available_features.loc[:, features].drop_duplicates()
 
     def grid_coordinates(self):
-        warn("The function grid_coordinates has been deprecated in favour of "
+        warn("The function `grid_coordinates` has been deprecated in favour of "
              "`grid`", DeprecationWarning)
         logger.warning("The order of elements returned by `grid_coordinates` changed. "
                        "Check the output of your workflow for correctness.")
         return self.grid[['x', 'y']].values
 
     def grid_cells(self):
-        warn("The function grid_cells has been deprecated in favour of `grid`",
+        warn("The function `grid_cells` has been deprecated in favour of `grid`",
              DeprecationWarning)
         logger.warning("The order of elements in `grid_cells` changed. "
                        "Check the output of your workflow for correctness.")
@@ -283,8 +284,9 @@ class Cutout:
         coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
         span = (coords[self.shape[1] + 1] - coords[0]) / 2
         cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
+        crs = pyproj.CRS.from_epsg(4326)
         return gpd.GeoDataFrame({'x': coords[:, 0], 'y': coords[:, 1],
-                                 'geometry': cells,})
+                                 'geometry': cells,}, crs=crs)
 
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):
