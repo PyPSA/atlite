@@ -11,6 +11,8 @@ before_install:
   - source conda4travis.sh
 
 install:
+  - conda config --add channels conda-forge
+  - conda config --set channel_priority strict
   - conda install mamba=0.1.2 -c conda-forge # fix the version for faster installation
   - mamba env create -f environment.yaml
   - conda activate atlite
