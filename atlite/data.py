@@ -75,6 +75,22 @@ def non_bool_dict(d):
     return {k: v if not isinstance(v, bool) else int(v) for k,v in d.items()}
 
 
+def maybe_remove_tmpdir(func):
+    'Use this wrapper to make tempfile deletion compatible with windows machines.'
+    def wrapper(*args, **kwargs):
+        if kwargs.get('tmpdir', None):
+            res = func(*args, **kwargs)
+        else:
+            kwargs['tmpdir'] = mkdtemp()
+            try:
+                res = func(*args, **kwargs)
+            finally:
+                rmtree(kwargs['tmpdir'])
+        return res
+    return wrapper
+
+
+@maybe_remove_tmpdir
 def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
     """
     Prepare all or a selection of features in a cutout.
@@ -107,66 +123,49 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
         Cutout with prepared data. The variables are stored in `cutout.data`.
 
     """
-    if tmpdir is None:
-        tmpdir = mkdtemp()
-        keep_tmpdir = False
-    else:
-        keep_tmpdir = True
+    logger.info(f'Storing temporary files in {tmpdir}')
 
-    ds = None
+    modules = atleast_1d(cutout.module)
+    features = atleast_1d(features) if features else slice(None)
+    prepared = set(atleast_1d(cutout.data.attrs['prepared_features']))
 
-    try:
-        logger.info(f'Storing temporary files in {tmpdir}')
+    # target is series of all available variables for given module and features
+    target = available_features(modules).loc[:, features].drop_duplicates()
 
-        modules = atleast_1d(cutout.module)
-        features = atleast_1d(features) if features else slice(None)
-        prepared = set(atleast_1d(cutout.data.attrs['prepared_features']))
+    for module in target.index.unique('module'):
+        missing_vars = target[module]
+        if not overwrite:
+            missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
+        if missing_vars.empty:
+            continue
+        logger.info(f'Calculating and writing with module {module}:')
+        missing_features = missing_vars.index.unique('feature')
+        ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
+        prepared |= set(missing_features)
 
-        # target is series of all available variables for given module and features
-        target = available_features(modules).loc[:, features].drop_duplicates()
+        cutout.data.attrs.update(dict(prepared_features=list(prepared)))
+        ds = (cutout.data.merge(ds[missing_vars.values])
+              .assign_attrs(**non_bool_dict(cutout.data.attrs), **ds.attrs))
 
-        for module in target.index.unique('module'):
-            missing_vars = target[module]
-            if not overwrite:
-                missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
-            if missing_vars.empty:
-                continue
-            logger.info(f'Calculating and writing with module {module}:')
-            missing_features = missing_vars.index.unique('feature')
-            ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
-            prepared |= set(missing_features)
+        # write data to tmp file, copy it to original data, this is much safer
+        # than appending variables
+        directory, filename = os.path.split(str(cutout.path))
+        fd, tmp = mkstemp(suffix=filename, dir=directory)
+        os.close(fd)
 
-            cutout.data.attrs.update(dict(prepared_features=list(prepared)))
-            ds = (cutout.data.merge(ds[missing_vars.values])
-                  .assign_attrs(**non_bool_dict(cutout.data.attrs), **ds.attrs))
+        with ProgressBar():
+            ds.to_netcdf(tmp)
 
-            # write data to tmp file, copy it to original data, this is much safer
-            # than appending variables
-            directory, filename = os.path.split(str(cutout.path))
-            fd, tmp = mkstemp(suffix=filename, dir=directory)
-            os.close(fd)
+        # make sure we are only closing data, if it points to the file
+        # we want to update
+        if (cutout.data._file_obj is not None and
+            cutout.path.samefile(cutout.data._file_obj._filename)):
+            cutout.data.close()
 
-            with ProgressBar():
-                ds.to_netcdf(tmp)
-            ds.close()
+        if cutout.path.exists():
+            cutout.path.unlink()
+        os.rename(tmp, cutout.path)
 
-            # make sure we are only closing data, if it points to the file
-            # we want to update
-            if (cutout.data._file_obj is not None and
-                cutout.path.samefile(cutout.data._file_obj._filename)):
-                cutout.data.close()
-
-            if cutout.path.exists():
-                cutout.path.unlink()
-            os.rename(tmp, cutout.path)
-
-            cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
-
-    finally:
-        if ds is not None:
-            ds.close()
-
-        if not keep_tmpdir:
-            rmtree(tmpdir)
+        cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 
     return cutout

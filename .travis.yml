@@ -2,7 +2,7 @@ language: bash
 sudo: false # Use container-based infrastructure
 
 os:
-  # - windows
+  - windows
   - linux
   - osx
 
@@ -11,10 +11,11 @@ before_install:
   - source conda4travis.sh
 
 install:
+  - conda config --add channels conda-forge
+  - conda config --set channel_priority strict
   - conda install -c conda-forge mamba 
   - mamba env create -f environment.yaml
   - conda activate atlite
-  - mamba install pip pytest
   # - conda install -q -c conda-forge python-coveralls # don't install on appveyor
   - pip install --no-cache-dir .
 

@@ -259,8 +259,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         lock = nullcontext()
 
     with lock:
-        fd, target = mkstemp(suffix='.nc', dir=tmpdir)
-        os.close(fd)
+        fd, target = mkstemp(suffix='.nc', dir=tmpdir); os.close(fd)
 
         yearstr = ', '.join(atleast_1d(request['year']))
         variables = atleast_1d(request['variable'])
