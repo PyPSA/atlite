@@ -148,7 +148,7 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model,
     influx_toa = solar_position['atmospheric insolation']
 
     def clip(influx, influx_max):
-        return influx.where(influx < 0, 0).where(influx >= influx_max, influx_max)
+        return influx.clip(min=0).where(influx >= influx_max, influx_max)
 
     if 'influx' in ds:
         influx = clip(ds['influx'], influx_toa)
