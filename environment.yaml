@@ -22,6 +22,7 @@ dependencies:
   - libgdal
   - geopandas
   - rtree
+  - libspatialindex
   - cdsapi
   - rasterio>=1.0
   - geopandas
