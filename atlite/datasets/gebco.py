@@ -5,9 +5,8 @@ Module for loading gebco data
 
 """
 
-import numpy as np
-from tempfile import mkstemp
-import os
+from rasterio.warp import Resampling
+
 import rasterio as rio
 import xarray as xr
 
@@ -19,8 +18,8 @@ features = {'height': ['height']}
 
 
 def get_data_gebco_height(xs, ys, gebco_path):
-    x, X = xs[[0, -1]]
-    y, Y = ys[[0, -1]]
+    x, X = xs.data[[0, -1]]
+    y, Y = ys.data[[0, -1]]
 
     dx = (X - x) / (len(xs) - 1)
     dy = (Y - y) / (len(ys) - 1)
@@ -31,6 +30,8 @@ def get_data_gebco_height(xs, ys, gebco_path):
                              window=window,
                              out_shape=(len(ys), len(xs)),
                              resampling=Resampling.average)
+        #change inversed y-axis
+        gebco = gebco[::-1]
         tags = dataset.tags(bidx=1)
 
     return xr.DataArray(gebco, coords=[("y", ys), ("x", xs)], name='height', attrs=tags)
