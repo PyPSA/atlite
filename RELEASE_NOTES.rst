@@ -30,6 +30,7 @@ Major changes
     which combines and deprecates `grid_cells()` and `grid_coordinates()`
 * The order of coordinates (indices) for `Cutouts` changed: `x` and `y` (e.g. longitude and latitude) are now
     both ascending (before: `x` ascending and `y` descending).
+* Following the lead of geopandas, pyproj, cartopy and rasterio, atlite now uses Coordinate Reference System (`CRS`) instead of the old fashioned projection strings. 
 
 New features
 ------------
