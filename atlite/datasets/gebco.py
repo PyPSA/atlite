@@ -5,10 +5,10 @@ Module for loading gebco data
 
 """
 
-import numpy as np
-from tempfile import mkstemp
-import os
-import subprocess
+from rasterio.warp import Resampling
+from pandas import to_numeric
+
+import rasterio as rio
 import xarray as xr
 
 import logging
@@ -18,49 +18,24 @@ crs = 4326
 features = {'height': ['height']}
 
 
-def get_data_gebco_height(xs, ys, gebco_path=None):
-    # gebco bathymetry heights for underwater
-    cornersc = np.array(((xs[0], ys[0]), (xs[-1], ys[-1])))
-    minc = np.minimum(*cornersc)
-    maxc = np.maximum(*cornersc)
-    span = (maxc - minc) / (np.asarray((len(xs), len(ys))) - 1)
-    minx, miny = minc - span / 2.
-    maxx, maxy = maxc + span / 2.
+def get_data_gebco_height(xs, ys, gebco_path):
+    x, X = xs.data[[0, -1]]
+    y, Y = ys.data[[0, -1]]
 
-    fd, target = mkstemp(suffix='.nc')
-    os.close(fd)
+    dx = (X - x) / (len(xs) - 1)
+    dy = (Y - y) / (len(ys) - 1)
 
-    delete_target = True
+    with rio.open(gebco_path) as dataset:
+        window = dataset.window(x - dx/2, y - dy/2, X + dx/2, Y + dy/2)
+        gebco = dataset.read(indexes=1,
+                             window=window,
+                             out_shape=(len(ys), len(xs)),
+                             resampling=Resampling.average)
+        gebco = gebco[::-1] # change inversed y-axis
+        tags = dataset.tags(bidx=1)
+        tags = {k: to_numeric(v, errors='ignore') for k, v in tags.items()}
 
-    try:
-        cp = subprocess.run(['gdalwarp', '-of', 'NETCDF',
-                             '-ts', str(len(xs)), str(len(ys)),
-                             '-te', str(minx), str(miny), str(maxx), str(maxy),
-                             '-r', 'average',
-                             gebco_path, target],
-                            capture_output=True,
-                            check=True
-                            )
-    except subprocess.CalledProcessError as e:
-        logger.error(
-            f"gdalwarp encountered an error, gebco height was not resampled:\n"
-            f"{e.stderr}")
-
-    except OSError:
-        logger.warning("gdalwarp was not found for resampling gebco. "
-                       "Next-neighbour interpolation will be used instead!")
-        target = gebco_path
-        delete_target = False
-
-    with xr.open_dataset(target) as ds_gebco:
-        height = (ds_gebco.rename({'lon': 'x', 'lat': 'y', 'Band1': 'height'})
-                          .reindex(x=xs, y=ys, method='nearest')
-                          .load()['height'])
-
-    if delete_target:
-        os.unlink(target)
-
-    return height
+    return xr.DataArray(gebco, coords=[("y", ys), ("x", xs)], name='height', attrs=tags)
 
 
 def get_data(cutout, feature, tmpdir, **creation_parameters):
@@ -86,7 +61,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     path = creation_parameters['gebco_path']
 
     coords = cutout.coords
-    #assign time dimesion even if not used
+    #assign time dimension even if not used
     return get_data_gebco_height(coords['x'], coords['y'], path)\
             .to_dataset()\
             .assign_coords(cutout.coords)
