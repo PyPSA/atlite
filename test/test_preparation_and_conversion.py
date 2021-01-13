@@ -57,7 +57,7 @@ def pv_test(cutout):
     assert production.notnull().all()
     assert (production.sel(time=TIME+ ' 00:00') == 0)
 
-    cells = gpd.GeoDataFrame({'geometry': cutout.grid_cells})
+    cells = cutout.grid
     cells = cells.assign(regions=['lower']*200 + ['upper']*(len(cells)-200))
     shapes = cells.dissolve('regions')
     production, capacity = cutout.pv(atlite.resource.solarpanels.CdTe,

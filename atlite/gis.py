@@ -170,6 +170,7 @@ def compute_indicatormatrix(
     I : sp.sparse.lil_matrix
       Indicatormatrix
     """
+    orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
     dest = reproject_shapes(dest, dest_proj, orig_proj)
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
