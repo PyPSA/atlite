@@ -39,9 +39,8 @@ def make_latitude_optimal():
     """
 
     def latitude_optimal(lon, lat, solar_position):
-  
+
         slope = np.empty_like(lat.values)
-        azimuth = np.empty_like(lat.values)
 
         below_25 = np.abs(lat.values) <= np.deg2rad(25)
         below_50 = np.abs(lat.values) <= np.deg2rad(50)
@@ -50,19 +49,14 @@ def make_latitude_optimal():
         slope[~below_25 & below_50] = 0.76 * np.abs(lat.values[~below_25 & below_50]) + np.deg2rad(0.31)
         slope[~below_50] = np.deg2rad(40.)
 
-        # South orientation for panels on northern hemisphere
-        # North orientation for panels on southern hemisphere
-        azimuth[lat.values <= 0] = 0
-        azimuth[lat.values > 0]  = 180.
+        # South orientation for panels on northern hemisphere and vice versa
+        azimuth = np.where(lat.values < 0, 0, 180)
 
-        d = dict(
-                slope=xr.DataArray(slope, coords=lat.coords),
-                azimuth=xr.DataArray(azimuth, coords=lat.coords)
-            )
-        
-        return d
+        return dict(slope=xr.DataArray(slope, coords=lat.coords),
+                    azimuth=xr.DataArray(azimuth, coords=lat.coords))
 
     return latitude_optimal
+
 
 def make_constant(slope, azimuth):
     slope = np.deg2rad(slope)
