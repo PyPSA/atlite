@@ -14,20 +14,16 @@ systems data
 import numpy as np
 import pandas as pd
 import xarray as xr
-import xarray.ufuncs as xu
 import scipy as sp
 import scipy.sparse
 from collections import OrderedDict
 from warnings import warn
-from functools import partial
 from pyproj import CRS, Transformer
 import geopandas as gpd
 from shapely.ops import transform
 import rasterio as rio
 import rasterio.warp
 from shapely.strtree import STRtree
-from rasterio.warp import Resampling
-from rasterio.crs import CRS
 
 import logging
 logger = logging.getLogger(__name__)
