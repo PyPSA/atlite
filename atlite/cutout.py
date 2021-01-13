@@ -20,10 +20,13 @@ Base class for Atlite.
 import xarray as xr
 import pandas as pd
 import numpy as np
+from tempfile import mktemp
 from numpy import atleast_1d
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
+import geopandas as gpd
+import pyproj
 
 from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
@@ -124,7 +127,7 @@ class Cutout:
                 "`cutout_dir` and `name` have been deprecated in favour of `path`.")
 
         path = Path(path).with_suffix(".nc")
-        chunks = cutoutparams.pop('chunks', {'time': 20})
+        chunks = cutoutparams.pop('chunks', {'time': 100})
         storable_chunks = {f'chunksize_{k}': v for k, v in (chunks or {}).items()}
 
         # Backward compatibility for xs, ys, months and years
@@ -237,11 +240,13 @@ class Cutout:
 
     @property
     def dx(self):
-        return (self.coords['x'][1] - self.coords['x'][0]).item()
+        x = self.coords['x']
+        return (x[-1] - x[0]).item() / (x.size - 1)
 
     @property
     def dy(self):
-        return (self.coords['y'][1] - self.coords['y'][0]).item()
+        y = self.coords['y']
+        return (y[-1] - y[0]).item() / (y.size - 1)
 
     @property
     def dt(self):
@@ -259,31 +264,45 @@ class Cutout:
         return self.available_features.loc[:, features].drop_duplicates()
 
     def grid_coordinates(self):
+        warn("The function `grid_coordinates` has been deprecated in favour of "
+             "`grid`", DeprecationWarning)
         logger.warning("The order of elements returned by `grid_coordinates` changed. "
                        "Check the output of your workflow for correctness.")
-        xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
-        return np.asarray((np.ravel(xs), np.ravel(ys))).T
+        return self.grid[['x', 'y']].values
 
-    @CachedAttribute
     def grid_cells(self):
+        warn("The function `grid_cells` has been deprecated in favour of `grid`",
+             DeprecationWarning)
         logger.warning("The order of elements in `grid_cells` changed. "
                        "Check the output of your workflow for correctness.")
-        coords = self.grid_coordinates()
-        span = (coords[self.shape[1] + 1] - coords[0]) / 2
-        grid_cells = [box(*c)
-                      for c in np.hstack((coords - span, coords + span))]
-        return grid_cells
+        return self.grid.geometry.to_list()
 
-    def sel(self, **kwargs):
-        if 'bounds' in kwargs:
-            bounds = kwargs.pop('bounds')
-            buffer = kwargs.pop('buffer', 0)
+
+    @CachedAttribute
+    def grid(self):
+        xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
+        coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
+        span = (coords[self.shape[1] + 1] - coords[0]) / 2
+        cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
+        # TODO!: crs should be specific by the module (atm all module have the
+        # same crs)
+        crs = pyproj.CRS.from_epsg(4326)
+        return gpd.GeoDataFrame({'x': coords[:, 0], 'y': coords[:, 1],
+                                 'geometry': cells,}, crs=crs)
+
+
+    def sel(self, path=None, bounds=None, buffer=0, **kwargs):
+        if path is None:
+            path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
+                          dir=self.path.parent)
+
+        if bounds is not None:
             if buffer > 0:
                 bounds = box(*bounds).buffer(buffer).bounds
             x1, y1, x2, y2 = bounds
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
-        return Cutout(self.path.name, data=data)
+        return Cutout(path, data=data)
 
     def __repr__(self):
         start = np.datetime_as_string(self.coords['time'].values[0], unit='D')
@@ -292,17 +311,19 @@ class Cutout:
                 ' x = {:.2f} ⟷ {:.2f}, dx = {:.2f}\n'
                 ' y = {:.2f} ⟷ {:.2f}, dy = {:.2f}\n'
                 ' time = {} ⟷ {}, dt = {}\n'
+                ' module = {}\n'
                 ' prepared_features = {}'
                 .format(self.name, self.coords['x'].values[0],
                         self.coords['x'].values[-1], self.dx,
                         self.coords['y'].values[0],
                         self.coords['y'].values[-1], self.dy,
                         start, end, self.dt,
+                        self.module,
                         list(self.prepared_features.index.unique('feature'))))
 
 
     def indicatormatrix(self, shapes, shapes_proj='latlong'):
-        return compute_indicatormatrix(self.grid_cells, shapes,
+        return compute_indicatormatrix(self.grid, shapes,
                                        self.projection, shapes_proj)
 
     # Preparation functions

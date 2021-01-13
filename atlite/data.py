@@ -6,11 +6,11 @@
 
 import pandas as pd
 import xarray as xr
+import os
 from numpy import atleast_1d
-from tempfile import mkdtemp
+from tempfile import mkstemp, mkdtemp
 from shutil import rmtree
-import dask
-from dask.delayed import Delayed
+from dask import delayed, compute
 from dask.utils import SerializableLock
 from dask.diagnostics import ProgressBar
 import logging
@@ -32,11 +32,11 @@ def get_features(cutout, module, features, tmpdir=None):
     get_data = datamodules[module].get_data
 
     for feature in features:
-        feature_data = get_data(cutout, feature, tmpdir=tmpdir, lock=lock, **parameters)
+        feature_data = delayed(get_data)(cutout, feature, tmpdir=tmpdir,
+                                         lock=lock, **parameters)
         datasets.append(feature_data)
 
-    if len(datasets) >= 1 and isinstance(datasets[0], Delayed):
-        datasets = dask.compute(*datasets)
+    datasets = compute(*datasets)
 
     ds = xr.merge(datasets, compat='equals')
     for v in ds:
@@ -70,7 +70,28 @@ def available_features(module=None):
     return features.explode()
 
 
-def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
+def non_bool_dict(d):
+    """Convert bool to int for netCDF4 storing"""
+    return {k: v if not isinstance(v, bool) else int(v) for k,v in d.items()}
+
+
+def maybe_remove_tmpdir(func):
+    'Use this wrapper to make tempfile deletion compatible with windows machines.'
+    def wrapper(*args, **kwargs):
+        if kwargs.get('tmpdir', None):
+            res = func(*args, **kwargs)
+        else:
+            kwargs['tmpdir'] = mkdtemp()
+            try:
+                res = func(*args, **kwargs)
+            finally:
+                rmtree(kwargs['tmpdir'])
+        return res
+    return wrapper
+
+
+@maybe_remove_tmpdir
+def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
     """
     Prepare all or a selection of features in a cutout.
 
@@ -102,15 +123,11 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         Cutout with prepared data. The variables are stored in `cutout.data`.
 
     """
-    if tmpdir is None:
-        tmpdir = mkdtemp()
-        keep_tmpdir = False
-    else:
-        keep_tmpdir = True
+    logger.info(f'Storing temporary files in {tmpdir}')
 
     modules = atleast_1d(cutout.module)
-    features = atleast_1d(features)
-    prepared = set(cutout.data.attrs['prepared_features'])
+    features = atleast_1d(features) if features else slice(None)
+    prepared = set(atleast_1d(cutout.data.attrs['prepared_features']))
 
     # target is series of all available variables for given module and features
     target = available_features(modules).loc[:, features].drop_duplicates()
@@ -124,28 +141,31 @@ def cutout_prepare(cutout, features=slice(None), tmpdir=None, overwrite=False):
         logger.info(f'Calculating and writing with module {module}:')
         missing_features = missing_vars.index.unique('feature')
         ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
-        # make sure we don't loose any unused dimension by selecting
-        ds = ds[missing_vars.values].assign_coords(ds.coords)
-
-        ds = ds.assign_attrs(**cutout.data.attrs)
         prepared |= set(missing_features)
-        ds = ds.assign_attrs(prepared_features = list(prepared))
-        # convert bool to int for netCDF4 storing
-        ds.attrs.update({k: v if not isinstance(v, bool) else int(v)
-                         for k,v in ds.attrs.items()})
+
+        cutout.data.attrs.update(dict(prepared_features=list(prepared)))
+        ds = (cutout.data.merge(ds[missing_vars.values])
+              .assign_attrs(**non_bool_dict(cutout.data.attrs), **ds.attrs))
+
+        # write data to tmp file, copy it to original data, this is much safer
+        # than appending variables
+        directory, filename = os.path.split(str(cutout.path))
+        fd, tmp = mkstemp(suffix=filename, dir=directory)
+        os.close(fd)
 
         with ProgressBar():
-            if cutout.path.exists():
-                mode = 'a'
-            else:
-                mode = 'w'
+            ds.to_netcdf(tmp)
 
-            ds.to_netcdf(cutout.path, mode=mode)
+        # make sure we are only closing data, if it points to the file
+        # we want to update
+        if (cutout.data._file_obj is not None and
+            cutout.path.samefile(cutout.data._file_obj._filename)):
+            cutout.data.close()
 
-    if not keep_tmpdir:
-        rmtree(tmpdir)
+        if cutout.path.exists():
+            cutout.path.unlink()
+        os.rename(tmp, cutout.path)
 
-    cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
+        cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 
     return cutout
-

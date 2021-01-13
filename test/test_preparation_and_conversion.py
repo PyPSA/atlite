@@ -8,19 +8,14 @@ Created on Mon May 11 11:15:41 2020
 
 import os
 import pytest
-from pathlib import Path
-import pandas as pd
-import geopandas as gpd
 import urllib3
+import geopandas as gpd
 urllib3.disable_warnings()
 
 import atlite
 from atlite import Cutout
 from xarray.testing import assert_allclose, assert_equal
 import numpy as np
-import logging
-from tempfile import mkdtemp
-from shutil import rmtree
 
 
 # %% Predefine tests for cutout
@@ -36,6 +31,12 @@ def prepared_features_test(cutout):
     """
     assert set(cutout.prepared_features) == set(cutout.data)
 
+
+def update_feature_test(cutout, red):
+    """atlite should be able to overwrite a feature."""
+    red.data = cutout.data.drop_vars('influx_direct')
+    red.prepare('influx', overwrite=True)
+    assert_equal(red.data.influx_direct, cutout.data.influx_direct)
 
 
 def pv_test(cutout):
@@ -55,6 +56,17 @@ def pv_test(cutout):
 
     assert production.notnull().all()
     assert (production.sel(time=TIME+ ' 00:00') == 0)
+
+    cells = cutout.grid
+    cells = cells.assign(regions=['lower']*200 + ['upper']*(len(cells)-200))
+    shapes = cells.dissolve('regions')
+    production, capacity = cutout.pv(atlite.resource.solarpanels.CdTe,
+                                     orientation, layout=cap_factor,
+                                     shapes=shapes, return_capacity=True)
+    cap_per_region = (cells.assign(cap_factor=cap_factor.stack(spatial=['y','x']))
+                          .groupby('regions').cap_factor.sum())
+
+    assert all(cap_per_region == capacity)
 
     # Now compare with optimal orienation
     cap_factor_opt = cutout.pv(atlite.resource.solarpanels.CdTe, 'latitude_optimal')
@@ -149,6 +161,13 @@ def cutout_era5(tmp_path_factory):
     return cutout
 
 @pytest.fixture(scope='session')
+def cutout_era5_reduced(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5_red")
+    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=TIME)
+    return cutout
+
+
+@pytest.fixture(scope='session')
 def cutout_sarah(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("sarah")
     cutout = Cutout(path=tmp_path / "sarah", module=["sarah", "era5"],
@@ -180,6 +199,10 @@ class TestERA5:
     @staticmethod
     def test_prepared_features_era5(cutout_era5):
         return prepared_features_test(cutout_era5)
+
+    @staticmethod
+    def test_update_feature_era5(cutout_era5, cutout_era5_reduced):
+        return update_feature_test(cutout_era5, cutout_era5_reduced)
 
     @staticmethod
     def test_pv_era5(cutout_era5):

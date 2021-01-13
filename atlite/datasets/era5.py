@@ -12,20 +12,25 @@ https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
 import os
-import pandas as pd
 import numpy as np
 import xarray as xr
-import dask
-from dask import delayed
-from dask.utils import SerializableLock
 from tempfile import mkstemp
 import weakref
 import cdsapi
-
+import logging
+from numpy import atleast_1d
 from ..gis import maybe_swap_spatial_dims
 
+# Null context for running a with statements wihout any context
+try:
+    from contextlib import nullcontext
+except ImportError:
+    # for Python verions < 3.7:
+    import contextlib
+    @contextlib.contextmanager
+    def nullcontext():
+        yield
 
-import logging
 logger = logging.getLogger(__name__)
 
 # Model and Projection Settings
@@ -119,9 +124,10 @@ def get_data_influx(retrieval_params):
     ds = _rename_and_clean_coords(ds)
 
     ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
-    with np.errstate(divide='ignore', invalid='ignore'):
-        ds['albedo'] = (((ds['ssrd'] - ds['ssr']) / ds['ssrd']).fillna(0.)
-                        .assign_attrs(units='(0 - 1)', long_name='Albedo'))
+    ds['albedo'] = (((ds['ssrd'] - ds['ssr']) /
+                     ds['ssrd'].where(ds['ssrd'] != 0))
+                    .fillna(0.)
+                    .assign_attrs(units='(0 - 1)', long_name='Albedo'))
     ds['influx_diffuse'] = (
         (ds['ssrd'] - ds['influx_direct'])
         .assign_attrs(units='J m**-2',
@@ -187,16 +193,14 @@ def _area(coords):
     return [y1, x0, y0, x1]
 
 
-def retrieval_times(coords):
+def retrieval_times(coords, static=False):
     """
     Get list of retrieval cdsapi arguments for time dimension in coordinates.
 
-    According to the time span in the coords argument, the entries in the list
-    specify either
-
-    * days, if number of days in coords is less or equal 10
-    * months, if number of days is less or equal 90
-    * years else
+    If static is False, this function creates a query for each year in the
+    time axis in coords. This ensures not running into query limits of the
+    cdsapi. If static is True, the function return only one set of parameters
+    for the very first time point.
 
     Parameters
     ----------
@@ -207,25 +211,25 @@ def retrieval_times(coords):
     list of dicts witht retrieval arguments
 
     """
-    time = pd.Series(coords['time'])
-    time_span = time.iloc[-1] - time.iloc[0]
-    if len(time) == 1:
-        return [{'year': str(d.year), 'month': str(d.month), 'day': str(d.day),
-                 'time': d.strftime("%H:00")} for d in time]
-    if time_span.days <= 10:
-        return [{'year': str(d.year), 'month': str(d.month), 'day': str(d.day)}
-                for d in time.dt.date.unique()]
-    elif time_span.days < 90:
-        return [{'year': str(year), 'month': str(month)}
-                for month in time.dt.month.unique()
-                for year in time.dt.year.unique()]
-    else:
-        return [{'year': str(year)} for year in time.dt.year.unique()]
+    time = coords['time'].to_index()
+    if static:
+        return {'year': str(time[0].year), 'month': str(time[0].month),
+                'day': str(time[0].day), 'time': time[0].strftime("%H:00")}
+
+    times = []
+    for year in time.year.unique():
+        t = time[time.year==year]
+        query = {'year': str(year),
+                 'month': list(t.month.unique()),
+                 'day': list(t.day.unique()),
+                 'time': ["%02d:00" %h for h in t.hour.unique()]}
+        times.append(query)
+    return times
 
 
 def noisy_unlink(path):
     """Delete file at given path."""
-    logger.info(f"Deleting file {path}")
+    logger.debug(f"Deleting file {path}")
     try:
         os.unlink(path)
     except PermissionError:
@@ -233,40 +237,35 @@ def noisy_unlink(path):
 
 
 def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
-    """Download data like ERA5 from the Climate Data Store (CDS)."""
-    # Default request
+    """
+    Download data like ERA5 from the Climate Data Store (CDS).
+
+    If you want to track the state of your request go to
+    https://cds.climate.copernicus.eu/cdsapp#!/yourrequests
+    """
     request = {
         'product_type': 'reanalysis',
-        'format': 'netcdf',
-        'day': list(range(1, 31 + 1)),
-        'time': [
-            '00:00', '01:00', '02:00', '03:00', '04:00', '05:00',
-            '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-            '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-            '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'
-        ],
-        'month': list(range(1, 12 + 1)),
-        # 'area': [50, -1, 49, 1], # North, West, South, East. Default: global
-        # 'grid': [0.25, 0.25], # Latitude/longitude grid: east-west (longitude)
-        # and north-south resolution (latitude). Default: 0.25 x 0.25
-    }
+        'format': 'netcdf'}
     request.update(updates)
 
-    assert {'year', 'month', 'variable'}.issubset(
-        request), "Need to specify at least 'variable', 'year' and 'month'"
+    assert {'year', 'month', 'variable'}.issubset(request), (
+            "Need to specify at least 'variable', 'year' and 'month'")
 
-    result = cdsapi.Client().retrieve(product, request)
+    client = cdsapi.Client(info_callback=logger.debug,
+                            debug=logging.DEBUG >= logging.root.level)
+    result = client.retrieve(product, request)
 
-    fd, target = mkstemp(suffix='.nc', dir=tmpdir)
-    os.close(fd)
+    if lock is None:
+        lock = nullcontext()
 
-    try:
-        if lock is not None:
-            lock.acquire()
+    with lock:
+        fd, target = mkstemp(suffix='.nc', dir=tmpdir); os.close(fd)
+
+        yearstr = ', '.join(atleast_1d(request['year']))
+        variables = atleast_1d(request['variable'])
+        varstr = ''.join(['\t * ' + v + f' ({yearstr})\n' for v in variables])
+        logger.info(f"CDS: Downloading variables\n{varstr}")
         result.download(target)
-    finally:
-        if lock is not None:
-            lock.release()
 
     ds = xr.open_dataset(target, chunks=chunks or {})
     if tmpdir is None:
@@ -277,7 +276,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
 
 
 
-def get_data(cutout, feature, tmpdir, lock, **creation_parameters):
+def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     """
     Retrieve data from ECMWFs ERA5 dataset (via CDS).
 
@@ -316,17 +315,17 @@ def get_data(cutout, feature, tmpdir, lock, **creation_parameters):
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
-    logger.info(f"Downloading data for feature '{feature}' to {tmpdir}.")
+    logger.info(f'Requesting data for feature {feature}...')
 
     def retrieve_once(time):
-        ds = delayed(func)({**retrieval_params, **time})
+        ds = func({**retrieval_params, **time})
         if sanitize and sanitize_func is not None:
-            ds = delayed(sanitize_func)(ds)
+            ds = sanitize_func(ds)
         return ds
 
     if feature in static_features:
-        return retrieve_once(retrieval_times(coords)[0])
+        return retrieve_once(retrieval_times(coords, static=True)).squeeze()
 
     datasets = map(retrieve_once, retrieval_times(coords))
 
-    return delayed(xr.concat)(datasets, dim='time')
+    return xr.concat(datasets, dim='time').sel(time=coords['time'])

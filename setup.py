@@ -10,20 +10,19 @@ from codecs import open
 with open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
 
-exec(open('atlite/_version.py').read())
-
 setup(
     name='atlite',
-    version=__version__,
     author='The Atlite Authors',
-    author_email='coroa@posteo.de',
-    description='Atlite helps you to convert weather data into energy systems model data.',
+    author_email='jonas.hoersch@posteo.de',
+    description='Library for fetching and converting weather data to power systems data',
     long_description=long_description,
     url='https://github.com/PyPSA/atlite',
     license='GPLv3',
     packages=find_packages(exclude=['doc', 'test']),
     include_package_data=True,
     python_requires='~=3.6',
+    use_scm_version={'write_to': 'atlite/version.py'},
+    setup_requires=['setuptools_scm'],
     install_requires=['numpy',
                       'scipy',
                       'pandas>=0.22',
@@ -32,14 +31,11 @@ setup(
                       'xarray>=0.11.2',
                       'netcdf4',
                       'dask>=0.18.0',
-                      'rasterio',
                       'requests',
                       'rtree',
                       "pyyaml",
-                      "toolz",
-                      "python-dateutil",
+                      'rasterio>=1.0',
                       'shapely',
-                      'toolz',
                       'progressbar2',
                       'geopandas',
                       'cdsapi'],

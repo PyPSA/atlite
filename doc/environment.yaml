@@ -34,7 +34,6 @@ dependencies:
     - pyyaml==5.1.2
     - xarray==0.15.1
     - scipy==1.4.1
-    - toolz==0.10.0
     # temporarily pin sphinx version as recommended in https://github.com/readthedocs/readthedocs.org/issues/6870
     # to fix RTD bug.
     - sphinx==3.0.0
