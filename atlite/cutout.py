@@ -20,6 +20,7 @@ Base class for Atlite.
 import xarray as xr
 import pandas as pd
 import numpy as np
+import geopandas as gpd
 from tempfile import mktemp
 from numpy import atleast_1d
 from warnings import warn
@@ -27,12 +28,10 @@ from shapely.geometry import box
 from pathlib import Path
 from pyproj import CRS
 
-import geopandas as gpd
-import pyproj
 
 from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
-from .gis import get_coords, compute_indicatormatrix, grid_cell_areas
+from .gis import get_coords, compute_indicatormatrix
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
 from .datasets import modules as datamodules
@@ -286,11 +285,8 @@ class Cutout:
         coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
         span = (coords[self.shape[1] + 1] - coords[0]) / 2
         cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
-        # TODO!: crs should be specific by the module (atm all module have the
-        # same crs)
-        crs = pyproj.CRS.from_epsg(4326)
         return gpd.GeoDataFrame({'x': coords[:, 0], 'y': coords[:, 1],
-                                 'geometry': cells,}, crs=crs)
+                                 'geometry': cells,}, crs=self.crs)
 
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):

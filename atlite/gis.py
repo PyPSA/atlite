@@ -103,24 +103,6 @@ def reproject(shapes, p1, p2):
 reproject.__doc__ = reproject_shapes.__doc__
 
 
-def grid_cell_areas(cutout):
-    """
-    Compute the area of each grid cell in km2
-    """
-    if cutout.crs == CRS.from_epsg(4326):
-        # use equation derived in https://www.pmel.noaa.gov/maillists/tmap/ferret_users/fu_2004/msg00023.html
-        y = cutout.coords['y']
-        dy = cutout.dy
-        R = 6371.0 # Authalic radius (radius for a sphere with the same surface area as the earth)
-        area_km2 = (R**2 * xu.deg2rad(dx) *
-                    abs(xu.sin(xu.deg2rad(y + dy / 2)) - xu.sin(xu.deg2rad(y - dy/2))))
-        return area_km2
-    else:
-        # transform to ETRS LAEA (https://epsg.io/3035)
-        grid_cells = reproject_shapes(cutout.grid_cells, cutout.crs, 3035)
-        return xr.DataArray(np.array([c.area for c in grid_cells]).reshape(cutout.shape) / 1e6,
-                            coords=cutout.coords, dims=['y', 'x'])
-
 
 def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     """
