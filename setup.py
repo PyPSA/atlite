@@ -37,6 +37,7 @@ setup(
                       'rasterio>=1.0',
                       'shapely',
                       'progressbar2',
+                      'pyproj>=2',
                       'geopandas',
                       'cdsapi'],
     extras_require = {

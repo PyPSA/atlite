@@ -20,13 +20,14 @@ Base class for Atlite.
 import xarray as xr
 import pandas as pd
 import numpy as np
+import geopandas as gpd
 from tempfile import mktemp
 from numpy import atleast_1d
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
-import geopandas as gpd
-import pyproj
+from pyproj import CRS
+
 
 from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
@@ -187,10 +188,10 @@ class Cutout:
                      **storable_chunks, **cutoutparams}
             data = xr.Dataset(coords=coords, attrs=attrs)
 
-        # Check projections
+        # Check compatibility of CRS
         modules = atleast_1d(data.attrs.get('module'))
-        projection = set(datamodules[m].projection for m in modules)
-        assert len(projection) == 1, f'Projections of {module} not compatible'
+        crs = set(CRS(datamodules[m].crs) for m in modules)
+        assert len(crs) == 1, f'CRS of {module} not compatible'
 
         self.path = path
         self.data = data
@@ -205,8 +206,8 @@ class Cutout:
         return self.data.attrs.get('module')
 
     @property
-    def projection(self):
-        return datamodules[atleast_1d(self.module)[0]].projection
+    def crs(self):
+        return CRS(datamodules[atleast_1d(self.module)[0]].crs)
 
     @property
     def available_features(self):
@@ -284,11 +285,8 @@ class Cutout:
         coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
         span = (coords[self.shape[1] + 1] - coords[0]) / 2
         cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
-        # TODO!: crs should be specific by the module (atm all module have the
-        # same crs)
-        crs = pyproj.CRS.from_epsg(4326)
         return gpd.GeoDataFrame({'x': coords[:, 0], 'y': coords[:, 1],
-                                 'geometry': cells,}, crs=crs)
+                                 'geometry': cells,}, crs=self.crs)
 
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):
@@ -322,9 +320,8 @@ class Cutout:
                         list(self.prepared_features.index.unique('feature'))))
 
 
-    def indicatormatrix(self, shapes, shapes_proj='latlong'):
-        return compute_indicatormatrix(self.grid, shapes,
-                                       self.projection, shapes_proj)
+    def indicatormatrix(self, shapes, shapes_crs=4326):
+        return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
 
     # Preparation functions
 

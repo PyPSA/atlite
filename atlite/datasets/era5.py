@@ -33,8 +33,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Model and Projection Settings
-projection = 'latlong'
+# Model and CRS Settings
+crs = 4326
 
 features = {
     'height': ['height'],

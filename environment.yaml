@@ -8,6 +8,7 @@ name: atlite
 channels:
   - defaults
   - conda-forge
+  - defaults
 dependencies:
   - python>=3.6
   - numpy
@@ -24,9 +25,10 @@ dependencies:
   - rtree
   - libspatialindex
   - cdsapi
+  - pyproj>=2.0
   - rasterio>=1.0
-  - geopandas
   - shapely
+  - geopandas
 
   # Recommended for pandas and xarray
   - bottleneck

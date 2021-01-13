@@ -18,15 +18,12 @@ import scipy as sp
 import scipy.sparse
 from collections import OrderedDict
 from warnings import warn
-from functools import partial
-import pyproj
+from pyproj import CRS, Transformer
 import geopandas as gpd
 from shapely.ops import transform
 import rasterio as rio
 import rasterio.warp
 from shapely.strtree import STRtree
-from rasterio.warp import Resampling
-from rasterio.crs import CRS
 
 import logging
 logger = logging.getLogger(__name__)
@@ -75,57 +72,16 @@ def spdiag(v):
     return sp.sparse.csr_matrix((v, inds[:-1], inds), (N, N))
 
 
-class RotProj(pyproj.Proj):
-    def __call__(self, x, y, inverse=False, **kw):
-        if inverse:
-            gx, gy = super(RotProj, self).__call__(x, y,
-                                                   inverse=False, **kw)
-            return np.rad2deg(gx), np.rad2deg(gy)
-        else:
-            return super(RotProj, self).__call__(np.deg2rad(x),
-                                                 np.deg2rad(y),
-                                                 inverse=True, **kw)
-
-
-def as_projection(p):
-    if isinstance(p, pyproj.Proj):
-        return p
-    elif isinstance(p, str):
-        return pyproj.Proj(dict(proj=p))
-    else:
-        return pyproj.Proj(p)
-
-
-def reproject_shapes(shapes, p1, p2):
+def reproject_shapes(shapes, crs1, crs2):
     """
-    Project a collection of `shapes` from one projection `p1` to
-    another projection `p2`
-
-    Projections can be given as strings or instances of pyproj.Proj.
-    Special care is taken for the case where the final projection is
-    of type rotated pole as handled by RotProj.
+    Project a collection of `shapes` from one crs `crs1` to
+    another crs `crs2`
     """
 
-    if p1 == p2:
-        return shapes
-
-    if isinstance(p1, RotProj):
-        if p2 == 'latlong':
-            def reproject_points(x, y):
-                return p1(x, y, inverse=True)
-        else:
-            raise NotImplementedError("`p1` can only be a RotProj if `p2` is "
-                                      "latlong!")
-
-    if isinstance(p2, RotProj):
-        shapes = reproject(shapes, p1, 'latlong')
-        reproject_points = p2
-    else:
-        reproject_points = partial(pyproj.transform, as_projection(p1),
-                                   as_projection(p2))
+    transformer = Transformer.from_crs(crs1, crs2)
 
     def _reproject_shape(shape):
-        return transform(reproject_points, shape)
+        return transform(transformer.transform, shape)
 
     if isinstance(shapes, pd.Series):
         return shapes.map(_reproject_shape)
@@ -143,11 +99,8 @@ def reproject(shapes, p1, p2):
 reproject.__doc__ = reproject_shapes.__doc__
 
 
-def compute_indicatormatrix(
-        orig,
-        dest,
-        orig_proj='latlong',
-        dest_proj='latlong'):
+
+def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     """
     Compute the indicatormatrix
 
@@ -172,7 +125,7 @@ def compute_indicatormatrix(
     """
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
-    dest = reproject_shapes(dest, dest_proj, orig_proj)
+    dest = reproject_shapes(dest, dest_crs, orig_crs)
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
     tree = STRtree(orig)
     idx = dict((id(o), i) for i, o in enumerate(orig))
