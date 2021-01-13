@@ -26,8 +26,8 @@ Major changes
     you can now use `Cutout.data.load()` to load all of the
     cutouts data into memory.  
     *(Warning: Requires a large enough memory.)*
-  - The `Cutout` class has no a new property `grid`, a GeoPandas DataFrame.
-    This combines and deprecates `grid_cells()` and `grid_coordinates()`
+  - The `Cutout` class has a new property `grid`, a GeoPandas DataFrame 
+    which combines and deprecates `grid_cells()` and `grid_coordinates()`
 * The order of coordinates (indices) for `Cutouts` changed: `x` and `y` (e.g. longitude and latitude) are now
     both ascending (before: `x` ascending and `y` descending).
 
