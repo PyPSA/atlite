@@ -87,7 +87,7 @@ def TiltedDiffuseIrrad(
 
     with np.errstate(divide='ignore', invalid='ignore'):
         # brightening factor
-        f = sqrt(direct / influx).fillna(0.)
+        f = sqrt(direct / influx.where(influx!=0)).fillna(0.)
 
         # anisotropy factor
         A = direct / atmospheric_insolation
@@ -126,8 +126,7 @@ def _albedo(ds, influx):
     if 'albedo' in ds:
         albedo = ds['albedo']
     elif 'outflux' in ds:
-        with np.errstate(divide='ignore', invalid='ignore'):
-            albedo = (ds['outflux'] / influx).clip(max=1.)
+        albedo = (ds['outflux'] / influx.where(influx!=0)).fillna(0).clip(max=1)
     else:
         raise AssertionError(
             "Need either albedo or outflux as a variable in the dataset. "
@@ -149,7 +148,7 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model,
     influx_toa = solar_position['atmospheric insolation']
 
     def clip(influx, influx_max):
-        return influx.clip(min=0., max=influx_max.transpose(*influx.dims))
+        return influx.clip(min=0).where(influx >= influx_max, influx_max)
 
     if 'influx' in ds:
         influx = clip(ds['influx'], influx_toa)

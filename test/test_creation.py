@@ -86,7 +86,7 @@ def test_available_features(ref):
 
 
 def test_grid_coords(ref):
-    gcoords = ref.grid_coordinates()
+    gcoords = ref.grid[['x', 'y']]
     spatial = ref.data.stack(spatial=['y', 'x'])['spatial'].data
     spatial = np.array([[s[1], s[0]] for s in spatial])
     np.testing.assert_equal(gcoords, spatial)
@@ -104,12 +104,12 @@ def test_extent(ref):
 
 def test_indicator_matrix(ref):
     # This should be the grid cell at the lower left corner
-    cell = ref.grid_cells[0]
+    cell = ref.grid.geometry[0]
     indicator = ref.indicatormatrix([cell])
     assert indicator[0, 0] == 1.
     assert indicator.sum() == 1
     # This should be the grid cell at the lower left corner
-    cell = ref.grid_cells[-2]
+    cell = ref.grid.geometry.iloc[-2]
     indicator = ref.indicatormatrix([cell])
     assert indicator[0, -2] == 1.
     assert indicator.sum() == 1

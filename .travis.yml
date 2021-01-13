@@ -1,0 +1,43 @@
+language: bash
+sudo: false # Use container-based infrastructure
+
+os:
+  - windows
+  - linux
+  - osx
+
+before_install:
+  - wget https://raw.githubusercontent.com/trichter/conda4travis/latest/conda4travis.sh -O conda4travis.sh
+  - source conda4travis.sh
+
+install:
+  - conda config --add channels conda-forge
+  - conda config --set channel_priority strict
+  - conda install -c conda-forge mamba 
+  - mamba env create -f environment.yaml
+  - conda activate atlite
+  # - conda install -q -c conda-forge python-coveralls # don't install on appveyor
+  - pip install --no-cache-dir .
+
+# before_script:  # configure a headless display to test plot generation
+#   - "export DISPLAY=:99.0"
+#   - "sh -e /etc/init.d/xvfb start"
+#   - sleep 3  # give xvfb some time to start
+
+before_script:
+  - 'echo -ne "url: ${CDSAPI_URL}\nkey: ${CDSAPI_TOKEN}\n" > ~/.cdsapirc'
+
+script:
+  - py.test
+
+# deploy new tags to pypi automatically
+deploy:
+  provider: pypi
+  username: __token__
+  # the token is set as the env var PYPI_PASSWORD on travis
+  edge: true # opt in to dpl v2
+  distributions: "sdist bdist_wheel"
+  skip_existing: true
+  on:
+    tags: true
+    condition: $TRAVIS_OS_NAME = linux # pypi deploy is broken on windows
