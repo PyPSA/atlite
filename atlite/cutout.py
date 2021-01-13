@@ -284,6 +284,8 @@ class Cutout:
         coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
         span = (coords[self.shape[1] + 1] - coords[0]) / 2
         cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
+        # TODO!: crs should be specific by the module (atm all module have the
+        # same crs)
         crs = pyproj.CRS.from_epsg(4326)
         return gpd.GeoDataFrame({'x': coords[:, 0], 'y': coords[:, 1],
                                  'geometry': cells,}, crs=crs)
