@@ -554,7 +554,7 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
     # they should be multiplied by 1000 and the basin area to convert to m3
     # d-1 = m3 h-1 / 24
     runoff *= (1000. / 24.) * \
-        xr.DataArray(basins.shapes.to_crs(dict(proj="aea")).area)
+        xr.DataArray(basins.shapes.to_crs(dict(proj="cea")).area)
 
     return hydrom.shift_and_aggregate_runoff_for_plants(
         basins, runoff, flowspeed, show_progress)
