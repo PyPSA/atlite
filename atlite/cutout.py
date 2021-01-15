@@ -312,7 +312,6 @@ class Cutout:
         if path is None:
             path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
                           dir=self.path.parent)
-        assert not Path(path).with_suffix(".nc").exists()
 
         if bounds is not None:
             if buffer > 0:
