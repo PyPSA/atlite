@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 import geopandas as gpd
 from tempfile import mktemp
-from numpy import atleast_1d
+from numpy import atleast_1d, append
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
@@ -301,6 +301,46 @@ class Cutout:
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
         return Cutout(path, data=data)
+
+
+    def merge(self, other, path=None, **kwargs):
+        '''
+        Merge two cutouts into a single cutout.
+
+
+        Parameters
+        ----------
+        other : atlite.Cutout
+            Other cutout to merge.
+        path : str | path-like
+            File where to store the merged cutout. Defaults to a temporary file.
+            For inplace modification set to `cutout.path`.
+        **kwargs
+            Keyword arguments passed to `xarray.merge()`.
+
+        Returns
+        -------
+        merged : Cutout
+            Merged cutout.
+
+        '''
+        assert isinstance(other, Cutout)
+
+        if path is None:
+            path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
+                          dir=self.path.parent)
+
+        attrs = {**self.data.attrs, **other.data.attrs}
+        attrs['module'] = list(set(append(*atleast_1d(self.module, other.module))))
+        features = self.prepared_features.index.unique('feature')
+        otherfeatures = other.prepared_features.index.unique('feature')
+        attrs['prepared_features'] = list(features.union(otherfeatures))
+
+        data = self.data.merge(other.data, **kwargs).assign_attrs(**attrs)
+
+        return Cutout(path, data=data)
+
+
 
     def __repr__(self):
         start = np.datetime_as_string(self.coords['time'].values[0], unit='D')
