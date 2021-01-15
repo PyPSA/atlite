@@ -155,13 +155,9 @@ class Cutout:
         if path.is_file():
             data = xr.open_dataset(str(path), chunks=chunks)
             data.attrs.update(storable_chunks)
-            if 'module' in cutoutparams:
-                module = cutoutparams.pop('module')
-                if module != data.attrs.get('module'):
-                    logger.warning(
-                        f"Overwriting dataset module "
-                        f"{data.attrs.get('module')} with module {module}.")
-                data.attrs['module'] = module
+            if cutoutparams:
+                warn(f'Arguments {cutoutparams} are ignored, since cutout '
+                     'is already built.')
         elif 'data' in cutoutparams:
             data = cutoutparams.pop('data')
         else:
@@ -255,9 +251,8 @@ class Cutout:
 
     @property
     def prepared(self):
-        warn("The `prepared` attribute is deprecated in favour of the "
-             "fine-grained `prepared_features` list", DeprecationWarning)
-        return self.prepared_features == self.available_features
+        return (self.prepared_features.sort_index()
+                .equals(self.available_features.sort_index()))
 
     @property
     def prepared_features(self):

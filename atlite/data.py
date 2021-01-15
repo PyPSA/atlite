@@ -123,6 +123,10 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
         Cutout with prepared data. The variables are stored in `cutout.data`.
 
     """
+    if cutout.prepared and not overwrite:
+        logger.info('Cutout already prepared.')
+        return cutout
+
     logger.info(f'Storing temporary files in {tmpdir}')
 
     modules = atleast_1d(cutout.module)
