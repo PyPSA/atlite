@@ -287,6 +287,28 @@ class Cutout:
 
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):
+        '''
+        Select parts of the cutout and save output to a file.
+
+        Parameters
+        ----------
+        path : str | path-like
+            Non-existent filename where to store the sub-cutout.
+            Defaults to a temporary file.
+        bounds : GeoSeries.bounds | DataFrame, optional
+            The outer bounds of the cutout or as a DataFrame
+            containing (min.long, min.lat, max.long, max.lat).
+        buffer : float, optional
+            Buffer around the bounds. The default is 0.
+        **kwargs :
+            Passed to `xr.Dataset.sel` for data selection.
+
+        Returns
+        -------
+        selected : Cutout
+            Selected cutout.
+
+        '''
         if path is None:
             path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
                           dir=self.path.parent)
@@ -303,8 +325,7 @@ class Cutout:
 
     def merge(self, other, path=None, **kwargs):
         '''
-        Merge two cutouts into a single cutout.
-
+        Merge two cutouts into a single cutout and save output to a file.
 
 
         Parameters
@@ -312,8 +333,8 @@ class Cutout:
         other : atlite.Cutout
             Other cutout to merge.
         path : str | path-like
-            File where to store the merged cutout. Defaults to a temporary file.
-            Has to be a non-existent filename.
+            Non-existent filename where to store the merged cutout.
+            Defaults to a temporary file.
         **kwargs
             Keyword arguments passed to `xarray.merge()`.
 
