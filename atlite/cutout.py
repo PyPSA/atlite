@@ -96,8 +96,8 @@ class Cutout:
             Chunks when opening netcdf files. For cutout preparation recommand
             to chunk only along the time dimension. Defaults to {'time': 20}
         data : xr.Dataset
-            User provided cutout data. The data will directly be stored at
-            `path`.
+            User provided cutout data. Save the cutout using `Cutout.to_file()`
+            afterwards.
 
         Other Parameters
         ----------------
@@ -161,7 +161,6 @@ class Cutout:
                      'cutout is already built.')
         elif 'data' in cutoutparams:
             data = cutoutparams.pop('data')
-            data.to_netcdf(path)
         else:
             logger.info(f"Building new cutout {path}")
 
@@ -293,8 +292,7 @@ class Cutout:
         Parameters
         ----------
         path : str | path-like
-            Non-existent filename where to store the sub-cutout.
-            Defaults to a temporary file.
+            File where to store the sub-cutout. Defaults to a temporary file.
         bounds : GeoSeries.bounds | DataFrame, optional
             The outer bounds of the cutout or as a DataFrame
             containing (min.long, min.lat, max.long, max.lat).
@@ -333,8 +331,7 @@ class Cutout:
         other : atlite.Cutout
             Other cutout to merge.
         path : str | path-like
-            Non-existent filename where to store the merged cutout.
-            Defaults to a temporary file.
+            File where to store the merged cutout. Defaults to a temporary file.
         **kwargs
             Keyword arguments passed to `xarray.merge()`.
 
@@ -349,7 +346,6 @@ class Cutout:
         if path is None:
             path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
                           dir=self.path.parent)
-        assert not Path(path).with_suffix(".nc").exists()
 
         attrs = {**self.data.attrs, **other.data.attrs}
         attrs['module'] = list(set(append(*atleast_1d(self.module, other.module))))
@@ -361,6 +357,11 @@ class Cutout:
 
         return Cutout(path, data=data)
 
+
+    def to_file(self, fn=None):
+        if fn is None:
+            fn = self.path
+        self.data.to_netcdf(fn)
 
 
     def __repr__(self):
