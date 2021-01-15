@@ -156,8 +156,8 @@ class Cutout:
             data = xr.open_dataset(str(path), chunks=chunks)
             data.attrs.update(storable_chunks)
             if cutoutparams:
-                warn(f'Arguments {cutoutparams} are ignored, since cutout '
-                     'is already built.')
+                warn(f'Arguments {", ".join(cutoutparams)} are ignored, since '
+                     'cutout is already built.')
         elif 'data' in cutoutparams:
             data = cutoutparams.pop('data')
         else:
