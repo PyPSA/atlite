@@ -216,8 +216,9 @@ def regrid(ds, dimx, dimy, **kwargs):
                            input_core_dims=[[namey, namex]],
                            output_core_dims=[['yout', 'xout']],
                            output_dtypes=[dtypes.pop()],
-                           output_sizes={'yout': dst_shape[0],
-                                         'xout': dst_shape[1]},
+                           dask_gufunc_kwargs =
+                               dict(output_sizes={'yout': dst_shape[0],
+                                                  'xout': dst_shape[1]}),
                            dask='parallelized',
                            kwargs=kwargs)
             .rename({'yout': namey, 'xout': namex})

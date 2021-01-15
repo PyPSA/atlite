@@ -257,8 +257,10 @@ class Cutout:
 
     @property
     def prepared_features(self):
-        features = atleast_1d(self.data.attrs.get("prepared_features", []))
-        return self.available_features.loc[:, features].drop_duplicates()
+        index = [(self.data[v].attrs['module'], self.data[v].attrs['feature'])
+                 for v in self.data]
+        index = pd.MultiIndex.from_tuples(index, names=['module', 'feature'])
+        return pd.Series(list(self.data), index)
 
     def grid_coordinates(self):
         warn("The function `grid_coordinates` has been deprecated in favour of "
