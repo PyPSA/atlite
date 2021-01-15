@@ -39,6 +39,11 @@ def update_feature_test(cutout, red):
     assert_equal(red.data.influx_direct, cutout.data.influx_direct)
 
 
+def wrong_recreation(cutout):
+    with pytest.warns(UserWarning):
+        Cutout(path=cutout.path, module='somethingelse')
+
+
 def pv_test(cutout):
     '''
     Test the atlite.Cutout.pv function with different settings. Compare
@@ -203,6 +208,10 @@ class TestERA5:
     @staticmethod
     def test_update_feature_era5(cutout_era5, cutout_era5_reduced):
         return update_feature_test(cutout_era5, cutout_era5_reduced)
+
+    @staticmethod
+    def test_wrong_loading(cutout_era5):
+        wrong_recreation(cutout_era5)
 
     @staticmethod
     def test_pv_era5(cutout_era5):
