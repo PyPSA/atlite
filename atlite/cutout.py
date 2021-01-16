@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 import geopandas as gpd
 from tempfile import mktemp
-from numpy import atleast_1d
+from numpy import atleast_1d, append
 from warnings import warn
 from shapely.geometry import box
 from pathlib import Path
@@ -96,7 +96,8 @@ class Cutout:
             Chunks when opening netcdf files. For cutout preparation recommand
             to chunk only along the time dimension. Defaults to {'time': 20}
         data : xr.Dataset
-            User provided cutout data.
+            User provided cutout data. Save the cutout using `Cutout.to_file()`
+            afterwards.
 
         Other Parameters
         ----------------
@@ -287,6 +288,27 @@ class Cutout:
 
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):
+        '''
+        Select parts of the cutout.
+
+        Parameters
+        ----------
+        path : str | path-like
+            File where to store the sub-cutout. Defaults to a temporary file.
+        bounds : GeoSeries.bounds | DataFrame, optional
+            The outer bounds of the cutout or as a DataFrame
+            containing (min.long, min.lat, max.long, max.lat).
+        buffer : float, optional
+            Buffer around the bounds. The default is 0.
+        **kwargs :
+            Passed to `xr.Dataset.sel` for data selection.
+
+        Returns
+        -------
+        selected : Cutout
+            Selected cutout.
+
+        '''
         if path is None:
             path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
                           dir=self.path.parent)
@@ -298,6 +320,58 @@ class Cutout:
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
         return Cutout(path, data=data)
+
+
+    def merge(self, other, path=None, **kwargs):
+        '''
+        Merge two cutouts into a single cutout.
+
+        Parameters
+        ----------
+        other : atlite.Cutout
+            Other cutout to merge.
+        path : str | path-like
+            File where to store the merged cutout. Defaults to a temporary file.
+        **kwargs
+            Keyword arguments passed to `xarray.merge()`.
+
+        Returns
+        -------
+        merged : Cutout
+            Merged cutout.
+
+        '''
+        assert isinstance(other, Cutout)
+
+        if path is None:
+            path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
+                          dir=self.path.parent)
+
+        attrs = {**self.data.attrs, **other.data.attrs}
+        attrs['module'] = list(set(append(*atleast_1d(self.module, other.module))))
+        features = self.prepared_features.index.unique('feature')
+        otherfeatures = other.prepared_features.index.unique('feature')
+        attrs['prepared_features'] = list(features.union(otherfeatures))
+
+        data = self.data.merge(other.data, **kwargs).assign_attrs(**attrs)
+
+        return Cutout(path, data=data)
+
+
+    def to_file(self, fn=None):
+        '''
+        Save cutout to a netcdf file.
+
+        Parameters
+        ----------
+        fn : str | path-like
+            File name where to store the cutout, defaults to `cutout.path`.
+
+        '''
+        if fn is None:
+            fn = self.path
+        self.data.to_netcdf(fn)
+
 
     def __repr__(self):
         start = np.datetime_as_string(self.coords['time'].values[0], unit='D')

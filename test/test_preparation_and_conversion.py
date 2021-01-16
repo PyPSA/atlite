@@ -39,6 +39,11 @@ def update_feature_test(cutout, red):
     assert_equal(red.data.influx_direct, cutout.data.influx_direct)
 
 
+def merge_test(cutout, other, target_modules):
+    merge = cutout.merge(other, compat='override')
+    assert set(merge.module) == set(target_modules)
+
+    
 def wrong_recreation(cutout):
     with pytest.warns(UserWarning):
         Cutout(path=cutout.path, module='somethingelse')
@@ -235,8 +240,13 @@ class TestSarah:
         return prepared_features_test(cutout_sarah)
 
     @staticmethod
+    def test_merge(cutout_sarah, cutout_era5):
+        return merge_test(cutout_sarah, cutout_era5, ['sarah', 'era5'])
+
+    @staticmethod
     def test_pv_sarah(cutout_sarah):
         return pv_test(cutout_sarah)
+
 
     @staticmethod
     def test_wind_sarah(cutout_sarah):
