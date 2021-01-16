@@ -289,7 +289,7 @@ class Cutout:
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):
         '''
-        Select parts of the cutout and save output to a file.
+        Select parts of the cutout.
 
         Parameters
         ----------
@@ -324,8 +324,7 @@ class Cutout:
 
     def merge(self, other, path=None, **kwargs):
         '''
-        Merge two cutouts into a single cutout and save output to a file.
-
+        Merge two cutouts into a single cutout.
 
         Parameters
         ----------
@@ -360,6 +359,15 @@ class Cutout:
 
 
     def to_file(self, fn=None):
+        '''
+        Save cutout to a netcdf file.
+
+        Parameters
+        ----------
+        fn : str | path-like
+            File name where to store the cutout, defaults to `cutout.path`.
+
+        '''
         if fn is None:
             fn = self.path
         self.data.to_netcdf(fn)
