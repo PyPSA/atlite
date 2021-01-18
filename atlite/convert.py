@@ -50,10 +50,12 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
 
     Parameters (passed through as **params)
     ---------------------------------------
-    matrix : sp.sparse.csr_matrix or None
-        If given, it is used to aggregate the `grid_cells` to buses.
+    matrix : N x S - sp.sparse.csr_matrix or None
+        If given, it is used to aggregate the grid cells to buses.
+        N is the number of buses, S the number of spatial coordinates, in the
+        order of `cutout.grid`.
     index : pd.Index
-        Buses
+        Index of Buses.
     layout : X x Y - xr.DataArray
         The capacity to be build in each of the `grid_cells`.
     shapes : list or pd.Series of shapely.geometry.Polygon
@@ -129,8 +131,12 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     if per_unit or return_capacity:
         assert not is_factors, ("One of `matrix`, `shapes` and `layout` "
                                 "must be given for `per_unit`")
-        caps = matrix * csr_matrix(layout.stack(spatial=['y', 'x'])).T
-        capacity = xr.DataArray(np.asarray(caps.todense()).flatten(), [index])
+        if layout is None:
+            caps = matrix.sum(-1)
+        else:
+            caps = matrix * csr_matrix(layout.stack(spatial=['y', 'x'])).T
+            caps = caps.todense()
+        capacity = xr.DataArray(np.asarray(caps).flatten(), [index])
 
         if per_unit:
             results = (results / capacity.astype(results.dtype)).fillna(0.)
