@@ -43,10 +43,15 @@ def SolarPosition(ds):
     # up to h and dec from [1]
 
     t = ds.indexes['time']
-    chunks = {'time': ds.attrs.get('chunksize_time', 20)}
-    n = xr.DataArray(t.to_julian_date(), [t]).chunk(chunks) - 2451545.0
-    hour = ds['time.hour'].chunk(chunks)
-    minute = ds['time.minute'].chunk(chunks)
+    n = xr.DataArray(t.to_julian_date(), [t]) - 2451545.0
+    hour = ds['time.hour']
+    minute = ds['time.minute']
+
+    if 'time' in ds.chunks:
+        chunks = {'time': ds.chunks['time']}
+        n = n.chunk(chunks)
+        hour = hour.chunk(chunks)
+        minute = minute.chunk(chunks)
 
     L = 280.460 + 0.9856474 * n  # mean longitude (deg)
     g = deg2rad(357.528 + 0.9856003 * n)  # mean anomaly (rad)

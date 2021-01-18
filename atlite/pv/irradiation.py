@@ -87,7 +87,7 @@ def TiltedDiffuseIrrad(
 
     with np.errstate(divide='ignore', invalid='ignore'):
         # brightening factor
-        f = sqrt(direct / influx.where(influx!=0)).fillna(0.)
+        f = sqrt(direct / influx).fillna(0.)
 
         # anisotropy factor
         A = direct / atmospheric_insolation
@@ -148,7 +148,8 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model,
     influx_toa = solar_position['atmospheric insolation']
 
     def clip(influx, influx_max):
-        return influx.clip(min=0).where(influx >= influx_max, influx_max)
+        # use .data in clip due to dask-xarray incompatibilities
+        return influx.clip(min=0, max=influx_max.transpose(*influx.dims).data)
 
     if 'influx' in ds:
         influx = clip(ds['influx'], influx_toa)
@@ -162,7 +163,6 @@ def TiltedIrradiation(ds, solar_position, surface_orientation, trigon_model,
         raise AssertionError(
             "Need either influx or influx_direct and influx_diffuse in the "
             "dataset. Check your cutout and dataset module.")
-
     if trigon_model == 'simple':
         k = surface_orientation['cosincidence'] / \
             sin(solar_position['altitude'])
