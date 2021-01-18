@@ -82,8 +82,13 @@ def migrate_from_cutout_directory(old_cutout_dir, path):
             raise
 
     data = maybe_swap_spatial_dims(data)
-    data.attrs['prepared_features'] = list(
-        datamodules[data.attrs["module"]].features)
+    module = data.attrs["module"]
+    data.attrs['prepared_features'] = list(datamodules[module].features)
+    for v in data:
+        data[v].attrs['module'] = module
+        fd = datamodules[module].features.items()
+        features = [k for k, l in fd if v in l]
+        data[v].attrs['feature'] = features.pop() if features else 'undefined'
 
     path = Path(path).with_suffix(".nc")
     logger.info(f"Writing cutout data to {path}. When done, load it again using"
