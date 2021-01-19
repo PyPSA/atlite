@@ -22,6 +22,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from .aggregate import aggregate_matrix
+from .gis import spdiag
 
 from .pv.solar_position import SolarPosition
 from .pv.irradiation import TiltedIrradiation
@@ -35,7 +36,7 @@ from .resource import (get_windturbineconfig, get_solarpanelconfig,
                        windturbine_smooth)
 
 
-def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
+def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None, shapes=None,
                           shapes_crs=4326, per_unit=False,
                           return_capacity=False, capacity_factor=False,
@@ -50,10 +51,12 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
 
     Parameters (passed through as **params)
     ---------------------------------------
-    matrix : sp.sparse.csr_matrix or None
-        If given, it is used to aggregate the `grid_cells` to buses.
+    matrix : N x S - xr.DataArray or sp.sparse.csr_matrix or None
+        If given, it is used to aggregate the grid cells to buses.
+        N is the number of buses, S the number of spatial coordinates, in the
+        order of `cutout.grid`.
     index : pd.Index
-        Buses
+        Index of Buses.
     layout : X x Y - xr.DataArray
         The capacity to be build in each of the `grid_cells`.
     shapes : list or pd.Series of shapely.geometry.Polygon
@@ -69,8 +72,8 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
         Additionally returns the installed capacity at each bus corresponding
         to `layout` (defaults to False).
     capacity_factor : boolean
-        If True, the capacity factor of the chosen resource for each grid cell
-        is computed.
+        If True, the static capacity factor of the chosen resource for each
+        grid cell is computed.
     show_progress : boolean, default True
         Whether to show a progress bar.
 
@@ -94,57 +97,64 @@ def convert_and_aggregate(cutout, convert_func, windows=None, matrix=None,
     logger.info(f"Convert and aggregate '{func_name}'.")
     da = convert_func(cutout.data, **convert_kwds)
 
-    is_factors = all(v is None for v in [layout, shapes, matrix])
+    no_args = all(v is None for v in [layout, shapes, matrix])
 
-    if is_factors:
-        results = da.sum('time')
-    else:
-        if layout is not None:
-            if not isinstance(layout, xr.DataArray):
-                raise TypeError('Argument `layout` must be an xr.DataArray.')
-            layout = layout.reindex_like(cutout.data)
-            da = da * layout
-
-        if shapes is not None:
-            geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
-            if isinstance(shapes, geoseries_like) and index is None:
-                index = shapes.index
-            matrix = cutout.indicatormatrix(shapes, shapes_crs)
-
-        if matrix is not None:
-            matrix = csr_matrix(matrix)
-            if index is None:
-                index = pd.RangeIndex(matrix.shape[0])
-            results = aggregate_matrix(da, matrix=matrix, index=index)
+    if no_args:
+        if per_unit or return_capacity:
+            raise ValueError("One of `matrix`, `shapes` and `layout` must be "
+                             "given for `per_unit` or `return_capacity`")
+        if capacity_factor:
+            return maybe_progressbar(da.mean('time'), show_progress)
         else:
-            # da == layout * da
-            results = da.sum(['x', 'y'])
+            return maybe_progressbar(da.sum('time'), show_progress)
 
 
-    if capacity_factor:
-        assert is_factors, ("The arguments `matrix`, `shapes` and `layout` "
-                            "are incompatible with capacity_factor")
-        results /= cutout.coords['time'].size
+    if shapes is not None:
+        geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
+        if isinstance(shapes, geoseries_like) and index is None:
+            index = shapes.index
+        matrix = cutout.indicatormatrix(shapes, shapes_crs)
+
+
+    if layout is not None:
+        assert isinstance(layout, xr.DataArray)
+        layout = layout.reindex_like(cutout.data).stack(spatial=['y', 'x'])
+        if matrix is None:
+            matrix = layout.expand_dims('new')
+        else:
+            matrix = csr_matrix(matrix) * spdiag(layout)
+
+    index = pd.RangeIndex(matrix.shape[0]) if index is None else index
+    matrix = csr_matrix(matrix)
+    results = aggregate_matrix(da, matrix=matrix, index=index)
+
 
     if per_unit or return_capacity:
-        assert not is_factors, ("One of `matrix`, `shapes` and `layout` "
-                                "must be given for `per_unit`")
-        caps = matrix * csr_matrix(layout.stack(spatial=['y', 'x'])).T
-        capacity = xr.DataArray(np.asarray(caps.todense()).flatten(), [index])
+        caps = matrix.sum(-1)
+        capacity = xr.DataArray(np.asarray(caps).flatten(), [index])
+        capacity.attrs['units'] ='MW'
 
-        if per_unit:
-            results = (results / capacity.astype(results.dtype)).fillna(0.)
-
-    if show_progress:
-        with ProgressBar():
-            results.load()
+    if per_unit:
+        results = (results / capacity.astype(results.dtype)).fillna(0.)
+        results.attrs['units'] = 'p.u.'
     else:
-        results.load()
+        results.attrs['units'] = 'MW'
+
 
     if return_capacity:
-        return results, capacity
+        return maybe_progressbar(results, show_progress), capacity
     else:
-        return results
+        return maybe_progressbar(results, show_progress)
+
+
+def maybe_progressbar(ds, show_progress):
+    """Load a xr.dataset with dask arrays either with or without progressbar."""
+    if show_progress:
+        with ProgressBar(minimum=2):
+            ds.load()
+    else:
+        ds.load()
+    return ds
 
 
 # temperature

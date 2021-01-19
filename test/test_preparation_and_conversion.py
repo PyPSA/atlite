@@ -43,7 +43,7 @@ def merge_test(cutout, other, target_modules):
     merge = cutout.merge(other, compat='override')
     assert set(merge.module) == set(target_modules)
 
-    
+
 def wrong_recreation(cutout):
     with pytest.warns(UserWarning):
         Cutout(path=cutout.path, module='somethingelse')
@@ -76,7 +76,7 @@ def pv_test(cutout):
     cap_per_region = (cells.assign(cap_factor=cap_factor.stack(spatial=['y','x']))
                           .groupby('regions').cap_factor.sum())
 
-    assert all(cap_per_region == capacity)
+    assert all(cap_per_region.round(3) == capacity.round(3))
 
     # Now compare with optimal orienation
     cap_factor_opt = cutout.pv(atlite.resource.solarpanels.CdTe, 'latitude_optimal')
