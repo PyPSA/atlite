@@ -135,7 +135,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         capacity.attrs['units'] ='MW'
 
     if per_unit:
-        results = (results / capacity.astype(results.dtype)).fillna(0.)
+        results = (results / capacity.where(capacity!=0)).fillna(0.)
         results.attrs['units'] = 'p.u.'
     else:
         results.attrs['units'] = 'MW'
