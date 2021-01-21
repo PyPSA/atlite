@@ -22,9 +22,9 @@ Major contributions until now from:
 |                    |                      | * KIT Karlsruhe      |
 |                    |                      | * RLI Berlin         |
 +--------------------+----------------------+----------------------+
-| 2019-2020          | Johannes Hampp       | University Giessen   |
+| 2019-2021          | Fabian Hofmann       | FIAS Frankfurt       |
 +--------------------+----------------------+----------------------+
-| 2019-2020          | Fabian Hofmann       | FIAS Frankfurt       |
+| 2019-2020          | Johannes Hampp       | University Giessen   |
 +--------------------+----------------------+----------------------+
 | 2016-2019          | Tom Brown            | * FIAS Frankfurt     |
 |                    |                      | * KIT Karlsruhe      |

@@ -1,4 +1,4 @@
-  .. SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+  .. SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 
   .. SPDX-License-Identifier: CC-BY-4.0
 
@@ -114,7 +114,7 @@ to file issues or make pull requests.
 Authors and Copyright
 ---------------------
 
-Copyright (C) 2016-2020 The Atlite Authors.
+Copyright (C) 2016-2021 The Atlite Authors.
 
 See the `AUTHORS`_ for details.
 
