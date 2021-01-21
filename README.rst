@@ -35,7 +35,7 @@ resources low.
 
 Atlite can process the following weather data fields and can convert them into following power-system relevant time series for any subsets of a full weather data base.
 
-.. image:: doc/workflow.png
+.. image:: doc/workflow_chart.png
 
 .. * Temperature
 .. * Downward short-wave radiation
