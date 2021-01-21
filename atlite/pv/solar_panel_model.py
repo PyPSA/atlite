@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import
 
-from operator import itemgetter
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 
 import numpy as np
-import pandas as pd
-import xarray as xr
 
 # Huld model was copied from gsee -- global solar energy estimator
 # by Stefan Pfenninger
 # https://github.com/renewables-ninja/gsee/blob/master/gsee/pv.py
+
 
 def _power_huld(irradiance, t_amb, pc):
     """
@@ -23,23 +24,22 @@ def _power_huld(irradiance, t_amb, pc):
     """
 
     # normalized module temperature
-    T_ = (pc['c_temp_amb'] * t_amb + pc['c_temp_irrad'] * irradiance) - pc['r_tmod']
+    T_ = (pc['c_temp_amb'] * t_amb + pc['c_temp_irrad']
+          * irradiance) - pc['r_tmod']
 
     # normalized irradiance
     G_ = irradiance / pc['r_irradiance']
 
-    # Suppress divide-by-zero and invalid-value warnings in log for G_ = 0
-    with np.errstate(invalid='ignore', divide='ignore'):
-        # NB: np.log without base implies base e or ln
-        eff = (1 + pc['k_1'] * np.log(G_) + pc['k_2'] * (np.log(G_)) ** 2 +
-               T_ * (pc['k_3'] + pc['k_4'] * np.log(G_) +
-                     pc['k_5'] * (np.log(G_)) ** 2) +
-               pc['k_6'] * (T_ ** 2))
+    log_G_ = np.log(G_.where(G_>0))
+    # NB: np.log without base implies base e or ln
+    eff = (1 + pc['k_1'] * log_G_ + pc['k_2'] * (log_G_) ** 2 +
+           T_ * (pc['k_3'] + pc['k_4'] * log_G_ + pc['k_5'] * log_G_ ** 2) +
+           pc['k_6'] * (T_ ** 2))
 
-        eff = eff.fillna(0.)
-        eff.values[eff.values < 0] = 0.  # Also make sure efficiency can't be negative
+    eff = eff.fillna(0.).clip(min=0)
 
     return G_ * eff * pc.get('inverter_efficiency', 1.)
+
 
 def _power_bofinger(irradiance, t_amb, pc):
     """
@@ -54,17 +54,22 @@ def _power_bofinger(irradiance, t_amb, pc):
 
     fraction = (pc['NOCT'] - pc['Tamb']) / pc['Intc']
 
-    with np.errstate(divide='ignore', invalid='ignore'):
-        eta_ref = (pc['A'] + pc['B']*irradiance + pc['C']*np.log(irradiance))
-        eta = (eta_ref *
-               (1. + pc['D'] * (fraction * irradiance + (t_amb - pc['Tstd']))) /
-               (1. + pc['D'] * fraction / pc['ta'] * eta_ref * irradiance))
+    eta_ref = (
+        pc['A'] +
+        pc['B'] *
+        irradiance +
+        pc['C'] *
+        np.log(irradiance.where(irradiance!=0)))
+    eta = (eta_ref *
+           (1. + pc['D'] * (fraction * irradiance + (t_amb - pc['Tstd']))) /
+           (1. + pc['D'] * fraction / pc['ta'] * eta_ref * irradiance)
+           ).fillna(0)
 
-    capacity = (pc['A'] + pc['B'] * 1000. + pc['C'] * np.log(1000.))*1e3
+    capacity = (pc['A'] + pc['B'] * 1000. + pc['C'] * np.log(1000.)) * 1e3
     power = irradiance * eta * (pc.get('inverter_efficiency', 1.) / capacity)
-    power.values[irradiance.transpose(*irradiance.dims).values < pc['threshold']] = 0.
-
+    power = power.where(irradiance >= pc['threshold'], 0)
     return power.rename('AC power')
+
 
 def SolarPanelModel(ds, irradiance, pc):
     model = pc.get('model', 'huld')

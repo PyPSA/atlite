@@ -1,55 +1,93 @@
 # -*- coding: utf-8 -*-
 
-## Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)
-
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 3 of the
-## License, or (at your option) any later version.
-
-## This program is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-
-## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Renewable Energy Atlas Lite (Atlite)
-
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+Module for providing access to external ressources, like windturbine or pv panel configurations.
 """
 
-from __future__ import absolute_import
-
-import os
+from .utils import arrowdict
 import yaml
-from six import string_types
 from operator import itemgetter
 import numpy as np
 from scipy.signal import fftconvolve
-from pkg_resources import resource_stream
+from pathlib import Path
+import requests
+import pandas as pd
+import json
+import re
+import pkg_resources
 
 import logging
 logger = logging.getLogger(name=__name__)
 
-def get_windturbineconfig(turbine):
-    """Load the 'turbine'.yaml file from local disk and provide a turbine dict."""
 
-    res_name = "resources/windturbine/" + turbine + ".yaml"
-    turbineconf = yaml.safe_load(resource_stream(__name__, res_name))
-    V, POW, hub_height = itemgetter('V', 'POW', 'HUB_HEIGHT')(turbineconf)
-    return dict(V=np.array(V), POW=np.array(POW), hub_height=hub_height, P=np.max(POW))
+RESOURCE_DIRECTORY = Path(
+    pkg_resources.resource_filename(
+        __name__, "resources"))
+WINDTURBINE_DIRECTORY = RESOURCE_DIRECTORY / "windturbine"
+SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
+
+
+def get_windturbineconfig(turbine):
+    """Load the wind 'turbine' configuration.
+
+    The configuration can either be one from local storage, then 'turbine' is
+    considered part of the file base name '<turbine>.yaml' in config.windturbine_dir.
+    Alternatively the configuration can be downloaded from the Open Energy Database (OEDB),
+    in which case 'turbine' is a dictionary used for selecting a turbine from the database.
+
+    Parameter
+    ---------
+    turbine : str
+        Name of the local turbine file.
+        Alternatively a dict for selecting a turbine from the Open Energy
+        Database, in this case the key 'source' should be contained. For all
+        other key arguments to retrieve the matching turbine, see
+        atlite.resource.download_windturbineconfig() for details.
+    """
+
+    if isinstance(turbine, str) and turbine.startswith("oedb:"):
+        return get_oedb_windturbineconfig(turbine[len("oedb:"):])
+
+    if isinstance(turbine, str):
+        if not turbine.endswith(".yaml"):
+            turbine += ".yaml"
+
+        turbine = WINDTURBINE_DIRECTORY / turbine
+
+    with open(turbine, "r") as f:
+        conf = yaml.safe_load(f)
+
+    return dict(
+        V=np.array(conf['V']),
+        POW=np.array(conf['POW']),
+        hub_height=conf['HUB_HEIGHT'],
+        P=np.max(conf['POW'])
+    )
+
 
 def get_solarpanelconfig(panel):
-    res_name = "resources/solarpanel/" + panel + ".yaml"
-    return yaml.safe_load(resource_stream(__name__, res_name))
+    """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
+
+    if isinstance(panel, str):
+        if not panel.endswith(".yaml"):
+            panel += ".yaml"
+
+        panel = SOLARPANEL_DIRECTORY / panel
+
+    with open(panel, "r") as f:
+        conf = yaml.safe_load(f)
+
+    return conf
+
 
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
 
-    if isinstance(panel, string_types):
+    if isinstance(panel, (str, Path)):
         panel = get_solarpanelconfig(panel)
 
     model = panel.get('model', 'huld')
@@ -59,15 +97,17 @@ def solarpanel_rated_capacity_per_unit(panel):
         # one unit in the capacity layout is interpreted as one panel of a
         # capacity (A + 1000 * B + log(1000) * C) * 1000W/m^2 * (k / 1000)
         A, B, C = itemgetter('A', 'B', 'C')(panel)
-        return (A + B * 1000. + C * np.log(1000.))*1e3
+        return (A + B * 1000. + C * np.log(1000.)) * 1e3
+
 
 def windturbine_rated_capacity_per_unit(turbine):
-    if isinstance(turbine, string_types):
+    if isinstance(turbine, (str, Path)):
         turbine = get_windturbineconfig(turbine)
 
     return turbine['P']
 
-def windturbine_smooth(turbine, params={}):
+
+def windturbine_smooth(turbine, params=None):
     '''
     Smooth the powercurve in `turbine` with a gaussian kernel
 
@@ -92,17 +132,17 @@ def windturbine_smooth(turbine, params={}):
     for energy system analysis, Energy 93, Part 1 (2015) 1074–1088.
     '''
 
-    if not isinstance(params, dict):
+    if params is None:
         params = {}
 
-    eta = params.setdefault('eta', 0.95)
-    Delta_v = params.setdefault('Delta_v', 1.27)
-    sigma = params.setdefault('sigma', 2.29)
+    eta = params.get('eta', 0.95)
+    Delta_v = params.get('Delta_v', 1.27)
+    sigma = params.get('sigma', 2.29)
 
     def kernel(v_0):
         # all velocities in m/s
-        return (1./np.sqrt(2*np.pi*sigma*sigma) *
-                np.exp(-(v_0 - Delta_v)*(v_0 - Delta_v)/(2*sigma*sigma) ))
+        return (1. / np.sqrt(2 * np.pi * sigma * sigma) *
+                np.exp(-(v_0 - Delta_v) * (v_0 - Delta_v) / (2 * sigma * sigma)))
 
     def smooth(velocities, power):
         # interpolate kernel and power curve to the same, regular velocity grid
@@ -113,11 +153,12 @@ def windturbine_smooth(turbine, params={}):
         # convolve power and kernel
         # the downscaling is necessary because scipy expects the velocity
         # increments to be 1., but here, they are 0.1
-        convolution = 0.1*fftconvolve(power_reg, kernel_reg, mode='same')
+        convolution = 0.1 * fftconvolve(power_reg, kernel_reg, mode='same')
 
         # sample down so power curve doesn't get too long
         velocities_new = np.linspace(0., 35., 72)
-        power_new = eta * np.interp(velocities_new, velocities_reg, convolution)
+        power_new = eta * np.interp(velocities_new,
+                                    velocities_reg, convolution)
 
         return velocities_new, power_new
 
@@ -126,7 +167,154 @@ def windturbine_smooth(turbine, params={}):
     turbine['P'] = np.max(turbine['POW'])
 
     if any(turbine['POW'][np.where(turbine['V'] == 0.0)] > 1e-2):
-        logger.warn("Oversmoothing detected with parameters {p}. " +
-                    "Turbine generates energy at 0 m/s wind speeds".format(p=params))
+        logger.warning(
+            "Oversmoothing detected with parameters eta=%f, Delta_v=%f, sigma=%f. "
+            "Turbine generates energy at 0 m/s wind speeds.", eta, Delta_v, sigma)
 
     return turbine
+
+
+def get_oedb_windturbineconfig(search=None, **search_params):
+    """
+    Download a windturbine configuration from the OEDB database.
+
+    Download the configuration of a windturbine model from the OEDB database
+    into the local 'windturbine_dir'.
+    The OEDB database can be viewed here:
+    https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library
+    (2019-07-22)
+    Only one turbine configuration is downloaded at a time, if the
+    search parameters yield an ambigious result, no data is downloaded.
+
+    Parameters
+    ----------
+    search : int|str
+        Smart search parameter, if int use as model id, if str look in name or turbine_type
+    **search_params : dict
+        Recognized arguments are 'id', 'name', 'turbine_type' and 'manufacturer'
+
+    Returns
+    -------
+    turbineconfig : dict
+        The turbine configuration in the format from 'atlite.ressource.get_turbineconf(name)'.
+
+    Usage
+    -----
+    >>> get_oedb_windturbineconfig(10)
+    {'V': ..., 'POW': ..., ...}
+
+    >>> get_oedb_windturbineconfig(name="E-53/800", manufacturer="Enercon")
+    {'V': ..., 'POW': ..., ...}
+
+    """
+
+    # Parse information of different allowed 'turbine' values
+    if isinstance(search, int):
+        search_params.setdefault('id', search)
+        search = None
+
+    # Retrieve and cache OEDB turbine data
+    OEDB_URL = 'https://openenergy-platform.org/api/v0/schema/supply/tables/wind_turbine_library/rows'
+
+    # Cache turbine request locally
+    global _oedb_turbines
+
+    if _oedb_turbines is None:
+        # Get the turbine list
+        result = requests.get(OEDB_URL)
+
+        # Convert JSON to dataframe for easier filtering
+        # Only consider turbines with power curves available
+        df = pd.DataFrame.from_dict(result.json())
+        _oedb_turbines = df[df.has_power_curve]
+
+    logger.info(
+        "Searching turbine power curve in OEDB database using " +
+        ", ".join(
+            f"{k}='{v}'" for (
+                k,
+                v) in search_params.items()) +
+        ".")
+
+    # Working copy
+    df = _oedb_turbines
+    selector = True
+    if search is not None:
+        selector &= (df.name.str.contains(search, case=False) |
+                     df.turbine_type.str.contains(search, case=False))
+    if 'id' in search_params:
+        selector &= df.id == int(search_params['id'])
+    if 'name' in search_params:
+        selector &= df.name.str.contains(search_params['name'], case=False)
+    if 'turbine_type' in search_params:
+        selector &= df.turbine_type.str.contains(
+            search_params['name'], case=False)
+    if 'manufacturer' in search_params:
+        selector &= df.manufacturer.str.contains(
+            search_params['manufacturer'], case=False)
+
+    df = df.loc[selector]
+
+    if len(df) < 1:
+        raise RuntimeError("No turbine found.")
+    elif len(df) > 1:
+        raise RuntimeError(
+            f"Provided information corresponds to {len(df)} turbines,"
+            " use `id` for an unambiguous search.\n" +
+            str(df[['id', 'manufacturer', 'turbine_type']])
+        )
+
+    # Convert to series for simpliticty
+    ds = df.iloc[0]
+
+    # convert power from kW to MW
+    power = np.array(json.loads(ds.power_curve_values)) / 1e3
+
+    hub_height = ds.hub_height
+
+    if not hub_height:
+        hub_height = 100
+        logger.warning(
+            "No hub_height defined in dataset. Manual clean-up required."
+            "Assuming a hub_height of 100m for now.")
+    elif isinstance(hub_height, str):
+        hub_heights = [
+            float(t) for t in re.split(
+                r"\s*;\s*",
+                hub_height.strip()) if t]
+
+        if len(hub_heights) > 1:
+            hub_height = np.mean(hub_heights, dtype=int)
+            logger.warning(
+                "Multiple values for hub_height in dataset (%s). "
+                "Manual clean-up required. Using the averge %dm for now.",
+                hub_heights,
+                hub_height)
+        else:
+            hub_height = hub_heights[0]
+
+    turbineconf = {
+        "name": ds.turbine_type.strip(),
+        "manufacturer": ds.manufacturer.strip(),
+        "source": f"Original: {ds.source}. Via OEDB {OEDB_URL}",
+        "hub_height": hub_height,
+        "V": np.array(json.loads(ds.power_curve_wind_speeds)),
+        "POW": power,
+        "P": power.max()
+    }
+
+    # Cache in windturbines
+    global windturbines
+    charmap = str.maketrans('/- ', '___')
+    name = "{manufacturer}_{name}".format(**turbineconf).translate(charmap)
+    windturbines[name] = turbineconf
+
+    return turbineconf
+
+
+# Global caches
+_oedb_turbines = None
+windturbines = arrowdict(
+    {p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
+solarpanels = arrowdict(
+    {p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})

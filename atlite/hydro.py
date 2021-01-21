@@ -1,35 +1,20 @@
 # -*- coding: utf-8 -*-
 
-## Copyright 2016-2017 Jonas Hoersch (RLI)
-
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 3 of the
-## License, or (at your option) any later version.
-
-## This program is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-
-## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Renewable Energy Atlas Lite (Atlite)
-
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+Module involving hydro operations in Atlite.
 """
+
 import xarray as xr
 import geopandas as gpd
 import pandas as pd
 import numpy as np
 
-import scipy.sparse as spp
 from collections import namedtuple
 from shapely.geometry import Point
-from six import string_types
 
 from .utils import make_optional_progressbar
 
@@ -38,12 +23,15 @@ logger = logging.getLogger(__name__)
 
 Basins = namedtuple('Basins', ['plants', 'meta', 'shapes'])
 
+
 def find_basin(shapes, lon, lat):
     hids = shapes.index[shapes.intersects(Point(lon, lat))]
     if len(hids) > 1:
-        logger.warning(f"The point ({lon}, {lat}) is in several basins: {hids}. "
-                        "Assuming the first one.")
+        logger.warning(
+            f"The point ({lon}, {lat}) is in several basins: {hids}. "
+            "Assuming the first one.")
     return hids[0]
+
 
 def find_upstream_basins(meta, hid):
     hids = [hid]
@@ -53,8 +41,9 @@ def find_upstream_basins(meta, hid):
         i += 1
     return hids
 
+
 def determine_basins(plants, hydrobasins, show_progress=True):
-    if isinstance(hydrobasins, string_types):
+    if isinstance(hydrobasins, str):
         hydrobasins = gpd.read_file(hydrobasins)
 
     assert isinstance(hydrobasins, gpd.GeoDataFrame), (
@@ -62,8 +51,10 @@ def determine_basins(plants, hydrobasins, show_progress=True):
         "but received `type(hydrobasins) = {}`".format(type(hydrobasins))
     )
 
-    missing_columns = (pd.Index(['HYBAS_ID', 'DIST_MAIN', 'NEXT_DOWN', 'geometry'])
-                       .difference(hydrobasins.columns))
+    missing_columns = (pd.Index(['HYBAS_ID',
+                                 'DIST_MAIN',
+                                 'NEXT_DOWN',
+                                 'geometry']) .difference(hydrobasins.columns))
     assert missing_columns.empty, (
         "Couldn't find the column(s) {} in the hydrobasins dataset."
         .format(", ".join(missing_columns))
@@ -82,15 +73,23 @@ def determine_basins(plants, hydrobasins, show_progress=True):
     for p in maybe_progressbar(plants.itertuples()):
         hid = find_basin(shapes, p.lon, p.lat)
         plant_basins.append((hid, find_upstream_basins(meta, hid)))
-    plant_basins = pd.DataFrame(plant_basins, columns=['hid', 'upstream'], index=plants.index)
+    plant_basins = pd.DataFrame(
+        plant_basins, columns=[
+            'hid', 'upstream'], index=plants.index)
 
-    unique_basins = pd.Index(plant_basins['upstream'].sum()).unique().rename("hid")
-    return Basins(plant_basins, meta.loc[unique_basins], shapes.loc[unique_basins])
+    unique_basins = pd.Index(
+        plant_basins['upstream'].sum()).unique().rename("hid")
+    return Basins(
+        plant_basins,
+        meta.loc[unique_basins],
+        shapes.loc[unique_basins])
 
-def shift_and_aggregate_runoff_for_plants(basins, runoff, flowspeed=1, show_progress=True):
+
+def shift_and_aggregate_runoff_for_plants(
+        basins, runoff, flowspeed=1, show_progress=True):
     inflow = xr.DataArray(np.zeros((len(basins.plants), runoff.indexes["time"].size)),
                           [('plant', basins.plants.index),
-                           ('time' , runoff.coords["time"])])
+                           ('time', runoff.coords["time"])])
 
     maybe_progressbar = make_optional_progressbar(
         show_progress, "Shift and aggregate runoff by plant", len(basins.plants)

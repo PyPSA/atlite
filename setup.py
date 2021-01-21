@@ -1,13 +1,18 @@
-from __future__ import absolute_import
+# -*- coding: utf-8 -*-
+
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 from setuptools import setup, find_packages
+from codecs import open
 
 with open('README.rst', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
     name='atlite',
-    author='Jonas Hoersch (FIAS), Tom Brown (FIAS), Gorm Andresen (Aarhus University)',
+    author='The Atlite Authors',
     author_email='jonas.hoersch@posteo.de',
     description='Library for fetching and converting weather data to power systems data',
     long_description=long_description,
@@ -15,6 +20,7 @@ setup(
     license='GPLv3',
     packages=find_packages(exclude=['doc', 'test']),
     include_package_data=True,
+    python_requires='~=3.6',
     use_scm_version={'write_to': 'atlite/version.py'},
     setup_requires=['setuptools_scm'],
     install_requires=['numpy',
@@ -23,11 +29,21 @@ setup(
                       'bottleneck',
                       'numexpr',
                       'xarray>=0.11.2',
+                      'netcdf4',
                       'dask>=0.18.0',
+                      'requests',
+                      'rtree',
+                      "pyyaml",
                       'rasterio>=1.0',
                       'shapely',
                       'progressbar2',
-                      'geopandas'],
+                      'pyproj>=2',
+                      'geopandas',
+                      'cdsapi'],
+    extras_require = {
+        "docs": ["numpydoc",
+                 "sphinx", "sphinx_rtd_theme", "nbsphinx"]
+    },
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Environment :: Console',

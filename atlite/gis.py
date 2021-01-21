@@ -1,112 +1,106 @@
-## Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)
+# -*- coding: utf-8 -*-
 
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 3 of the
-## License, or (at your option) any later version.
-
-## This program is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-
-## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# SPDX-FileCopyrightText: 2016-2020 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """
 Renewable Energy Atlas Lite (Atlite)
 
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+Light-weight version of Aarhus RE Atlas for converting weather data to power
+systems data
 """
-
-from __future__ import absolute_import
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-import scipy as sp, scipy.sparse
+import scipy as sp
+import scipy.sparse
 from collections import OrderedDict
 from warnings import warn
-from six import string_types, iteritems
-from six.moves import map, range
-from itertools import product
-from functools import partial
-import pyproj
-from shapely.prepared import prep
+from pyproj import CRS, Transformer
+import geopandas as gpd
 from shapely.ops import transform
 import rasterio as rio
 import rasterio.warp
-from rasterio.warp import Resampling
-from rasterio.crs import CRS
+from shapely.strtree import STRtree
 
 import logging
 logger = logging.getLogger(__name__)
 
+
+def get_coords(x, y, time, dx=0.25, dy=0.25, dt='h', **kwargs):
+    """
+    Create an cutout coordinate system on the basis of slices and step sizes.
+
+    Parameters
+    ----------
+    x : slice
+        Numerical slices with lower and upper bound of the x dimension.
+    y : slice
+        Numerical slices with lower and upper bound of the y dimension.
+    time : slice
+        Slice with strings with lower and upper bound of the time dimension.
+    dx : float, optional
+        Step size of the x coordinate. The default is 0.25.
+    dy : float, optional
+        Step size of the y coordinate. The default is 0.25.
+    dt : str, optional
+        Frequency of the time coordinate. The default is 'h'. Valid are all
+        pandas offset aliases.
+
+    Returns
+    -------
+    ds : xarray.Dataset
+        Dataset with x, y and time variables, representing the whole coordinate
+        system.
+    """
+    x = slice(*sorted([x.start, x.stop]))
+    y = slice(*sorted([y.start, y.stop]))
+
+    ds = xr.Dataset({'x': np.arange(-180, 180, dx),
+                     'y': np.arange(-90, 90, dy),
+                     'time': pd.date_range(start="1979", end="now", freq=dt)})
+    ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
+    ds = ds.sel(x=x, y=y, time=time)
+    return ds
+
+
 def spdiag(v):
     N = len(v)
-    inds = np.arange(N+1, dtype=np.int32)
+    inds = np.arange(N + 1, dtype=np.int32)
     return sp.sparse.csr_matrix((v, inds[:-1], inds), (N, N))
 
-class RotProj(pyproj.Proj):
-    def __call__(self, x, y, inverse=False, **kw):
-        if inverse:
-            gx, gy = super(RotProj, self).__call__(x, y,
-                                                   inverse=False, **kw)
-            return np.rad2deg(gx), np.rad2deg(gy)
-        else:
-            return super(RotProj, self).__call__(np.deg2rad(x),
-                                                 np.deg2rad(y),
-                                                 inverse=True, **kw)
 
-def as_projection(p):
-    if isinstance(p, pyproj.Proj):
-        return p
-    elif isinstance(p, string_types):
-        return pyproj.Proj(dict(proj=p))
-    else:
-        return pyproj.Proj(p)
-
-def reproject_shapes(shapes, p1, p2):
+def reproject_shapes(shapes, crs1, crs2):
     """
-    Project a collection of `shapes` from one projection `p1` to
-    another projection `p2`
-
-    Projections can be given as strings or instances of pyproj.Proj.
-    Special care is taken for the case where the final projection is
-    of type rotated pole as handled by RotProj.
+    Project a collection of `shapes` from one crs `crs1` to
+    another crs `crs2`
     """
 
-    if p1 == p2:
-        return shapes
-
-    if isinstance(p1, RotProj):
-        if p2 == 'latlong':
-            reproject_points = lambda x,y: p1(x, y, inverse=True)
-        else:
-            raise NotImplementedError("`p1` can only be a RotProj if `p2` is latlong!")
-
-    if isinstance(p2, RotProj):
-        shapes = reproject(shapes, p1, 'latlong')
-        reproject_points = p2
-    else:
-        reproject_points = partial(pyproj.transform, as_projection(p1), as_projection(p2))
+    transformer = Transformer.from_crs(crs1, crs2)
 
     def _reproject_shape(shape):
-        return transform(reproject_points, shape)
+        return transform(transformer.transform, shape)
 
     if isinstance(shapes, pd.Series):
         return shapes.map(_reproject_shape)
     elif isinstance(shapes, dict):
-        return OrderedDict((k, _reproject_shape(v)) for k, v in iteritems(shapes))
+        return OrderedDict((k, _reproject_shape(v)) for k, v in shapes.items())
     else:
         return list(map(_reproject_shape, shapes))
+
 
 def reproject(shapes, p1, p2):
     warn("reproject has been renamed to reproject_shapes", DeprecationWarning)
     return reproject_shapes(shapes, p1, p2)
+
+
 reproject.__doc__ = reproject_shapes.__doc__
 
-def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'):
+
+
+def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     """
     Compute the indicatormatrix
 
@@ -129,39 +123,27 @@ def compute_indicatormatrix(orig, dest, orig_proj='latlong', dest_proj='latlong'
     I : sp.sparse.lil_matrix
       Indicatormatrix
     """
-
-    dest = reproject_shapes(dest, dest_proj, orig_proj)
+    orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
+    dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
+    dest = reproject_shapes(dest, dest_crs, orig_crs)
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
+    tree = STRtree(orig)
+    idx = dict((id(o), i) for i, o in enumerate(orig))
 
-    try:
-        from rtree.index import Index
-
-        idx = Index()
-        for j, o in enumerate(orig):
-            idx.insert(j, o.bounds)
-
-        for i, d in enumerate(dest):
-            for j in idx.intersection(d.bounds):
-                o = orig[j]
+    for i, d in enumerate(dest):
+        for o in tree.query(d):
+            if o.intersects(d):
+                j = idx[id(o)]
                 area = d.intersection(o).area
-                indicator[i,j] = area/o.area
-
-    except ImportError:
-        logger.warning("Rtree is not available. Falling back to slower algorithm.")
-
-        dest_prepped = list(map(prep, dest))
-
-        for i,j in product(range(len(dest)), range(len(orig))):
-            if dest_prepped[i].intersects(orig[j]):
-                area = dest[i].intersection(orig[j]).area
-                indicator[i,j] = area/orig[j].area
+                indicator[i, j] = area / o.area
 
     return indicator
+
 
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
     swaps = {}
     lx, rx = ds.indexes[namex][[0, -1]]
-    uy, ly = ds.indexes[namey][[0, -1]]
+    ly, uy = ds.indexes[namey][[0, -1]]
 
     if lx > rx:
         swaps[namex] = slice(None, None, -1)
@@ -170,14 +152,16 @@ def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
 
     return ds.isel(**swaps) if swaps else ds
 
+
 def _as_transform(x, y):
     lx, rx = x[[0, -1]]
-    uy, ly = y[[0, -1]]
+    ly, uy = y[[0, -1]]
 
-    dx = float(rx - lx)/float(len(x)-1)
-    dy = float(uy - ly)/float(len(y)-1)
+    dx = float(rx - lx) / float(len(x) - 1)
+    dy = float(uy - ly) / float(len(y) - 1)
 
     return rio.transform.from_origin(lx, uy, dx, dy)
+
 
 def regrid(ds, dimx, dimy, **kwargs):
     """
@@ -224,18 +208,20 @@ def regrid(ds, dimx, dimy, **kwargs):
 
     data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
     dtypes = {da.dtype for da in data_vars}
-    assert len(dtypes) == 1, "regrid can only reproject datasets with homogeneous dtype"
+    assert len(dtypes) == 1, \
+        "regrid can only reproject datasets with homogeneous dtype"
 
-    return (
-        xr.apply_ufunc(_reproject, ds,
-                       input_core_dims=[[namey, namex]],
-                       output_core_dims=[['yout', 'xout']],
-                       output_dtypes=[dtypes.pop()],
-                       output_sizes={'yout': dst_shape[0], 'xout': dst_shape[1]},
-                       dask='parallelized',
-                       kwargs=kwargs)
-        .rename({'yout': namey, 'xout': namex})
-        .assign_coords(**{namey: (namey, dimy, ds.coords[namey].attrs),
-                            namex: (namex, dimx, ds.coords[namex].attrs)})
-        .assign_attrs(**ds.attrs)
-    )
+    return (xr.apply_ufunc(_reproject,
+                           ds,
+                           input_core_dims=[[namey, namex]],
+                           output_core_dims=[['yout', 'xout']],
+                           output_dtypes=[dtypes.pop()],
+                           dask_gufunc_kwargs =
+                               dict(output_sizes={'yout': dst_shape[0],
+                                                  'xout': dst_shape[1]}),
+                           dask='parallelized',
+                           kwargs=kwargs)
+            .rename({'yout': namey, 'xout': namex})
+            .assign_coords(**{namey: (namey, dimy, ds.coords[namey].attrs),
+                              namex: (namex, dimx, ds.coords[namex].attrs)})
+            .assign_attrs(**ds.attrs))

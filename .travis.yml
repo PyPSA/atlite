@@ -11,10 +11,10 @@ before_install:
   - source conda4travis.sh
 
 install:
-  - conda config --set remote_max_retries 5
+  - conda config --add channels conda-forge
   - conda config --set channel_priority strict
-  - conda create -n atlite python pip pytest
-  - conda env update -n atlite --file=environment.yaml
+  - conda install -c conda-forge mamba 
+  - mamba env create -f environment.yaml
   - conda activate atlite
   # - conda install -q -c conda-forge python-coveralls # don't install on appveyor
   - pip install --no-cache-dir .

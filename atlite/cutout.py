@@ -1,120 +1,231 @@
-## Copyright 2016-2017 Gorm Andresen (Aarhus University), Jonas Hoersch (FIAS), Tom Brown (FIAS)
+# -*- coding: utf-8 -*-
 
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 3 of the
-## License, or (at your option) any later version.
-
-## This program is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-
-## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Renewable Energy Atlas Lite (Atlite)
-
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+Base class for Atlite.
 """
 
-from __future__ import absolute_import
+# There is a binary incompatibility between the pip wheels of netCDF4 and
+# rasterio, which leads to the first one to work correctly while the second
+# loaded one fails by loading netCDF4 first, we ensure that most of atlite's
+# functionality works fine, even when the pip wheels have been used, only for
+# resampling the sarah dataset it is important to use conda.
+# Refer to
+# https://github.com/pydata/xarray/issues/2535,
+# https://github.com/rasterio/rasterio-wheels/issues/12
 
 import xarray as xr
+import pandas as pd
 import numpy as np
-import os, sys
-from six import string_types
+import geopandas as gpd
+from tempfile import mktemp
+from numpy import atleast_1d, append
+from warnings import warn
+from shapely.geometry import box
+from pathlib import Path
+from pyproj import CRS
+
+
+from .utils import CachedAttribute
+from .data import cutout_prepare, available_features
+from .gis import get_coords, compute_indicatormatrix
+from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
+                      wind, pv, runoff, solar_thermal, soil_temperature)
+from .datasets import modules as datamodules
 
 import logging
 logger = logging.getLogger(__name__)
 
-from . import config, datasets
 
-from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
-                      wind, pv, runoff, solar_thermal, soil_temperature)
-from .preparation import (cutout_do_task, cutout_prepare,
-                          cutout_produce_specific_dataseries,
-                          cutout_get_meta, cutout_get_meta_view)
-from .gis import compute_indicatormatrix
+class Cutout:
+    """
+    Cutout base class.
 
-class Cutout(object):
-    def __init__(self, name=None, cutout_dir=config.cutout_dir, **cutoutparams):
-        self.name = name
+    This class builds the starting point for most atlite functionalities.
+    """
 
-        self.cutout_dir = os.path.join(cutout_dir, name)
-        self.prepared = False
+    def __init__(self, path, **cutoutparams):
+        """
+        Provide an Atlite cutout object.
 
-        if 'bounds' in cutoutparams:
-            x1, y1, x2, y2 = cutoutparams.pop('bounds')
-            cutoutparams.update(xs=slice(x1, x2),
-                                ys=slice(y2, y1))
+        Create a cutout object to use atlite operations on it. Based on the
+        provided parameters, atlite first checks whether this cutout already
+        exists on disk and if yes, loads this cutout.
 
-        if os.path.isdir(self.cutout_dir):
-            self.meta = meta = xr.open_dataset(self.datasetfn()).stack(**{'year-month': ('year', 'month')})
-            # check datasets very rudimentarily, series and coordinates should be checked as well
-            if all(os.path.isfile(self.datasetfn(ym)) for ym in meta.coords['year-month'].to_index()):
-                self.prepared = True
-            else:
-                assert False
+        If the cutout does not yet exist on disk, then atlite creates an
+        "unprepared" cutout object. This does not yet contain the full data.
+        The process of preparing (loading the data) can then be started with
+        `cutout.prepare()`.
 
-            if 'module' in meta.attrs:
-                cutoutparams['module'] = meta.attrs['module']
-            else:
-                logger.warning('module not given in meta file of cutout, assuming it is NCEP')
-                cutoutparams['module'] = 'ncep'
+        Parameters
+        ----------
+        path : str | path-like
+            NetCDF from which to load or where to store the cutout.
+        module : str or list
+            The dataset(s) which works as a basis for the cutout. Available
+            modules are "era5", "sarah" and "gebco".
+            This is necessary when building a new cutout.
+            If more than one module is given, their order determines how atlite
+            fills up missing features when preparing the cutout with
+            `Cutout.prepare()`. For example `influx_diffuse` is provided by
+            the `sarah` and the `era5` module. Prioritizing sarah and setting
+            module=['sarah', 'era5'] will load `influx_diffuse` from the sarah
+            module and ignoring the era5 'influx_diffuse' data.
+        time : str | slice
+            Time range to include in the cutout, e.g. "2011" or
+            ("2011-01-05", "2011-01-25")
+            This is necessary when building a new cutout.
+        bounds : GeoSeries.bounds | DataFrame, optional
+            The outer bounds of the cutout or as a DataFrame
+            containing (min.long, min.lat, max.long, max.lat).
+        x : slice, optional
+            Outer longitudinal bounds for the cutout (west, east).
+        y : slice, optional
+            Outer latitudinal bounds for the cutout (south, north).
+        dx : float, optional
+            Step size of the x coordinate. The default is 0.25.
+        dy : float, optional
+            Step size of the y coordinate. The default is 0.25.
+        dt : str, optional
+            Frequency of the time coordinate. The default is 'h'. Valid are all
+            pandas offset aliases.
+        chunks : dict
+            Chunks when opening netcdf files. For cutout preparation recommand
+            to chunk only along the time dimension. Defaults to {'time': 20}
+        data : xr.Dataset
+            User provided cutout data. Save the cutout using `Cutout.to_file()`
+            afterwards.
 
-            if {"xs", "ys", "years", "months"}.intersection(cutoutparams):
-                # Assuming the user is interested in a subview into
-                # the data, update meta in place for the time
-                # dimension and save the xs, ys slices, separately
-                self.meta = meta = self.get_meta_view(**cutoutparams)
-                logger.info("Assuming a view into the prepared cutout: %s", self)
+        Other Parameters
+        ----------------
+        sanitize : bool, default True
+            Whether to sanitize the data when preparing the cutout. Takes
+            effect for 'era5' data loading.
+        sarah_dir : str, Path
+            Directory of on-disk sarah data. This must be given when using the
+            sarah module.
+        sarah_interpolate : bool, default True
+            Whether to interpolate NaN's in the SARAH data. This takes effect for
+            sarah data which has missing data for areas where dawn and
+            nightfall happens (ca. 30 min gap).
+        gebco_path: str
+            Path to find the gebco netcdf file. Only necessary when including
+            the gebco module.
+        parallel : bool, default False
+            Whether to open dataset in parallel mode. Take effect for all
+            xr.open_mfdataset usages.
 
+        """
+        name = cutoutparams.get("name", None)
+        cutout_dir = cutoutparams.get("cutout_dir", None)
+        if cutout_dir or name or Path(path).is_dir():
+            raise ValueError(
+                "Old style format not supported. You can migrate the old "
+                "cutout directory using the function "
+                "`atlite.utils.migrate_from_cutout_directory()`. The argument "
+                "`cutout_dir` and `name` have been deprecated in favour of `path`.")
+
+        path = Path(path).with_suffix(".nc")
+        chunks = cutoutparams.pop('chunks', {'time': 100})
+        storable_chunks = {f'chunksize_{k}': v for k, v in (chunks or {}).items()}
+
+        # Backward compatibility for xs, ys, months and years
+        if {'xs', 'ys'}.intersection(cutoutparams):
+            warn(
+                "The arguments `xs` and `ys` have been deprecated in favour of "
+                "`x` and `y`", DeprecationWarning)
+            if 'xs' in cutoutparams:
+                cutoutparams['x'] = cutoutparams.pop('xs')
+            if 'ys' in cutoutparams:
+                cutoutparams['y'] = cutoutparams.pop('ys')
+
+        if {'years', 'months'}.intersection(cutoutparams):
+            warn("The arguments `years` and `months` have been deprecated in "
+                 "favour of `time`", DeprecationWarning)
+            assert 'years' in cutoutparams
+            months = cutoutparams.pop("months", slice(1, 12))
+            years = cutoutparams.pop("years")
+            cutoutparams["time"] = slice(f"{years.start}-{months.start}",
+                                         f"{years.stop}-{months.stop}")
+
+        # Three cases. First, cutout exists -> take the data.
+        # Second, data is given -> take it. Third, else -> build a new cutout
+        if path.is_file():
+            data = xr.open_dataset(str(path), chunks=chunks)
+            data.attrs.update(storable_chunks)
+            if cutoutparams:
+                warn(f'Arguments {", ".join(cutoutparams)} are ignored, since '
+                     'cutout is already built.')
+        elif 'data' in cutoutparams:
+            data = cutoutparams.pop('data')
         else:
-            logger.info("Cutout %s not found in directory %s, building new one", name, cutout_dir)
+            logger.info(f"Building new cutout {path}")
 
-            if 'module' not in cutoutparams:
-                d = config.weather_dataset.copy()
-                d.update(cutoutparams)
-                cutoutparams = d
+            if 'bounds' in cutoutparams:
+                x1, y1, x2, y2 = cutoutparams.pop('bounds')
+                cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
 
-        self.dataset_module = sys.modules['atlite.datasets.' + cutoutparams['module']]
+            try:
+                x = cutoutparams.pop('x')
+                y = cutoutparams.pop('y')
+                time = cutoutparams.pop('time')
+                module = cutoutparams.pop('module')
+            except KeyError as exc:
+                raise TypeError("Arguments 'time' and 'module' must be "
+                                "specified. Spatial bounds must either be "
+                                "passed via argument 'bounds' or 'x' and 'y'.") from exc
 
-        if not self.prepared:
-            if {"xs", "ys", "years"}.difference(cutoutparams):
-                raise TypeError("Arguments `xs`, `ys` and `years` need to be specified")
-            self.meta = self.get_meta(**cutoutparams)
+            # TODO: check for dx, dy, x, y fine with module requirements
+            coords = get_coords(x, y, time, **cutoutparams)
 
-    def datasetfn(self, *args):
-        dataset = None
+            attrs = {'module': module, 'prepared_features': [],
+                     **storable_chunks, **cutoutparams}
+            data = xr.Dataset(coords=coords, attrs=attrs)
 
-        if len(args) == 2:
-            dataset = args
-        elif len(args) == 1:
-            dataset = args[0]
-        else:
-            dataset = None
-        return os.path.join(self.cutout_dir, ("meta.nc"
-                                              if dataset is None
-                                              else "{}{:0>2}.nc".format(*dataset)))
+        # Check compatibility of CRS
+        modules = atleast_1d(data.attrs.get('module'))
+        crs = set(CRS(datamodules[m].crs) for m in modules)
+        assert len(crs) == 1, f'CRS of {module} not compatible'
 
-    @property
-    def meta_data_config(self):
-        return self.dataset_module.meta_data_config
+        self.path = path
+        self.data = data
 
-    @property
-    def weather_data_config(self):
-        return self.dataset_module.weather_data_config
 
     @property
-    def projection(self):
-        return self.dataset_module.projection
+    def name(self):
+        return self.path.stem
+
+    @property
+    def module(self):
+        return self.data.attrs.get('module')
+
+    @property
+    def crs(self):
+        return CRS(datamodules[atleast_1d(self.module)[0]].crs)
+
+    @property
+    def available_features(self):
+        return available_features(self.module)
+
+    @property
+    def chunks(self):
+        chunks = {k.lstrip('chunksize_'): v for k, v in self.data.attrs.items()
+                  if k.startswith('chunksize_')}
+        return None if chunks == {} else chunks
 
     @property
     def coords(self):
-        return self.meta.coords
+        return self.data.coords
+
+
+    @property
+    def meta(self):
+        warn("The `meta` attribute is deprecated in favour of direct "
+             "access to `data`", DeprecationWarning)
+        return xr.Dataset(self.coords, attrs=self.data.attrs)
 
     @property
     def shape(self):
@@ -123,43 +234,171 @@ class Cutout(object):
     @property
     def extent(self):
         return (list(self.coords["x"].values[[0, -1]]) +
-                list(self.coords["y"].values[[-1, 0]]))
+                list(self.coords["y"].values[[0, -1]]))
 
+    @property
+    def dx(self):
+        x = self.coords['x']
+        return (x[-1] - x[0]).item() / (x.size - 1)
+
+    @property
+    def dy(self):
+        y = self.coords['y']
+        return (y[-1] - y[0]).item() / (y.size - 1)
+
+    @property
+    def dt(self):
+        return pd.infer_freq(self.coords['time'].to_index())
+
+    @property
+    def prepared(self):
+        return (self.prepared_features.sort_index()
+                .equals(self.available_features.sort_index()))
+
+    @property
+    def prepared_features(self):
+        index = [(self.data[v].attrs['module'], self.data[v].attrs['feature'])
+                 for v in self.data]
+        index = pd.MultiIndex.from_tuples(index, names=['module', 'feature'])
+        return pd.Series(list(self.data), index)
 
     def grid_coordinates(self):
-        xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
-        return np.asarray((np.ravel(xs), np.ravel(ys))).T
+        warn("The function `grid_coordinates` has been deprecated in favour of "
+             "`grid`", DeprecationWarning)
+        logger.warning("The order of elements returned by `grid_coordinates` changed. "
+                       "Check the output of your workflow for correctness.")
+        return self.grid[['x', 'y']].values
 
     def grid_cells(self):
-        from shapely.geometry import box
-        coords = self.grid_coordinates()
-        span = (coords[self.shape[1]+1] - coords[0]) / 2
-        return [box(*c) for c in np.hstack((coords - span, coords + span))]
+        warn("The function `grid_cells` has been deprecated in favour of `grid`",
+             DeprecationWarning)
+        logger.warning("The order of elements in `grid_cells` changed. "
+                       "Check the output of your workflow for correctness.")
+        return self.grid.geometry.to_list()
+
+
+    @CachedAttribute
+    def grid(self):
+        xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
+        coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
+        span = (coords[self.shape[1] + 1] - coords[0]) / 2
+        cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
+        return gpd.GeoDataFrame({'x': coords[:, 0], 'y': coords[:, 1],
+                                 'geometry': cells,}, crs=self.crs)
+
+
+    def sel(self, path=None, bounds=None, buffer=0, **kwargs):
+        '''
+        Select parts of the cutout.
+
+        Parameters
+        ----------
+        path : str | path-like
+            File where to store the sub-cutout. Defaults to a temporary file.
+        bounds : GeoSeries.bounds | DataFrame, optional
+            The outer bounds of the cutout or as a DataFrame
+            containing (min.long, min.lat, max.long, max.lat).
+        buffer : float, optional
+            Buffer around the bounds. The default is 0.
+        **kwargs :
+            Passed to `xr.Dataset.sel` for data selection.
+
+        Returns
+        -------
+        selected : Cutout
+            Selected cutout.
+
+        '''
+        if path is None:
+            path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
+                          dir=self.path.parent)
+
+        if bounds is not None:
+            if buffer > 0:
+                bounds = box(*bounds).buffer(buffer).bounds
+            x1, y1, x2, y2 = bounds
+            kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
+        data = self.data.sel(**kwargs)
+        return Cutout(path, data=data)
+
+
+    def merge(self, other, path=None, **kwargs):
+        '''
+        Merge two cutouts into a single cutout.
+
+        Parameters
+        ----------
+        other : atlite.Cutout
+            Other cutout to merge.
+        path : str | path-like
+            File where to store the merged cutout. Defaults to a temporary file.
+        **kwargs
+            Keyword arguments passed to `xarray.merge()`.
+
+        Returns
+        -------
+        merged : Cutout
+            Merged cutout.
+
+        '''
+        assert isinstance(other, Cutout)
+
+        if path is None:
+            path = mktemp(prefix=f"{self.path.stem}-", suffix=self.path.suffix,
+                          dir=self.path.parent)
+
+        attrs = {**self.data.attrs, **other.data.attrs}
+        attrs['module'] = list(set(append(*atleast_1d(self.module, other.module))))
+        features = self.prepared_features.index.unique('feature')
+        otherfeatures = other.prepared_features.index.unique('feature')
+        attrs['prepared_features'] = list(features.union(otherfeatures))
+
+        data = self.data.merge(other.data, **kwargs).assign_attrs(**attrs)
+
+        return Cutout(path, data=data)
+
+
+    def to_file(self, fn=None):
+        '''
+        Save cutout to a netcdf file.
+
+        Parameters
+        ----------
+        fn : str | path-like
+            File name where to store the cutout, defaults to `cutout.path`.
+
+        '''
+        if fn is None:
+            fn = self.path
+        self.data.to_netcdf(fn)
+
 
     def __repr__(self):
-        yearmonths = self.coords['year-month'].to_index()
-        return ('<Cutout {} x={:.2f}-{:.2f} y={:.2f}-{:.2f} time={}/{}-{}/{} {}prepared>'
-                .format(self.name,
-                        self.coords['x'].values[0], self.coords['x'].values[-1],
-                        self.coords['y'].values[0], self.coords['y'].values[-1],
-                        yearmonths[0][0],  yearmonths[0][1],
-                        yearmonths[-1][0], yearmonths[-1][1],
-                        "" if self.prepared else "UN"))
+        start = np.datetime_as_string(self.coords['time'].values[0], unit='D')
+        end = np.datetime_as_string(self.coords['time'].values[-1], unit='D')
+        return ('<Cutout "{}">\n'
+                ' x = {:.2f} ⟷ {:.2f}, dx = {:.2f}\n'
+                ' y = {:.2f} ⟷ {:.2f}, dy = {:.2f}\n'
+                ' time = {} ⟷ {}, dt = {}\n'
+                ' module = {}\n'
+                ' prepared_features = {}'
+                .format(self.name, self.coords['x'].values[0],
+                        self.coords['x'].values[-1], self.dx,
+                        self.coords['y'].values[0],
+                        self.coords['y'].values[-1], self.dy,
+                        start, end, self.dt,
+                        self.module,
+                        list(self.prepared_features.index.unique('feature'))))
 
-    def indicatormatrix(self, shapes, shapes_proj='latlong'):
-        return compute_indicatormatrix(self.grid_cells(), shapes, self.projection, shapes_proj)
 
-    ## Preparation functions
+    def indicatormatrix(self, shapes, shapes_crs=4326):
+        return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
 
-    get_meta = cutout_get_meta
-
-    get_meta_view = cutout_get_meta_view
+    # Preparation functions
 
     prepare = cutout_prepare
 
-    produce_specific_dataseries = cutout_produce_specific_dataseries
-
-    ## Conversion and aggregation functions
+    # Conversion and aggregation functions
 
     convert_and_aggregate = convert_and_aggregate
 

@@ -1,26 +1,18 @@
 # -*- coding: utf-8 -*-
 
-## This program is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 3 of the
-## License, or (at your option) any later version.
-
-## This program is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-
-## You should have received a copy of the GNU General Public License
-## along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Renewable Energy Atlas Lite (Atlite)
-
-Light-weight version of Aarhus RE Atlas for converting weather data to power systems data
+Functions for use in conjunction with wind data generation.
 """
-import xarray as xr
+
 import numpy as np
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 def extrapolate_wind_speed(ds, to_height, from_height=None):
     """Extrapolate the wind speed from a given height above ground to another.
@@ -58,9 +50,8 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
         Retrieved 2019-02-15.
     """
 
-
     # Fast lane
-    to_name   = "wnd{h:0d}m".format(h=int(to_height))
+    to_name = "wnd{h:0d}m".format(h=int(to_height))
     if to_name in ds:
         return ds[to_name]
 
@@ -71,22 +62,18 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
         if len(heights) == 0:
             raise AssertionError("Wind speed is not in dataset")
 
-        from_height = heights[np.argmin(np.abs(heights-to_height))]
+        from_height = heights[np.argmin(np.abs(heights - to_height))]
 
     from_name = "wnd{h:0d}m".format(h=int(from_height))
 
-    # Sanitise roughness for logarithm
-    # 0.0002 corresponds to open water [2]
-    ds['roughness'].values[ds['roughness'].values <= 0.0] = 0.0002
-
     # Wind speed extrapolation
-    wnd_spd = ds[from_name] * ( np.log(to_height /ds['roughness'])
-                              / np.log(from_height/ds['roughness']))
+    wnd_spd = ds[from_name] * (np.log(to_height / ds['roughness'])
+                               / np.log(from_height / ds['roughness']))
 
     wnd_spd.attrs.update({"long name":
-                            "extrapolated {ht} m wind speed using logarithmic "
-                            "method with roughness and {hf} m wind speed"
-                            "".format(ht=to_height, hf=from_height),
-                          "units" : "m s**-1"})
+                          "extrapolated {ht} m wind speed using logarithmic "
+                          "method with roughness and {hf} m wind speed"
+                          "".format(ht=to_height, hf=from_height),
+                          "units": "m s**-1"})
 
     return wnd_spd.rename(to_name)
