@@ -5,10 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 """
-Renewable Energy Atlas Lite (Atlite)
-
-Light-weight version of Aarhus RE Atlas for converting weather data to power
-systems data
+Functions for Geographic Information System.
 """
 
 import numpy as np
@@ -67,17 +64,14 @@ def get_coords(x, y, time, dx=0.25, dy=0.25, dt='h', **kwargs):
 
 
 def spdiag(v):
+    """Create a sparse diagonal matrix from a 1-dimensional array."""
     N = len(v)
     inds = np.arange(N + 1, dtype=np.int32)
     return sp.sparse.csr_matrix((v, inds[:-1], inds), (N, N))
 
 
 def reproject_shapes(shapes, crs1, crs2):
-    """
-    Project a collection of `shapes` from one crs `crs1` to
-    another crs `crs2`
-    """
-
+    """Project a collection of shapes from one crs to another."""
     transformer = Transformer.from_crs(crs1, crs2)
 
     def _reproject_shape(shape):
@@ -92,6 +86,11 @@ def reproject_shapes(shapes, crs1, crs2):
 
 
 def reproject(shapes, p1, p2):
+    """
+    Project a collection of shapes from one crs to another.
+
+    Deprecated since version 0.2.
+    """
     warn("reproject has been renamed to reproject_shapes", DeprecationWarning)
     return reproject_shapes(shapes, p1, p2)
 
@@ -141,6 +140,7 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
 
 
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
+    """Swap order of spatial dimensions according to atlite concention."""
     swaps = {}
     lx, rx = ds.indexes[namex][[0, -1]]
     ly, uy = ds.indexes[namey][[0, -1]]

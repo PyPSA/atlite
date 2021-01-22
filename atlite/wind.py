@@ -43,11 +43,12 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
     References
     ----------
-    [1] Equation (2) in Andresen, G. et al (2015):
-        'Validation of Danish wind time series from a new global renewable
-        energy atlas for energy system analysis'.
+    [1] Equation (2) in Andresen, G. et al (2015): 'Validation of Danish wind
+    time series from a new global renewable energy atlas for energy system
+    analysis'.
+
     [2] https://en.wikipedia.org/w/index.php?title=Roughness_length&oldid=862127433,
-        Retrieved 2019-02-15.
+    Retrieved 2019-02-15.
     """
 
     # Fast lane

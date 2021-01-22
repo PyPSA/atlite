@@ -13,16 +13,18 @@ Cutout
 .. autoclass:: atlite.Cutout
     :members:
 
+
+Data
+------
+
+.. automodule:: atlite.data
+    :members:
+
+
 Convert
 -------
 
 .. automodule:: atlite.convert
-    :members:
-
-Config
--------
-
-.. automodule:: atlite.config
     :members:
 
 
@@ -37,6 +39,13 @@ Wind
 
 .. automodule:: atlite.wind
     :members:
+
+GIS
+-------
+
+.. automodule:: atlite.gis
+    :members:
+
 
 Utils
 -----

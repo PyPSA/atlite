@@ -39,8 +39,8 @@ def get_windturbineconfig(turbine):
     Alternatively the configuration can be downloaded from the Open Energy Database (OEDB),
     in which case 'turbine' is a dictionary used for selecting a turbine from the database.
 
-    Parameter
-    ---------
+    Parameters
+    ----------
     turbine : str
         Name of the local turbine file.
         Alternatively a dict for selecting a turbine from the Open Energy
@@ -198,8 +198,8 @@ def get_oedb_windturbineconfig(search=None, **search_params):
     turbineconfig : dict
         The turbine configuration in the format from 'atlite.ressource.get_turbineconf(name)'.
 
-    Usage
-    -----
+    Example
+    -------
     >>> get_oedb_windturbineconfig(10)
     {'V': ..., 'POW': ..., ...}
 

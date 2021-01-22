@@ -4,12 +4,17 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+"""
+Management of data retrieval and structure.
+"""
+
 import pandas as pd
 import xarray as xr
 import os
 from numpy import atleast_1d
 from tempfile import mkstemp, mkdtemp
 from shutil import rmtree
+from functools import wraps
 from dask import delayed, compute
 from dask.utils import SerializableLock
 from dask.diagnostics import ProgressBar
@@ -79,6 +84,7 @@ def non_bool_dict(d):
 
 def maybe_remove_tmpdir(func):
     'Use this wrapper to make tempfile deletion compatible with windows machines.'
+    @wraps(func)
     def wrapper(*args, **kwargs):
         if kwargs.get('tmpdir', None):
             res = func(*args, **kwargs)

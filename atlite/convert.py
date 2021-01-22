@@ -49,8 +49,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     generation functions like pv and wind. Thus, all its parameters are also
     available from these.
 
-    Parameters (passed through as **params)
-    ---------------------------------------
+    Parameters
+    -----------
     matrix : N x S - xr.DataArray or sp.sparse.csr_matrix or None
         If given, it is used to aggregate the grid cells to buses.
         N is the number of buses, S the number of spatial coordinates, in the
@@ -77,6 +77,12 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     show_progress : boolean, default True
         Whether to show a progress bar.
 
+    Other Parameters
+    -----------------
+    convert_func : Function
+        Callback like convert_wind, convert_pv
+
+
     Returns
     -------
     resource : xr.DataArray
@@ -87,10 +93,6 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         The installed units per bus in MW corresponding to `layout`
         (only if `return_capacity` is True).
 
-    Internal Parameters (provided by f.ex. wind and pv)
-    ---------------------------------------------------
-    convert_func : Function
-        Callback like convert_wind, convert_pv
     """
 
     func_name = convert_func.__name__.replace('convert_', '')
@@ -307,7 +309,7 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
         Type of trigonometry model
     clearsky_model : str or None
         Type of clearsky model for diffuse irradiation. Either
-        `simple' or `enhanced'.
+        'simple' or 'enhanced'.
     c0, c1 : float
         Parameters for model in [1] (defaults to 0.8 and 3., respectively)
     t_store : float
@@ -321,7 +323,7 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
     References
     ----------
     [1] Henning and Palzer, Renewable and Sustainable Energy Reviews 30
-        (2014) 1003-1018
+    (2014) 1003-1018
     """
 
     if not callable(orientation):
@@ -380,7 +382,7 @@ def wind(cutout, turbine, smooth=False, **params):
     References
     ----------
     [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
-        1074 – 1088. doi:10.1016/j.energy.2015.09.071
+    1074 – 1088. doi:10.1016/j.energy.2015.09.071
     """
 
     if isinstance(turbine, (str, Path)):
@@ -446,13 +448,15 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
     References
     ----------
     [1] Soteris A. Kalogirou. Solar Energy Engineering: Processes and Systems,
-        pages 49–117,469–516. Academic Press, 2009. ISBN 0123745012.
+    pages 49–117,469–516. Academic Press, 2009. ISBN 0123745012.
+
     [2] D.T. Reindl, W.A. Beckman, and J.A. Duffie. Diffuse fraction correla-
-        tions. Solar Energy, 45(1):1 – 7, 1990.
+    tions. Solar Energy, 45(1):1 – 7, 1990.
+
     [3] Hans Georg Beyer, Gerd Heilscher and Stefan Bofinger. A Robust Model
-        for the MPP Performance of Different Types of PV-Modules Applied for
-        the Performance Check of Grid Connected Systems, Freiburg, June 2004.
-        Eurosun (ISES Europe Solar Congress).
+    for the MPP Performance of Different Types of PV-Modules Applied for
+    the Performance Check of Grid Connected Systems, Freiburg, June 2004.
+    Eurosun (ISES Europe Solar Congress).
     """
 
     if isinstance(panel, (str, Path)):
@@ -546,6 +550,7 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
     [1] Liu, Hailiang, et al. "A validated high-resolution hydro power
     time-series model for energy systems analysis." arXiv preprint
     arXiv:1901.08476 (2019).
+
     [2] Lehner, B., Grill G. (2013): Global river hydrography and network
     routing: baseline data and new approaches to study the world’s large river
     systems. Hydrological Processes, 27(15): 2171–2186. Data is available at
