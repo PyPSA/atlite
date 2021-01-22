@@ -16,7 +16,7 @@ resources low.
 
 
 .. Atlite is designed to be modular, so that it can work with any weather
-.. datasets. It currently has modules for the following datasets:
+.. datasets. It currently has modules for the following datasets: 
 
 .. * `NCEP Climate Forecast System <http://rda.ucar.edu/datasets/ds094.1/>`_ hourly
 ..   historical reanalysis weather data available on a 0.2 x 0.2 degree global grid
