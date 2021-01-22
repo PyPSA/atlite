@@ -64,7 +64,6 @@ Research Initiative
 <http://forschung-stromnetze.info/projekte/grundlagen-und-konzepte-fuer-effiziente-dezentrale-stromnetze/>`_.
 
 
-
 Installation
 ============
 
