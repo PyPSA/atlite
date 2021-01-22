@@ -16,6 +16,7 @@ setup(
     author_email='jonas.hoersch@posteo.de',
     description='Library for fetching and converting weather data to power systems data',
     long_description=long_description,
+    long_description_content_type='text/x-rst',
     url='https://github.com/PyPSA/atlite',
     license='GPLv3',
     packages=find_packages(exclude=['doc', 'test']),

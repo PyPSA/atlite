@@ -77,14 +77,19 @@ To install the current stable version:
 with ``conda`` from `conda-forge`_
 
 .. code:: shell
+
        conda install -c conda-forge atlite
+
 with ``pip`` from `pypi`_
 
 .. code:: shell
+
        pip install atlite
+
 to install the most recent upstream version from `GitHub`_
 
 .. code:: shell
+
        pip install git+https://github.com/pypsa/atlite.git
 
 
