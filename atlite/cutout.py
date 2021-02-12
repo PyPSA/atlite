@@ -239,12 +239,12 @@ class Cutout:
     @property
     def dx(self):
         x = self.coords['x']
-        return (x[-1] - x[0]).item() / (x.size - 1)
+        return round((x[-1] - x[0]).item() / (x.size - 1), 8)
 
     @property
     def dy(self):
         y = self.coords['y']
-        return (y[-1] - y[0]).item() / (y.size - 1)
+        return round((y[-1] - y[0]).item() / (y.size - 1), 8)
 
     @property
     def dt(self):

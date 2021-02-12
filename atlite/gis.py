@@ -55,8 +55,8 @@ def get_coords(x, y, time, dx=0.25, dy=0.25, dt='h', **kwargs):
     x = slice(*sorted([x.start, x.stop]))
     y = slice(*sorted([y.start, y.stop]))
 
-    ds = xr.Dataset({'x': np.arange(-180, 180, dx),
-                     'y': np.arange(-90, 90, dy),
+    ds = xr.Dataset({'x': np.round(np.arange(-180, 180, dx), 9),
+                     'y': np.round(np.arange(-90, 90, dy), 9),
                      'time': pd.date_range(start="1979", end="now", freq=dt)})
     ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
     ds = ds.sel(x=x, y=y, time=time)

@@ -170,6 +170,25 @@ def cutout_era5(tmp_path_factory):
     cutout.prepare()
     return cutout
 
+
+@pytest.fixture(scope='session')
+def cutout_era5_coarse(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5_coarse")
+    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS,
+                    time=TIME, dx=0.5, dy=0.7)
+    cutout.prepare()
+    return cutout
+
+
+@pytest.fixture(scope='session')
+def cutout_era5_weird(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5_weird")
+    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS,
+                    time=TIME, dx=0.132, dy=0.32)
+    cutout.prepare()
+    return cutout
+
+
 @pytest.fixture(scope='session')
 def cutout_era5_reduced(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("era5_red")
@@ -197,6 +216,27 @@ class TestERA5:
         """
         for v in cutout_era5.data:
             assert cutout_era5.data.attrs['module'] == 'era5'
+
+    @staticmethod
+    def test_all_non_na_era5(cutout_era5):
+        """
+        Every cells should have data
+        """
+        assert np.isfinite(cutout_era5.data).all()
+
+    @staticmethod
+    def test_all_non_na_era5_coarse(cutout_era5_coarse):
+        """
+        Every cells should have data
+        """
+        assert np.isfinite(cutout_era5_coarse.data).all()
+
+    @staticmethod
+    def test_all_non_na_era5_weird(cutout_era5_weird):
+        """
+        Every cells should have data
+        """
+        assert np.isfinite(cutout_era5_weird.data).all()
 
     @staticmethod
     def test_compare_with_get_data_era5(cutout_era5, tmp_path):
