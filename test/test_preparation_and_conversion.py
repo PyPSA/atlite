@@ -219,24 +219,42 @@ class TestERA5:
 
     @staticmethod
     def test_all_non_na_era5(cutout_era5):
-        """
-        Every cells should have data
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_era5.data).all()
 
     @staticmethod
     def test_all_non_na_era5_coarse(cutout_era5_coarse):
-        """
-        Every cells should have data
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_era5_coarse.data).all()
 
     @staticmethod
     def test_all_non_na_era5_weird(cutout_era5_weird):
-        """
-        Every cells should have data
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_era5_weird.data).all()
+
+
+    @staticmethod
+    def test_dx_dy_preservation_era5(cutout_era5):
+        """The coordinates should be the same after preparation."""
+        assert np.allclose(np.diff(cutout_era5.data.x), 0.25)
+        assert np.allclose(np.diff(cutout_era5.data.y), 0.25)
+
+    @staticmethod
+    def test_dx_dy_preservation_era5_coarse(cutout_era5_coarse):
+        """The coordinates should be the same after preparation."""
+        assert np.allclose(np.diff(cutout_era5_coarse.data.x),
+                           cutout_era5_coarse.data.attrs['dx'])
+        assert np.allclose(np.diff(cutout_era5_coarse.data.y),
+                           cutout_era5_coarse.data.attrs['dy'])
+
+    @staticmethod
+    def test_dx_dy_preservation_era5_weird(cutout_era5_weird):
+        """The coordinates should be the same after preparation."""
+        assert np.allclose(np.diff(cutout_era5_weird.data.x),
+                           cutout_era5_weird.data.attrs['dx'])
+        assert np.allclose(np.diff(cutout_era5_weird.data.y),
+                           cutout_era5_weird.data.attrs['dy'])
+
 
     @staticmethod
     def test_compare_with_get_data_era5(cutout_era5, tmp_path):
