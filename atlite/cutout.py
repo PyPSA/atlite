@@ -20,6 +20,7 @@ Base class for Atlite.
 import xarray as xr
 import pandas as pd
 import numpy as np
+import rasterio as rio
 import geopandas as gpd
 from tempfile import mktemp
 from numpy import atleast_1d, append
@@ -235,6 +236,11 @@ class Cutout:
     def extent(self):
         return (list(self.coords["x"].values[[0, -1]]) +
                 list(self.coords["y"].values[[0, -1]]))
+
+    @property
+    def transform(self):
+        return rio.Affine(self.dx, 0, self.coords['x'].values[0] - self.dx/2,
+                          0, self.dy, self.coords['y'].values[0] - self.dy/2)
 
     @property
     def dx(self):

@@ -72,6 +72,16 @@ def test_dx_dy_dt():
     assert 'H' == cutout.dt
 
 
+def test_transform():
+    """Test the affine transform. It always has to point to cell origin."""
+    cutout = Cutout(path="resolution", module="era5",
+                    time=slice('2013-01-01', '2013-01-01'),
+                    x=slice(X0, X1), y = slice(Y0, Y1))
+    assert cutout.transform * (0.5, 0.5) == (X0, Y0)
+    assert cutout.transform * cutout.shape[::-1] == (X1 + cutout.dx/2,
+                                                     Y1 + cutout.dy/2)
+
+
 def test_available_features(ref):
     modules = ref.available_features.index.unique('module')
     assert len(modules) == 1
