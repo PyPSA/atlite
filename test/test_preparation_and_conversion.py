@@ -7,6 +7,7 @@ Created on Mon May 11 11:15:41 2020
 """
 
 import os
+import sys
 import pytest
 import urllib3
 import geopandas as gpd
@@ -170,6 +171,25 @@ def cutout_era5(tmp_path_factory):
     cutout.prepare()
     return cutout
 
+
+@pytest.fixture(scope='session')
+def cutout_era5_coarse(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5_coarse")
+    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS,
+                    time=TIME, dx=0.5, dy=0.7)
+    cutout.prepare()
+    return cutout
+
+
+@pytest.fixture(scope='session')
+def cutout_era5_weird(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5_weird")
+    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS,
+                    time=TIME, dx=0.132, dy=0.32)
+    cutout.prepare()
+    return cutout
+
+
 @pytest.fixture(scope='session')
 def cutout_era5_reduced(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("era5_red")
@@ -199,6 +219,45 @@ class TestERA5:
             assert cutout_era5.data.attrs['module'] == 'era5'
 
     @staticmethod
+    def test_all_non_na_era5(cutout_era5):
+        """Every cells should have data."""
+        assert np.isfinite(cutout_era5.data).all()
+
+    @staticmethod
+    def test_all_non_na_era5_coarse(cutout_era5_coarse):
+        """Every cells should have data."""
+        assert np.isfinite(cutout_era5_coarse.data).all()
+
+    @staticmethod
+    def test_all_non_na_era5_weird(cutout_era5_weird):
+        """Every cells should have data."""
+        assert np.isfinite(cutout_era5_weird.data).all()
+
+
+    @staticmethod
+    def test_dx_dy_preservation_era5(cutout_era5):
+        """The coordinates should be the same after preparation."""
+        assert np.allclose(np.diff(cutout_era5.data.x), 0.25)
+        assert np.allclose(np.diff(cutout_era5.data.y), 0.25)
+
+    @staticmethod
+    def test_dx_dy_preservation_era5_coarse(cutout_era5_coarse):
+        """The coordinates should be the same after preparation."""
+        assert np.allclose(np.diff(cutout_era5_coarse.data.x),
+                           cutout_era5_coarse.data.attrs['dx'])
+        assert np.allclose(np.diff(cutout_era5_coarse.data.y),
+                           cutout_era5_coarse.data.attrs['dy'])
+
+    @staticmethod
+    def test_dx_dy_preservation_era5_weird(cutout_era5_weird):
+        """The coordinates should be the same after preparation."""
+        assert np.allclose(np.diff(cutout_era5_weird.data.x),
+                           cutout_era5_weird.data.attrs['dx'])
+        assert np.allclose(np.diff(cutout_era5_weird.data.y),
+                           cutout_era5_weird.data.attrs['dy'])
+
+
+    @staticmethod
     def test_compare_with_get_data_era5(cutout_era5, tmp_path):
         """
         The prepared data should be exactly the same as from the low level function
@@ -211,6 +270,8 @@ class TestERA5:
         return prepared_features_test(cutout_era5)
 
     @staticmethod
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason='NetCDF update not working on windows')
     def test_update_feature_era5(cutout_era5, cutout_era5_reduced):
         return update_feature_test(cutout_era5, cutout_era5_reduced)
 
