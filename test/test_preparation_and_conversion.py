@@ -7,6 +7,7 @@ Created on Mon May 11 11:15:41 2020
 """
 
 import os
+import sys
 import pytest
 import urllib3
 import geopandas as gpd
@@ -269,6 +270,8 @@ class TestERA5:
         return prepared_features_test(cutout_era5)
 
     @staticmethod
+    @pytest.mark.skipif(sys.platform == "win32",
+                        reason='NetCDF update not working on windows')
     def test_update_feature_era5(cutout_era5, cutout_era5_reduced):
         return update_feature_test(cutout_era5, cutout_era5_reduced)
 
