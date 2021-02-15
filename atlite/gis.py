@@ -27,7 +27,10 @@ from rasterio.plot import show
 from rasterio.features import geometry_mask
 from scipy.ndimage.morphology import binary_dilation as dilation
 from numpy import isin, empty, where
+import multiprocessing as mp
 from shapely.strtree import STRtree
+from progressbar import ProgressBar
+from progressbar.widgets import Percentage, SimpleProgress, Bar, Timer, ETA
 
 import logging
 logger = logging.getLogger(__name__)
@@ -168,9 +171,9 @@ class ExclusionContainer:
         self.crs = crs
         self.res = res
 
-    def add_raster(self, raster, codes=1, dilation=0, invert=False, **kwargs):
+    def add_raster(self, raster, codes=1, buffer=0, invert=False, **kwargs):
         """
-        Register a raster to the Excluder.
+        Register a raster to the ExclusionContainer.
 
         Parameters
         ----------
@@ -178,9 +181,10 @@ class ExclusionContainer:
             Path to raster or raster which to exclude.
         codes : int/list, optional
             Codes in the raster which to exclude/include. The default is 1.
-        dilation : int, optional
-            Dilation of the excluded areas in cell. Use this to create a buffer
-            around the excluded/included area. The default is 0.
+        buffer : int, optional
+            Buffer (in number of cells) around the excluded areas. Use this
+            to create a buffer around the excluded/included area. The default
+            is 0.
         invert : bool, optional
             Whether to exclude (False) or include (True) the specified areas
             of the raster. The default is False.
@@ -188,7 +192,7 @@ class ExclusionContainer:
             CRS of the raster. Specify this if the raster has crs data missing.
         **kwargs
         """
-        d = dict(raster=raster, codes=codes, dilation=dilation,
+        d = dict(raster=raster, codes=codes, buffer=buffer,
                  invert=invert, **kwargs)
         self.rasters.append(d)
 
@@ -211,7 +215,7 @@ class ExclusionContainer:
         self.geometries.append(d)
 
 
-    def initialize(self):
+    def open_files(self):
         """Open rasters and load geometries."""
         for d in self.rasters:
             raster = d['raster']
@@ -231,6 +235,10 @@ class ExclusionContainer:
             geometry.to_crs(self.crs)
             d['geometry'] = geometry.geometry
 
+    def is_open(self):
+        """Check whether any file in the raster container is open."""
+        return all(isinstance(d['raster'], str) for d in self.rasters)
+
     def __repr__(self):
         return (f"Exclusion Container"
                 f"\n registered rasters: {len(self.rasters)} "
@@ -239,6 +247,7 @@ class ExclusionContainer:
 
 
 def padded_transform_and_shape(bounds, res):
+    """Get (transform, shape) of a raster with resolution `res` and bounds `bounds`."""
     left, bottom = [(b // res)* res for b in bounds[:2]]
     right, top = [(b // res + 1) * res for b in bounds[2:]]
     shape = int((top - bottom) // res), int((right - left) / res)
@@ -268,6 +277,27 @@ def pad_extent(values, src_transform, dst_transform, src_crs, dst_crs):
 
 
 def shape_availability(geometry, excluder):
+    """
+    Compute the eligible area in one or more geometries.
+
+    Parameters
+    ----------
+    geometry : geopandas.Series
+        Geometry in which the eligible area is computed. If the series contains
+        more than one geometry, the eligble area of the combined geometries is
+        computed.
+    excluder : atlite.gis.ExclusionContainer
+        Container of all meta data or objects which to exclude, i.e.
+        rasters and geometries.
+
+    Returns
+    -------
+    masked : np.array
+        Mask whith eligible raster cells indicated by 1 and excluded cells by 0.
+    transform : rasterion.Affine
+        Affine transform of the mask.
+
+    """
     exclusions = []
     crs = excluder.crs
 
@@ -290,21 +320,110 @@ def shape_availability(geometry, excluder):
     return (sum(exclusions) == 0).astype(float), transform
 
 
-def compute_availabilitymatrix(cutout, shapes, excluder):
+def shape_availability_reprojected(geometry, excluder, dst_transform, dst_crs,
+                                   dst_shape):
+    """
+    Compute and reproject the eligible area in one or more geometries.
+
+    The function executes `shape_availability` and reprojects the calculated
+    mask onto a new raster defined by (dst_transform, dst_crs, dst_shape).
+    Before reprojecting, the function pads the mask such all non-nodata data
+    points  are projected in full cells of the target raster. The ensures that
+    all data within the mask are projected correclty (GDAL inherent 'problem').
+
+    ----------
+    geometry : geopandas.Series
+        Geometry in which the eligible area is computed. If the series contains
+        more than one geometry, the eligble area of the combined geometries is
+        computed.
+    excluder : atlite.gis.ExclusionContainer
+        Container of all meta data or objects which to exclude, i.e.
+        rasters and geometries.
+    dst_transform : rasterio.Affine
+        Transform of the target raster.
+    dst_crs : rasterio.CRS/proj.CRS
+        CRS of the target raster.
+    dst_shape : tuple
+        Shape of the target raster.
+
+    masked : np.array
+        Average share of available area per grid cell. 0 indicates excluded,
+        1 is fully included.
+    transform : rasterion.Affine
+        Affine transform of the mask.
+
+    """
+    masked, transform = shape_availability(geometry, excluder)
+    masked, transform = pad_extent(masked, transform, dst_transform,
+                                   excluder.crs, dst_crs)
+    return rio.warp.reproject(masked, empty(dst_shape), resampling=5,
+                              src_transform=transform,
+                              dst_transform=dst_transform,
+                              src_crs=excluder.crs, dst_crs=dst_crs,)
+
+def _init_process(shapes_, excluder_, dst_transform_, dst_crs_, dst_shapes_):
+    global shapes, excluder, dst_transform, dst_crs, dst_shapes
+    shapes = shapes_
+    excluder = excluder_
+    excluder.open_files()
+    dst_transform, dst_crs, dst_shapes = dst_transform_, dst_crs_, dst_shapes_
+
+def _process_func(i):
+    args = (excluder, dst_transform, dst_crs, dst_shapes)
+    return shape_availability_reprojected(shapes.loc[[i]], *args)[0]
+
+
+def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
+    """
+    Compute the eligible area in the overlap of shapes and cutout weather cells.
+
+    For parallel calculation (nprocesses not None) the excluder must not be
+    initialized and all raster references must be strings. Otherwise processes
+    are colliding when reading from one common rasterio.DatasetReader.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout which the availability matrix is aligned to.
+    shapes : geopandas.Series/geopandas.DataFrame
+        Geometries for which the availabilities are calculated.
+    excluder : atlite.gis.ExclusionContainer
+        Container of all meta data or objects which to exclude, i.e.
+        rasters and geometries.
+    nprocesses : int, optional
+        Number of processes to use for calculating the matrix. The paralle-
+        lization can heavily boost the calculation speed. The default is None.
+
+    Returns
+    -------
+    availabilities : xr.DataArray
+        DataArray of shape (|shapes|, |y|, |x|) containing all the eligible
+        area in the overlap of cutout cell (x,y) and shape i.
+
+    """
     availability = []
     names = shapes.get('name', shapes.index)
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
 
-    for i in shapes.index:
-        masked, transform = shape_availability(shapes[[i]], excluder)
-        masked, transform = pad_extent(masked, transform, cutout.transform,
-                                       excluder.crs, cutout.crs)
+    progress = SimpleProgress(format='(%s)' %SimpleProgress.DEFAULT_FORMAT)
+    widgets = [Percentage(),' ',progress,' ',Bar(),' ',Timer(),' ', ETA()]
+    progressbar = ProgressBar(prefix='Compute availabily matrix: ',
+                              widgets=widgets, max_value=len(shapes))
+    args = (excluder, cutout.transform, cutout.crs, cutout.shape)
+    if nprocesses is None:
+        excluder.open_files()
+        for i in progressbar(shapes.index):
+            _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
+            availability.append(_)
+    else:
+        kwargs = {'initializer': _init_process,
+                   'initargs': (shapes, *args),
+                   'maxtasksperchild': 20,
+                   'processes': nprocesses}
+        with mp.Pool(**kwargs) as pool:
+            imap = pool.map(_process_func, shapes.index)
+            availability = list(progressbar(imap))
 
-        _ = rio.warp.reproject(masked, empty(cutout.shape), resampling=5,
-                               src_transform=transform,
-                               dst_transform=cutout.transform,
-                               src_crs=excluder.crs, dst_crs=cutout.crs,)[0]
-        availability.append(_)
     coords=[('shapes', names), ('y', cutout.data.y), ('x', cutout.data.x),]
     return xr.DataArray(np.stack(availability), coords=coords)
 
