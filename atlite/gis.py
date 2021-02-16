@@ -237,9 +237,15 @@ class ExclusionContainer:
                 d['_buffered'] = True
             d['geometry'] = geometry.geometry
 
-    def all_closed(self):
+    @property
+    def any_closed(self):
         """Check whether any file in the raster container is open."""
-        return all(isinstance(d['raster'], (str, Path)) for d in self.rasters)
+        return any(isinstance(d['raster'], (str, Path)) for d in self.rasters)
+
+    @property
+    def all_open(self):
+        """Check whether any file in the raster container is open."""
+        return all(isinstance(d['raster'], rio.DatasetReader) for d in self.rasters)
 
     def __repr__(self):
         return (f"Exclusion Container"
@@ -270,7 +276,8 @@ def projected_mask(raster, geom, transform=None, shape=None, crs=None, **kwargs)
 
 
 def pad_extent(values, src_transform, dst_transform, src_crs, dst_crs):
-    """Ensure the array is large enough to not be treated as nodata."""
+    """Pad the extent such that the array is large enough to not be treated as
+    nodata in all cells of the reprojected raster."""
     left, top, right, bottom = *(src_transform*(0,0)), *(src_transform*(1,1))
     covered = transform_bounds(src_crs, dst_crs, left, bottom, right, top)
     covered_res = min(covered[2] - covered[0], covered[3] - covered[1])
@@ -301,7 +308,9 @@ def shape_availability(geometry, excluder):
 
     """
     exclusions = []
-    crs = excluder.crs
+    if excluder.any_closed:
+        excluder.open_files()
+    assert geometry.crs == excluder.crs
 
     bounds = rio.features.bounds(geometry)
     transform, shape = padded_transform_and_shape(bounds, res=excluder.res)
@@ -315,7 +324,7 @@ def shape_availability(geometry, excluder):
         if raster != d['raster']:
             raster = d['raster']
             masked, transform = projected_mask(d['raster'], geometry, transform,
-                                               shape, crs, nodata=d['nodata'])
+                                          shape, excluder.crs, nodata=d['nodata'])
         if d['codes']:
             if callable(d['codes']):
                 masked_ = d['codes'](masked)
@@ -325,7 +334,7 @@ def shape_availability(geometry, excluder):
             masked_ = masked
 
         if d['invert']:
-            masked_ = ~masked_
+            masked_ = ~(masked_).astype(bool)
         if d['buffer']:
             iterations = int(d['buffer'] / excluder.res) + 1
             masked_ = dilation(masked_, iterations=iterations).astype(int)
@@ -384,9 +393,7 @@ def shape_availability_reprojected(geometry, excluder, dst_transform, dst_crs,
 
 def _init_process(shapes_, excluder_, dst_transform_, dst_crs_, dst_shapes_):
     global shapes, excluder, dst_transform, dst_crs, dst_shapes
-    shapes = shapes_
-    excluder = excluder_
-    excluder.open_files()
+    shapes, excluder = shapes_, excluder_
     dst_transform, dst_crs, dst_shapes = dst_transform_, dst_crs_, dst_shapes_
 
 
@@ -434,12 +441,11 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
                               widgets=widgets, max_value=len(shapes))
     args = (excluder, cutout.transform, cutout.crs, cutout.shape)
     if nprocesses is None:
-        excluder.open_files()
         for i in progressbar(shapes.index):
             _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
             availability.append(_)
     else:
-        assert excluder.all_closed(), ('For parallelization all raster files '
+        assert excluder.any_closed, ('For parallelization all raster files '
                                        'in excluder must be closed')
         kwargs = {'initializer': _init_process,
                    'initargs': (shapes, *args),
@@ -449,7 +455,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
             imap = pool.map(_process_func, shapes.index)
             availability = list(progressbar(imap))
 
-    coords=[('shapes', names), ('y', cutout.data.y), ('x', cutout.data.x),]
+    coords=[('shape', names), ('y', cutout.data.y), ('x', cutout.data.x),]
     return xr.DataArray(np.stack(availability), coords=coords)
 
 
