@@ -72,16 +72,6 @@ def test_dx_dy_dt():
     assert 'H' == cutout.dt
 
 
-def test_transform():
-    """Test the affine transform. It always has to point to cell origin."""
-    cutout = Cutout(path="resolution", module="era5",
-                    time=slice('2013-01-01', '2013-01-01'),
-                    x=slice(X0, X1), y = slice(Y0, Y1))
-    assert cutout.transform * (0.5, 0.5) == (X0, Y0)
-    assert cutout.transform * cutout.shape[::-1] == (X1 + cutout.dx/2,
-                                                     Y1 + cutout.dy/2)
-
-
 def test_available_features(ref):
     modules = ref.available_features.index.unique('module')
     assert len(modules) == 1
@@ -95,32 +85,8 @@ def test_available_features(ref):
     assert len(cutout.available_features) > len(ref.available_features)
 
 
-def test_grid_coords(ref):
-    gcoords = ref.grid[['x', 'y']]
-    spatial = ref.data.stack(spatial=['y', 'x'])['spatial'].data
-    spatial = np.array([[s[1], s[0]] for s in spatial])
-    np.testing.assert_equal(gcoords, spatial)
-
-
 def test_sel(ref):
     cutout = ref.sel(x=slice(X0+2, X1-1), y=slice(Y0+1, Y1-2))
     assert cutout.coords['x'][0] - ref.coords['x'][0] == 2
     assert cutout.coords['y'][-1] - ref.coords['y'][-1] == -2
-
-# Extent is different from bounds
-def test_extent(ref):
-    np.testing.assert_array_equal(ref.extent,[X0, X1, Y0, Y1])
-
-
-def test_indicator_matrix(ref):
-    # This should be the grid cell at the lower left corner
-    cell = ref.grid.geometry[0]
-    indicator = ref.indicatormatrix([cell])
-    assert indicator[0, 0] == 1.
-    assert indicator.sum() == 1
-    # This should be the grid cell at the lower left corner
-    cell = ref.grid.geometry.iloc[-2]
-    indicator = ref.indicatormatrix([cell])
-    assert indicator[0, -2] == 1.
-    assert indicator.sum() == 1
 

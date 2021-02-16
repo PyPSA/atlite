@@ -13,21 +13,21 @@ import pandas as pd
 import xarray as xr
 import scipy as sp
 import scipy.sparse
+import geopandas as gpd
+import rasterio as rio
+import rasterio.warp
+import multiprocessing as mp
+
 from collections import OrderedDict
 from pathlib import Path
 from warnings import warn
 from pyproj import CRS, Transformer
-import geopandas as gpd
 from shapely.ops import transform
-import rasterio as rio
-import rasterio.warp
 from rasterio.warp import reproject, transform_bounds
 from rasterio.mask import mask
-from rasterio.plot import show
 from rasterio.features import geometry_mask
 from scipy.ndimage.morphology import binary_dilation as dilation
-from numpy import isin, empty, where
-import multiprocessing as mp
+from numpy import isin, empty
 from shapely.strtree import STRtree
 from progressbar import ProgressBar
 from progressbar.widgets import Percentage, SimpleProgress, Bar, Timer, ETA
@@ -171,7 +171,7 @@ class ExclusionContainer:
         self.crs = crs
         self.res = res
 
-    def add_raster(self, raster, codes=1, buffer=0, invert=False, **kwargs):
+    def add_raster(self, raster, codes=None, buffer=0, invert=False, nodata=255):
         """
         Register a raster to the ExclusionContainer.
 
@@ -182,21 +182,20 @@ class ExclusionContainer:
         codes : int/list, optional
             Codes in the raster which to exclude/include. The default is 1.
         buffer : int, optional
-            Buffer (in number of cells) around the excluded areas. Use this
-            to create a buffer around the excluded/included area. The default
-            is 0.
+            Buffer around the excluded areas in units of ExclusionContainer.crs.
+            Use this to create a buffer around the excluded/included area.
+            The default is 0.
         invert : bool, optional
             Whether to exclude (False) or include (True) the specified areas
             of the raster. The default is False.
         crs : rasterio.CRS/EPSG
             CRS of the raster. Specify this if the raster has crs data missing.
-        **kwargs
         """
-        d = dict(raster=raster, codes=codes, buffer=buffer,
-                 invert=invert, **kwargs)
+        d = dict(raster=raster, codes=codes, buffer=buffer, invert=invert,
+                 nodata=nodata)
         self.rasters.append(d)
 
-    def add_geometry(self, geometry, buffer=0, invert=False, **kwargs):
+    def add_geometry(self, geometry, buffer=0, invert=False):
         """
         Register a collection of geometries to the Excluder.
 
@@ -205,13 +204,13 @@ class ExclusionContainer:
         geometry : str/path/geopandas.GeoDataFrame
             Path to geometries or geometries which to exclude.
         buffer : float, optional
-            Buffer around the geometries. The default is 0.
+            Buffer around the excluded areas in units of ExclusionContainer.crs.
+            The default is 0.
         invert : bool, optional
             Whether to exclude (False) or include (True) the specified areas
             of the geometries. The default is False.
-        **kwargs
         """
-        d = dict(buffer=buffer, invert=invert, **kwargs)
+        d = dict(geometry=geometry, buffer=buffer, invert=invert)
         self.geometries.append(d)
 
 
@@ -232,12 +231,15 @@ class ExclusionContainer:
             if isinstance(geometry, (str, Path)):
                 geometry = gpd.read_file(geometry)
             assert isinstance(geometry, gpd.GeoDataFrame)
-            geometry.to_crs(self.crs)
+            geometry = geometry.to_crs(self.crs)
+            if d.get('buffer', 0) and not d.get('_buffered', False):
+                geometry = geometry.buffer(d['buffer'])
+                d['_buffered'] = True
             d['geometry'] = geometry.geometry
 
-    def is_open(self):
+    def all_closed(self):
         """Check whether any file in the raster container is open."""
-        return all(isinstance(d['raster'], str) for d in self.rasters)
+        return all(isinstance(d['raster'], (str, Path)) for d in self.rasters)
 
     def __repr__(self):
         return (f"Exclusion Container"
@@ -306,17 +308,35 @@ def shape_availability(geometry, excluder):
     masked = geometry_mask(geometry, shape, transform).astype(int)
     exclusions.append(masked)
 
+    # For the following: 0 is eligible, 1 in excluded
     raster = None
     for d in excluder.rasters:
-        # allow reusing preloaded raster with different config
+        # allow reusing preloaded raster with different post-processing
         if raster != d['raster']:
             raster = d['raster']
-            nodata = d.get('nodata', 255)
             masked, transform = projected_mask(d['raster'], geometry, transform,
-                                               shape, crs, nodata=nodata)
-        masked_ = masked
-        # ...
-        exclusions.append(masked_)
+                                               shape, crs, nodata=d['nodata'])
+        if d['codes']:
+            if callable(d['codes']):
+                masked_ = d['codes'](masked)
+            else:
+                masked_ = isin(masked, d['codes'])
+        else:
+            masked_ = masked
+
+        if d['invert']:
+            masked_ = ~masked_
+        if d['buffer']:
+            iterations = int(d['buffer'] / excluder.res) + 1
+            masked_ = dilation(masked_, iterations=iterations).astype(int)
+
+        exclusions.append(masked_.astype(int))
+
+    for d in excluder.geometries:
+        masked = ~geometry_mask(d['geometry'], shape, transform,
+                                invert=d['invert'])
+        exclusions.append(masked.astype(int))
+
     return (sum(exclusions) == 0).astype(float), transform
 
 
@@ -361,12 +381,14 @@ def shape_availability_reprojected(geometry, excluder, dst_transform, dst_crs,
                               dst_transform=dst_transform,
                               src_crs=excluder.crs, dst_crs=dst_crs,)
 
+
 def _init_process(shapes_, excluder_, dst_transform_, dst_crs_, dst_shapes_):
     global shapes, excluder, dst_transform, dst_crs, dst_shapes
     shapes = shapes_
     excluder = excluder_
     excluder.open_files()
     dst_transform, dst_crs, dst_shapes = dst_transform_, dst_crs_, dst_shapes_
+
 
 def _process_func(i):
     args = (excluder, dst_transform, dst_crs, dst_shapes)
@@ -404,6 +426,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
     availability = []
     names = shapes.get('name', shapes.index)
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
+    shapes = shapes.to_crs(excluder.crs)
 
     progress = SimpleProgress(format='(%s)' %SimpleProgress.DEFAULT_FORMAT)
     widgets = [Percentage(),' ',progress,' ',Bar(),' ',Timer(),' ', ETA()]
@@ -416,6 +439,8 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
             _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
             availability.append(_)
     else:
+        assert excluder.all_closed(), ('For parallelization all raster files '
+                                       'in excluder must be closed')
         kwargs = {'initializer': _init_process,
                    'initargs': (shapes, *args),
                    'maxtasksperchild': 20,
@@ -426,8 +451,6 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
 
     coords=[('shapes', names), ('y', cutout.data.y), ('x', cutout.data.x),]
     return xr.DataArray(np.stack(availability), coords=coords)
-
-
 
 
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
