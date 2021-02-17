@@ -8,8 +8,8 @@ Release Notes
 #############
 
 
-Version 0.2.1 
-=============
+Version 0.2.1 (upcoming)
+=========================
 * Exclusion Calculation is now possible with `atlite` (find an usage example at Examples -> Calculate Landuse Availability), Therefore 
 
   - a new class  `atlite.gis.ExclusionContainer`  was added. It serves as a container of rasters and geometries which should be excluded from the landuse availability.  

@@ -163,7 +163,7 @@ class ExclusionContainer:
             The default is 3035.
         res : float, optional
             Resolution of the base raster. All diverging rasters will be
-            resmapled using the gdal Resampling method 'nearest'.
+            resampled using the gdal Resampling method 'nearest'.
             The default is 100.
         """
         self.rasters = []
@@ -179,11 +179,11 @@ class ExclusionContainer:
         Parameters
         ----------
         raster : str/rasterio.DatasetReader
-            Path to raster or raster which to exclude.
+            Raster or path to raster which to exclude.
         codes : int/list/function, optional
             Codes in the raster which to exclude. Can be a callable function
-            which takes the mask as argument and performs a elementwise
-            condition (must not change the shape). The default is 1.
+            which takes the mask (np.array) as argument and performs a
+            elementwise condition (must not change the shape). The default is 1.
         buffer : int, optional
             Buffer around the excluded areas in units of ExclusionContainer.crs.
             Use this to create a buffer around the excluded/included area.
@@ -200,7 +200,7 @@ class ExclusionContainer:
 
     def add_geometry(self, geometry, buffer=0, invert=False):
         """
-        Register a collection of geometries to the Excluder.
+        Register a collection of geometries to the ExclusionContainer.
 
         Parameters
         ----------
@@ -247,7 +247,7 @@ class ExclusionContainer:
 
     @property
     def all_open(self):
-        """Check whether any file in the raster container is open."""
+        """Check whether all files in the raster container are open."""
         return all(isinstance(d['raster'], rio.DatasetReader) for d in self.rasters)
 
     def __repr__(self):
@@ -258,7 +258,10 @@ class ExclusionContainer:
 
 
 def padded_transform_and_shape(bounds, res):
-    """Get (transform, shape) of a raster with resolution `res` and bounds `bounds`."""
+    """
+    Get the (transform, shape) tuple of a raster with resolution `res` and
+    bounds `bounds`.
+    """
     left, bottom = [(b // res)* res for b in bounds[:2]]
     right, top = [(b // res + 1) * res for b in bounds[2:]]
     shape = int((top - bottom) // res), int((right - left) / res)
@@ -281,8 +284,10 @@ def projected_mask(raster, geom, transform=None, shape=None, crs=None, **kwargs)
 
 
 def pad_extent(values, src_transform, dst_transform, src_crs, dst_crs):
-    """Pad the extent such that the array is large enough to not be treated as
-    nodata in all cells of the reprojected raster."""
+    """
+    Pad the extent such that the array is large enough to not be treated as
+    nodata in all cells of the target raster.
+    """
     left, top, right, bottom = *(src_transform*(0,0)), *(src_transform*(1,1))
     covered = transform_bounds(src_crs, dst_crs, left, bottom, right, top)
     covered_res = min(covered[2] - covered[0], covered[3] - covered[1])
@@ -297,7 +302,7 @@ def shape_availability(geometry, excluder):
     Parameters
     ----------
     geometry : geopandas.Series
-        Geometry in which the eligible area is computed. If the series contains
+        Geometry of which the eligible area is computed. If the series contains
         more than one geometry, the eligble area of the combined geometries is
         computed.
     excluder : atlite.gis.ExclusionContainer
@@ -357,7 +362,7 @@ def shape_availability(geometry, excluder):
 def shape_availability_reprojected(geometry, excluder, dst_transform, dst_crs,
                                    dst_shape):
     """
-    Compute and reproject the eligible area in one or more geometries.
+    Compute and reproject the eligible area of one or more geometries.
 
     The function executes `shape_availability` and reprojects the calculated
     mask onto a new raster defined by (dst_transform, dst_crs, dst_shape).
@@ -383,7 +388,7 @@ def shape_availability_reprojected(geometry, excluder, dst_transform, dst_crs,
     masked : np.array
         Average share of available area per grid cell. 0 indicates excluded,
         1 is fully included.
-    transform : rasterion.Affine
+    transform : rasterio.Affine
         Affine transform of the mask.
 
     """
@@ -409,7 +414,7 @@ def _process_func(i):
 
 def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
     """
-    Compute the eligible area in the overlap of shapes and cutout weather cells.
+    Compute the eligible share within cutout cells in the overlap with shapes.
 
     For parallel calculation (nprocesses not None) the excluder must not be
     initialized and all raster references must be strings. Otherwise processes
@@ -432,7 +437,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
     -------
     availabilities : xr.DataArray
         DataArray of shape (|shapes|, |y|, |x|) containing all the eligible
-        area in the overlap of cutout cell (x,y) and shape i.
+        share of cutout cell (x,y) in the overlap with shape i.
 
     """
     availability = []
