@@ -43,7 +43,7 @@ def raster(tmp_path_factory):
     mask = np.random.rand(*shape) < raster_clip
     mask = mask.astype(rio.int32)
     path = tmp_path / 'raster.tif'
-    with rio.open(path, 'w', driver='GTiff', transform=transform,
+    with rio.open(path, 'w', driver='GTiff', transform=transform, crs=4326,
                   width=shape[1], height=shape[0], count=1, dtype=mask.dtype) as dst:
         dst.write(mask, indexes=1)
     return path
@@ -71,7 +71,7 @@ def raster_codes(tmp_path_factory):
     mask = (np.random.rand(*shape) * 100).astype(int)
     mask = mask.astype(rio.int32)
     path = tmp_path / 'raster_codes.tif'
-    with rio.open(path, 'w', driver='GTiff', transform=transform,
+    with rio.open(path, 'w', driver='GTiff', transform=transform, crs=4326,
                   width=shape[1], height=shape[0], count=1, dtype=mask.dtype) as dst:
         dst.write(mask, indexes=1)
     return path
@@ -138,6 +138,29 @@ def test_shape_availability_area(ref):
     shapes = shapes.to_crs(3035)
     masked, transform = shape_availability(shapes, excluder)
     assert np.isclose(shapes.area, masked.sum() * res ** 2)
+
+
+def test_exclusioncontainer_geometries():
+    crs = 3035
+    shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=crs)
+    exclude = gpd.GeoSeries([box(X0/2+X1/2, Y0/2+Y1/2, X1, Y1)], crs=crs)
+    res = 0.01
+
+    excluder = ExclusionContainer(crs, res=res)
+    excluder.add_geometry(exclude, buffer=1)
+    excluder.open_files()
+    assert (excluder.geometries[0]['geometry'] != exclude).all()
+    excluder.open_files()
+    buffered = excluder.geometries[0]['geometry']
+    # open again and check that the buffer remains the same
+    assert (excluder.geometries[0]['geometry'] == buffered).all()
+
+    # should take GeoDataFrames and the result is the same
+    excluder = ExclusionContainer(crs, res=res)
+    excluder.add_geometry(exclude.to_frame('geometry'), buffer=1)
+    excluder.open_files()
+    assert (excluder.geometries[0]['geometry'] == buffered).all()
+
 
 
 def test_shape_availability_exclude_geometry(ref):

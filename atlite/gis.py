@@ -227,18 +227,22 @@ class ExclusionContainer:
                 assert isinstance(raster, rio.DatasetReader)
             if d['crs']:
                 raster._crs = d['crs']
+            assert raster.crs is not None
             d['raster'] = raster
 
         for d in self.geometries:
             geometry = d['geometry']
             if isinstance(geometry, (str, Path)):
                 geometry = gpd.read_file(geometry)
-            assert isinstance(geometry, gpd.GeoDataFrame)
+            if isinstance(geometry, gpd.GeoDataFrame):
+                geometry = geometry.geometry
+            assert isinstance(geometry, gpd.GeoSeries)
+            assert geometry.crs is not None
             geometry = geometry.to_crs(self.crs)
             if d.get('buffer', 0) and not d.get('_buffered', False):
                 geometry = geometry.buffer(d['buffer'])
                 d['_buffered'] = True
-            d['geometry'] = geometry.geometry
+            d['geometry'] = geometry
 
     @property
     def any_closed(self):
