@@ -171,7 +171,8 @@ class ExclusionContainer:
         self.crs = crs
         self.res = res
 
-    def add_raster(self, raster, codes=None, buffer=0, invert=False, nodata=255):
+    def add_raster(self, raster, codes=None, buffer=0, invert=False, nodata=255,
+                   crs=None):
         """
         Register a raster to the ExclusionContainer.
 
@@ -194,7 +195,7 @@ class ExclusionContainer:
             CRS of the raster. Specify this if the raster has crs data missing.
         """
         d = dict(raster=raster, codes=codes, buffer=buffer, invert=invert,
-                 nodata=nodata)
+                 nodata=nodata, crs=crs)
         self.rasters.append(d)
 
     def add_geometry(self, geometry, buffer=0, invert=False):
@@ -224,7 +225,7 @@ class ExclusionContainer:
                 raster = rio.open(raster)
             else:
                 assert isinstance(raster, rio.DatasetReader)
-            if 'crs' in d:
+            if d['crs']:
                 raster._crs = d['crs']
             d['raster'] = raster
 
@@ -267,14 +268,16 @@ def padded_transform_and_shape(bounds, res):
 def projected_mask(raster, geom, transform=None, shape=None, crs=None, **kwargs):
     """Load a mask and optionally project it to target resolution and shape."""
     kwargs.setdefault('indexes', 1)
+    if geom.crs != raster.crs:
+        geom = geom.to_crs(raster.crs)
     masked, transform_ = mask(raster, geom, crop=True, **kwargs)
 
     if transform is None or (transform_ == transform):
         return masked, transform_
 
     assert shape is not None and crs is not None
-    return rio.warp.reproject(masked, empty(shape), src_crs=raster.crs, dst_crs=crs,
-                     src_transform=transform_, dst_transform=transform)
+    return rio.warp.reproject(masked, empty(shape), src_crs=raster.crs,
+                  dst_crs=crs, src_transform=transform_, dst_transform=transform)
 
 
 def pad_extent(values, src_transform, dst_transform, src_crs, dst_crs):
@@ -433,7 +436,6 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
 
     """
     availability = []
-    names = shapes.get('name', shapes.index)
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
     shapes = shapes.to_crs(excluder.crs)
 
@@ -457,7 +459,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
             imap = pool.map(_process_func, shapes.index)
             availability = list(progressbar(imap))
 
-    coords=[('shape', names), ('y', cutout.data.y), ('x', cutout.data.x),]
+    coords=[('shape', shapes.index), ('y', cutout.data.y), ('x', cutout.data.x)]
     return xr.DataArray(np.stack(availability), coords=coords)
 
 

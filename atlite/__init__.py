@@ -14,7 +14,7 @@ on CPU and RAM resources low.
 """
 
 from .cutout import Cutout
-from .gis import compute_indicatormatrix, regrid
+from .gis import compute_indicatormatrix, regrid, ExclusionContainer
 from .resource import windturbines, solarpanels
 
 from .version import version as __version__

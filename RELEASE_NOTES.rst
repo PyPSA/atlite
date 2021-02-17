@@ -9,10 +9,14 @@ Release Notes
 
 
 Version 0.2.1 
-=========
+=============
+* Exclusion Calculation is now possible with `atlite` (find an usage example at Examples -> Calculate Landuse Availability), Therefore 
+
+  - a new class  `atlite.gis.ExclusionContainer`  was added. It serves as a container of rasters and geometries which should be excluded from the landuse availability.  
+  - `Cutout` has a new `availabilitymatrix` function which calculates the overlap of weather cells with shapes while excluding areas based on an `ExclusionContainer`.  
+  - `Cutout` has now a affine transform property (`rasterio.Affine`). 
 * Fix resolution for dx and dy unequal to 0.25: Due to floating point precision errors, loading data with ERA5 corrupted the cutout coordinates. This was fixed by converting the dtype of era5 coordinates to float64 and rounding. Corresponding tests were added.
 * Round cutout.dx and cutout.dy in order to prevent precision errors.    
-* Cutout has now a affine transform property (`rasterio.Affine`). 
 
 
 Version 0.2
