@@ -192,7 +192,7 @@ class ExclusionContainer:
             Whether to exclude (False) or include (True) the specified areas
             of the raster. The default is False.
         crs : rasterio.CRS/EPSG
-            CRS of the raster. Specify this if the raster has crs data missing.
+            CRS of the raster. Specify this if the raster has invalid crs.
         """
         d = dict(raster=raster, codes=codes, buffer=buffer, invert=invert,
                  nodata=nodata, crs=crs)
@@ -225,9 +225,12 @@ class ExclusionContainer:
                 raster = rio.open(raster)
             else:
                 assert isinstance(raster, rio.DatasetReader)
-            if d['crs']:
-                raster._crs = d['crs']
-            assert raster.crs is not None
+            if not raster.crs.is_valid:
+                if d['crs']:
+                    raster._crs = CRS(d['crs'])
+                else:
+                    raise ValueError(f'CRS of {raster} is invalid, please '
+                                     'provide it.')
             d['raster'] = raster
 
         for d in self.geometries:
@@ -468,7 +471,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
             imap = pool.map(_process_func, shapes.index)
             availability = list(progressbar(imap))
 
-    coords=[('shape', shapes.index), ('y', cutout.data.y), ('x', cutout.data.x)]
+    coords=[(shapes.index), ('y', cutout.data.y), ('x', cutout.data.x)]
     return xr.DataArray(np.stack(availability), coords=coords)
 
 
