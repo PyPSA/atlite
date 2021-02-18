@@ -32,6 +32,7 @@ from shapely.strtree import STRtree
 from progressbar import ProgressBar
 from progressbar.widgets import Percentage, SimpleProgress, Bar, Timer, ETA
 
+
 import logging
 logger = logging.getLogger(__name__)
 
@@ -248,9 +249,9 @@ class ExclusionContainer:
             d['geometry'] = geometry
 
     @property
-    def any_closed(self):
-        """Check whether any file in the raster container is open."""
-        return any(isinstance(d['raster'], (str, Path)) for d in self.rasters)
+    def all_closed(self):
+        """Check whether all files in the raster container are closed."""
+        return all(isinstance(d['raster'], (str, Path)) for d in self.rasters)
 
     @property
     def all_open(self):
@@ -325,7 +326,7 @@ def shape_availability(geometry, excluder):
 
     """
     exclusions = []
-    if excluder.any_closed:
+    if not excluder.all_open:
         excluder.open_files()
     assert geometry.crs == excluder.crs
 
@@ -419,7 +420,8 @@ def _process_func(i):
     return shape_availability_reprojected(shapes.loc[[i]], *args)[0]
 
 
-def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
+def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
+                               disable_progressbar=False):
     """
     Compute the eligible share within cutout cells in the overlap with shapes.
 
@@ -439,6 +441,10 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
     nprocesses : int, optional
         Number of processes to use for calculating the matrix. The paralle-
         lization can heavily boost the calculation speed. The default is None.
+    disable_progressbar: bool, optional
+        Disable the progressbar if nprocesses is not None. Then the `map`
+        function instead of the `imap` function is used for the multiprocessing
+        pool. This speeds up the calculation.
 
     Returns
     -------
@@ -451,6 +457,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
     shapes = shapes.to_crs(excluder.crs)
 
+
     progress = SimpleProgress(format='(%s)' %SimpleProgress.DEFAULT_FORMAT)
     widgets = [Percentage(),' ',progress,' ',Bar(),' ',Timer(),' ', ETA()]
     progressbar = ProgressBar(prefix='Compute availabily matrix: ',
@@ -461,18 +468,23 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None):
             _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
             availability.append(_)
     else:
-        assert excluder.any_closed, ('For parallelization all raster files '
-                                       'in excluder must be closed')
+        assert excluder.all_closed, ('For parallelization all raster files '
+                                     'in excluder must be closed')
         kwargs = {'initializer': _init_process,
                    'initargs': (shapes, *args),
                    'maxtasksperchild': 20,
                    'processes': nprocesses}
         with mp.Pool(**kwargs) as pool:
-            imap = pool.map(_process_func, shapes.index)
-            availability = list(progressbar(imap))
+            if disable_progressbar:
+                availability = list(pool.map(_process_func, shapes.index))
+            else:
+                imap = pool.imap(_process_func, shapes.index)
+                availability = list(progressbar(imap))
+
 
     coords=[(shapes.index), ('y', cutout.data.y), ('x', cutout.data.x)]
     return xr.DataArray(np.stack(availability), coords=coords)
+
 
 
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
