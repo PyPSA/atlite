@@ -226,7 +226,7 @@ class ExclusionContainer:
                 raster = rio.open(raster)
             else:
                 assert isinstance(raster, rio.DatasetReader)
-            if not raster.crs.is_valid:
+            if (not raster.crs.is_valid if raster.crs is not None else True):
                 if d['crs']:
                     raster._crs = CRS(d['crs'])
                 else:
