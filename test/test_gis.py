@@ -118,7 +118,7 @@ def test_availability_matrix_flat(ref):
     Indicator matrix and availability matrix for an empty excluder must be
     the same.
     """
-    shapes = gpd.GeoSeries([box(X0+1, Y0+1, X1-1, Y1-1)], crs=ref.crs)
+    shapes = gpd.GeoSeries([box(X0+1, Y0+1, X1-1, Y1-1)], crs=ref.crs).rename_axis('shape')
     I = ref.indicatormatrix(shapes).sum(0).reshape(ref.shape)
     I = xr.DataArray(I, coords=[ref.coords['y'], ref.coords['x']])
     excluder = ExclusionContainer(ref.crs, res=0.01)
@@ -229,7 +229,7 @@ def test_availability_matrix_rastered(ref, raster):
     """
     shapes = gpd.GeoSeries([box(X0+1, Y0+1, X1-1, Y0/2 + Y1/2),
                             box(X0+1, Y0/2 + Y1/2, X1-1, Y1-1)],
-                           crs=ref.crs)
+                           crs=ref.crs).rename_axis('shape')
     I = np.asarray(ref.indicatormatrix(shapes).todense())
     I = I.reshape(shapes.shape + ref.shape)
     I = xr.DataArray(I, coords=[('shape', shapes.index), ref.coords['y'],
@@ -255,7 +255,7 @@ def test_availability_matrix_rastered_repro(ref, raster_reproject):
     """
     shapes = gpd.GeoSeries([box(X0+1, Y0+1, X1-1, Y0/2 + Y1/2),
                             box(X0+1, Y0/2 + Y1/2, X1-1, Y1-1)],
-                            crs=ref.crs)
+                            crs=ref.crs).rename_axis('shape')
     I = np.asarray(ref.indicatormatrix(shapes).todense())
     I = I.reshape(shapes.shape + ref.shape)
     I = xr.DataArray(I, coords=[('shape', shapes.index), ref.coords['y'],
