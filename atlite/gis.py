@@ -298,7 +298,7 @@ def projected_mask(raster, geom, transform=None, shape=None, crs=None,
     else:
         masked, transform_ = mask(raster, geom, crop=True, **kwargs)
 
-    if transform is None or (transform_ == transform):
+    if transform is None or (transform_ == transform and shape == masked.shape):
         return masked, transform_
 
     assert shape is not None and crs is not None
