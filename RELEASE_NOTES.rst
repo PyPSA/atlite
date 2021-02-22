@@ -12,7 +12,7 @@ Version 0.2.1
 =========
 * Fix resolution for dx and dy unequal to 0.25: Due to floating point precision errors, loading data with ERA5 corrupted the cutout coordinates. This was fixed by converting the dtype of era5 coordinates to float64 and rounding. Corresponding tests were added.
 * Round cutout.dx and cutout.dy in order to prevent precision errors.    
-
+* Allow passing keyword arguments to `dask.compute` in `convert_and_aggregate` functions. 
 
 
 Version 0.2
