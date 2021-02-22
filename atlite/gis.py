@@ -173,7 +173,7 @@ class ExclusionContainer:
         self.res = res
 
     def add_raster(self, raster, codes=None, buffer=0, invert=False, nodata=255,
-                   crs=None):
+                   allow_no_overlap=False, crs=None):
         """
         Register a raster to the ExclusionContainer.
 
@@ -192,11 +192,15 @@ class ExclusionContainer:
         invert : bool, optional
             Whether to exclude (False) or include (True) the specified areas
             of the raster. The default is False.
+        allow_no_overlap:
+            Allow that a raster and a shape (for which the raster will be used as
+            a mask) do not overlap. In this case an array with only `nodata` is
+            returned.
         crs : rasterio.CRS/EPSG
             CRS of the raster. Specify this if the raster has invalid crs.
         """
         d = dict(raster=raster, codes=codes, buffer=buffer, invert=invert,
-                 nodata=nodata, crs=crs)
+                 nodata=nodata, allow_no_overlap=allow_no_overlap, crs=crs)
         self.rasters.append(d)
 
     def add_geometry(self, geometry, buffer=0, invert=False):
@@ -272,23 +276,35 @@ def padded_transform_and_shape(bounds, res):
     """
     left, bottom = [(b // res)* res for b in bounds[:2]]
     right, top = [(b // res + 1) * res for b in bounds[2:]]
-    shape = int((top - bottom) // res), int((right - left) / res)
+    shape = int((top - bottom) / res), int((right - left) / res)
     return rio.Affine(res, 0, left, 0, -res, top), shape
 
 
-def projected_mask(raster, geom, transform=None, shape=None, crs=None, **kwargs):
+def projected_mask(raster, geom, transform=None, shape=None, crs=None,
+                   allow_no_overlap=False, **kwargs):
     """Load a mask and optionally project it to target resolution and shape."""
+    nodata = kwargs.get('nodata', 255)
     kwargs.setdefault('indexes', 1)
     if geom.crs != raster.crs:
         geom = geom.to_crs(raster.crs)
-    masked, transform_ = mask(raster, geom, crop=True, **kwargs)
+
+    if allow_no_overlap:
+        try:
+            masked, transform_ = mask(raster, geom, crop=True, **kwargs)
+        except ValueError:
+            res = raster.res[0]
+            transform_, shape = padded_transform_and_shape(geom.total_bounds, res)
+            masked = np.full(shape, nodata)
+    else:
+        masked, transform_ = mask(raster, geom, crop=True, **kwargs)
 
     if transform is None or (transform_ == transform):
         return masked, transform_
 
     assert shape is not None and crs is not None
     return rio.warp.reproject(masked, empty(shape), src_crs=raster.crs,
-                  dst_crs=crs, src_transform=transform_, dst_transform=transform)
+                              dst_crs=crs, src_transform=transform_,
+                              dst_transform=transform, dst_nodata=nodata)
 
 
 def pad_extent(values, src_transform, dst_transform, src_crs, dst_crs):
@@ -341,8 +357,10 @@ def shape_availability(geometry, excluder):
         # allow reusing preloaded raster with different post-processing
         if raster != d['raster']:
             raster = d['raster']
+            kwargs_keys = ['allow_no_overlap', 'nodata']
+            kwargs = {k: v for k, v in d.items() if k in kwargs_keys}
             masked, transform = projected_mask(d['raster'], geometry, transform,
-                                          shape, excluder.crs, nodata=d['nodata'])
+                                               shape, excluder.crs, **kwargs)
         if d['codes']:
             if callable(d['codes']):
                 masked_ = d['codes'](masked)

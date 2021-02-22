@@ -27,7 +27,7 @@ X0 = -4.
 Y0 = 56.
 X1 = 1.5
 Y1 = 61.
-raster_clip = 0.25
+raster_clip = 0.25 # this rastio is excluded (True) in the raster
 
 
 @pytest.fixture
@@ -140,6 +140,7 @@ def test_shape_availability_area(ref):
     assert np.isclose(shapes.area, masked.sum() * res ** 2)
 
 
+
 def test_exclusioncontainer_geometries():
     crs = 3035
     shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=crs)
@@ -219,6 +220,58 @@ def test_shape_availability_exclude_raster(ref, raster):
         assert ratio >= ratio2
     else:
         assert ratio <= ratio2
+
+
+def test_shape_availability_excluder_partial_overlap(ref, raster):
+    """Test behavior, when a raster only overlaps half of the geometry."""
+    bounds = X0-2, Y0, X0+2, Y1
+    area = abs((bounds[2] - bounds[0]) * (bounds[3] - bounds[1]))
+    shapes = gpd.GeoSeries([box(*bounds)], crs=ref.crs)
+    res = 0.01
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster, codes=[0, 1])
+    masked, transform = shape_availability(shapes, excluder)
+    assert (masked.sum() * (res ** 2) == area/2)
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster, nodata=0)
+    masked, transform = shape_availability(shapes, excluder)
+    assert (masked.sum() * (res ** 2) > area/2)
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster, nodata=1)
+    masked, transform = shape_availability(shapes, excluder)
+    assert (masked.sum() * (res ** 2) < area/2)
+
+
+
+def test_shape_availability_excluder_raster_no_overlap(ref, raster):
+    """Check if the allow_no_overlap flag works."""
+    bounds = X0-10., Y0-10., X0-2., Y0-2.
+    area = abs((bounds[2] - bounds[0]) * (bounds[3] - bounds[1]))
+    shapes = gpd.GeoSeries([box(*bounds)], crs=ref.crs)
+    res = 0.01
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster)
+    with pytest.raises(ValueError):
+        masked, transform = shape_availability(shapes, excluder)
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster, allow_no_overlap=True)
+    masked, transform = shape_availability(shapes, excluder)
+    assert (masked == 0).all()
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster, allow_no_overlap=True, codes=[1, 255], invert=True)
+    masked, transform = shape_availability(shapes, excluder)
+    assert (masked.sum() * (res ** 2) == area)
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster, allow_no_overlap=True, nodata=0)
+    masked, transform = shape_availability(shapes, excluder)
+    assert (masked.sum() * (res ** 2) == area)
 
 
 
