@@ -77,7 +77,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     show_progress : boolean, default True
         Whether to show a progress bar.
     dask_kwargs : dict, default {}
-        Dict with keywork arguments passed to `dask.compute`.
+        Dict with keyword arguments passed to `dask.compute`.
 
     Other Parameters
     -----------------
