@@ -40,7 +40,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
                           index=None, layout=None, shapes=None,
                           shapes_crs=4326, per_unit=False,
                           return_capacity=False, capacity_factor=False,
-                          show_progress=True, **convert_kwds):
+                          show_progress=True, dask_kwargs={}, **convert_kwds):
     """
     Convert and aggregate a weather-based renewable generation time-series.
 
@@ -76,6 +76,8 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
         grid cell is computed.
     show_progress : boolean, default True
         Whether to show a progress bar.
+    dask_kwargs : dict, default {}
+        Dict with keyword arguments passed to `dask.compute`.
 
     Other Parameters
     -----------------
@@ -144,18 +146,18 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
 
     if return_capacity:
-        return maybe_progressbar(results, show_progress), capacity
+        return maybe_progressbar(results, show_progress, **dask_kwargs), capacity
     else:
-        return maybe_progressbar(results, show_progress)
+        return maybe_progressbar(results, show_progress, **dask_kwargs)
 
 
-def maybe_progressbar(ds, show_progress):
+def maybe_progressbar(ds, show_progress, **kwargs):
     """Load a xr.dataset with dask arrays either with or without progressbar."""
     if show_progress:
         with ProgressBar(minimum=2):
-            ds.load()
+            ds.load(**kwargs)
     else:
-        ds.load()
+        ds.load(**kwargs)
     return ds
 
 
