@@ -13,14 +13,25 @@ import pandas as pd
 import xarray as xr
 import scipy as sp
 import scipy.sparse
-from collections import OrderedDict
-from warnings import warn
-from pyproj import CRS, Transformer
 import geopandas as gpd
-from shapely.ops import transform
 import rasterio as rio
 import rasterio.warp
+import multiprocessing as mp
+
+from collections import OrderedDict
+from pathlib import Path
+from warnings import warn
+from pyproj import CRS, Transformer
+from shapely.ops import transform
+from rasterio.warp import reproject, transform_bounds
+from rasterio.mask import mask
+from rasterio.features import geometry_mask
+from scipy.ndimage.morphology import binary_dilation as dilation
+from numpy import isin, empty
 from shapely.strtree import STRtree
+from progressbar import ProgressBar
+from progressbar.widgets import Percentage, SimpleProgress, Bar, Timer, ETA
+
 
 import logging
 logger = logging.getLogger(__name__)
@@ -101,7 +112,7 @@ reproject.__doc__ = reproject_shapes.__doc__
 
 def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     """
-    Compute the indicatormatrix
+    Compute the indicatormatrix.
 
     The indicatormatrix I[i,j] is a sparse representation of the ratio
     of the area in orig[j] lying in dest[i], where orig and dest are
@@ -137,6 +148,361 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
                 indicator[i, j] = area / o.area
 
     return indicator
+
+
+class ExclusionContainer:
+    """Container for exclusion objects and meta data."""
+
+    def __init__(self, crs=3035, res=100):
+        """Initialize a container for excluded areas.
+
+        Parameters
+        ----------
+        crs : rasterio.CRS/proj.CRS/EPSG, optional
+            Base crs of the raster collection. All rasters and geometries
+            diverging from this crs will be converted to it.
+            The default is 3035.
+        res : float, optional
+            Resolution of the base raster. All diverging rasters will be
+            resampled using the gdal Resampling method 'nearest'.
+            The default is 100.
+        """
+        self.rasters = []
+        self.geometries = []
+        self.crs = crs
+        self.res = res
+
+    def add_raster(self, raster, codes=None, buffer=0, invert=False, nodata=255,
+                   allow_no_overlap=False, crs=None):
+        """
+        Register a raster to the ExclusionContainer.
+
+        Parameters
+        ----------
+        raster : str/rasterio.DatasetReader
+            Raster or path to raster which to exclude.
+        codes : int/list/function, optional
+            Codes in the raster which to exclude. Can be a callable function
+            which takes the mask (np.array) as argument and performs a
+            elementwise condition (must not change the shape). The default is 1.
+        buffer : int, optional
+            Buffer around the excluded areas in units of ExclusionContainer.crs.
+            Use this to create a buffer around the excluded/included area.
+            The default is 0.
+        invert : bool, optional
+            Whether to exclude (False) or include (True) the specified areas
+            of the raster. The default is False.
+        allow_no_overlap:
+            Allow that a raster and a shape (for which the raster will be used as
+            a mask) do not overlap. In this case an array with only `nodata` is
+            returned.
+        crs : rasterio.CRS/EPSG
+            CRS of the raster. Specify this if the raster has invalid crs.
+        """
+        d = dict(raster=raster, codes=codes, buffer=buffer, invert=invert,
+                 nodata=nodata, allow_no_overlap=allow_no_overlap, crs=crs)
+        self.rasters.append(d)
+
+    def add_geometry(self, geometry, buffer=0, invert=False):
+        """
+        Register a collection of geometries to the ExclusionContainer.
+
+        Parameters
+        ----------
+        geometry : str/path/geopandas.GeoDataFrame
+            Path to geometries or geometries which to exclude.
+        buffer : float, optional
+            Buffer around the excluded areas in units of ExclusionContainer.crs.
+            The default is 0.
+        invert : bool, optional
+            Whether to exclude (False) or include (True) the specified areas
+            of the geometries. The default is False.
+        """
+        d = dict(geometry=geometry, buffer=buffer, invert=invert)
+        self.geometries.append(d)
+
+
+    def open_files(self):
+        """Open rasters and load geometries."""
+        for d in self.rasters:
+            raster = d['raster']
+            if isinstance(raster, (str, Path)):
+                raster = rio.open(raster)
+            else:
+                assert isinstance(raster, rio.DatasetReader)
+            if (not raster.crs.is_valid if raster.crs is not None else True):
+                if d['crs']:
+                    raster._crs = CRS(d['crs'])
+                else:
+                    raise ValueError(f'CRS of {raster} is invalid, please '
+                                     'provide it.')
+            d['raster'] = raster
+
+        for d in self.geometries:
+            geometry = d['geometry']
+            if isinstance(geometry, (str, Path)):
+                geometry = gpd.read_file(geometry)
+            if isinstance(geometry, gpd.GeoDataFrame):
+                geometry = geometry.geometry
+            assert isinstance(geometry, gpd.GeoSeries)
+            assert geometry.crs is not None
+            geometry = geometry.to_crs(self.crs)
+            if d.get('buffer', 0) and not d.get('_buffered', False):
+                geometry = geometry.buffer(d['buffer'])
+                d['_buffered'] = True
+            d['geometry'] = geometry
+
+    @property
+    def all_closed(self):
+        """Check whether all files in the raster container are closed."""
+        return all(isinstance(d['raster'], (str, Path)) for d in self.rasters)
+
+    @property
+    def all_open(self):
+        """Check whether all files in the raster container are open."""
+        return all(isinstance(d['raster'], rio.DatasetReader) for d in self.rasters)
+
+    def __repr__(self):
+        return (f"Exclusion Container"
+                f"\n registered rasters: {len(self.rasters)} "
+                f"\n registered geometry collections: {len(self.geometries)}"
+                f"\n CRS: {self.crs} - Resolution: {self.res}")
+
+
+def padded_transform_and_shape(bounds, res):
+    """
+    Get the (transform, shape) tuple of a raster with resolution `res` and
+    bounds `bounds`.
+    """
+    left, bottom = [(b // res)* res for b in bounds[:2]]
+    right, top = [(b // res + 1) * res for b in bounds[2:]]
+    shape = int((top - bottom) / res), int((right - left) / res)
+    return rio.Affine(res, 0, left, 0, -res, top), shape
+
+
+def projected_mask(raster, geom, transform=None, shape=None, crs=None,
+                   allow_no_overlap=False, **kwargs):
+    """Load a mask and optionally project it to target resolution and shape."""
+    nodata = kwargs.get('nodata', 255)
+    kwargs.setdefault('indexes', 1)
+    if geom.crs != raster.crs:
+        geom = geom.to_crs(raster.crs)
+
+    if allow_no_overlap:
+        try:
+            masked, transform_ = mask(raster, geom, crop=True, **kwargs)
+        except ValueError:
+            res = raster.res[0]
+            transform_, shape = padded_transform_and_shape(geom.total_bounds, res)
+            masked = np.full(shape, nodata)
+    else:
+        masked, transform_ = mask(raster, geom, crop=True, **kwargs)
+
+    if transform is None or (transform_ == transform and shape == masked.shape):
+        return masked, transform_
+
+    assert shape is not None and crs is not None
+    return rio.warp.reproject(masked, empty(shape), src_crs=raster.crs,
+                              dst_crs=crs, src_transform=transform_,
+                              dst_transform=transform, dst_nodata=nodata)
+
+
+def pad_extent(values, src_transform, dst_transform, src_crs, dst_crs):
+    """
+    Pad the extent such that the array is large enough to not be treated as
+    nodata in all cells of the target raster.
+    """
+    left, top, right, bottom = *(src_transform*(0,0)), *(src_transform*(1,1))
+    covered = transform_bounds(src_crs, dst_crs, left, bottom, right, top)
+    covered_res = min(covered[2] - covered[0], covered[3] - covered[1])
+    pad = int(dst_transform[0] // covered_res * 1.1)
+    return rio.pad(values, src_transform, pad, 'constant', constant_values=0)
+
+
+def shape_availability(geometry, excluder):
+    """
+    Compute the eligible area in one or more geometries.
+
+    Parameters
+    ----------
+    geometry : geopandas.Series
+        Geometry of which the eligible area is computed. If the series contains
+        more than one geometry, the eligble area of the combined geometries is
+        computed.
+    excluder : atlite.gis.ExclusionContainer
+        Container of all meta data or objects which to exclude, i.e.
+        rasters and geometries.
+
+    Returns
+    -------
+    masked : np.array
+        Mask whith eligible raster cells indicated by 1 and excluded cells by 0.
+    transform : rasterion.Affine
+        Affine transform of the mask.
+
+    """
+    exclusions = []
+    if not excluder.all_open:
+        excluder.open_files()
+    assert geometry.crs == excluder.crs
+
+    bounds = rio.features.bounds(geometry)
+    transform, shape = padded_transform_and_shape(bounds, res=excluder.res)
+    masked = geometry_mask(geometry, shape, transform).astype(int)
+    exclusions.append(masked)
+
+    # For the following: 0 is eligible, 1 in excluded
+    raster = None
+    for d in excluder.rasters:
+        # allow reusing preloaded raster with different post-processing
+        if raster != d['raster']:
+            raster = d['raster']
+            kwargs_keys = ['allow_no_overlap', 'nodata']
+            kwargs = {k: v for k, v in d.items() if k in kwargs_keys}
+            masked, transform = projected_mask(d['raster'], geometry, transform,
+                                               shape, excluder.crs, **kwargs)
+        if d['codes']:
+            if callable(d['codes']):
+                masked_ = d['codes'](masked)
+            else:
+                masked_ = isin(masked, d['codes'])
+        else:
+            masked_ = masked
+
+        if d['invert']:
+            masked_ = ~(masked_).astype(bool)
+        if d['buffer']:
+            iterations = int(d['buffer'] / excluder.res) + 1
+            masked_ = dilation(masked_, iterations=iterations).astype(int)
+
+        exclusions.append(masked_.astype(int))
+
+    for d in excluder.geometries:
+        masked = ~geometry_mask(d['geometry'], shape, transform,
+                                invert=d['invert'])
+        exclusions.append(masked.astype(int))
+
+    return (sum(exclusions) == 0).astype(float), transform
+
+
+def shape_availability_reprojected(geometry, excluder, dst_transform, dst_crs,
+                                   dst_shape):
+    """
+    Compute and reproject the eligible area of one or more geometries.
+
+    The function executes `shape_availability` and reprojects the calculated
+    mask onto a new raster defined by (dst_transform, dst_crs, dst_shape).
+    Before reprojecting, the function pads the mask such all non-nodata data
+    points  are projected in full cells of the target raster. The ensures that
+    all data within the mask are projected correclty (GDAL inherent 'problem').
+
+    ----------
+    geometry : geopandas.Series
+        Geometry in which the eligible area is computed. If the series contains
+        more than one geometry, the eligble area of the combined geometries is
+        computed.
+    excluder : atlite.gis.ExclusionContainer
+        Container of all meta data or objects which to exclude, i.e.
+        rasters and geometries.
+    dst_transform : rasterio.Affine
+        Transform of the target raster.
+    dst_crs : rasterio.CRS/proj.CRS
+        CRS of the target raster.
+    dst_shape : tuple
+        Shape of the target raster.
+
+    masked : np.array
+        Average share of available area per grid cell. 0 indicates excluded,
+        1 is fully included.
+    transform : rasterio.Affine
+        Affine transform of the mask.
+
+    """
+    masked, transform = shape_availability(geometry, excluder)
+    masked, transform = pad_extent(masked, transform, dst_transform,
+                                   excluder.crs, dst_crs)
+    return rio.warp.reproject(masked, empty(dst_shape), resampling=5,
+                              src_transform=transform,
+                              dst_transform=dst_transform,
+                              src_crs=excluder.crs, dst_crs=dst_crs,)
+
+
+def _init_process(shapes_, excluder_, dst_transform_, dst_crs_, dst_shapes_):
+    global shapes, excluder, dst_transform, dst_crs, dst_shapes
+    shapes, excluder = shapes_, excluder_
+    dst_transform, dst_crs, dst_shapes = dst_transform_, dst_crs_, dst_shapes_
+
+
+def _process_func(i):
+    args = (excluder, dst_transform, dst_crs, dst_shapes)
+    return shape_availability_reprojected(shapes.loc[[i]], *args)[0]
+
+
+def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
+                               disable_progressbar=False):
+    """
+    Compute the eligible share within cutout cells in the overlap with shapes.
+
+    For parallel calculation (nprocesses not None) the excluder must not be
+    initialized and all raster references must be strings. Otherwise processes
+    are colliding when reading from one common rasterio.DatasetReader.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout which the availability matrix is aligned to.
+    shapes : geopandas.Series/geopandas.DataFrame
+        Geometries for which the availabilities are calculated.
+    excluder : atlite.gis.ExclusionContainer
+        Container of all meta data or objects which to exclude, i.e.
+        rasters and geometries.
+    nprocesses : int, optional
+        Number of processes to use for calculating the matrix. The paralle-
+        lization can heavily boost the calculation speed. The default is None.
+    disable_progressbar: bool, optional
+        Disable the progressbar if nprocesses is not None. Then the `map`
+        function instead of the `imap` function is used for the multiprocessing
+        pool. This speeds up the calculation.
+
+    Returns
+    -------
+    availabilities : xr.DataArray
+        DataArray of shape (|shapes|, |y|, |x|) containing all the eligible
+        share of cutout cell (x,y) in the overlap with shape i.
+
+    """
+    availability = []
+    shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
+    shapes = shapes.to_crs(excluder.crs)
+
+
+    progress = SimpleProgress(format='(%s)' %SimpleProgress.DEFAULT_FORMAT)
+    widgets = [Percentage(),' ',progress,' ',Bar(),' ',Timer(),' ', ETA()]
+    progressbar = ProgressBar(prefix='Compute availabily matrix: ',
+                              widgets=widgets, max_value=len(shapes))
+    args = (excluder, cutout.transform, cutout.crs, cutout.shape)
+    if nprocesses is None:
+        for i in progressbar(shapes.index):
+            _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
+            availability.append(_)
+    else:
+        assert excluder.all_closed, ('For parallelization all raster files '
+                                     'in excluder must be closed')
+        kwargs = {'initializer': _init_process,
+                   'initargs': (shapes, *args),
+                   'maxtasksperchild': 20,
+                   'processes': nprocesses}
+        with mp.Pool(**kwargs) as pool:
+            if disable_progressbar:
+                availability = list(pool.map(_process_func, shapes.index))
+            else:
+                imap = pool.imap(_process_func, shapes.index)
+                availability = list(progressbar(imap))
+
+
+    coords=[(shapes.index), ('y', cutout.data.y), ('x', cutout.data.x)]
+    return xr.DataArray(np.stack(availability), coords=coords)
+
 
 
 def maybe_swap_spatial_dims(ds, namex='x', namey='y'):

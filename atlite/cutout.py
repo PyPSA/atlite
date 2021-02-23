@@ -20,6 +20,7 @@ Base class for Atlite.
 import xarray as xr
 import pandas as pd
 import numpy as np
+import rasterio as rio
 import geopandas as gpd
 from tempfile import mktemp
 from numpy import atleast_1d, append
@@ -31,7 +32,7 @@ from pyproj import CRS
 
 from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
-from .gis import get_coords, compute_indicatormatrix
+from .gis import get_coords, compute_indicatormatrix, compute_availabilitymatrix
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
                       wind, pv, runoff, solar_thermal, soil_temperature)
 from .datasets import modules as datamodules
@@ -237,6 +238,11 @@ class Cutout:
                 list(self.coords["y"].values[[0, -1]]))
 
     @property
+    def transform(self):
+        return rio.Affine(self.dx, 0, self.coords['x'].values[0] - self.dx/2,
+                          0, self.dy, self.coords['y'].values[0] - self.dy/2)
+
+    @property
     def dx(self):
         x = self.coords['x']
         return round((x[-1] - x[0]).item() / (x.size - 1), 8)
@@ -392,7 +398,31 @@ class Cutout:
 
 
     def indicatormatrix(self, shapes, shapes_crs=4326):
+        """
+        Compute the indicatormatrix.
+
+        The indicatormatrix I[i,j] is a sparse representation of the ratio
+        of the area in orig[j] lying in dest[i], where orig and dest are
+        collections of polygons, i.e.
+
+        A value of I[i,j] = 1 indicates that the shape orig[j] is fully
+        contained in shape dest[j].
+
+        Note that the polygons must be in the same crs.
+
+        Parameters
+        ---------
+        shapes : Collection of shapely polygons
+
+        Returns
+        -------
+        I : sp.sparse.lil_matrix
+          Indicatormatrix
+        """
         return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
+
+
+    availabilitymatrix = compute_availabilitymatrix
 
     # Preparation functions
 

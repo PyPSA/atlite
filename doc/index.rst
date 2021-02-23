@@ -88,6 +88,7 @@ solar thermal collectors and heating demand.
    examples/create_cutout.ipynb
    examples/create_cutout_SARAH.ipynb
    examples/historic-comparison-germany.ipynb
+   examples/landuse-availability.ipynb
    examples/using_gebco_heightmap.ipynb
    examples/plotting_with_atlite.ipynb
    examples/logfiles_and_messages.ipynb
