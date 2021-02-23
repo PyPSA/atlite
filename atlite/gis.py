@@ -526,7 +526,7 @@ def _as_transform(x, y):
     dx = float(rx - lx) / float(len(x) - 1)
     dy = float(uy - ly) / float(len(y) - 1)
 
-    return rio.transform.from_origin(lx, uy, dx, dy)
+    return rio.transform.from_origin(lx - dx/2, uy + dy/2, dx, dy)
 
 
 def regrid(ds, dimx, dimy, **kwargs):
