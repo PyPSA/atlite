@@ -29,7 +29,7 @@ setup(
                       'pandas>=0.22',
                       'bottleneck',
                       'numexpr',
-                      'xarray>=0.11.2',
+                      'xarray>=0.16',
                       'netcdf4',
                       'dask>=0.18.0',
                       'requests',
