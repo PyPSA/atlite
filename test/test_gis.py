@@ -15,7 +15,7 @@ import numpy as np
 import rasterio as rio
 import rasterio.warp
 from atlite import Cutout
-from atlite.gis import ExclusionContainer, shape_availability
+from atlite.gis import ExclusionContainer, shape_availability, pad_extent
 from shapely.geometry import box
 from atlite.gis import padded_transform_and_shape
 from numpy import isclose
@@ -98,6 +98,32 @@ def test_grid_coords(ref):
 # Extent is different from bounds
 def test_extent(ref):
     np.testing.assert_array_equal(ref.extent,[X0, X1, Y0, Y1])
+
+
+def test_pad_extent():
+    """Test whether padding works with arrays of dimension > 2 """
+    src = np.ones((3, 2))
+    src_trans = rio.Affine(1, 0, 0, 0, 1, 0)
+    dst_trans = rio.Affine(2, 0, 0, 0, 2, 0)
+    crs = 4326
+
+    padded, trans = pad_extent(src, src_trans, dst_trans, crs, crs)
+    src = np.ones((1, 3, 2))
+    padded_ndim, trans_ndim = pad_extent(src, src_trans, dst_trans, crs, crs)
+    assert (padded_ndim[0] == padded).all()
+    assert trans == trans_ndim
+
+    #second check with large shape
+    src = np.ones((1, 2, 3, 2))
+    padded_ndim, trans_ndim = pad_extent(src, src_trans, dst_trans, crs, crs)
+    assert (padded_ndim[0, 0] == padded).all()
+    assert trans == trans_ndim
+
+    #other way round, here it should not pad, since target resolution is lower
+    padded_r, trans_r = pad_extent(src, dst_trans, src_trans, crs, crs)
+    assert (padded_r == src).all()
+    assert trans_r == dst_trans
+
 
 
 def test_indicator_matrix(ref):

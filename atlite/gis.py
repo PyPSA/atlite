@@ -124,7 +124,7 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     Note that the polygons must be in the same crs.
 
     Parameters
-    ---------
+    ----------
     orig : Collection of shapely polygons
     dest : Collection of shapely polygons
 
@@ -307,16 +307,33 @@ def projected_mask(raster, geom, transform=None, shape=None, crs=None,
                               dst_transform=transform, dst_nodata=nodata)
 
 
-def pad_extent(values, src_transform, dst_transform, src_crs, dst_crs):
+def pad_extent(src, src_transform, dst_transform, src_crs, dst_crs, **kwargs):
     """
     Pad the extent such that the array is large enough to not be treated as
     nodata in all cells of the target raster.
+
+    If src.ndim > 2, the function expects the last two dimensions to be y,x.
+    Keyword arguments **kwargs are used in np.pad().
     """
+    if src.size == 0:
+        return src, src_transform
+
     left, top, right, bottom = *(src_transform*(0,0)), *(src_transform*(1,1))
     covered = transform_bounds(src_crs, dst_crs, left, bottom, right, top)
     covered_res = min(covered[2] - covered[0], covered[3] - covered[1])
     pad = int(dst_transform[0] // covered_res * 1.1)
-    return rio.pad(values, src_transform, pad, 'constant', constant_values=0)
+
+    kwargs.setdefault('mode', 'constant')
+
+    if src.ndim == 2:
+        return rio.pad(src, src_transform, pad, **kwargs)
+
+    npad = ((0,0),) * (src.ndim - 2) + ((pad, pad), (pad, pad))
+    padded = np.pad(src, npad, **kwargs)
+    transform = list(src_transform)
+    transform[2] -= pad * transform[0]
+    transform[5] -= pad * transform[4]
+    return padded, rio.Affine(*transform[:6])
 
 
 def shape_availability(geometry, excluder):
@@ -526,7 +543,7 @@ def _as_transform(x, y):
     dx = float(rx - lx) / float(len(x) - 1)
     dy = float(uy - ly) / float(len(y) - 1)
 
-    return rio.transform.from_origin(lx, uy, dx, dy)
+    return rio.transform.from_origin(lx - dx/2, uy + dy/2, dx, dy)
 
 
 def regrid(ds, dimx, dimy, **kwargs):
@@ -556,21 +573,22 @@ def regrid(ds, dimx, dimy, **kwargs):
 
     ds = maybe_swap_spatial_dims(ds, namex, namey)
 
-    src_transform = _as_transform(ds.indexes[namex],
-                                  ds.indexes[namey])
+    src_transform = _as_transform(ds.indexes[namex], ds.indexes[namey])
     dst_transform = _as_transform(dimx, dimy)
     dst_shape = len(dimy), len(dimx)
 
     kwargs.update(dst_shape=dst_shape,
-                  src_transform=src_transform,
                   dst_transform=dst_transform)
     kwargs.setdefault("src_crs", CRS.from_epsg(4326))
     kwargs.setdefault("dst_crs", CRS.from_epsg(4326))
 
     def _reproject(src, dst_shape, **kwargs):
-        dst = np.empty(src.shape[:-2] + dst_shape, dtype=src.dtype)
-        rio.warp.reproject(np.asarray(src), dst, **kwargs)
-        return dst
+        shape = src.shape[:-2] + dst_shape
+        src, trans = pad_extent(src, src_transform, dst_transform,
+                                kwargs['src_crs'], kwargs['dst_crs'], mode='edge')
+        return rio.warp.reproject(np.asarray(src), empty(shape, dtype=src.dtype),
+                                  src_transform=trans, **kwargs)[0]
+
 
     data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
     dtypes = {da.dtype for da in data_vars}
