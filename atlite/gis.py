@@ -452,7 +452,7 @@ def _init_process(shapes_, excluder_, dst_transform_, dst_crs_, dst_shapes_):
 
 def _process_func(i):
     args = (excluder, dst_transform, dst_crs, dst_shapes)
-    return shape_availability_reprojected(shapes.loc[[i]], *args)[0]
+    return shape_availability_reprojected(shapes.loc[[i]], *args)[0][::-1]
 
 
 def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
@@ -497,7 +497,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
     widgets = [Percentage(),' ',progress,' ',Bar(),' ',Timer(),' ', ETA()]
     progressbar = ProgressBar(prefix='Compute availabily matrix: ',
                               widgets=widgets, max_value=len(shapes))
-    args = (excluder, cutout.transform, cutout.crs, cutout.shape)
+    args = (excluder, cutout.transform_r, cutout.crs, cutout.shape)
     if nprocesses is None:
         for i in progressbar(shapes.index):
             _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
