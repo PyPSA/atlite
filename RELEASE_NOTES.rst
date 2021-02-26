@@ -19,6 +19,10 @@ Version 0.2.1 (upcoming)
 * Fix resolution for dx and dy unequal to 0.25: Due to floating point precision errors, loading data with ERA5 corrupted the cutout coordinates. This was fixed by converting the dtype of era5 coordinates to float64 and rounding. Corresponding tests were added.
 * Round cutout.dx and cutout.dy in order to prevent precision errors.    
 * Allow passing keyword arguments to `dask.compute` in `convert_and_aggregate` functions. 
+* The Cutout class has a new property `bounds` (same as extent but in different order).
+
+**Breaking Change**
+* `Cutout.extent` was adjusted to cover the whole cutout area. The extent is now a numpy array. Before, it indicated the coordinates of the centers of the corner cells. 
 
 Version 0.2
 ===============

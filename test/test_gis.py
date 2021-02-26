@@ -95,9 +95,13 @@ def test_grid_coords(ref):
     np.testing.assert_equal(gcoords, spatial)
 
 
-# Extent is different from bounds
 def test_extent(ref):
-    np.testing.assert_array_equal(ref.extent,[X0, X1, Y0, Y1])
+    pad = 0.25/2
+    np.testing.assert_array_equal(ref.extent,[X0-pad, X1+pad, Y0-pad, Y1+pad])
+
+# Note that bounds is the same as extent but in different order.
+def test_bounds(ref):
+    np.testing.assert_array_equal(ref.bounds, ref.grid.total_bounds)
 
 
 def test_pad_extent():

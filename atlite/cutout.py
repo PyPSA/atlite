@@ -234,8 +234,15 @@ class Cutout:
 
     @property
     def extent(self):
-        return (list(self.coords["x"].values[[0, -1]]) +
-                list(self.coords["y"].values[[0, -1]]))
+        """Total extent of the area covered by the cutout (x, X, y, Y)."""
+        xs, ys = self.coords['x'].values, self.coords['y'].values
+        dx , dy = self.dx, self.dy
+        return np.array([xs[0]-dx/2, xs[-1]+dx/2, ys[0]-dy/2, ys[-1]+dy/2])
+
+    @property
+    def bounds(self):
+        """Total bounds of the area covered by the cutout (x, y, X, Y)."""
+        return self.extent[[0,2,1,3]]
 
     @property
     def transform(self):
