@@ -309,18 +309,19 @@ def projected_mask(raster, geom, transform=None, shape=None, crs=None,
 
 def pad_extent(src, src_transform, dst_transform, src_crs, dst_crs, **kwargs):
     """
-    Pad the extent such that the array is large enough to not be treated as
-    nodata in all cells of the target raster.
+    Pad the extent such that the array by one cell of the destination raster.
 
-    If src.ndim > 2, the function expects the last two dimensions to be y,x.
-    Keyword arguments **kwargs are used in np.pad().
+    This ensures that the array is large enough to not be treated as nodata in
+    all cells of the target raster. If src.ndim > 2, the function expects the
+    last two dimensions to be y,x.
+    Additional keyword arguments are used in `np.pad()`.
     """
     if src.size == 0:
         return src, src_transform
 
     left, top, right, bottom = *(src_transform*(0,0)), *(src_transform*(1,1))
     covered = transform_bounds(src_crs, dst_crs, left, bottom, right, top)
-    covered_res = min(covered[2] - covered[0], covered[3] - covered[1])
+    covered_res = min(abs(covered[2] - covered[0]), abs(covered[3] - covered[1]))
     pad = int(dst_transform[0] // covered_res * 1.1)
 
     kwargs.setdefault('mode', 'constant')
@@ -487,6 +488,16 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
         DataArray of shape (|shapes|, |y|, |x|) containing all the eligible
         share of cutout cell (x,y) in the overlap with shape i.
 
+    Notes
+    -----
+    The rasterio (or GDAL) average downsampling returns different results
+    dependent on how the target raster (the cutout raster) is spanned.
+    Either it is spanned from the top left going downwards,
+    e.g. Affine(0.25, 0, 0, 0, -0.25, 50), or starting in the
+    lower left corner and going up, e.g. Affine(0.25, 0, 0, 0, -0.25, 50).
+    Here we stick to the top down version which is why we use
+    `cutout.transform_r` and flipping the y-axis in the end.
+
     """
     availability = []
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
@@ -497,7 +508,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
     widgets = [Percentage(),' ',progress,' ',Bar(),' ',Timer(),' ', ETA()]
     progressbar = ProgressBar(prefix='Compute availabily matrix: ',
                               widgets=widgets, max_value=len(shapes))
-    args = (excluder, cutout.transform, cutout.crs, cutout.shape)
+    args = (excluder, cutout.transform_r, cutout.crs, cutout.shape)
     if nprocesses is None:
         for i in progressbar(shapes.index):
             _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
@@ -516,9 +527,9 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
                 imap = pool.imap(_process_func, shapes.index)
                 availability = list(progressbar(imap))
 
-
+    availability = np.stack(availability)[:, ::-1] # flip axis, see Notes
     coords=[(shapes.index), ('y', cutout.data.y), ('x', cutout.data.x)]
-    return xr.DataArray(np.stack(availability), coords=coords)
+    return xr.DataArray(availability, coords=coords)
 
 
 

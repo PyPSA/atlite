@@ -243,6 +243,11 @@ class Cutout:
                           0, self.dy, self.coords['y'].values[0] - self.dy/2)
 
     @property
+    def transform_r(self):
+        return rio.Affine(self.dx, 0, self.coords['x'].values[0] - self.dx/2,
+                          0, -self.dy, self.coords['y'].values[-1] + self.dy/2)
+
+    @property
     def dx(self):
         x = self.coords['x']
         return round((x[-1] - x[0]).item() / (x.size - 1), 8)
