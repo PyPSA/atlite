@@ -309,11 +309,11 @@ def projected_mask(raster, geom, transform=None, shape=None, crs=None,
 
 def pad_extent(src, src_transform, dst_transform, src_crs, dst_crs, **kwargs):
     """
-    Pad the extent such that the array by one cell of the destination raster.
+    Pad the extent of `src` by an equivalent of one cell of the target raster.
 
     This ensures that the array is large enough to not be treated as nodata in
-    all cells of the target raster. If src.ndim > 2, the function expects the
-    last two dimensions to be y,x.
+    all cells of the destination raster. If src.ndim > 2, the function expects
+    the last two dimensions to be y,x.
     Additional keyword arguments are used in `np.pad()`.
     """
     if src.size == 0:
@@ -494,7 +494,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
     dependent on how the target raster (the cutout raster) is spanned.
     Either it is spanned from the top left going downwards,
     e.g. Affine(0.25, 0, 0, 0, -0.25, 50), or starting in the
-    lower left corner and going up, e.g. Affine(0.25, 0, 0, 0, -0.25, 50).
+    lower left corner and going up, e.g. Affine(0.25, 0, 0, 0, 0.25, 50).
     Here we stick to the top down version which is why we use
     `cutout.transform_r` and flipping the y-axis in the end.
 

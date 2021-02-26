@@ -239,11 +239,13 @@ class Cutout:
 
     @property
     def transform(self):
+        """Get the affine transform of the cutout. """
         return rio.Affine(self.dx, 0, self.coords['x'].values[0] - self.dx/2,
                           0, self.dy, self.coords['y'].values[0] - self.dy/2)
 
     @property
     def transform_r(self):
+        """Get the affine transform of the cutout with reverse y-order."""
         return rio.Affine(self.dx, 0, self.coords['x'].values[0] - self.dx/2,
                           0, -self.dy, self.coords['y'].values[-1] + self.dy/2)
 
