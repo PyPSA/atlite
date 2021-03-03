@@ -29,7 +29,7 @@ dependencies:
 
   # Following suggestion from nbsphinx documentation, install this from conda-forge
   - pandoc
-
+  - ipython
   - pip
 
   - pip:
