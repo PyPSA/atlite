@@ -25,55 +25,57 @@ aas-journal: xxxx <- The name of the AAS journal.
 ---
 
 <!-- See https://joss.readthedocs.io/en/latest/submitting.html for all details -->
+<!-- compile with 
+
+pandoc --citeproc -s paper.md -o paper.pdf  
+
+ -->
 
 # Summary
 
-The increasing importance of renewable power sources...
+Renewable energy sources build the backbone of future energy systems. The urgent need to reduce green house gas emissions and the improving cost-efficiency of renewable technologies, pave the way for the society to invest into a fast and ongoing decarbonization. Yet, a renewable energy system is highly dependent on the weather, on the production side with technologies like solar PV or wind turbines, as well as on the demand side like heating or cooling. Atlite is an open python software package for retrieving reanalysis weather data and converting it to time series and potentials for energy systems. Based on detailed mathematical models, it simulates the power output of wind turbines, solar photo-voltaic panels, solar-thermal collectors, run-of-river power plants and hydro-electrical dams as well as heating demand degree days and heat pump coefficients of performance.
 
 
 # Statement of need
 
+<!-- In energy system modelling, the research field that simulates feasible and cost-efficient energy systems, precalculated time-series for different technologies are of increasing importance.  -->
 
-Atlite is an open python software package for retrieving reanalysis weather data and converting it to time series and potentials for energy systems. Based on detailed mathematical models, it simulates the power output of wind turbines, solar photo-voltaic panels, solar-thermal collectors, run-of-river power plants and hydro-electrical dams. These may be distributed over large areas  Atlite highly relies on the python packages *xarray* and  *dask* which allows for parallelized and memory-efficient processing of large data sets. In this paper we introduce into the basic concepts of atlite and 
+<!-- context of atlite -->
+Atlite was initially build as a light-weight alternative to the Danish REatlas [@andresen_validation_2015]. Downsides of REatlas.  What other packages exist?  What's their up/donwside? Why is atlite necessary? 
 
-* for whom is created? 
-* where is it already used?
+<!-- software/packages and implementation -->
+Atlite highly relies on the python packages *xarray* and  *dask* which allows for parallelized and memory-efficient processing of large data sets. 
 
 
 # Basic Concept
 
-## The Cutout class
-
-## The Conversion function
-
-
-
-# Citations
-
-Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
-
-If you want to cite a software repository URL (e.g. something on GitHub without a preferred
-citation) then you can do it with the example BibTeX entry below for @fidgit.
-
-For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
-
-# Figures
-
-Figures can be included like this:
+<!-- Figures can be included like this:
 ![Caption for example figure.\label{fig:example}](figure.png)
 and referenced from text using \autoref{fig:example}.
 
 Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
+![Caption for example figure.](figure.png){ width=20% } -->
+
+## The Cutout Class
+
+## Conversion Functions
+
+## Land Use Availability
+
+
+# Related Research 
+
+pypsa-eur, pypsa-eur-sec, others? 
+
+
+
+
+# Availability
+
+The Atlite package is available via the open source package management systems *Python Package Index* and *Conda* [@anaconda], available and tested for Linux, Mac and Windows systems. Atlite is released and licensed under the GPLv3. Source code at [Github](https://github.com/PyPSA/atlite). CI, docs ...
+
 
 # Acknowledgements
 
-We acknowledge contributions from Brigitta Sipocz, Syrtis Major, and Semyeong
-Oh, and support from Kathryn Johnston during the genesis of this project.
 
 # References
