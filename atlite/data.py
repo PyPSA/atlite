@@ -168,13 +168,8 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
         with ProgressBar():
             ds.to_netcdf(tmp)
 
-        # make sure we are only closing data, if it points to the file
-        # we want to update
-        if (cutout.data._file_obj is not None and
-            cutout.path.samefile(cutout.data._file_obj._filename)):
-            cutout.data.close()
-
         if cutout.path.exists():
+            cutout.data.close()
             cutout.path.unlink()
         os.rename(tmp, cutout.path)
 

@@ -8,6 +8,11 @@ Release Notes
 #############
 
 
+Version 0.2.2 (upcoming)
+========================
+* Fix compatibility with xarray v0.17.
+
+
 Version 0.2.1
 ==============
 * The `regrid` function in `atlite.gis` was fixed. The previous implementation set an affine transform starting at the center of a cell at the origin. The corrected transform starts at the real origin (origin of the origin cell). Further a padding of the extent ensures that all values are taken into account in the target projection.  
