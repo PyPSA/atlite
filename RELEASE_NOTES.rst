@@ -10,8 +10,8 @@ Release Notes
 
 Version 0.2.2 (upcoming)
 ========================
-* Fix compatibility with xarray v0.17.
-
+* Fixed compatibility with xarray v0.17.
+* Fixed sarah data for ``dx = dy = 0.05``. Due to the float32 dtype of the sarah coordinates, the cutout coordinates were corrupted when merging. This was fixed in the sarah module by converting the coordinates to float64. This also speeds up the cutout creation for more coarse grained cutouts.  
 
 Version 0.2.1
 ==============

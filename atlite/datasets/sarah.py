@@ -178,6 +178,9 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     ds_sid = xr.open_mfdataset(files.sid, combine='by_coords', **open_kwargs)
     ds = xr.merge([ds_sis, ds_sid])
     ds = ds.sel(lon=as_slice(coords['lon']), lat=as_slice(coords['lat']))
+    # fix float (im)precission
+    ds = ds.assign_coords(lon=ds.lon.astype(float).round(4),
+                          lat=ds.lat.astype(float).round(4))
 
     # Interpolate, resample and possible regrid
     if creation_parameters['sarah_interpolate']:
