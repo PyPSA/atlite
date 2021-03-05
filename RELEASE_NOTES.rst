@@ -12,6 +12,7 @@ Version 0.2.2 (upcoming)
 ========================
 * Fixed compatibility with xarray v0.17.
 * Fixed sarah data for ``dx = dy = 0.05``. Due to the float32 dtype of the sarah coordinates, the cutout coordinates were corrupted when merging. This was fixed in the sarah module by converting the coordinates to float64. This also speeds up the cutout creation for more coarse grained cutouts.  
+* Fixed sarah data for a time frequency of 30 minutes. This was raising an assertion as is the (new) pandas frequency string for 30 minutes is '30T' not '30min'.
 
 Version 0.2.1
 ==============
