@@ -109,13 +109,13 @@ def interpolate(ds, dim='time'):
                           keep_attrs=True)
 
 
-def as_slice(zs, pad=True):
-    """Convert index to slice. This speeds up the indexing."""
-    if not isinstance(zs, slice):
-        first, second, last = np.asarray(zs)[[0, 1, -1]]
-        dz = 0.1 * (second - first) if pad else 0.
-        zs = slice(first - dz, last + dz)
-    return zs
+def as_slice(bounds, pad=True):
+    """Convert coordinate bounds to slice and pad by 0.01."""
+    if not isinstance(bounds, slice):
+        bounds = bounds + (-.01, .01)
+        bounds = slice(*bounds)
+    return bounds
+
 
 def hourly_mean(ds):
     """
@@ -177,7 +177,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     ds_sis = xr.open_mfdataset(files.sis, combine='by_coords', **open_kwargs)
     ds_sid = xr.open_mfdataset(files.sid, combine='by_coords', **open_kwargs)
     ds = xr.merge([ds_sis, ds_sid])
-    ds = ds.sel(lon=as_slice(coords['lon']), lat=as_slice(coords['lat']))
+    ds = ds.sel(lon=as_slice(cutout.extent[:2]), lat=as_slice(cutout.extent[2:]))
     # fix float (im)precission
     ds = ds.assign_coords(lon=ds.lon.astype(float).round(4),
                           lat=ds.lat.astype(float).round(4))
@@ -190,6 +190,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     if cutout.dt not in ['30min', '30T']:
         ds = hourly_mean(ds)
+
     if (cutout.dx != dx) or (cutout.dy != dy):
         ds = regrid(ds, coords['lon'], coords['lat'], resampling=Resampling.average)
 
