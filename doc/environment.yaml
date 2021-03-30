@@ -11,17 +11,6 @@ channels:
   - defaults
 dependencies:
   - python>=3.6
-  - scipy
-  - pandas>=1.0
-  - xarray>=0.16.2
-  - netcdf4
-  - dask>=0.18.0
-  - progressbar2
-  - yaml
-  - geopandas
-  - cdsapi
-  - pyproj>=2.0
-  - rasterio>=1.0
 
   # Recommended for pandas and xarray
   - bottleneck
@@ -37,3 +26,14 @@ dependencies:
     - sphinx_rtd_theme
     - nbsphinx
     - nbsphinx_link
+    - scipy
+    - pandas>=1.0
+    - xarray>=0.16.2
+    - netcdf4
+    - dask>=0.18.0
+    - progressbar2
+    - yaml
+    - geopandas
+    - cdsapi
+    - pyproj>=2.0
+    - rasterio>=1.0
