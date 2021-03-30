@@ -150,11 +150,18 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     'display_version': True,
     'sticky_navigation': True,
+    # 'style_nav_header_background': '#009682',
 }
 
 
 # Add any paths that contain custom themes here, relative to this directory.
-#html_theme_path = []
+html_static_path = ['_static']
+
+html_context = {
+    'css_files': [
+        '_static/theme_overrides.css',  # override wide tables in RTD theme
+        ],
+}
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -307,7 +314,7 @@ rinoh_documents = [(master_doc,                  # top-level file (index.rst)
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 
+    (master_doc,
     project,
     documentation_title,
      [author], 1)

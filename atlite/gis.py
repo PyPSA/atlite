@@ -554,7 +554,7 @@ def _as_transform(x, y):
     dx = float(rx - lx) / float(len(x) - 1)
     dy = float(uy - ly) / float(len(y) - 1)
 
-    return rio.transform.from_origin(lx - dx/2, uy + dy/2, dx, dy)
+    return rio.Affine(dx, 0, lx - dx/2, 0, dy, ly - dy/2)
 
 
 def regrid(ds, dimx, dimy, **kwargs):
@@ -588,17 +588,16 @@ def regrid(ds, dimx, dimy, **kwargs):
     dst_transform = _as_transform(dimx, dimy)
     dst_shape = len(dimy), len(dimx)
 
-    kwargs.update(dst_shape=dst_shape,
-                  dst_transform=dst_transform)
+    kwargs.update(dst_transform=dst_transform)
     kwargs.setdefault("src_crs", CRS.from_epsg(4326))
     kwargs.setdefault("dst_crs", CRS.from_epsg(4326))
 
-    def _reproject(src, dst_shape, **kwargs):
+    def _reproject(src, **kwargs):
         shape = src.shape[:-2] + dst_shape
         src, trans = pad_extent(src, src_transform, dst_transform,
                                 kwargs['src_crs'], kwargs['dst_crs'], mode='edge')
-        return rio.warp.reproject(np.asarray(src), empty(shape, dtype=src.dtype),
-                                  src_transform=trans, **kwargs)[0]
+
+        return rio.warp.reproject(src, empty(shape), src_transform=trans, **kwargs)[0]
 
 
     data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)

@@ -206,6 +206,25 @@ def cutout_sarah(tmp_path_factory):
     return cutout
 
 
+@pytest.fixture(scope='session')
+def cutout_sarah_fine(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("sarah_coarse")
+    cutout = Cutout(path=tmp_path / "sarah", module="sarah", bounds=BOUNDS,
+                    time=TIME, dx=0.05, dy=0.05, sarah_dir=SARAH_DIR)
+    cutout.prepare()
+    return cutout
+
+
+@pytest.fixture(scope='session')
+def cutout_sarah_weird(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("sarah_weird")
+    cutout = Cutout(path=tmp_path / "sarah", module="sarah", bounds=BOUNDS,
+                    time=TIME, dx=0.132, dy=0.32, sarah_dir=SARAH_DIR)
+    cutout.prepare()
+    return cutout
+
+
+
 
 
 
@@ -295,6 +314,28 @@ class TestERA5:
 @pytest.mark.skipif(not os.path.exists(SARAH_DIR),
                     reason="'sarah_dir' is not a valid path")
 class TestSarah:
+
+    @staticmethod
+    def test_all_non_na_sarah(cutout_sarah):
+        """Every cells should have data."""
+        assert np.isfinite(cutout_sarah.data).all()
+
+    @staticmethod
+    def test_all_non_na_sarah_fine(cutout_sarah_fine):
+        """Every cells should have data."""
+        assert np.isfinite(cutout_sarah_fine.data).all()
+
+    @staticmethod
+    def test_all_non_na_sarah_weird(cutout_sarah_weird):
+        """Every cells should have data."""
+        assert np.isfinite(cutout_sarah_weird.data).all()
+
+    @staticmethod
+    def test_dx_dy_preservation_sarah(cutout_sarah):
+        """The coordinates should be the same after preparation."""
+        assert np.allclose(np.diff(cutout_sarah.data.x), 0.25)
+        assert np.allclose(np.diff(cutout_sarah.data.y), 0.25)
+
 
     @staticmethod
     def test_prepared_features_sarah(cutout_sarah):
