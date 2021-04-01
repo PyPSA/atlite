@@ -1,5 +1,5 @@
 ---
-title: 'Atlite: A Lightweight Python Package for Calculating Renewable Power Potentials and Time-Series'
+title: 'atlite: A Lightweight Python Package for Calculating Renewable Power Potentials and Time-Series'
 tags:
   - Python
   - energy systems
@@ -34,7 +34,7 @@ pandoc --citeproc -s paper.md -o paper.pdf
 # Summary
 <!-- Change whatever you want -->
 
-Renewable energy sources build the backbone for future energy systems. The urgent need to reduce green house gas emissions and the improving cost-efficiency of renewable technologies, pave the way for the governments and societies to invest into a fast and ongoing decarbonization. Yet, a renewable energy system is highly dependent on the weather, on the production side with technologies like solar PV or wind turbines, as well as on the demand side through temperature regulation. Atlite is an open python software package for retrieving reanalysis weather data and converting it to time series and potentials for energy systems. Based on detailed mathematical models, it simulates the power output of wind turbines, solar photo-voltaic panels, solar-thermal collectors, run-of-river power plants and hydro-electrical dams as well as heating demand degree days and heat pump coefficients of performance.
+Renewable energy sources build the backbone of the future global energy system. For a sucessful energy transition it is crucial to rigorously analyse the weather-dependent energy outputs of eligible and existent renewable resources. atlite is an open python software package for retrieving reanalysis weather data and converting it to potentials and time series for renewable energy systems. Based on detailed mathematical models, it simulates the power output of wind turbines, solar photo-voltaic panels, solar-thermal collectors, run-of-river power plants and hydro-electrical dams. It further provides weather-dependant projections on the demand side like heating demand degree days and heat pump coefficients of performance.
 
 
 # Statement of need
@@ -42,14 +42,16 @@ Renewable energy sources build the backbone for future energy systems. The urgen
 
 <!-- context of atlite -->
 <!-- FABIAN NEUMANN -->
-Atlite was initially build as a light-weight alternative to the Danish REatlas [@andresen_validation_2015]. Downsides of REatlas.  What other packages exist?  What's their up/downside? Why is atlite necessary? 
+atlite was initially build as a light-weight alternative to the Danish REatlas [@andresen_validation_2015]. Downsides of REatlas.  What other packages exist?  What's their up/downside? Why is atlite necessary? 
 
 <!-- software/packages and implementation -->
 <!-- JOHANNES -->
-Atlite highly relies on the python packages Xarray [@hoyer_xarray_2017], [Dask](https://docs.dask.org/en/latest/) and [Rasterio](https://rasterio.readthedocs.io/en/latest/) which allows for parallelized and memory-efficient processing of large data sets. Modularity etc.
+atlite highly relies on the python packages Xarray [@hoyer_xarray_2017], [Dask](https://docs.dask.org/en/latest/) and [Rasterio](https://rasterio.readthedocs.io/en/latest/) which allows for parallelized and memory-efficient processing of large data sets. Modularity etc.
 
 
 # Basic Concept
+
+A typical workflow with atlite consists of two steps. The first step is to create and prepare a `atlite.Cutout` which is a container for subsets of raw weather data. The second step is to convert the weather data of a `atlite.Cutout` into renewables time-series and/or static potentials using explicit conversion functions.
 
 <!-- Figures can be included like this:
 ![Caption for example figure.\label{fig:example}](figure.png)
@@ -63,13 +65,38 @@ Figure sizes can be customized by adding an optional second parameter:
 ## The Cutout Class
 <!-- FABIAN H -->
 
-The Cutout class builds the backbone for most atlite functionalities. 
-It is associated with a temporal and spatial subset of a weather dataset and a `netcdf` file where the corresponding subset is stored. 
-When initializing a new cutout, geographical and temporal bounds, `netcdf` file as well as the source for the weather data have to be defined. ...
+
+The `atlite.Cutout` class builds the starting point for most atlite functionalities. 
+<!--It contains a temporal and spatial subset of a weather dataset which is used to derive time-series for renewable technologies. 
+-->
+When initializing a new Cutout, geographical and temporal bounds, the path of the created `netcdf` file as well as the source for the weather data have to be defined. Optionally, temporal and spatial resolution may be adjusted, the default is set to 1 hour and 0.25$^\circ$ latitude times 0.25$^\circ$ longitude. So far, atlite supports data handling of three source: 
+
+1. [ECMWF Reanalysis v5 (ERA5)](https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5) provides various weather-related variables in an hourly resolution from 1950 onward on a spatial grid with a 0.25$^\circ$ x 0.25$^\circ$ resolution. Atlite automatically retrieves the raw data using the [Climate Data Store (CDS) API](https://cds.climate.copernicus.eu/#!/home) which has to be properly set up by the user. When the requested data points diverge from the original grid, the API retrieves averaged values based on the original grid data **(double check)**. 
+
+2. [Heliosat (SARAH-2)](https://wui.cmsaf.eu/safira/action/viewDoiDetails?acronym=SARAH_V002) provides satellite-based solar data in a 30 min resolution from 1983 to 2015 on a spatial grid from -65° to +65$^\circ$ longitude and latitude in a 0.05$^\circ$ x 0.05$^\circ$ resolution. The dataset must be downloaded by the user beforehand. By using a regridding function provided by atlite, the data may be projected on arbitrary resolutions. 
+
+3. [GEBCO](https://www.gebco.net/data_and_products/gridded_bathymetry_data/) is a bathymetric data set covering terrain heights on a 15 arc-second resolved spatial grid. The dataset has to be downloaded by the used beforehand. 
+
+When initializing a Cutout, the grid cells and the coordinate system on which the data will lay are created. Only when the preparation of the cutout is executed, atlite retrieves/loads data levels, adds them to the Cutout and finally writes the Cutout out to a netcdf file. 
+Atlite groups weather variables into *features*, which can be used as front-end keys for retrieving a subset of the available weather variables. The following table shows the variable groups for all datasets.
+
+
+| feature     | ERA5 variables                                     | Sarah variables | Gebco variables  |
+|:------------|:--------------------------------------------------|:------------|:-------------------|
+| height      | height                                            |             | height             |
+| wind        | wnd100m, roughness                                |             |                    |
+| influx      | influx\_toa, influx\_direct, influx\_diffuse, albedo | influx\_direct,  influx\_diffuse |                    |
+| temperature | temperature, soil temperature                     |             |                    |
+| runoff      | runoff                                            |             |                    |
+
+
+A Cutout may combine features from different sources, e.g. 'height' from GEBCO and 'runoff' from ERA5. Future versions of atlite will likely introduce the possibility to retrieve explicit weather variables from the CDS API. Further, the climate projection dataset [CORDEX](https://rcmes.jpl.nasa.gov/content/cordex) which was removed in v0.2 due to compatibility issues, is likely to be reintroduced. 
 
 
 ## Conversion Functions
 <!-- JOHANNES -->
+
+
 
 * solar PV: 
   * panel config [@kalogirou_solar_2009] 
@@ -85,14 +112,19 @@ When initializing a new cutout, geographical and temporal bounds, `netcdf` file 
     the [hydrosheds website](www.hydrosheds.org)
 * Heat demand 
 
-## Land Use Availability
+## Land-Use Availability
 <!-- FABIAN HOFMANN -->
+
+In the real world, renewable infrastructure is often limited by land-use restrictions. Wind turbines can only be placed in eligible places which, according to the country specific policy, has to fulfill certain criteria, e.g. non-protected areas, enough distance to residential areas etc. For this reason atlite provides a performant, parallelized implementation to calculate land-use availabilities within all weather cells of a cutout. The user can exclude geometric shapes and/or geographic raster of arbitrary projection, like the [Corine Land Cover (CLC)](https://land.copernicus.eu/pan-european/corine-land-cover), from the eligible area. The implementation is inspired by the python package [GLAES](https://zenodo.org/record/1122558#.YGVygGhCRTY) **(proper cite)** which is however no longer maintained and causes extensive compatibility problems with recent versions of the underlying [GDAL](https://gdal.org/index.html) software. 
+
+    
 
 
 # Related Research 
 <!-- FABIAN NEUMANN -->
 
-pypsa-eur, pypsa-eur-sec, others? 
+
+atlite is used b several research projects and groups. The open-source PyPSA-EUR workflow [**cite**] is a   
 
 
 
@@ -100,7 +132,7 @@ pypsa-eur, pypsa-eur-sec, others?
 # Availability
 <!-- WHO EVER WANTS -->
 
-The Atlite package is available via the open source package management systems *Python Package Index* and *Conda* [@anaconda], available and tested for Linux, Mac and Windows systems. Atlite is released and licensed under the GPLv3. Source code at [Github](https://github.com/PyPSA/atlite). CI, docs ...
+The atlite package is available via the open source package management systems *Python Package Index* and *Conda* [@anaconda] for Linux, Mac and Windows systems. atlite is released and licensed under the GPLv3. The source code at can be found on [Github](https://github.com/PyPSA/atlite). The repository has an [Continuous Intergration](https://travis-ci.org/github/PyPSA/atlite) supported by Travis. A full package [documentation](https://atlite.readthedocs.io/en/master/?badge=master) is regularly updated on Read the Docs.  
 
 
 # Acknowledgements
