@@ -130,7 +130,9 @@ A Cutout may combine features from different sources, e.g. 'height' from GEBCO a
 ## Land-Use Availability
 <!-- FABIAN HOFMANN -->
 
-In the real world, renewable infrastructure is often limited by land-use restrictions. Wind turbines can only be placed in eligible places which, according to the country specific policy, has to fulfill certain criteria, e.g. non-protected areas, enough distance to residential areas etc. For this reason atlite provides a performant, parallelized implementation to calculate land-use availabilities within all weather cells of a cutout. The user can exclude geometric shapes and/or geographic raster of arbitrary projection, like the [Corine Land Cover (CLC)](https://land.copernicus.eu/pan-european/corine-land-cover), from the eligible area. The implementation is inspired by the python package [GLAES](https://zenodo.org/record/1122558#.YGVygGhCRTY) **(proper cite)** which is however no longer maintained and causes extensive compatibility problems with recent versions of the underlying [GDAL](https://gdal.org/index.html) software. 
+In the real world, renewable infrastructure is often limited by land-use restrictions. Wind turbines can only be placed in eligible places which, according to the country specific policy, has to fulfill certain criteria, e.g. non-protected areas, enough distance to residential areas etc. For this reason atlite provides a performant, parallelized implementation to calculate land-use availabilities within all weather cells of a cutout. The user can exclude geometric shapes and/or geographic raster of arbitrary projection, like the [Corine Land Cover (CLC)](https://land.copernicus.eu/pan-european/corine-land-cover), from the eligible area.
+The implementation is inspired by the no longer maintained python package [GLAES](https://github.com/FZJ-IEK3-VSA/glaes) [@Ryberg2018]
+and is incompatible with newer versions of the underlying [GDAL](https://gdal.org/index.html) software.
 
     
 
