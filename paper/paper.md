@@ -8,10 +8,13 @@ authors:
     orcid: 0000-0002-6604-5450
     affiliation: "1" # (Multiple affiliations must be quoted)
     # add your names here
+  - name: Johannes Hampp
+    orcid: 0000-0002-1776-116X
+    affiliation: "2"
 affiliations:
  - name: Frankfurt Institute for Advanced Studies
    index: 1
- - name: Institution Name
+ - name: Center for international Development and Environmental Research (ZEU), Justus-Liebig University Giessen
    index: 2
  - name: Institution Name
    index: 3
@@ -34,7 +37,7 @@ pandoc --citeproc -s paper.md -o paper.pdf
 # Summary
 <!-- Change whatever you want -->
 
-Renewable energy sources build the backbone of the future global energy system. For a sucessful energy transition it is crucial to rigorously analyse the weather-dependent energy outputs of eligible and existent renewable resources. atlite is an open python software package for retrieving reanalysis weather data and converting it to potentials and time series for renewable energy systems. Based on detailed mathematical models, it simulates the power output of wind turbines, solar photo-voltaic panels, solar-thermal collectors, run-of-river power plants and hydro-electrical dams. It further provides weather-dependant projections on the demand side like heating demand degree days and heat pump coefficients of performance.
+Renewable energy sources build the backbone of the future global energy system. For a successful energy transition it is crucial to rigorously analyse the weather-dependent energy outputs of eligible and existent renewable resources. atlite is an open python software package for retrieving reanalysis weather data and converting it to potentials and time series for renewable energy systems. Based on detailed mathematical models, it simulates the power output of wind turbines, solar photo-voltaic panels, solar-thermal collectors, run-of-river power plants and hydro-electrical dams. It further provides weather-dependant projections on the demand side like heating demand degree days and heat pump coefficients of performance.
 
 
 # Statement of need
@@ -46,8 +49,18 @@ atlite was initially build as a light-weight alternative to the Danish REatlas [
 
 <!-- software/packages and implementation -->
 <!-- JOHANNES -->
-atlite highly relies on the python packages Xarray [@hoyer_xarray_2017], [Dask](https://docs.dask.org/en/latest/) and [Rasterio](https://rasterio.readthedocs.io/en/latest/) which allows for parallelized and memory-efficient processing of large data sets. Modularity etc.
+Deriving weather-based time-series and potentials for renewables over large regions is a common problem in energy system modelling.
+Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016][staffell_using_2016] for such purpose exist but are difficult to use for local execution in e.g. cluster environments.
+Further they expose by-design neither the underlying datasets nor methods for deriving time-series thus making them unsuited for exploring alternative weather-to-time-series conversion methods or utilising different weather datasets.
+Other libraries like [pvlib](https://github.com/pvlib/pvlib-python) [@holmgren_pvlib_2018] are suited for local execution and allow exchangeable input
+data but are specialised to certain renewables (PV systems in this case) and intended for single location modelling.
 
+The purpose of atlite is to fill this gap and provide a library to derive time-series and potentials for renewables based on weather datasets.
+atlite is designed with extensibility for new types of renewables or different time-series conversion models in mind.
+An abstraction layer for weather datasets enables flexibility for exchange of the underlying datasets.
+By leveraging the Python packages [xarray](https://xarray.pydata.org/en/stable/) [@hoyer_xarray_2017],
+[Dask](https://docs.dask.org/en/latest/) and [Rasterio](https://rasterio.readthedocs.io/en/latest/) atlite makes use of parallelisation
+and memory efficient backends thus scaling well on even large datasets.
 
 # Basic Concept
 
@@ -96,7 +109,9 @@ A Cutout may combine features from different sources, e.g. 'height' from GEBCO a
 ## Conversion Functions
 <!-- JOHANNES -->
 
-
+<!-- TODO
+    * Conversion functions; Ich habe schon mal alle Referenzen rausgesucht. Eigentlich muss man die Stichpunkte nur vertextlichen. Es wäre es schön eine Tabelle mit vorgefertigten Wind turbines und Panel Konfigurationen zu haben.
+ -->
 
 * solar PV: 
   * panel config [@kalogirou_solar_2009] 
