@@ -50,7 +50,7 @@ atlite was initially build as a light-weight alternative to the Danish REatlas [
 <!-- software/packages and implementation -->
 <!-- JOHANNES -->
 Deriving weather-based time-series and potentials for renewables over large regions is a common problem in energy system modelling.
-Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016][staffell_using_2016] for such purpose exist but are difficult to use for local execution in e.g. cluster environments.
+Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016][@staffell_using_2016] for such purpose exist but are difficult to use for local execution in e.g. cluster environments.
 Further they expose by-design neither the underlying datasets nor methods for deriving time-series thus making them unsuited for exploring alternative weather-to-time-series conversion methods or utilising different weather datasets.
 Other libraries like [pvlib](https://github.com/pvlib/pvlib-python) [@holmgren_pvlib_2018] are suited for local execution and allow exchangeable input
 data but are specialised to certain renewables (PV systems in this case) and intended for single location modelling.
@@ -59,7 +59,7 @@ The purpose of atlite is to fill this gap and provide a library to derive time-s
 atlite is designed with extensibility for new types of renewables or different time-series conversion models in mind.
 An abstraction layer for weather datasets enables flexibility for exchange of the underlying datasets.
 By leveraging the Python packages [xarray](https://xarray.pydata.org/en/stable/) [@hoyer_xarray_2017],
-[Dask](https://docs.dask.org/en/latest/) and [Rasterio](https://rasterio.readthedocs.io/en/latest/) atlite makes use of parallelisation
+[dask](https://docs.dask.org/en/latest/) and [rasterio](https://rasterio.readthedocs.io/en/latest/) atlite makes use of parallelisation
 and memory efficient backends thus scaling well on even large datasets.
 
 # Basic Concept
