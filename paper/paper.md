@@ -94,13 +94,13 @@ When initializing a Cutout, the grid cells and the coordinate system on which th
 Atlite groups weather variables into *features*, which can be used as front-end keys for retrieving a subset of the available weather variables. The following table shows the variable groups for all datasets.
 
 
-| feature     | ERA5 variables                                     | Sarah variables | Gebco variables  |
-|:------------|:--------------------------------------------------|:------------|:-------------------|
-| height      | height                                            |             | height             |
-| wind        | wnd100m, roughness                                |             |                    |
-| influx      | influx\_toa, influx\_direct, influx\_diffuse, albedo | influx\_direct,  influx\_diffuse |                    |
-| temperature | temperature, soil temperature                     |             |                    |
-| runoff      | runoff                                            |             |                    |
+|   feature   |                    ERA5 variables                    |         Sarah variables          | Gebco variables |
+| :---------- | :--------------------------------------------------- | :------------------------------- | :-------------- |
+| height      | height                                               |                                  | height          |
+| wind        | wnd100m, roughness                                   |                                  |                 |
+| influx      | influx\_toa, influx\_direct, influx\_diffuse, albedo | influx\_direct,  influx\_diffuse |                 |
+| temperature | temperature, soil temperature                        |                                  |                 |
+| runoff      | runoff                                               |                                  |                 |
 
 
 A Cutout may combine features from different sources, e.g. 'height' from GEBCO and 'runoff' from ERA5. Future versions of atlite will likely introduce the possibility to retrieve explicit weather variables from the CDS API. Further, the climate projection dataset [CORDEX](https://rcmes.jpl.nasa.gov/content/cordex) which was removed in v0.2 due to compatibility issues, is likely to be reintroduced. 
