@@ -436,6 +436,10 @@ class Cutout:
         return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
 
 
+    def uniform_layout(self):
+        """Get a uniform capacity layout for all grid cells."""
+        return xr.DataArray(1, [self.coords['x'], self.coords['y']])
+
     availabilitymatrix = compute_availabilitymatrix
 
     # Preparation functions
