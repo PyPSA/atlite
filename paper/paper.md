@@ -8,10 +8,13 @@ authors:
     orcid: 0000-0002-6604-5450
     affiliation: "1" # (Multiple affiliations must be quoted)
     # add your names here
+  - name: Johannes Hampp
+    orcid: 0000-0002-1776-116X
+    affiliation: "2"
 affiliations:
  - name: Frankfurt Institute for Advanced Studies
    index: 1
- - name: Institution Name
+ - name: Center for international Development and Environmental Research (ZEU), Justus-Liebig University Giessen
    index: 2
  - name: Institution Name
    index: 3
@@ -34,7 +37,7 @@ pandoc --citeproc -s paper.md -o paper.pdf
 # Summary
 <!-- Change whatever you want -->
 
-Renewable energy sources build the backbone of the future global energy system. For a sucessful energy transition it is crucial to rigorously analyse the weather-dependent energy outputs of eligible and existent renewable resources. atlite is an open python software package for retrieving reanalysis weather data and converting it to potentials and time series for renewable energy systems. Based on detailed mathematical models, it simulates the power output of wind turbines, solar photo-voltaic panels, solar-thermal collectors, run-of-river power plants and hydro-electrical dams. It further provides weather-dependant projections on the demand side like heating demand degree days and heat pump coefficients of performance.
+Renewable energy sources build the backbone of the future global energy system. For a successful energy transition it is crucial to rigorously analyse the weather-dependent energy outputs of eligible and existent renewable resources. atlite is an open python software package for retrieving reanalysis weather data and converting it to potentials and time series for renewable energy systems. Based on detailed mathematical models, it simulates the power output of wind turbines, solar photo-voltaic panels, solar-thermal collectors, run-of-river power plants and hydro-electrical dams. It further provides weather-dependant projections on the demand side like heating demand degree days and heat pump coefficients of performance.
 
 
 # Statement of need
@@ -46,26 +49,30 @@ atlite was initially build as a light-weight alternative to the Danish REatlas [
 
 <!-- software/packages and implementation -->
 <!-- JOHANNES -->
-atlite highly relies on the python packages Xarray [@hoyer_xarray_2017], [Dask](https://docs.dask.org/en/latest/) and [Rasterio](https://rasterio.readthedocs.io/en/latest/) which allows for parallelized and memory-efficient processing of large data sets. Modularity etc.
+Deriving weather-based time-series and potentials for renewables over large regions is a common problem in energy system modelling.
+Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016][@staffell_using_2016] for such purpose exist but are difficult to use for local execution in e.g. cluster environments.
+Further they expose by-design neither the underlying datasets nor methods for deriving time-series thus making them unsuited for exploring alternative weather-to-time-series conversion methods or utilising different weather datasets.
+Other libraries like [pvlib](https://github.com/pvlib/pvlib-python) [@holmgren_pvlib_2018] are suited for local execution and allow exchangeable input
+data but are specialised to certain renewables (PV systems in this case) and intended for single location modelling.
+
+The purpose of atlite is to fill this gap and provide a library to derive time-series and potentials for renewables based on weather datasets.
+atlite is designed with extensibility for new types of renewables or different time-series conversion models in mind.
+An abstraction layer for weather datasets enables flexibility for exchange of the underlying datasets.
+By leveraging the Python packages [xarray](https://xarray.pydata.org/en/stable/) [@hoyer_xarray_2017],
+[dask](https://docs.dask.org/en/latest/) [@dask_2016] and [rasterio](https://rasterio.readthedocs.io/en/latest/) atlite makes use of parallelisation
+and memory efficient backends thus scaling well on even large datasets.
+
+# Basic Concept
 
 
-<!-- # Basic Concept -->
-
-
-<!-- The first step is to create a cutout which is a container for subsets of raw weather data. The second step is to prepare the created `atlite.Cutout` that is retrieving the raw weather data and storing it to a . The second step is to convert the weather data of a `atlite.Cutout` into renewables time-series and/or static potentials using explicit conversion functions. -->
-
-
-
-
-
-## Basic Concept -- the Cutout Class
-<!-- FABIAN H -->
-
-
-The `atlite.Cutout` class builds the starting point for most atlite functionalities. It serves as a container for a spatio-temporal subset of one or more weather datasets. 
-A typical workflow with atlite consists of three steps, illustrated in the figure below. These consist are cutout creation, cutout preparation and cutout conversion. 
-
+The starting point of most atlite functionalities  is the `atlite.Cutout` class. It serves as a container for a spatio-temporal subset of one or more weather datasets. As illustrated below, a typical workflow consists of three steps: Cutout creation, Cutout preparation and Cutout conversion. 
 ![Typical working steps with `atlite`.](figures/workflow.png)
+
+
+
+
+## Cutout Creation and Preparation
+<!-- FABIAN H -->
 
 
 When initializing a new Cutout, geographical and temporal bounds, the path of the created `netcdf` file as well as the source for the weather data have to be defined. Optionally, temporal and spatial resolution may be adjusted, the default is set to 1 hour and 0.25$^\circ$ latitude times 0.25$^\circ$ longitude. So far, atlite supports data handling of three source: 
@@ -80,13 +87,13 @@ When initializing a Cutout, the grid cells and the coordinate system on which th
 Atlite groups weather variables into *features*, which can be used as front-end keys for retrieving a subset of the available weather variables. The following table shows the variable groups for all datasets.
 
 
-| feature     | ERA5 variables                                     | Sarah variables | Gebco variables  |
-|:------------|:--------------------------------------------------|:------------|:-------------------|
-| height      | height                                            |             | height             |
-| wind        | wnd100m, roughness                                |             |                    |
-| influx      | influx\_toa, influx\_direct, influx\_diffuse, albedo | influx\_direct,  influx\_diffuse |                    |
-| temperature | temperature, soil temperature                     |             |                    |
-| runoff      | runoff                                            |             |                    |
+|   feature   |                    ERA5 variables                    |        SARAH-2 variables         | GEBCO variables |
+| :---------- | :--------------------------------------------------- | :------------------------------- | :-------------- |
+| height      | height                                               |                                  | height          |
+| wind        | wnd100m, roughness                                   |                                  |                 |
+| influx      | influx\_toa, influx\_direct, influx\_diffuse, albedo | influx\_direct,  influx\_diffuse |                 |
+| temperature | temperature, soil temperature                        |                                  |                 |
+| runoff      | runoff                                               |                                  |                 |
 
 
 A Cutout may combine features from different sources, e.g. 'height' from GEBCO and 'runoff' from ERA5. Future versions of atlite will likely introduce the possibility to retrieve explicit weather variables from the CDS API. Further, the climate projection dataset [CORDEX](https://rcmes.jpl.nasa.gov/content/cordex) which was removed in v0.2 due to compatibility issues, is likely to be reintroduced. 
@@ -95,26 +102,51 @@ A Cutout may combine features from different sources, e.g. 'height' from GEBCO a
 ## Conversion Functions
 <!-- JOHANNES -->
 
+<!-- TODO
+   Es wäre es schön eine Tabelle mit vorgefertigten Wind turbines und Panel Konfigurationen zu haben.
+   r Johannes: Das wären 19 Einträge, ich glaube das ist zu umfangreich und zu wenig relevant.
+ -->
 
+Atlite currently offers conversion functions for deriving time-series and static potentials from cutouts for the following types of renewables:
 
-* solar PV: 
-  * panel config [@kalogirou_solar_2009] 
-  * clearsky model from [@reindl_diffuse_1990] to split downward radiation into direct and diffuse contributions (future implementations could implement more recent models like in [@lauret_bayesian_2013,@ridley_modelling_2010])
-  * optimal latitude was taken from fixed values reported by [Solartilt](http://www.solarpaneltilt.com/#fixed)
-  * surface orientation based on formulation in [@sproul_derivation_2007]
-  * solar panel model, two models provided by [@huld_mapping_2010] and [@beyer_robust_2004], the code is highly aligned to the implementation in [RenewablesNinja](https://github.com/renewables-ninja/gsee/blob/master/gsee/pv.py)
-  * Solar position (azimuth and altitude) is based on [@michalsky_astronomical_1988,@sproul_derivation_2007,@kalogirou_solar_2009] 
-* solar thermal based on [@henning_comprehensive_2014]
-* wind turbines [@andresen_validation_2015], different turbine models with power curves
-* runoff, has no reference, directly taken from runoff data, optional weighting by height, smoothing in time and normalizing the yearly energy output to reported energy productions like [EIA](https://www.eia.gov/international/data/world).  
-* hydro reservoir and dams based on [@liu_validated_2019] and [@lehner_global_2013]. Data is available at
-    the [hydrosheds website](www.hydrosheds.org)
-* Heat demand 
+* Solar photovoltaics:
+Two alternative solar panel models based on [@huld_mapping_2010] and [@beyer_robust_2004]
+using the clearsky model from [@reindl_diffuse_1990],
+solar azimuth and altitude position tracking based on [@michalsky_astronomical_1988,@sproul_derivation_2007,@kalogirou_solar_2009] combined with a surface orientation algorithm following
+[@sproul_derivation_2007] and optimal latitude heuristics from [@landau_optimum_2017].
+
+* Solar thermal collectors:
+An implementation for providing low temperature heat for space or district heating from
+[@henning_comprehensive_2014] which combines average global radiation with and storage losses
+dependent on the current outside temperature.
+
+* Wind turbines:
+A general implementation of wind turbine power output using included or arbitrary power curves
+as well as optional convolution with a Gaussian kernel for region specific calibration given
+real-world reference data as presented by [@andresen_validation_2015].
+
+* Hydro run-off power:
+An heuristic approach which uses runoff weather data which is normalised to match reported 
+energy production figures by the [EIA](https://www.eia.gov/international/data/world).
+The resulting time-series are optionally weighted by height of the runoff location and time-series may
+be smoothed for a more realistic representation.
+
+* Hydro reservoir and dam power:
+Following [@liu_validated_2019] and [@lehner_global_2013] run-off data is aggregated to
+and collected in basins which are obtained and estimated in their size with the help
+of the [HydroSHEDS](https:// hydrosheds.org/) dataset.
+
+* Heating demand:
+Space heating demand is obtained with a simple degree-day approximation where
+the difference between outside groud-level temperatures and a reference temperature
+scaled by a linear factor yields the desired estimate.
 
 ## Land-Use Availability
 <!-- FABIAN HOFMANN -->
 
-In the real world, renewable infrastructure is often limited by land-use restrictions. Wind turbines can only be placed in eligible places which, according to the country specific policy, has to fulfill certain criteria, e.g. non-protected areas, enough distance to residential areas etc. For this reason atlite provides a performant, parallelized implementation to calculate land-use availabilities within all weather cells of a cutout. The user can exclude geometric shapes and/or geographic raster of arbitrary projection, like the [Corine Land Cover (CLC)](https://land.copernicus.eu/pan-european/corine-land-cover), from the eligible area. The implementation is inspired by the python package [GLAES](https://zenodo.org/record/1122558#.YGVygGhCRTY) **(proper cite)** which is however no longer maintained and causes extensive compatibility problems with recent versions of the underlying [GDAL](https://gdal.org/index.html) software. 
+In the real world, renewable infrastructure is often limited by land-use restrictions. Wind turbines can only be placed in eligible places which, according to the country specific policy, has to fulfill certain criteria, e.g. non-protected areas, enough distance to residential areas etc. `Atlite` provides a performant, parallelized implementation to calculate land-use availabilities within all weather cells of a cutout. The user can exclude geometric shapes and/or geographic rasters of arbitrary projection, like the [Corine Land Cover (CLC)](https://land.copernicus.eu/pan-european/corine-land-cover), from the eligible area.
+The implementation is inspired by the [GLAES](https://github.com/FZJ-IEK3-VSA/glaes) [@Ryberg2018]
+software package which itself is no longer maintained and incompatible with newer versions of the underlying [GDAL](https://gdal.org/index.html) software.
 
     
 
@@ -131,7 +163,12 @@ atlite is used b several research projects and groups. The open-source PyPSA-EUR
 # Availability
 <!-- WHO EVER WANTS -->
 
-The atlite package is available via the open source package management systems *Python Package Index* and *Conda* [@anaconda] for Linux, Mac and Windows systems. atlite is released and licensed under the GPLv3. The source code at can be found on [Github](https://github.com/PyPSA/atlite). The repository has an [Continuous Intergration](https://travis-ci.org/github/PyPSA/atlite) supported by Travis. A full package [documentation](https://atlite.readthedocs.io/en/master/?badge=master) is regularly updated on Read the Docs.  
+Stable versions of the atlite package are available for Linux, MacOS and Windows via
+`pip` in the [Python Package Index (PyPI)](https://pypi.org/project/atlite/) and
+for `conda` on [conda-forge](https://anaconda.org/conda-forge/atlite).
+Upstream versions and development branches are available in the projects [GitHub repository](https://github.com/PyPSA/atlite).
+Documentation including examples are available on [Read the Docs](https://atlite.readthedocs.io/en/latest/).
+The atlite package is released under [GPLv3](https://github.com/PyPSA/atlite/blob/master/LICENSES/GPL-3.0-or-later.txt) and welcomes contributions via the projects [GitHub repository](https://github.com/PyPSA/atlite).
 
 
 # Acknowledgements
