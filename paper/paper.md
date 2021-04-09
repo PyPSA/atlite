@@ -59,7 +59,7 @@ The purpose of atlite is to fill this gap and provide a library to derive time-s
 atlite is designed with extensibility for new types of renewables or different time-series conversion models in mind.
 An abstraction layer for weather datasets enables flexibility for exchange of the underlying datasets.
 By leveraging the Python packages [xarray](https://xarray.pydata.org/en/stable/) [@hoyer_xarray_2017],
-[dask](https://docs.dask.org/en/latest/) and [rasterio](https://rasterio.readthedocs.io/en/latest/) atlite makes use of parallelisation
+[dask](https://docs.dask.org/en/latest/) [@dask_2016] and [rasterio](https://rasterio.readthedocs.io/en/latest/) atlite makes use of parallelisation
 and memory efficient backends thus scaling well on even large datasets.
 
 # Basic Concept
