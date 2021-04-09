@@ -110,7 +110,8 @@ A Cutout may combine features from different sources, e.g. 'height' from GEBCO a
 <!-- JOHANNES -->
 
 <!-- TODO
-    * Conversion functions; Ich habe schon mal alle Referenzen rausgesucht. Eigentlich muss man die Stichpunkte nur vertextlichen. Es wäre es schön eine Tabelle mit vorgefertigten Wind turbines und Panel Konfigurationen zu haben.
+   Es wäre es schön eine Tabelle mit vorgefertigten Wind turbines und Panel Konfigurationen zu haben.
+   r Johannes: Das wären 19 Einträge, ich glaube das ist zu umfangreich und zu wenig relevant.
  -->
 
 Atlite currently offers conversion functions for deriving time-series and static potentials from cutouts for the following types of renewables:
@@ -169,7 +170,12 @@ atlite is used b several research projects and groups. The open-source PyPSA-EUR
 # Availability
 <!-- WHO EVER WANTS -->
 
-The atlite package is available via the open source package management systems *Python Package Index* and *Conda* [@anaconda] for Linux, Mac and Windows systems. atlite is released and licensed under the GPLv3. The source code at can be found on [Github](https://github.com/PyPSA/atlite). The repository has an [Continuous Intergration](https://travis-ci.org/github/PyPSA/atlite) supported by Travis. A full package [documentation](https://atlite.readthedocs.io/en/master/?badge=master) is regularly updated on Read the Docs.  
+Stable versions of the atlite package are available for Linux, MacOS and Windows via
+`pip` in the [Python Package Index (PyPI)](https://pypi.org/project/atlite/) and
+for `conda` on [conda-forge](https://anaconda.org/conda-forge/atlite).
+Upstream versions and development branches are available in the projects [GitHub repository](https://github.com/PyPSA/atlite).
+Documentation including examples are available on [Read the Docs](https://atlite.readthedocs.io/en/latest/).
+The atlite package is released under [GPLv3](https://github.com/PyPSA/atlite/blob/master/LICENSES/GPL-3.0-or-later.txt) and welcomes contributions via the projects [GitHub repository](https://github.com/PyPSA/atlite).
 
 
 # Acknowledgements
