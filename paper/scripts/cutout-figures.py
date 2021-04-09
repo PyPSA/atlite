@@ -18,7 +18,9 @@ from pathlib import Path
 from matplotlib.gridspec import GridSpec
 
 plt.rc('text', usetex=True)
-plt.rc('font', family='sans-serif', size=13)
+plt.rc('text.latex',
+       preamble=r"\setlength{\parindent}{0pt} \setlength{\parskip}{\baselineskip}")
+plt.rc('font', family='serif', size=14)
 figpath = Path('../figures/')
 figpath.mkdir(exist_ok=True)
 
@@ -39,13 +41,13 @@ cutout_bound = gpd.GeoSeries(cutout.grid.unary_union)
 
 
 #%% all steps in one
-fig = plt.figure(figsize=(11, 9))
-gs = GridSpec(6, 5, figure=fig)
-title_params = dict(loc='left', multialignment='left')
+fig = plt.figure(figsize=(10, 12))
+gs = GridSpec(6, 6, figure=fig)
+title_params = dict(pad=35)
 
 # cutout creation plot
 color = 'teal'
-ax = fig.add_subplot(gs[:3, 0:3], projection=projection)
+ax = fig.add_subplot(gs[:3, :3], projection=projection)
 cutout.grid.plot(ax=ax, facecolor=color, edgecolor='white', linewidth=1.5, alpha=0.3, transform=plate())
 cutout.grid[['x', 'y']].plot.scatter(x='x', y='y', ax=ax, transform=plate(),
                                      color=color, s=1, alpha=1)
@@ -54,15 +56,16 @@ ax.set_extent(np.array(de.buffer(2).bounds)[[0,2,1,3]], crs=plate())
 ax.add_feature(cartopy.feature.BORDERS.with_scale('10m'), edgecolor='gray')
 ax.add_feature(cartopy.feature.COASTLINE.with_scale('10m'), edgecolor='gray')
 ax.axis('off')
-ax.set_title(r"1. Create Cutout", **title_params)
-
+ax.set_title(r"\begin{center}\textbf{1. Create Cutout} \\(Select spatio-temporal bounds)\end{center}", **title_params)
+# ax.set_title(r"\textbf{1. Create Cutout}", **title_params)
 
 # Prepare cutout
 df = cutout.data.mean(['x', 'y']).to_dataframe()
 
 ax = fig.add_subplot(gs[0, 3:])
 df.wnd100m.plot(ax=ax, color='teal')
-ax.set_title("2. Prepare Cutout", **title_params)
+ax.set_title(r"\begin{center}\textbf{2. Prepare Cutout} \\(Retrieve data per weather cell)\end{center}", **title_params)
+# ax.set_title(r"\textbf{2. Prepare Cutout}", **title_params)
 ax.spines[['top', 'right']].set_visible(False)
 ax.set_ylabel('wnd100m [m/s]')
 ax.set_xlabel('')
@@ -90,7 +93,9 @@ ds, capacity = cutout.wind(turbine, shapes=regions, layout=layout,
 
 
 ax = fig.add_subplot(gs[3:, :3])
-ax.set_title("3. Convert to potentials and timeseries per region", **title_params)
+ax.set_title(r"\begin{center}\textbf{3. Convert Cutout} \\ (Calcuate potentials and timeseries per region)\end{center}",
+              **title_params)
+# ax.set_title(r"\textbf{3. Convert Cutout}", **title_params)
 regions.plot(ax=ax, column=capacity.to_series()/1e3, legend=True, cmap='Greens',
               legend_kwds=dict(label='Potential Capcity [GW]',
                                location='right', shrink=0.8)
@@ -120,6 +125,7 @@ ax.axis('off')
 
 
 fig.tight_layout()
+fig.savefig(figpath/"workflow.png", bbox_inches='tight')
 
 
 

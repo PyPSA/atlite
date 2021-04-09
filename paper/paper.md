@@ -49,26 +49,25 @@ atlite was initially build as a light-weight alternative to the Danish REatlas [
 atlite highly relies on the python packages Xarray [@hoyer_xarray_2017], [Dask](https://docs.dask.org/en/latest/) and [Rasterio](https://rasterio.readthedocs.io/en/latest/) which allows for parallelized and memory-efficient processing of large data sets. Modularity etc.
 
 
-# Basic Concept
+<!-- # Basic Concept -->
 
-A typical workflow with atlite consists of two steps. The first step is to create and prepare a `atlite.Cutout` which is a container for subsets of raw weather data. The second step is to convert the weather data of a `atlite.Cutout` into renewables time-series and/or static potentials using explicit conversion functions.
 
-<!-- Figures can be included like this:
-![Caption for example figure.\label{fig:example}](figure.png)
-and referenced from text using \autoref{fig:example}.
-
-Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% } -->
+<!-- The first step is to create a cutout which is a container for subsets of raw weather data. The second step is to prepare the created `atlite.Cutout` that is retrieving the raw weather data and storing it to a . The second step is to convert the weather data of a `atlite.Cutout` into renewables time-series and/or static potentials using explicit conversion functions. -->
 
 
 
-## The Cutout Class
+
+
+## Basic Concept -- the Cutout Class
 <!-- FABIAN H -->
 
 
-The `atlite.Cutout` class builds the starting point for most atlite functionalities. 
-<!--It contains a temporal and spatial subset of a weather dataset which is used to derive time-series for renewable technologies. 
--->
+The `atlite.Cutout` class builds the starting point for most atlite functionalities. It serves as a container for a spatio-temporal subset of one or more weather datasets. 
+A typical workflow with atlite consists of three steps, illustrated in the figure below. These consist are cutout creation, cutout preparation and cutout conversion. 
+
+![Typical working steps with `atlite`.](figures/workflow.png)
+
+
 When initializing a new Cutout, geographical and temporal bounds, the path of the created `netcdf` file as well as the source for the weather data have to be defined. Optionally, temporal and spatial resolution may be adjusted, the default is set to 1 hour and 0.25$^\circ$ latitude times 0.25$^\circ$ longitude. So far, atlite supports data handling of three source: 
 
 1. [ECMWF Reanalysis v5 (ERA5)](https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5) provides various weather-related variables in an hourly resolution from 1950 onward on a spatial grid with a 0.25$^\circ$ x 0.25$^\circ$ resolution. Atlite automatically retrieves the raw data using the [Climate Data Store (CDS) API](https://cds.climate.copernicus.eu/#!/home) which has to be properly set up by the user. When the requested data points diverge from the original grid, the API retrieves averaged values based on the original grid data **(double check)**. 
