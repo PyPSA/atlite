@@ -75,16 +75,16 @@ The starting point of most atlite functionalities  is the `atlite.Cutout` class.
 <!-- FABIAN H -->
 
 
-When initializing a new Cutout, geographical and temporal bounds, the path of the created `netcdf` file as well as the source for the weather data have to be defined. Optionally, temporal and spatial resolution may be adjusted, the default is set to 1 hour and 0.25$^\circ$ latitude times 0.25$^\circ$ longitude. So far, atlite supports data handling of three source: 
+The Cutout creation requires the following arguments: geographical and temporal bounds, the path of the associated `netcdf` file (which will be created) as well as the source for the weather data, refered to as module. Optionally, temporal and spatial resolution may be adjusted, the default is set to 1 hour and 0.25$^\circ$ latitude times 0.25$^\circ$ longitude. So far, atlite supports three weather data sources: 
 
 1. [ECMWF Reanalysis v5 (ERA5)](https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5) provides various weather-related variables in an hourly resolution from 1950 onward on a spatial grid with a 0.25$^\circ$ x 0.25$^\circ$ resolution. Atlite automatically retrieves the raw data using the [Climate Data Store (CDS) API](https://cds.climate.copernicus.eu/#!/home) which has to be properly set up by the user. When the requested data points diverge from the original grid, the API retrieves averaged values based on the original grid data **(double check)**. 
 
-2. [Heliosat (SARAH-2)](https://wui.cmsaf.eu/safira/action/viewDoiDetails?acronym=SARAH_V002) provides satellite-based solar data in a 30 min resolution from 1983 to 2015 on a spatial grid from -65° to +65$^\circ$ longitude and latitude in a 0.05$^\circ$ x 0.05$^\circ$ resolution. The dataset must be downloaded by the user beforehand. By using a regridding function provided by atlite, the data may be projected on arbitrary resolutions. 
+2. [Heliosat (SARAH-2)](https://wui.cmsaf.eu/safira/action/viewDoiDetails?acronym=SARAH_V002) provides satellite-based solar data in a 30 min resolution from 1983 to 2015 on a spatial grid from -65° to +65$^\circ$ longitude and latitude in a 0.05$^\circ$ x 0.05$^\circ$ resolution. The dataset must be downloaded by the user beforehand. By using a re-gridding function provided by atlite, the data may be projected on arbitrary resolutions. 
 
 3. [GEBCO](https://www.gebco.net/data_and_products/gridded_bathymetry_data/) is a bathymetric data set covering terrain heights on a 15 arc-second resolved spatial grid. The dataset has to be downloaded by the used beforehand. 
 
-When initializing a Cutout, the grid cells and the coordinate system on which the data will lay are created. Only when the preparation of the cutout is executed, atlite retrieves/loads data levels, adds them to the Cutout and finally writes the Cutout out to a netcdf file. 
-Atlite groups weather variables into *features*, which can be used as front-end keys for retrieving a subset of the available weather variables. The following table shows the variable groups for all datasets.
+When initializing a Cutout, the grid cells and the coordinate system on which the data will lay are created. As indicated in the above figure, the shapes of the weather cells are created such that their coordinates are centered in the middle. As soon as the preparation of the cutout is executed, atlite retrieves/loads data variables, adds them to the Cutout and finally writes the Cutout out to the associated netcdf file. 
+`Atlite` groups weather variables into *features*, which can be used as front-end keys for retrieving a subset of the available weather variables. The following table shows the variable groups for all datasets.
 
 
 |   feature   |                    ERA5 variables                    |        SARAH-2 variables         | GEBCO variables |
@@ -100,12 +100,7 @@ A Cutout may combine features from different sources, e.g. 'height' from GEBCO a
 
 
 ## Conversion Functions
-<!-- JOHANNES -->
 
-<!-- TODO
-   Es wäre es schön eine Tabelle mit vorgefertigten Wind turbines und Panel Konfigurationen zu haben.
-   r Johannes: Das wären 19 Einträge, ich glaube das ist zu umfangreich und zu wenig relevant.
- -->
 
 Atlite currently offers conversion functions for deriving time-series and static potentials from cutouts for the following types of renewables:
 
@@ -138,8 +133,14 @@ of the [HydroSHEDS](https:// hydrosheds.org/) dataset.
 
 * Heating demand:
 Space heating demand is obtained with a simple degree-day approximation where
-the difference between outside groud-level temperatures and a reference temperature
+the difference between outside ground-level temperatures and a reference temperature
 scaled by a linear factor yields the desired estimate.
+
+
+
+The conversion functions are highly flexible and allow the user to calculate different types of outputs, which arise from the set of input arguments. In energy system models, network nodes are often associated with geographical regions which serve as catchment areas for electric loads, renewable energy potentials etc. As indicated in third step of the above figure, `atlite`'s conversion functions allow to project renewable time-series on a list of bus regions. Therefore, `atlite` internally computes the Indicator Matrix $\textbf{I}$ with values $I_{r,x,y}$ representing the per-unit overlap between bus region $r$ and the weather cell at $(x,y)$. Further, the user can weigh the weather cells 
+
+
 
 ## Land-Use Availability
 <!-- FABIAN HOFMANN -->
