@@ -87,11 +87,11 @@ When initializing a Cutout, the grid cells and the coordinate system on which th
 `Atlite` groups weather variables into *features*, which can be used as front-end keys for retrieving a subset of the available weather variables. The following table shows the variable groups for all datasets.
 
 
-|   feature   |                    ERA5 variables                    |        SARAH-2 variables         | GEBCO variables |
+|   feature   |                    ERA5 <br/> variables                    |        SARAH-2<br/> variables         | GEBCO variables |
 | :---------- | :--------------------------------------------------- | :------------------------------- | :-------------- |
 | height      | height                                               |                                  | height          |
 | wind        | wnd100m, roughness                                   |                                  |                 |
-| influx      | influx\_toa, influx\_direct, influx\_diffuse, albedo | influx\_direct,  influx\_diffuse |                 |
+| influx      | influx\_toa, influx\_direct,<br/>influx\_diffuse, albedo | influx\_direct,  influx\_diffuse |                 |
 | temperature | temperature, soil temperature                        |                                  |                 |
 | runoff      | runoff                                               |                                  |                 |
 
@@ -149,7 +149,10 @@ In the real world, renewable infrastructure is often limited by land-use restric
 The implementation is inspired by the [GLAES](https://github.com/FZJ-IEK3-VSA/glaes) [@Ryberg2018]
 software package which itself is no longer maintained and incompatible with newer versions of the underlying [GDAL](https://gdal.org/index.html) software.
 
-    
+
+![Example of land-use restrictions](figures/available-land.png){height=350px }
+![Example of land-use restrictions](figures/availability-matrix.png){ height=380px  }
+
 
 
 # Related Research 

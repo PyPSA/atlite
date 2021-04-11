@@ -20,7 +20,7 @@ from matplotlib.gridspec import GridSpec
 plt.rc('text', usetex=True)
 plt.rc('text.latex',
        preamble=r"\setlength{\parindent}{0pt} \setlength{\parskip}{\baselineskip}")
-plt.rc('font', family='serif', size=14)
+plt.rc('font', family='sans-serif', size=14)
 figpath = Path('../figures/')
 figpath.mkdir(exist_ok=True)
 
@@ -79,7 +79,7 @@ ax.set_xlabel('')
 
 
 ax = fig.add_subplot(gs[2, 3:])
-ax.text(x=.5, y=.8, s=r'\noindent .\\ . \\ .', ha='center', fontsize=30)
+ax.text(x=.5, y=.8, s=r'$\cdot$ \\$\cdot$ \\ $\cdot$', ha='center', fontsize=30)
 ax.axis('off')
 
 
@@ -120,7 +120,7 @@ ax.set_ylabel('Power p.u.')
 ax.set_xlabel('')
 
 ax = fig.add_subplot(gs[5, 3:])
-ax.text(x=.5, y=.8, s=r'\noindent .\\ . \\ .', ha='center', fontsize=30)
+ax.text(x=.5, y=.8, s=r'$\cdot$ \\$\cdot$ \\ $\cdot$', ha='center', fontsize=30)
 ax.axis('off')
 
 
