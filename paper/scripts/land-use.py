@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import cartopy
 import cartopy.crs as ccrs
 import pandas as pd
+import matplotlib as mpl
 from rasterio.plot import show
 from matplotlib.gridspec import GridSpec
 from pathlib import Path
@@ -49,45 +50,43 @@ excluder.add_raster(corine, codes, invert=True, crs=3035)
 A = cutout.availabilitymatrix(regions, excluder, nprocesses=3, disable_progressbar=True)
 
 # %%
-fig = plt.figure(figsize=(10, 8))
-gs = GridSpec(5, 5, figure=fig)
+fig = plt.figure(figsize=(10, 5))
+gs = GridSpec(1,9, figure=fig)
 
 projection = ccrs.epsg(excluder.crs)
-ax = fig.add_subplot(gs[:, :2], projection=projection)
+ax = fig.add_subplot(gs[:, :3], projection=projection)
 show(masked, cmap='Greens',  transform=transform, ax=ax)
 ax.add_feature(cartopy.feature.BORDERS.with_scale('10m'), linewidth=.5)
 ax.add_feature(cartopy.feature.COASTLINE.with_scale('10m'), linewidth=.5)
 ax.set_title('Eligible land (green)', pad=10)
 ax.axis('off')
 
-ax = fig.add_subplot(gs[2, 2])
+ax = fig.add_subplot(gs[:, 3])
 ax.axis('off')
-ax.text(0.4, .5, r"$\longrightarrow$", fontsize=35)
+ax.text(0, .5, r"$\longrightarrow$", fontsize=35)
 
 
-ax = fig.add_subplot(gs[:2, 3:])
-ds = A.isel(region=0)
-ds.plot(cmap='Greens', ax=ax)
-regions.plot(ax=ax, edgecolor='k', color='None', linewidth=0.2)
-regions.iloc[[0]].plot(ax=ax, edgecolor='k', color='None')
-ax.set_title('Region 1')
-ax.axis('off')
+regions_i = [0, 20]
+for i, r in enumerate(regions_i):
+    ax = fig.add_subplot(gs[:, 4+2*i:6+2*i])
+    ds = A.isel(region=r)
+    ds.plot(cmap='Greens', ax=ax, vmin=0, vmax=.7, add_colorbar=False)
+    regions.plot(ax=ax, edgecolor='k', color='None', linewidth=0.2)
+    regions.iloc[[r]].plot(ax=ax, edgecolor='k', color='None')
+    ax.set_title(f'Region {i+1}', fontsize=14)
+    ax.axis('off')
 
 
-ax = fig.add_subplot(gs[2:4, 3:])
-ds = A.isel(region=1)
-ds.plot(cmap='Greens', ax=ax)
-regions.plot(ax=ax, edgecolor='k', color='None', linewidth=0.2)
-regions.iloc[[1]].plot(ax=ax, edgecolor='k', color='None')
-ax.set_title('Region 2')
+ax = fig.add_subplot(gs[:, 8])
+ax.text(x=0.5, y=0.5, s=r'$\cdots$', ha='center', fontsize=25)
 ax.axis('off')
 
-ax = fig.add_subplot(gs[4, 3:])
-ax.text(x=0.5, y=0.8, s=r'$\cdot$ \\$\cdot$ \\ $\cdot$', ha='center', fontsize=25)
-ax.axis('off')
+ax = fig.add_subplot(gs[:, 4:])
+ax.set_visible(False)
+fig.colorbar(mpl.cm.ScalarMappable(cmap='Greens'), ax=ax,
+             orientation='horizontal', aspect=40)
 
-
-fig.supylabel('Effective overlap between regions and weather cells', x=1)
+fig.suptitle('Effective overlap between regions and weather cells', x=.72, y=0.85)
 fig.tight_layout()
 fig.savefig(figpath/'land-use-availability.png', bbox_inches='tight')
 

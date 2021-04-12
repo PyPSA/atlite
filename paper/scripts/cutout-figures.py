@@ -93,11 +93,11 @@ ds, capacity = cutout.wind(turbine, shapes=regions, layout=layout,
 
 
 ax = fig.add_subplot(gs[3:, :3])
-ax.set_title(r"\begin{center}\textbf{3. Convert Cutout} \\ (Calcuate potentials and timeseries per region)\end{center}",
+ax.set_title(r"\begin{center}\textbf{3. Convert Cutout} \\ (Calculate potentials and timeseries per region)\end{center}",
               **title_params)
 # ax.set_title(r"\textbf{3. Convert Cutout}", **title_params)
 regions.plot(ax=ax, column=capacity.to_series()/1e3, legend=True, cmap='Greens',
-              legend_kwds=dict(label='Potential Capcity [GW]',
+              legend_kwds=dict(label='Capcity potential [GW]',
                                location='right', shrink=0.8)
              )
 # cutout.grid.plot(ax=ax, facecolor='None', edgecolor='grey', ls=':')
