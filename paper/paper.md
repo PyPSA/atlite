@@ -65,7 +65,8 @@ and memory efficient backends thus scaling well on even large datasets.
 # Basic Concept
 
 
-The starting point of most atlite functionalities  is the `atlite.Cutout` class. It serves as a container for a spatio-temporal subset of one or more weather datasets. As illustrated below, a typical workflow consists of three steps: Cutout creation, Cutout preparation and Cutout conversion. 
+The starting point of most atlite functionalities  is the `atlite.Cutout` class. It serves as a container for a spatio-temporal subset of one or more weather datasets. As illustrated below, a typical workflow consists of three steps: Cutout creation, Cutout preparation and Cutout conversion.
+
 ![Typical working steps with `atlite`.](figures/workflow.png)
 
 
@@ -155,10 +156,9 @@ software package which itself is no longer maintained and incompatible with newe
 # Related Research 
 <!-- FABIAN NEUMANN -->
 
+atlite is used b several research projects and groups.
 
-atlite is used b several research projects and groups. The open-source PyPSA-EUR workflow [**cite**] is a   
-
-
+Its main application is in [PyPSA-EUR](https://pypsa-eur.readthedocs.io/en/latest/) [@PyPSAEur] an open-source model of the European power system.
 
 
 # Availability
