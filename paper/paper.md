@@ -65,8 +65,6 @@ The starting point of most `atlite` functionalities  is the `atlite.Cutout` clas
 ![Typical working steps with `atlite`. \label{fig:cutout}](figures/workflow.png)
 
 
-
-
 ## Cutout Creation and Preparation
 <!-- FABIAN H -->
 
