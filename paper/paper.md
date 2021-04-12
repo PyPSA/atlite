@@ -66,7 +66,8 @@ and memory efficient backends thus scaling well on even large datasets.
 
 
 The starting point of most atlite functionalities  is the `atlite.Cutout` class. It serves as a container for a spatio-temporal subset of one or more weather datasets. As illustrated below, a typical workflow consists of three steps: Cutout creation, Cutout preparation and Cutout conversion. 
-![Typical working steps with `atlite`.](figures/workflow.png)
+
+![Typical working steps with `atlite`. \label{fig:cutout}](figures/workflow.png)
 
 
 
@@ -149,9 +150,7 @@ In the real world, renewable infrastructure is often limited by land-use restric
 The implementation is inspired by the [GLAES](https://github.com/FZJ-IEK3-VSA/glaes) [@Ryberg2018]
 software package which itself is no longer maintained and incompatible with newer versions of the underlying [GDAL](https://gdal.org/index.html) software.
 
-
-![Example of land-use restrictions](figures/available-land.png){height=350px }
-![Example of land-use restrictions](figures/availability-matrix.png){ height=380px  }
+![Example of a land-use restrictions calculated with atlite. The left side shows a highly-resolved raster with available areas in green. Excluded areas, which in this example are set to all urban and forest-like sites, are drawn in white. Resulting entries of the availability matrix computed by `atlite` is shown on the right hand side.  \label{fig:land-use}](figures/land-use-availability.png)
 
 
 
