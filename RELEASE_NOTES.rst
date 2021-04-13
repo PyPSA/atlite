@@ -8,15 +8,16 @@ Release Notes
 #############
 
 
-Version 0.2.2 (upcoming)
-========================
+
+Version 0.2.2 
+==============
 
 This update is mainly due to fixes in the data handling of the SARAH module. If you work with the SARAH data, we encourage you to update. 
 
 * Fixed compatibility with xarray v0.17.
 * Fixed sarah data for ``dx = dy = 0.05``. Due to the float32 dtype of the sarah coordinates, the cutout coordinates were corrupted when merging. This was fixed in the sarah module by converting the coordinates to float64. This also speeds up the cutout creation for more coarse grained cutouts.  
-* Fixed sarah data for a time frequency of 30 minutes. This was raising an assertion as is the (new) pandas frequency string for 30 minutes is '30T' not '30min'.
-* Fix the ``regrid`` function in ``atlite.gis`` for target coords which are not having the same bounds as the original ``xarray.Dataset``. The previous implementation was leading to a small shift of coordinates in the preparation of SARAH data (sorry for inconvenience).
+* Fixed sarah data for a time frequency of 30 minutes. This was raising an assertion error as the (new) pandas frequency string for 30 minutes is '30T' not '30min'.
+* Fix the ``regrid`` function in ``atlite.gis`` for target coords which are not having the same bounds as the original ``xarray.Dataset``. The previous implementation was leading to a small shift of coordinates in the preparation of SARAH data.
 
 
 
