@@ -45,7 +45,7 @@ Renewable energy sources build the backbone of the future global energy system. 
 
 
 Deriving weather-based time-series and maximum capacity potentials for renewables over large regions is a common problem in energy system modelling.
-Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016][@staffell_using_2016] exist for such purpose but are difficult to use for local execution in e.g. cluster environments.
+Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016,@staffell_using_2016] exist for such purpose but are difficult to use for local execution in e.g. cluster environments.
 Further they expose, by design, neither the underlying datasets nor methods for deriving time-series, here referred to as conversion functions/methods. This makes them unsuited for utilizing different weather datasets or exploring alternative conversion functions.
 The [pvlib](https://github.com/pvlib/pvlib-python) [@holmgren_pvlib_2018] is suited for local execution and allows exchangeable input data but is specialized to PV systems only and intended for single location modelling.
 Other packages like the Danish REatlas [@andresen_validation_2015] reveal usage obstacles like proprietary code, missing documentation and a restricted flexibility regarding the input data.
@@ -80,14 +80,21 @@ The Cutout creation is done by simple function call which requires the following
 When creating a Cutout, the grid cells and the coordinate system on which the data will lay are created. As indicated in Figure \ref{fig:cutout}, the shapes of the weather cells are created such that their coordinates are centered in the middle. As soon as the preparation of the cutout is executed, atlite retrieves/loads data variables, adds them to the Cutout and finally writes the Cutout out to the associated netcdf file. 
 `atlite` groups weather variables into *features*, which can be used as front-end keys for preparing a subset of the available weather variables. The following table shows the variable groups for all datasets.
 
-
-|   feature   |                    ERA5 <br/> variables                    |        SARAH-2<br/> variables         | GEBCO variables |
-| :---------- | :--------------------------------------------------- | :------------------------------- | :-------------- |
-| height      | height                                               |                                  | height          |
-| wind        | wnd100m, roughness                                   |                                  |                 |
-| influx      | influx\_toa, influx\_direct,<br/>influx\_diffuse, albedo | influx\_direct,  influx\_diffuse |                 |
-| temperature | temperature, soil temperature                        |                                  |                 |
-| runoff      | runoff                                               |                                  |                 |
++---------------+----------------------------------+-------------------------+--------------------+
+|   feature     |         ERA5                     |        SARAH-2          | GEBCO              |
+|               |         variables                |        variables        | variables          |
++===============+==================================+=========================+====================+
+| height        | height                           |                         | height             |
++---------------+----------------------------------+-------------------------+--------------------+
+| wind          | wnd100m, roughness               |                         |                    |
++---------------+----------------------------------+-------------------------+--------------------+
+| influx        | influx\_toa, influx\_direct,     | influx\_direct,         |                    |
+|               | influx\_diffuse, albedo          | influx\_diffuse         |                    |
++---------------+----------------------------------+-------------------------+--------------------+
+| temperature   | temperature, soil temperature    |                         |                    |
++---------------+----------------------------------+-------------------------+--------------------+
+| runoff        | runoff                           |                         |                    |
++---------------+----------------------------------+-------------------------+--------------------+
 
 
 A Cutout may combine features from different sources, e.g. 'height' from GEBCO and 'runoff' from ERA5. Future versions of atlite will likely introduce the possibility to retrieve explicit weather variables from the CDS API. Further, the climate projection dataset [CORDEX](https://rcmes.jpl.nasa.gov/content/cordex) which was removed in v0.2 due to compatibility issues, is likely to be reintroduced. 
@@ -108,7 +115,7 @@ solar azimuth and altitude position tracking based on [@michalsky_astronomical_1
 Low temperature heat for space or district heating are implemented, based on the formulation in [@henning_comprehensive_2014] which combines average global radiation with and storage losses dependent on the current outside temperature.
 
 * **Wind turbine** -- 
-The wind turbine power output is calculated with a custom power curve or based on one of 16 predefined wind turbine configurations. Optionally, convolution with a Gaussian kernel for region specific calibration given real-world reference data as presented by [@andresen_validation_2015] is supported.
+The wind turbine power output is calculated from down-scaled wind speeds at hub height with a custom power curve or based on one of 16 predefined wind turbine configurations. Optionally, convolution with a Gaussian kernel for region specific calibration given real-world reference data as presented by [@andresen_validation_2015] is supported.
 
 * **Hydro run-off power** --
 A heuristic approach uses runoff weather data which is normalized to match reported energy production figures by the [EIA](https://www.eia.gov/international/data/world).
@@ -130,8 +137,9 @@ $$\varphi_r(t) = \sum_{x,y} I_{r,x,y} \, \varphi_{x,y}(t)$$
 
 where $\varphi_{x,y}(t)$ is the converted time-series of weather cell $(x,y)$. Further, the user may define custom weightings $\lambda_{x,y}$ of the weather cells, referred to as layout, representing for instance installed capacities, which modifies the above equation to 
 
-$$\varphi_r(t) = \sum_{x,y} I_{r,x,y} \, \lambda_{x,y} \, \varphi_{x,y}(t)$$
+$$\varphi_r(t) = \sum_{x,y} I_{r,x,y} \, \lambda_{x,y} \, \varphi_{x,y}(t).$$
 
+The conversion functions may optionally convert the time-series $\varphi_r(t)$ to per-unit time-series $\tilde{\varphi}_r(t) = \varphi_r(t) / c_r$ where $c_r$ is the installed capacity per region given by $c_r = \sum_{x,y} I_{r,x,y} \, \lambda_{x,y}$ which in turn may optionally returned as well.
 
 
 ## Land-Use Restrictions
