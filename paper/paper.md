@@ -1,8 +1,9 @@
 ---
 title: 'atlite: A Lightweight Python Package for Calculating Renewable Power Potentials and Time-Series'
 tags:
-  - Python
-  - energy systems
+  - python
+  - energy system modelling
+  - renewable energy potentials
 authors:
   - name: Fabian Hofmann
     orcid: 0000-0002-6604-5450
@@ -24,10 +25,7 @@ affiliations:
 date: 01 March 2021
 bibliography: paper.bib
 
-# Optional fields if submitting to a AAS journal too, see this blog post:
-# https://blog.joss.theoj.org/2018/12/a-new-collaboration-with-aas-publishing
-aas-doi: 10.3847/xxxxx #<- update this with the DOI from AAS once you know it.
-aas-journal: xxxx #<- The name of the AAS journal.
+
 ---
 
 <!-- See https://joss.readthedocs.io/en/latest/submitting.html for all details -->
