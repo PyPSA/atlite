@@ -18,8 +18,8 @@ Atlite: Convert weather data to energy systems data
 ..     :target: https://travis-ci.org/PyPSA/atlite
 ..     :alt: Build status on Linux
 
-.. image:: https://readthedocs.org/projects/atlite/badge/?version=latest
-    :target: https://atlite.readthedocs.io/en/latest/?badge=latest
+.. image:: https://readthedocs.org/projects/atlite/badge/?version=master
+    :target: https://atlite.readthedocs.io/en/latest/?badge=master
     :alt: Documentation Status
 
 .. image:: https://img.shields.io/pypi/l/atlite.svg

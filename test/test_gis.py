@@ -15,11 +15,13 @@ import numpy as np
 import rasterio as rio
 import rasterio.warp
 from atlite import Cutout
-from atlite.gis import ExclusionContainer, shape_availability, pad_extent
+from atlite.gis import ExclusionContainer, shape_availability, pad_extent, regrid
 from shapely.geometry import box
 from atlite.gis import padded_transform_and_shape
-from numpy import isclose
+from numpy import isclose, allclose
 from xarray.testing import assert_allclose, assert_equal
+import pandas as pd
+
 
 
 TIME = '2013-01-01'
@@ -102,6 +104,50 @@ def test_extent(ref):
 # Note that bounds is the same as extent but in different order.
 def test_bounds(ref):
     np.testing.assert_array_equal(ref.bounds, ref.grid.total_bounds)
+
+
+def test_regrid():
+    """Test the atlite.gis.regrid function with average resampling."""
+    # define blocks
+    A = 0.25
+    B = 0.5
+    C = 0.3
+    D = 0.1
+    ones = np.ones((4,4))
+    fine = np.block([[ones*A, ones*B], [ones*C, ones*D]])
+    # add coordinates
+    finecoords = np.arange(0.5, 8, 1)
+    fine = xr.DataArray(fine, coords=[('y', finecoords), ('x', finecoords)])
+
+    coarsecoords = np.arange(2, 8, 4)
+    coarse = xr.DataArray(np.nan, coords=[('y', coarsecoords), ('x', coarsecoords)])
+
+    # apply average resampling
+    res = regrid(fine, coarse.x, coarse.y, resampling=5)
+    target = np.array([[A, B], [C,D]])
+    assert allclose(res, target)
+    assert (coarse.x == res.x).all() and (coarse.y == res.y).all()
+
+    # now test multiple layers
+
+    fine = xr.concat([fine]*10, pd.Index(range(10), name='z'))
+    res = regrid(fine, coarse.x, coarse.y, resampling=5)
+    target = np.stack([np.array([[A, B], [C,D]])]*10)
+    assert allclose(res, target)
+    assert (coarse.x == res.x).all() and (coarse.y == res.y).all()
+
+    # now let the target grid cover a subarea of the original
+    fine = fine.sel(z=0, drop=True)
+    coarsecoords = np.arange(1, 6, 2)
+    coarse = xr.DataArray(np.nan, coords=[('y', coarsecoords), ('x', coarsecoords)])
+
+    # apply average resampling
+    res = regrid(fine, coarse.x, coarse.y, resampling=5)
+    target = np.array([[A, A, B], [A, A, B], [C, C, D]])
+    assert allclose(res, target)
+    assert (coarse.x == res.x).all() and (coarse.y == res.y).all()
+
+
 
 
 def test_pad_extent():
