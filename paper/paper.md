@@ -11,12 +11,15 @@ authors:
   - name: Johannes Hampp
     orcid: 0000-0002-1776-116X
     affiliation: "2"
+  - name: Jonas Hörsch
+    orcid: 0000-0001-9438-767X
+    affiliation: "3" # (Multiple affiliations must be quoted)
 affiliations:
  - name: Frankfurt Institute for Advanced Studies
    index: 1
  - name: Center for international Development and Environmental Research (ZEU), Justus-Liebig University Giessen
    index: 2
- - name: Institution Name
+ - name: Climate Analytics gGmbH, Berlin
    index: 3
 date: 01 March 2021
 bibliography: paper.bib
