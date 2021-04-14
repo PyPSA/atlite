@@ -175,6 +175,6 @@ The `atlite` package is released under [GPLv3](https://github.com/PyPSA/atlite/b
 
 # Acknowledgements
 <!-- WHO EVER WANTS -->
-We thank all [contributors](https://github.com/PyPSA/atlite/graphs/contributors) which helped to develop `atlite`. The ongoing development of the package as well as this paper is realized in the frame of the EnergySysAI project funded by the German Federal Ministry for Education and Research. 
+We thank all [contributors](https://github.com/PyPSA/atlite/graphs/contributors) which helped to develop `atlite`. The ongoing development of the package as well as this paper is realized in the frame of the EnergySysAI project (grant nr. FKZ03EI1028A) funded by the German Federal Ministry for Education and Research. 
 
 # References
