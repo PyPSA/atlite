@@ -38,7 +38,7 @@ Renewable energy sources build the backbone of the future global energy system.
 One important key to a successful energy transition is to analyse the weather-dependent energy outputs 
 of existing and eligible renewable resources.
 `atlite` is an open python software package for retrieving reanalysis weather data and converting it to potentials and time-series 
-for renewable energy systems like wind turbines or solar photovoltaic panels based on detailed mathematical models.
+for renewable energy technologies like wind turbines or solar photovoltaic panels based on detailed mathematical models.
 It further provides weather-dependant projections on the demand side like heating demand degree days and heat pump coefficients of performance.
 
 
@@ -104,7 +104,7 @@ Creating a Cutout triggers the program to initialize the grid cells and the coor
 +---------------+----------------------------------+-------------------------+--------------------+
 
 
-A Cutout may combine features from different sources, e.g. 'height' from GEBCO and 'runoff' from ERA5. Future versions of atlite will likely introduce the possibility to retrieve explicit weather variables from the CDS API. Further, the climate projection dataset [CORDEX](https://rcmes.jpl.nasa.gov/content/cordex) for which support was dropped with the latest release `v0.2` due to compatibility issues is likely to be reintroduced.
+A Cutout may combine features from different sources, e.g. 'height' from GEBCO and 'runoff' from ERA5. Future versions of atlite will likely introduce the possibility to retrieve explicit weather variables from the CDS API. Further, the climate projection dataset [CORDEX](https://rcmes.jpl.nasa.gov/content/cordex), for which support was dropped with the latest release `v0.2` due to compatibility issues, is likely to be reintroduced.
 
 
 ## Conversion Functions
@@ -183,9 +183,9 @@ Upstream versions and development branches are available in the projects [GitHub
 Documentation including examples are available on [Read the Docs](https://atlite.readthedocs.io/en/latest/).
 The `atlite` package is released under [GPLv3](https://github.com/PyPSA/atlite/blob/master/LICENSES/GPL-3.0-or-later.txt) and welcomes contributions via the project's [GitHub repository](https://github.com/PyPSA/atlite).
 
-
 # Acknowledgements
 We thank all [contributors](https://github.com/PyPSA/atlite/graphs/contributors) who helped to develop `atlite`. 
 Fabian Hofmann is funded by the German Federal Ministry for Education and Research under grant nr. FKZ03EI1028A (EnergiesysAI).
+
 
 # References
