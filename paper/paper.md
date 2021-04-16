@@ -180,7 +180,7 @@ Stable versions of the `atlite` package are available for Linux, MacOS and Windo
 `pip` in the [Python Package Index (PyPI)](https://pypi.org/project/atlite/) and
 for `conda` on [conda-forge](https://anaconda.org/conda-forge/atlite).
 Upstream versions and development branches are available in the projects [GitHub repository](https://github.com/PyPSA/atlite).
-Documentation including examples are available on [Read the Docs](https://atlite.readthedocs.io/en/latest/).
+Documentation including examples are available on [Read the Docs](https://atlite.readthedocs.io/en/master/).
 The `atlite` package is released under [GPLv3](https://github.com/PyPSA/atlite/blob/master/LICENSES/GPL-3.0-or-later.txt) and welcomes contributions via the project's [GitHub repository](https://github.com/PyPSA/atlite).
 
 # Acknowledgements
