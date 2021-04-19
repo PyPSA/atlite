@@ -32,7 +32,7 @@ dependencies:
     - netcdf4
     - dask>=0.18.0
     - progressbar2
-    - yaml
+    - pyyaml
     - geopandas
     - cdsapi
     - pyproj>=2.0

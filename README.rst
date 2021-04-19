@@ -156,8 +156,8 @@ See the individual files for license details.
    :target: https://pypi.python.org/pypi/atlite
 .. |Conda version| image:: https://img.shields.io/conda/vn/conda-forge/atlite.svg
    :target: https://anaconda.org/conda-forge/atlite
-.. |Documentation Status| image:: https://readthedocs.org/projects/atlite/badge/?version=latest
-   :target: https://atlite.readthedocs.io/en/latest/?badge=latest
+.. |Documentation Status| image:: https://readthedocs.org/projects/atlite/badge/?version=master
+   :target: https://atlite.readthedocs.io/en/master/?badge=master
 .. |standard-readme compliant| image:: https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat
    :target: https://github.com/RichardLitt/standard-readme
 .. |GPL-3-or-later-image| image:: https://img.shields.io/pypi/l/atlite.svg
