@@ -12,16 +12,26 @@ authors:
   - name: Johannes Hampp
     orcid: 0000-0002-1776-116X
     affiliation: "2"
+  - name: Fabian Neumann
+    orcid: 0000-0001-8551-1480
+    affiliation: "3"
+  - name: Tom Brown
+    orcid: 0000-0001-5898-1911
+    affiliation: "4"
   - name: Jonas Hörsch
     orcid: 0000-0001-9438-767X
-    affiliation: "3" # (Multiple affiliations must be quoted)
+    affiliation: "5" # (Multiple affiliations must be quoted)
 affiliations:
  - name: Frankfurt Institute for Advanced Studies
    index: 1
  - name: Center for international Development and Environmental Research, Justus-Liebig University Giessen
    index: 2
- - name: Climate Analytics gGmbH, Berlin
+ - name: Institute for Automation and Applied Informatics, Karlsruhe Institute of Technology (KIT)
    index: 3
+ - name: Institute of Energy Technology, Technical University of Berlin
+   index: 4
+ - name: Climate Analytics gGmbH, Berlin
+   index: 5
 date: 01 March 2021
 bibliography: paper.bib
 
