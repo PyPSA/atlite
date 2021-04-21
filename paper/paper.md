@@ -18,7 +18,7 @@ authors:
 affiliations:
  - name: Frankfurt Institute for Advanced Studies
    index: 1
- - name: Center for International Development and Environmental Research, Justus-Liebig University Giessen
+ - name: Center for international Development and Environmental Research, Justus-Liebig University Giessen
    index: 2
  - name: Climate Analytics gGmbH, Berlin
    index: 3
