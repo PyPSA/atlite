@@ -52,7 +52,7 @@ Websites with exposed open APIs such as [renewables.ninja](https://www.renewable
 Further, by design, they neither expose the underlying datasets nor methods for deriving time series, here referred to as conversion functions/methods.
 This makes them unsuited for utilizing different weather datasets or exploring alternative conversion functions.
 The [pvlib](https://github.com/pvlib/pvlib-python) [@holmgren_pvlib_2018] is suited for local execution and allows interchangeable input data but is specialized to PV systems only and intended for single location modelling.
-Other packages like the Danish REatlas [@andresen_validation_2015] face obstacles with accessibility, are based on proprietary code, miss documentation and are restricted in flexibility regarding their input data.
+Other packages like the Danish REatlas [@andresen_validation_2015] face obstacles with accessibility, are based on proprietary code, miss documentation and are restricted in flexibility regarding their inputs.
 
 
 The purpose of `atlite` is to fill this gap and provide an open, community-driven library. `atlite` was initially built as a lightweight alternative to REatlas and has evolved further to contain multiple additional features.
