@@ -37,7 +37,7 @@ bibliography: paper.bib
 Renewable energy sources are likely to build the backbone of the future global energy system.
 One important key to a successful energy transition is to analyse the weather-dependent energy outputs 
 of existing and eligible renewable resources.
-`atlite` is an open python software package for retrieving global historical weather data and converting it to power generation potentials and time series 
+`atlite` is an open Python software package for retrieving global historical weather data and converting it to power generation potentials and time series 
 for renewable energy technologies like wind turbines or solar photovoltaic panels based on detailed mathematical models.
 It further provides weather-dependent output on the demand side like building heating demand and heat pump performance.
 The software is optimized to aggregate data over multiple large regions with user-defined weightings based on land use or energy yield.
