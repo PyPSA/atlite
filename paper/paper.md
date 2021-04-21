@@ -76,7 +76,7 @@ As illustrated in Figure \ref{fig:cutout}, a typical workflow consists of three 
 ## Cutout Creation and Preparation
 
 
-The Cutout creation requires specifications of the geographical and temporal bounds, the path of the associated `netcdf` file to be created,
+The Cutout creation requires specifications of the geographical and temporal bounds, the path of the associated `netcdf` file to be created
 and the data source referred to as *module*. Optionally, the temporal and spatial resolution may be adjusted. The default is set to 1 hour and 0.25$^\circ$ latitude times 0.25$^\circ$ longitude. So far, `atlite` supports three different *modules*:
 
 1. [ECMWF Reanalysis v5 (ERA5)](https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5) provides various weather-related variables in an hourly resolution from 1950 onward on a spatial grid with a 0.25$^\circ$ x 0.25$^\circ$ resolution, most of which is reanalysis data. `atlite` automatically retrieves the raw data using the [Climate Data Store (CDS) API](https://cds.climate.copernicus.eu/#!/home) after the initial set up by the user. When the requested data points diverge from the original grid, the API retrieves interpolated values based on the original grid data.
