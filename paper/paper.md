@@ -60,7 +60,7 @@ The purpose of `atlite` is to fill this gap and provide an open, community-drive
 `atlite` is designed with extensibility in mind for new renewable technologies and conversion methods.
 An abstraction layer for weather datasets enables interchangability of the underlying datasets.
 By leveraging the Python packages [xarray](https://xarray.pydata.org/en/stable/) [@hoyer_xarray_2017],
-[dask](https://docs.dask.org/en/latest/) [@dask_development_team_dask_2016] and [rasterio](https://rasterio.readthedocs.io/en/latest/) [gillies_2019], 
+[dask](https://docs.dask.org/en/latest/) [@dask_development_team_dask_2016] and [rasterio](https://rasterio.readthedocs.io/en/latest/) [@gillies_2019], 
 `atlite` makes use of parallelization and memory efficient backends thus performing well even on large datasets.
 
 
