@@ -34,12 +34,14 @@ bibliography: paper.bib
 
 # Summary
 
-Renewable energy sources build the backbone of the future global energy system.
+Renewable energy sources are likely to build the backbone of the future global energy system.
 One important key to a successful energy transition is to analyse the weather-dependent energy outputs 
 of existing and eligible renewable resources.
-`atlite` is an open python software package for retrieving reanalysis weather data and converting it to potentials and time series 
+`atlite` is an open python software package for retrieving global historical weather data and converting it to power generation potentials and time series 
 for renewable energy technologies like wind turbines or solar photovoltaic panels based on detailed mathematical models.
-It further provides weather-dependent projections on the demand side like heating demand degree days and heat pump coefficients of performance.
+It further provides weather-dependent output on the demand side like building heating demand and heat pump performance.
+The software is optimized to aggregate data over multiple large regions with user-defined weightings based on land use or energy yield.
+
 
 
 # Statement of need
@@ -67,7 +69,9 @@ By leveraging the Python packages [xarray](https://xarray.pydata.org/en/stable/)
 # Basic Concept
 
 
-The starting point of most `atlite` functionalities is the `atlite.Cutout` class. It serves as a container for a spatio-temporal subset of one or more topology and weather datasets. As illustrated in Figure \ref{fig:cutout}, a typical workflow consists of three steps: Cutout creation, Cutout preparation and Cutout conversion.
+The starting point of most `atlite` functionalities is the `atlite.Cutout` class. It serves as a container for a spatio-temporal subset of one or more topology and weather datasets.
+Since such datasets are typically global and span multiple decades, the Cutout class allows `atlite` to reduce the scope to a more manageable size.
+As illustrated in Figure \ref{fig:cutout}, a typical workflow consists of three steps: Cutout creation, Cutout preparation and Cutout conversion.
 
 ![A typical workflow in `atlite` consists of the three steps: 1. Cutout creation, 2. Preparation, 3. Conversion. \label{fig:cutout}](figures/workflow.png)
 
@@ -125,7 +129,7 @@ Low-temperature heat for space or district heating is implemented based on the f
 The wind turbine power output is calculated from down-scaled wind speeds at hub height using either a custom power curve or one of 16 predefined wind turbine configurations. Optionally, convolution with a Gaussian kernel for region-specific calibration given real-world reference data as presented by [@andresen_validation_2015] is supported.
 
 * **Hydro run-off power** --
-A heuristic approach uses run-off weather data which is normalized to match reported energy production figures by the [EIA](https://www.eia.gov/international/data/world).
+A heuristic approach uses surface run-off weather data (e.g. from rainfall or melting snow) which is normalized to match reported energy production figures by the [EIA](https://www.eia.gov/international/data/world).
 The resulting time series are optionally weighted by the height of the run-off location and may be smoothed for a more realistic representation.
 
 * **Hydro reservoir and dam power** --
@@ -157,7 +161,7 @@ which may be returned as an output as well.
 
 Land-use restrictions limit the deployment of renewables infrastructure.
 Wind turbines, for example, may only be placed in eligible places which have to fulfill general and country-specific requirements,
-e.g. being outside of protected areas or within sufficient distance to residential areas.
+e.g. being outside of protected areas or at a sufficient distance to residential areas.
 
 `atlite` provides a performant, parallelized implementation to calculate land-use availabilities within all grid cells of a Cutout. As illustrated in Figure \ref{fig:land-use}, the entries $A_{r,x,y}$ of an Availability Matrix $\textbf{A}$ indicate the overlap of the eligible area of region $r$ with grid cell at $(x,y)$. Note that this is analogous to the Indicator Matrix $\textbf{I}$ but with reduced area. The user can exclude geometric shapes or geographic rasters of arbitrary projection, like specific codes of the [Corine Land Cover (CLC)](https://land.copernicus.eu/pan-european/corine-land-cover) database.
 The implementation is inspired by the [GLAES](https://github.com/FZJ-IEK3-VSA/glaes) [@ryberg_evaluating_2018]
