@@ -321,6 +321,8 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     logger.info(f'Requesting data for feature {feature}...')
 
     def retrieve_once(time):
+        if int(time['year']) < 1979:
+            retrieval_params["product"] += "-preliminary-back-extension"
         ds = func({**retrieval_params, **time})
         if sanitize and sanitize_func is not None:
             ds = sanitize_func(ds)
