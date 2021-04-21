@@ -48,14 +48,11 @@ The software is optimized to aggregate data over multiple large regions with use
 
 
 Deriving weather-based time series and maximum capacity potentials for renewables over large regions is a common problem in energy system modelling.
-Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016,@staffell_using_2016] exist for 
-such purpose but are difficult to use for local execution, e.g. in cluster environments.
-Further, they expose, by design, neither the underlying datasets nor methods for deriving time series, here referred to as conversion functions/methods.
+Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016,@staffell_using_2016] exist for such purpose but are difficult to use for local execution, e.g. in cluster environments, and restricted to non-commercial use.
+Further, by design, they neither expose the underlying datasets nor methods for deriving time series, here referred to as conversion functions/methods.
 This makes them unsuited for utilizing different weather datasets or exploring alternative conversion functions.
-The [pvlib](https://github.com/pvlib/pvlib-python) [@holmgren_pvlib_2018] is suited for local execution and allows interchangeable input data 
-but is specialized to PV systems only and intended for single location modelling.
-Other packages like the Danish REatlas [@andresen_validation_2015] face obstacles with accessibility, are based on proprietary code,
-miss documentation and are restricted in flexibility regarding their input data.
+The [pvlib](https://github.com/pvlib/pvlib-python) [@holmgren_pvlib_2018] is suited for local execution and allows interchangeable input data but is specialized to PV systems only and intended for single location modelling.
+Other packages like the Danish REatlas [@andresen_validation_2015] face obstacles with accessibility, are based on proprietary code, miss documentation and are restricted in flexibility regarding their input data.
 
 
 The purpose of `atlite` is to fill this gap and provide an open, community-driven library. `atlite` was initially built as a lightweight alternative to REatlas and has evolved further to contain multiple additional features.
@@ -126,14 +123,14 @@ solar azimuth and altitude position tracking based on [@michalsky_astronomical_1
 Low-temperature heat for space or district heating is implemented based on the formulation in [@henning_comprehensive_2014], which combines average global radiation with storage losses dependent on the current outside temperature.
 
 * **Wind turbine** -- 
-The wind turbine power output is calculated from down-scaled wind speeds at hub height using either a custom power curve or one of 16 predefined wind turbine configurations. Optionally, convolution with a Gaussian kernel for region-specific calibration given real-world reference data as presented by [@andresen_validation_2015] is supported.
+The wind turbine power output is calculated from down-scaled wind speeds at hub height using either a custom power curve, one of 16 predefined wind turbine configurations, or any of those listed in the [OEP Wind Turbine Library](https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library). Optionally, convolution with a Gaussian kernel for region-specific calibration given real-world reference data as presented by [@andresen_validation_2015] is supported.
 
 * **Hydro run-off power** --
 A heuristic approach uses surface run-off weather data (e.g. from rainfall or melting snow) which is normalized to match reported energy production figures by the [EIA](https://www.eia.gov/international/data/world).
 The resulting time series are optionally weighted by the height of the run-off location and may be smoothed for a more realistic representation.
 
 * **Hydro reservoir and dam power** --
-Following [@liu_validated_2019] and [@lehner_global_2013], run-off data is aggregated to and collected in basins which are obtained and estimated in their size with the help of the [HydroSHEDS](https:// hydrosheds.org/) dataset.
+Following [@liu_validated_2019] and [@lehner_global_2013], run-off data is aggregated to and collected in basins which are obtained and estimated in their size with the help of the [HydroSHEDS](https://hydrosheds.org/) dataset.
 
 * **Heating demand** --
 Space heating demand is obtained with a simple degree-day approximation where
@@ -164,6 +161,7 @@ Wind turbines, for example, may only be placed in eligible places which have to 
 e.g. being outside of protected areas or at a sufficient distance to residential areas.
 
 `atlite` provides a performant, parallelized implementation to calculate land-use availabilities within all grid cells of a Cutout. As illustrated in Figure \ref{fig:land-use}, the entries $A_{r,x,y}$ of an Availability Matrix $\textbf{A}$ indicate the overlap of the eligible area of region $r$ with grid cell at $(x,y)$. Note that this is analogous to the Indicator Matrix $\textbf{I}$ but with reduced area. The user can exclude geometric shapes or geographic rasters of arbitrary projection, like specific codes of the [Corine Land Cover (CLC)](https://land.copernicus.eu/pan-european/corine-land-cover) database.
+To determine capacity expansion potentials per region, `atlite` does not use an explicit placement algorithm (e.g. for wind turbines), but the product of available area and allowed deployment density.
 The implementation is inspired by the [GLAES](https://github.com/FZJ-IEK3-VSA/glaes) [@ryberg_evaluating_2018]
 software package, which itself is no longer maintained and incompatible with newer versions of the underlying [GDAL](https://gdal.org/index.html) software.
 
