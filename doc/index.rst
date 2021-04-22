@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+  SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 
   SPDX-License-Identifier: CC-BY-4.0
 
@@ -14,9 +14,9 @@ Atlite: Convert weather data to energy systems data
     :target: https://anaconda.org/conda-forge/atlite
     :alt: Conda version
 
-.. .. image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
-..     :target: https://travis-ci.org/PyPSA/atlite
-..     :alt: Build status on Linux
+.. image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
+    :target: https://travis-ci.org/PyPSA/atlite
+    :alt: Build status
 
 .. image:: https://readthedocs.org/projects/atlite/badge/?version=master
     :target: https://atlite.readthedocs.io/en/latest/?badge=master
@@ -24,6 +24,9 @@ Atlite: Convert weather data to energy systems data
 
 .. image:: https://img.shields.io/pypi/l/atlite.svg
     :target: License
+
+.. image:: https://api.reuse.software/badge/github.com/pypsa/atlite
+    :target: https://api.reuse.software/info/github.com/pypsa/atlite
 
 Atlite is a `free software
 <http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray

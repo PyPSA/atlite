@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+# SPDX-FileCopyrightText: 2017-2021 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Atlite documentation build configuration file, created by
 # sphinx-quickstart on Tue Jan 5 10:04:42 2016.

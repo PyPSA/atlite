@@ -14,3 +14,15 @@ License: GPL-3.0-or-later
 Files: doc/img/*
 Copyright: 2019 The Atlite Authors
 License: CC-BY-4.0
+
+Files: doc/workflow*
+Copyright: 2021 The Atlite Authors
+License: CC-BY-4.0
+
+Files: doc/examples/*.nblink
+Copyright: 2020-2021 The Atlite Authors
+License: CC-BY-4.0
+
+Files: .github/*
+Copyright: 2021 The Atlite Authors
+License: CC0-1.0
