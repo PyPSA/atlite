@@ -1,0 +1,12 @@
+name: REUSE Compliance Check
+# https://github.com/marketplace/actions/reuse-compliance-check
+
+on: [push, pull_request]
+
+jobs:
+  check_REUSE_compliance:
+    runs-on: ubuntu-latest
+    steps: 
+    - uses: actions/checkout@v2
+    - name: REUSE Compliance Check
+      uses: fsfe/reuse-action@v1
