@@ -29,9 +29,7 @@ from rasterio.features import geometry_mask
 from scipy.ndimage.morphology import binary_dilation as dilation
 from numpy import isin, empty
 from shapely.strtree import STRtree
-from progressbar import ProgressBar
 from tqdm import tqdm
-from progressbar.widgets import Percentage, SimpleProgress, Bar, Timer, ETA
 
 
 import logging

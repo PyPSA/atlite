@@ -15,8 +15,7 @@ import numpy as np
 
 from collections import namedtuple
 from shapely.geometry import Point
-
-from .utils import make_optional_progressbar
+from tqdm import tqdm
 
 import logging
 logger = logging.getLogger(__name__)
@@ -65,12 +64,10 @@ def determine_basins(plants, hydrobasins, show_progress=True):
     meta = hydrobasins[hydrobasins.columns.difference(('geometry',))]
     shapes = hydrobasins['geometry']
 
-    maybe_progressbar = make_optional_progressbar(
-        show_progress, "Determine upstream basins per plant", len(plants)
-    )
 
     plant_basins = []
-    for p in maybe_progressbar(plants.itertuples()):
+    for p in tqdm(plants.itertuples(), disable=not show_progress,
+                  desc="Determine upstream basins per plant"):
         hid = find_basin(shapes, p.lon, p.lat)
         plant_basins.append((hid, find_upstream_basins(meta, hid)))
     plant_basins = pd.DataFrame(
@@ -91,11 +88,8 @@ def shift_and_aggregate_runoff_for_plants(
                           [('plant', basins.plants.index),
                            ('time', runoff.coords["time"])])
 
-    maybe_progressbar = make_optional_progressbar(
-        show_progress, "Shift and aggregate runoff by plant", len(basins.plants)
-    )
-
-    for ppl in maybe_progressbar(basins.plants.itertuples()):
+    for ppl in tqdm(basins.plants.itertuples(), disable=not show_progress,
+                    desc="Shift and aggregate runoff by plant"):
         inflow_plant = inflow.loc[dict(plant=ppl.Index)]
         distances = (basins.meta.loc[ppl.upstream, "DIST_MAIN"] -
                      basins.meta.at[ppl.hid, "DIST_MAIN"])

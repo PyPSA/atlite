@@ -16,7 +16,6 @@ dependencies:
   - xarray>=0.16.2
   - netcdf4
   - dask>=0.18.0
-  - progressbar2
   - yaml
   - geopandas
   - cdsapi
