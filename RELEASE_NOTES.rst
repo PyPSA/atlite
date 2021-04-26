@@ -8,6 +8,10 @@ Release Notes
 #############
 
 
+Upcoming Release
+=================
+* The progressbar used in ``atlite.gis.availability_matrix`` is now a `tqdm` progressbar which displays better in parallel executions.
+
 
 Version 0.2.2 
 ==============
