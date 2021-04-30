@@ -15,6 +15,7 @@ import pandas as pd
 import xarray as xr
 import textwrap
 import re
+import warnings
 
 from .datasets import modules as datamodules
 
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 def make_optional_progressbar(show, prefix, max_value=None):
+    warnings.warn("make_optional_progressbar() is deprecated and will be removed "
+                  "in the next version.", warnings.DeprecationWarning)
     if show:
         widgets = [
             pgb.widgets.Percentage(),

@@ -202,6 +202,43 @@ def test_availability_matrix_flat(ref):
     assert np.allclose(I, ds.sum('shape'))
 
 
+def test_availability_matrix_flat_parallel(ref):
+    """
+    Same as `test_availability_matrix_flat` but parallel and without progressbar.
+    """
+    shapes = gpd.GeoSeries([box(X0+1, Y0+1, X1-1, Y1-1)], crs=ref.crs).rename_axis('shape')
+    I = ref.indicatormatrix(shapes).sum(0).reshape(ref.shape)
+    I = xr.DataArray(I, coords=[ref.coords['y'], ref.coords['x']])
+    excluder = ExclusionContainer(ref.crs, res=0.01)
+    ds = ref.availabilitymatrix(shapes, excluder, nprocesses=2)
+    assert np.allclose(I, ds.sum('shape'))
+
+
+def test_availability_matrix_flat_wo_progressbar(ref):
+    """
+    Same as `test_availability_matrix_flat` but without progressbar.
+    """
+    shapes = gpd.GeoSeries([box(X0+1, Y0+1, X1-1, Y1-1)], crs=ref.crs).rename_axis('shape')
+    I = ref.indicatormatrix(shapes).sum(0).reshape(ref.shape)
+    I = xr.DataArray(I, coords=[ref.coords['y'], ref.coords['x']])
+    excluder = ExclusionContainer(ref.crs, res=0.01)
+    ds = ref.availabilitymatrix(shapes, excluder, disable_progressbar=True)
+    assert np.allclose(I, ds.sum('shape'))
+
+
+def test_availability_matrix_flat_parallel_wo_progressbar(ref):
+    """
+    Same as `test_availability_matrix_flat` but parallel and without progressbar.
+    """
+    shapes = gpd.GeoSeries([box(X0+1, Y0+1, X1-1, Y1-1)], crs=ref.crs).rename_axis('shape')
+    I = ref.indicatormatrix(shapes).sum(0).reshape(ref.shape)
+    I = xr.DataArray(I, coords=[ref.coords['y'], ref.coords['x']])
+    excluder = ExclusionContainer(ref.crs, res=0.01)
+    ds = ref.availabilitymatrix(shapes, excluder, nprocesses=2, disable_progressbar=True)
+    assert np.allclose(I, ds.sum('shape'))
+
+
+
 def test_shape_availability_area(ref):
     """Area of the mask and the shape must be close."""
     shapes = gpd.GeoSeries([box(X0+1, Y0+1, X1-1, Y1-1)], crs=ref.crs)
@@ -371,7 +408,6 @@ def test_availability_matrix_rastered(ref, raster):
     assert isclose(I.sum() * eligible_share, ds.sum(), atol=5)
     assert_allclose(I.sum(['x', 'y']) * eligible_share, ds.sum(['x', 'y']), atol=5)
 
-    # check parallel mode
     excluder = ExclusionContainer(ref.crs, res=0.01)
     excluder.add_raster(raster)
     assert_equal(ds, ref.availabilitymatrix(shapes, excluder, 2))

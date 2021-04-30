@@ -29,8 +29,7 @@ from rasterio.features import geometry_mask
 from scipy.ndimage.morphology import binary_dilation as dilation
 from numpy import isin, empty
 from shapely.strtree import STRtree
-from progressbar import ProgressBar
-from progressbar.widgets import Percentage, SimpleProgress, Bar, Timer, ETA
+from tqdm import tqdm
 
 
 import logging
@@ -504,13 +503,11 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
     shapes = shapes.to_crs(excluder.crs)
 
 
-    progress = SimpleProgress(format='(%s)' %SimpleProgress.DEFAULT_FORMAT)
-    widgets = [Percentage(),' ',progress,' ',Bar(),' ',Timer(),' ', ETA()]
-    progressbar = ProgressBar(prefix='Compute availabily matrix: ',
-                              widgets=widgets, max_value=len(shapes))
     args = (excluder, cutout.transform_r, cutout.crs, cutout.shape)
+    tqdm_kwargs = dict(ascii=False, unit=' gridcells', total=len(shapes),
+                       desc='Compute availability matrix')
     if nprocesses is None:
-        for i in progressbar(shapes.index):
+        for i in tqdm(shapes.index, **tqdm_kwargs):
             _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
             availability.append(_)
     else:
@@ -524,8 +521,10 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
             if disable_progressbar:
                 availability = list(pool.map(_process_func, shapes.index))
             else:
-                imap = pool.imap(_process_func, shapes.index)
-                availability = list(progressbar(imap))
+                availability = list(tqdm(pool.imap(_process_func, shapes.index),
+                                    **tqdm_kwargs))
+
+
 
     availability = np.stack(availability)[:, ::-1] # flip axis, see Notes
     coords=[(shapes.index), ('y', cutout.data.y), ('x', cutout.data.x)]
