@@ -20,6 +20,7 @@ Base class for Atlite.
 import xarray as xr
 import pandas as pd
 import numpy as np
+import dask
 import rasterio as rio
 import geopandas as gpd
 from tempfile import mktemp
@@ -438,7 +439,52 @@ class Cutout:
 
     def uniform_layout(self):
         """Get a uniform capacity layout for all grid cells."""
-        return xr.DataArray(1, [self.coords['x'], self.coords['y']])
+        return xr.DataArray(1, [self.coords['y'], self.coords['x']])
+
+
+    def layout_from_capacity_list(self, data, col='Capacity'):
+        """
+        Get a capacity layout aligned to the cutout based on a capacity list.
+
+        Parameters
+        ----------
+        data : pandas.DataFrame
+            Capacity list with columns 'x', 'y' and col. Each capacity entry
+            is added to the grid cell intersecting with the coordinate (x,y).
+        col : str, optional
+            Name of the column with capacity values. The default is 'Capacity'.
+
+        Returns
+        -------
+        xr.DataArray
+            Capacity layout with dimensions 'x' and 'y' indicating the total
+            capacity placed within one grid cell.
+
+        Example
+        -------
+        >>> import atlite
+        >>> import powerplantmatching as pm
+
+        >>> data = pm.data.OPSD_VRE_country('DE')
+        >>> data = (data.query('Fueltype == "Solar"')
+                    .rename(columns={'lon':'x', 'lat':'y'}))
+
+        >>> cutout = atlite.Cutout('Germany', x = slice(-5, 15), y = slice(40, 55),
+                       time='2013-06-01', module='era5')
+        >>> cutout.prepare(features=['influx', 'temperature'])
+        >>> layout = cutout.layout_from_capacity_list(data)
+        >>> pv = cutout.pv('CdTe', 'latitude_optimal', layout=layout)
+        >>> pv.plot()
+
+        """
+        with dask.config.set(**{'array.slicing.split_large_chunks': False}):
+            nearest = (self.uniform_layout().chunk()
+                       .sel({'x': data.x.values, 'y': data.y.values}, 'nearest'))
+
+        data = (data.assign(x=nearest.x.data, y=nearest.y.data)
+                    .groupby(['y', 'x'])[col].sum())
+        return data.to_xarray().reindex_like(self.data).fillna(0)
+
 
     availabilitymatrix = compute_availabilitymatrix
 
