@@ -15,7 +15,7 @@ dependencies:
   - pandas>=1.0
   - xarray>=0.16.2
   - netcdf4
-  - dask>=0.18.0
+  - dask>=0.18.0,<20.04.0
   - yaml
   - geopandas
   - cdsapi
@@ -26,7 +26,7 @@ dependencies:
   - bottleneck
   - numexpr
 
-  # For travis and testing 
+  # For travis and testing
   - pip
   - pytest
 
