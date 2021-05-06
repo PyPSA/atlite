@@ -31,7 +31,7 @@ setup(
                       'numexpr',
                       'xarray>=0.16',
                       'netcdf4',
-                      'dask>=0.18.0',
+                      'dask>=0.18.0, <20.04.0',
                       'requests',
                       'rtree',
                       "pyyaml",
@@ -42,7 +42,7 @@ setup(
                       'geopandas',
                       'cdsapi'],
     extras_require = {
-        "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme", 
+        "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme",
 		 "nbsphinx", "nbsphinx-link"]
     },
     classifiers=[
