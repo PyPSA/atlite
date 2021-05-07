@@ -11,8 +11,12 @@ Release Notes
 Upcoming Release
 =================
 
+Version 0.2.3 
+==============
+
 * The progressbar used in ``atlite.gis.availability_matrix`` is now a `tqdm` progressbar which displays better in parallel executions.
 * The function ``layout_from_capacity_list`` was added to the cutout class. It is a convenience function that calculates the aggregated capacities per cutout grid cells (layout) based on a list of capacities with coordinates, e.g. list of wind turbines.    
+* The dask version was fixed to a xarray-compatible versions (see https://github.com/dask/dask/issues/7583)
 
 Version 0.2.2 
 ==============
