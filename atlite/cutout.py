@@ -35,7 +35,8 @@ from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
 from .gis import get_coords, compute_indicatormatrix, compute_availabilitymatrix
 from .convert import (convert_and_aggregate, heat_demand, hydro, temperature,
-                      wind, pv, runoff, solar_thermal, soil_temperature)
+                      wind, pv, runoff, solar_thermal, soil_temperature,
+                      coefficient_of_performance)
 from .datasets import modules as datamodules
 
 import logging
@@ -501,6 +502,8 @@ class Cutout:
     temperature = temperature
 
     soil_temperature = soil_temperature
+
+    coefficient_of_performance = coefficient_of_performance
 
     solar_thermal = solar_thermal
 
