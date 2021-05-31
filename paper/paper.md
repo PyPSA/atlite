@@ -58,7 +58,7 @@ The software is optimized to aggregate data over multiple large regions with use
 
 
 Deriving weather-based time series and maximum capacity potentials for renewables over large regions is a common problem in energy system modelling.
-Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016,@staffell_using_2016] exist for such purpose but are difficult to use for local execution, e.g. in cluster environments, and restricted to non-commercial use.
+Websites with exposed open APIs such as [renewables.ninja](https://www.renewables.ninja) [@pfenninger_long-term_2016; @staffell_using_2016] exist for such purpose but are difficult to use for local execution, e.g. in cluster environments, and restricted to non-commercial use.
 Further, by design, they neither expose the underlying datasets nor methods for deriving time series, here referred to as conversion functions/methods.
 This makes them unsuited for utilizing different weather datasets or exploring alternative conversion functions.
 The [pvlib](https://github.com/pvlib/pvlib-python) [@holmgren_pvlib_2018] is suited for local execution and allows interchangeable input data but is specialized to PV systems only and intended for single location modelling.
@@ -126,7 +126,7 @@ A Cutout may combine features from different sources, e.g. 'height' from GEBCO a
 * **Solar photovoltaic** --
 Two alternative solar panel models are provided based on [@huld_mapping_2010] and [@beyer_robust_2004], both of which
 use the clear sky model from [@reindl_diffuse_1990] and a
-solar azimuth and altitude position tracking based on [@michalsky_astronomical_1988,@sproul_derivation_2007,@kalogirou_solar_2009] combined with a surface orientation algorithm following
+solar azimuth and altitude position tracking based on [@michalsky_astronomical_1988; @sproul_derivation_2007; @kalogirou_solar_2009] combined with a surface orientation algorithm following
 [@sproul_derivation_2007]. Optionally, optimal latitude heuristics from [@charles_r_landau_optimum_2017] are supported.
 
 * **Solar thermal collector** --
