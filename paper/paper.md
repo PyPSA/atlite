@@ -124,23 +124,24 @@ A Cutout may combine features from different sources, e.g. 'height' from GEBCO a
 `atlite` currently offers conversion functions for deriving time series and static potentials from Cutouts for the following types of renewables:
 
 * **Solar photovoltaic** --
-Two alternative solar panel models are provided based on [@huld_mapping_2010] and [@beyer_robust_2004], both of which
-use the clear sky model from [@reindl_diffuse_1990] and a
-solar azimuth and altitude position tracking based on [@michalsky_astronomical_1988; @sproul_derivation_2007; @kalogirou_solar_2009] combined with a surface orientation algorithm following
-[@sproul_derivation_2007]. Optionally, optimal latitude heuristics from [@charles_r_landau_optimum_2017] are supported.
+Two alternative solar panel models are provided based on @huld_mapping_2010 and @beyer_robust_2004, both of which
+use the clear sky model from @reindl_diffuse_1990 and a
+solar azimuth and altitude position tracking based on @kalogirou_solar_2009, @michalsky_astronomical_1988
+and @sproul_derivation_2007 combined with a surface orientation algorithm following @sproul_derivation_2007.
+Optionally, optimal latitude heuristics from @charles_r_landau_optimum_2017 are supported.
 
 * **Solar thermal collector** --
-Low-temperature heat for space or district heating is implemented based on the formulation in [@henning_comprehensive_2014], which combines average global radiation with storage losses dependent on the current outside temperature.
+Low-temperature heat for space or district heating is implemented based on the formulation in @henning_comprehensive_2014, which combines average global radiation with storage losses dependent on the current outside temperature.
 
 * **Wind turbine** -- 
-The wind turbine power output is calculated from down-scaled wind speeds at hub height using either a custom power curve, one of 16 predefined wind turbine configurations, or any of those listed in the [OEP Wind Turbine Library](https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library). Optionally, convolution with a Gaussian kernel for region-specific calibration given real-world reference data as presented by [@andresen_validation_2015] is supported.
+The wind turbine power output is calculated from down-scaled wind speeds at hub height using either a custom power curve, one of 16 predefined wind turbine configurations, or any of those listed in the [OEP Wind Turbine Library](https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library). Optionally, convolution with a Gaussian kernel for region-specific calibration given real-world reference data as presented by @andresen_validation_2015 is supported.
 
 * **Hydro run-off power** --
 A heuristic approach uses surface run-off weather data (e.g. from rainfall or melting snow) which is normalized to match reported energy production figures by the [EIA](https://www.eia.gov/international/data/world).
 The resulting time series are optionally weighted by the height of the run-off location and may be smoothed for a more realistic representation.
 
 * **Hydro reservoir and dam power** --
-Following [@liu_validated_2019] and [@lehner_global_2013], run-off data is aggregated to and collected in basins which are obtained and estimated in their size with the help of the [HydroSHEDS](https://hydrosheds.org/) dataset.
+Following @liu_validated_2019 and @lehner_global_2013, run-off data is aggregated to and collected in basins which are obtained and estimated in their size with the help of the [HydroSHEDS](https://hydrosheds.org/) dataset.
 
 * **Heating demand** --
 Space heating demand is obtained with a simple degree-day approximation where
@@ -183,7 +184,7 @@ software package, which itself is no longer maintained and incompatible with new
 
 # Related Research 
 
-`atlite` is used by several research projects and groups. The [PyPSA-Eur workflow](https://github.com/PyPSA/pypsa-eur) [@horsch_pypsa-eur_2018] is an open model dataset of the European power system which exploits the full potential of `atlite`  including Cutout preparation and conversion to wind, solar and hydro reservoir time series with restricted land-use availabilities. The sector-coupled extension [PyPSA-Eur-sec](https://github.com/PyPSA/pypsa-eur-sec) [@brown_synergies_2018] calculates heat-demand profiles as well as heat pump coefficients with `atlite`. The [Euro Calliope](https://github.com/calliope-project/euro-calliope) studied in [@trondle_trade-offs_2020] uses `atlite` to generate hydroelectricity time series from reservoirs. The interactive tool [model.energy](https://model.energy) also employs the `atlite` libary.
+`atlite` is used by several research projects and groups. The [PyPSA-Eur workflow](https://github.com/PyPSA/pypsa-eur) [@horsch_pypsa-eur_2018] is an open model dataset of the European power system which exploits the full potential of `atlite`  including Cutout preparation and conversion to wind, solar and hydro reservoir time series with restricted land-use availabilities. The sector-coupled extension [PyPSA-Eur-sec](https://github.com/PyPSA/pypsa-eur-sec) [@brown_synergies_2018] calculates heat-demand profiles as well as heat pump coefficients with `atlite`. The [Euro Calliope](https://github.com/calliope-project/euro-calliope) studied in @trondle_trade-offs_2020 uses `atlite` to generate hydroelectricity time series from reservoirs. The interactive tool [model.energy](https://model.energy) also employs the `atlite` libary.
 
 
 # Availability
