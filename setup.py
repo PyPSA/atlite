@@ -43,7 +43,7 @@ setup(
                       'cdsapi'],
     extras_require = {
         "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme",
-		 "nbsphinx", "nbsphinx-link"]
+		 "nbsphinx", "nbsphinx-link", "toolz"]
     },
     classifiers=[
         'Development Status :: 3 - Alpha',
