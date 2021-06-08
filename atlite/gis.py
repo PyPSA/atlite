@@ -135,7 +135,7 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
     dest = reproject_shapes(dest, dest_crs, orig_crs)
-    indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
+    indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=float)
     tree = STRtree(orig)
     idx = dict((id(o), i) for i, o in enumerate(orig))
 
@@ -527,7 +527,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
 
 
     availability = np.stack(availability)[:, ::-1] # flip axis, see Notes
-    coords=[(shapes.index), ('y', cutout.data.y), ('x', cutout.data.x)]
+    coords=[(shapes.index), ('y', cutout.data.y.data), ('x', cutout.data.x.data)]
     return xr.DataArray(availability, coords=coords)
 
 
@@ -615,6 +615,6 @@ def regrid(ds, dimx, dimy, **kwargs):
                            dask='parallelized',
                            kwargs=kwargs)
             .rename({'yout': namey, 'xout': namex})
-            .assign_coords(**{namey: (namey, dimy, ds.coords[namey].attrs),
-                              namex: (namex, dimx, ds.coords[namex].attrs)})
+            .assign_coords(**{namey: (namey, dimy.data, ds.coords[namey].attrs),
+                              namex: (namex, dimx.data, ds.coords[namex].attrs)})
             .assign_attrs(**ds.attrs))

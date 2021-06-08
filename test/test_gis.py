@@ -398,8 +398,7 @@ def test_availability_matrix_rastered(ref, raster):
                            crs=ref.crs).rename_axis('shape')
     I = np.asarray(ref.indicatormatrix(shapes).todense())
     I = I.reshape(shapes.shape + ref.shape)
-    I = xr.DataArray(I, coords=[('shape', shapes.index), ref.coords['y'],
-                                ref.coords['x']])
+    I = xr.DataArray(I, coords=[shapes.index, ref.coords['y'], ref.coords['x']])
     excluder = ExclusionContainer(ref.crs, res=0.01)
     excluder.add_raster(raster)
     ds = ref.availabilitymatrix(shapes, excluder)
@@ -423,8 +422,7 @@ def test_availability_matrix_rastered_repro(ref, raster_reproject):
                             crs=ref.crs).rename_axis('shape')
     I = np.asarray(ref.indicatormatrix(shapes).todense())
     I = I.reshape(shapes.shape + ref.shape)
-    I = xr.DataArray(I, coords=[('shape', shapes.index), ref.coords['y'],
-                                ref.coords['x']])
+    I = xr.DataArray(I, coords=[shapes.index, ref.coords['y'], ref.coords['x']])
     excluder = ExclusionContainer()
     excluder.add_raster(raster_reproject)
     ds = ref.availabilitymatrix(shapes, excluder)
