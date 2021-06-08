@@ -32,6 +32,7 @@ setup(
                       'xarray>=0.16.2',
                       'netcdf4',
                       'dask>=0.18.0, <2021.04.0',
+                      'toolz',
                       'requests',
                       "pyyaml",
                       'rasterio>=1.0',
@@ -40,10 +41,11 @@ setup(
                       'tqdm',
                       'pyproj>=2',
                       'geopandas',
-                      'cdsapi'],
+                      'cdsapi',
+                      'pytest'],
     extras_require = {
         "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme",
-		 "nbsphinx", "nbsphinx-link", "toolz"]
+		 "nbsphinx", "nbsphinx-link"]
     },
     classifiers=[
         'Development Status :: 3 - Alpha',

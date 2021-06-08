@@ -16,10 +16,11 @@ dependencies:
   - xarray>=0.16.2
   - netcdf4
   - dask>=0.18.0 ,<2021.04.0
+  - toolz
   - yaml
   - requests
   - geopandas
-  - cdsapi  
+  - cdsapi
   - pyproj>=2.0
   - rasterio>=1.0
   - shapely
