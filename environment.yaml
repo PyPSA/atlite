@@ -27,6 +27,10 @@ dependencies:
   - progressbar2
   - tqdm
 
+  # dev tools
+  - black
+  - pre-commit
+
   # Recommended for pandas and xarray
   - bottleneck
   - numexpr

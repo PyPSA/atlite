@@ -42,7 +42,9 @@ setup(
                       'pyproj>=2',
                       'geopandas',
                       'cdsapi',
-                      'pytest'],
+                      'pytest',
+                      'black',
+                      'pre-commit'],
     extras_require = {
         "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme",
 		 "nbsphinx", "nbsphinx-link"]
