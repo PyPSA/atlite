@@ -359,12 +359,7 @@ class Cutout:
         span = (coords[self.shape[1] + 1] - coords[0]) / 2
         cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
         return gpd.GeoDataFrame(
-            {
-                "x": coords[:, 0],
-                "y": coords[:, 1],
-                "geometry": cells,
-            },
-            crs=self.crs,
+            {"x": coords[:, 0], "y": coords[:, 1], "geometry": cells}, crs=self.crs
         )
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):

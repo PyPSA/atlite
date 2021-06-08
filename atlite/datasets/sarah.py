@@ -27,12 +27,7 @@ crs = 4326
 dx = 0.05
 dy = 0.05
 dt = "30min"
-features = {
-    "influx": [
-        "influx_direct",
-        "influx_diffuse",
-    ]
-}
+features = {"influx": ["influx_direct", "influx_diffuse"]}
 static_features = {}
 
 
