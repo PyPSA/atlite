@@ -517,7 +517,7 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
                    'initargs': (shapes, *args),
                    'maxtasksperchild': 20,
                    'processes': nprocesses}
-        with mp.Pool(**kwargs) as pool:
+        with mp.get_context('spawn').Pool(**kwargs) as pool:
             if disable_progressbar:
                 availability = list(pool.map(_process_func, shapes.index))
             else:
