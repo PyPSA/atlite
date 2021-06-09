@@ -281,7 +281,7 @@ class Cutout:
         index = [(self.data[v].attrs['module'], self.data[v].attrs['feature'])
                  for v in self.data]
         index = pd.MultiIndex.from_tuples(index, names=['module', 'feature'])
-        return pd.Series(list(self.data), index)
+        return pd.Series(list(self.data), index, dtype=object)
 
     def grid_coordinates(self):
         warn("The function `grid_coordinates` has been deprecated in favour of "
