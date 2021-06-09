@@ -278,7 +278,7 @@ class Cutout:
 
     @property
     def transform(self):
-        """Get the affine transform of the cutout."""
+        """Get the affine transform of the cutout. """
         return rio.Affine(
             self.dx,
             0,
@@ -327,7 +327,7 @@ class Cutout:
             for v in self.data
         ]
         index = pd.MultiIndex.from_tuples(index, names=["module", "feature"])
-        return pd.Series(list(self.data), index)
+        return pd.Series(list(self.data), index, dtype=object)
 
     def grid_coordinates(self):
         warn(
