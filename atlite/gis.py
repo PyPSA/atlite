@@ -551,7 +551,7 @@ def compute_availabilitymatrix(
             availability.append(_)
     else:
         assert excluder.all_closed, (
-            "For parallelization all raster files " "in excluder must be closed"
+            "For parallelization all raster files in excluder must be closed"
         )
         kwargs = {
             "initializer": _init_process,
