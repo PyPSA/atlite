@@ -550,16 +550,16 @@ def compute_availabilitymatrix(
             _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
             availability.append(_)
     else:
-        assert excluder.all_closed, (
-            "For parallelization all raster files in excluder must be closed"
-        )
+        assert (
+            excluder.all_closed
+        ), "For parallelization all raster files in excluder must be closed"
         kwargs = {
             "initializer": _init_process,
             "initargs": (shapes, *args),
             "maxtasksperchild": 20,
             "processes": nprocesses,
         }
-        with mp.Pool(**kwargs) as pool:
+        with mp.get_context("spawn").Pool(**kwargs) as pool:
             if disable_progressbar:
                 availability = list(pool.map(_process_func, shapes.index))
             else:
