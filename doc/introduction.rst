@@ -15,7 +15,7 @@ relevant quantities, mainly you can create data for
 * **Wind** power generation: Using predefined or custom turbine properties
   and smoothing options for modelling more realistic results.
   *New:* Turbines can also be imported from the 
-  `Open Energy Database <https://openenergy-platform.org/dataedit/view/supply/turbine_library>`_.
+  `Open Energy Database <https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library>`_.
 * **Solar (PV)** power generation: Using predefined or custom panel properties.
 * **Solar (thermal)** heat generation from solar collectors.
 * **Hydro (run-off)** power generation.
@@ -100,7 +100,7 @@ Previously and in the future other datasets where and (hopefully) will
 again be usable, including
 
 * the *NCEP Climate Forecast System* dataset 
-* the *EURO-CORDEX Cliamte Change Projection* dataset
+* the *EURO-CORDEX Climate Change Projection* dataset
 * the *CMSAF SARAH-2* dataset
 * Satellite based radiation observations, e.g. SARAH-2.
 * Weather data forecasts from climate models.
