@@ -12,6 +12,7 @@ Upcoming Release
 =================
 
 * Fix cutout merge and update for xarray ``>=v0.18.0`` (https://github.com/PyPSA/atlite/issues/147)
+* Internal change: We are moving to `black` for internal code formatting.
 
 Version 0.2.3 
 ==============
