@@ -6,7 +6,7 @@
 Atlite
 ======
 
-|PyPI version| |Conda version| |Documentation Status| |travis| |standard-readme compliant|
+|PyPI version| |Conda version| |Documentation Status| |travis| |standard-readme compliant| |GPL-3-or-later-image| |reuse|
 
 Atlite is a `free software`_, `xarray`_-based Python library for
 converting weather data (like wind speeds, solar influx) into energy systems data.
@@ -165,3 +165,5 @@ See the individual files for license details.
 .. |travis| image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
     :target: https://travis-ci.org/PyPSA/atlite
     :alt: Build status
+.. |reuse| image:: https://api.reuse.software/badge/github.com/pypsa/atlite
+   :target: https://api.reuse.software/info/github.com/pypsa/atlite

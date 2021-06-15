@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+# SPDX-FileCopyrightText: 2021 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """
 Created on Mon May 11 11:15:41 2020
 
