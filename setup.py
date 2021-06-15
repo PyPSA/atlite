@@ -43,12 +43,10 @@ setup(
         "pyproj>=2",
         "geopandas",
         "cdsapi",
-        "pytest",
-        "black",
-        "pre-commit",
     ],
     extras_require={
-        "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme", "nbsphinx", "nbsphinx-link"]
+        "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme", "nbsphinx", "nbsphinx-link"],
+        "dev": ["black", "pre-commit", "pytest"],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
