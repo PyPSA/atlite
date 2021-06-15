@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2021 The Atlite Authors
+
+SPDX-License-Identifier: CC0-1.0
+-->
+
 Closes # (if applicable).
 
 ## Change proposed in this Pull Request
