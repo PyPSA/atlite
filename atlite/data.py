@@ -156,8 +156,9 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
         prepared |= set(missing_features)
 
         cutout.data.attrs.update(dict(prepared_features=list(prepared)))
-        ds = (cutout.data.merge(ds[missing_vars.values])
-              .assign_attrs(**non_bool_dict(cutout.data.attrs), **ds.attrs))
+        attrs = non_bool_dict(cutout.data.attrs)
+        attrs.update(ds.attrs)
+        ds = (cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs))
 
         # write data to tmp file, copy it to original data, this is much safer
         # than appending variables
