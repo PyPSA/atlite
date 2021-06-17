@@ -1,6 +1,5 @@
-
-[comment]: # (SPDX-FileCopyrightText: 2021 The Atlite Authors)
-[comment]: # (SPDX-License-Identifier: CC0-1.0)
+[//]: # (SPDX-FileCopyrightText: 2021 The Atlite Authors)  
+[//]: # (SPDX-License-Identifier: CC0-1.0)  
 ---
 name: Bug report
 about: Create a report if something doesn't work quite right.
