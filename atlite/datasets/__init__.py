@@ -6,4 +6,4 @@
 
 from . import era5, sarah, gebco
 
-modules  = {'era5': era5, 'sarah': sarah, 'gebco': gebco}
+modules = {"era5": era5, "sarah": sarah, "gebco": gebco}

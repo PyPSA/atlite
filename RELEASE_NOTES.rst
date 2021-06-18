@@ -8,9 +8,10 @@ Release Notes
 #############
 
 
-.. Upcoming Release
-.. =================
+Upcoming Release
+=================
 
+* Internal change: We are moving to `black` for internal code formatting.
 
 Version 0.2.4 
 ==============

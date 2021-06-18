@@ -19,12 +19,13 @@ from .resource import windturbines, solarpanels
 
 from .version import version as __version__
 
-__author__ = ("The Atlite Authors: Gorm Andresen (Aarhus University), "
-              "Jonas Hoersch (FIAS/KIT/RLI), "
-              "Johannes Hampp (JLUG),"
-              "Fabian Hofmann (FIAS)"
-              "Tom Brown (FIAS/KIT), "
-              "Markus Schlott (FIAS), "
-              "David Schlachtberger (FIAS), "
-              )
+__author__ = (
+    "The Atlite Authors: Gorm Andresen (Aarhus University), "
+    "Jonas Hoersch (FIAS/KIT/RLI), "
+    "Johannes Hampp (JLUG),"
+    "Fabian Hofmann (FIAS)"
+    "Tom Brown (FIAS/KIT), "
+    "Markus Schlott (FIAS), "
+    "David Schlachtberger (FIAS), "
+)
 __copyright__ = "Copyright 2016-2021 The Atlite Authors"
