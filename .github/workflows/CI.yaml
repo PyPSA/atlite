@@ -25,8 +25,10 @@ jobs:
       with:
         python-version: 3.8
     - name: Install dependencies
+      with:
+        api_token: ${{secrets.CDSAPI_TOKEN}}
       run: |
-        echo -ne "url: ${secrets.CDSAPI_URL}\nkey: ${secrets.CDSAPI_TOKEN}\n" > ~/.cdsapirc
+        echo -ne "url: https://cds.climate.copernicus.eu/api/v2 \nkey: ${api_token}\n" > ~/.cdsapirc
         python -m pip install --upgrade pip
         pip install -e .[dev]
     - name: Test with pytest
