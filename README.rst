@@ -170,6 +170,6 @@ See the individual files for license details.
 .. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
    :alt: Code style: black
-.. |pre-commit.ci| image:: https://results.pre-commit.ci/badge/github/euronion/atlite/master.svg
-   :target: https://results.pre-commit.ci/latest/github/euronion/atlite/master
+.. |pre-commit.ci| image:: https://results.pre-commit.ci/badge/github/PyPSA/atlite/master.svg
+   :target: https://results.pre-commit.ci/latest/github/PyPSA/atlite/master
    :alt: pre-commit.ci status

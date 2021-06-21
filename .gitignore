@@ -20,3 +20,5 @@ examples/*.csv
 examples/*.zip
 examples/*.tif
 atlite/version.py
+paper
+.coverage*
