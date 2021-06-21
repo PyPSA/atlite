@@ -191,7 +191,7 @@ def test_regrid():
 
 
 def test_pad_extent():
-    """Test whether padding works with arrays of dimension > 2 """
+    """Test whether padding works with arrays of dimension > 2."""
     src = np.ones((3, 2))
     src_trans = rio.Affine(1, 0, 0, 0, 1, 0)
     dst_trans = rio.Affine(2, 0, 0, 0, 2, 0)
