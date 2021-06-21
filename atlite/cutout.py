@@ -278,7 +278,7 @@ class Cutout:
 
     @property
     def transform(self):
-        """Get the affine transform of the cutout. """
+        """Get the affine transform of the cutout."""
         return rio.Affine(
             self.dx,
             0,
