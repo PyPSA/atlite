@@ -16,7 +16,7 @@ jobs:
         os:
         - ubuntu-latest
         - macos-latest
-        - windows-latest
+        # - windows-latest outcommented due to difficult rasterio installation
 
     steps:
     - uses: actions/checkout@v2
