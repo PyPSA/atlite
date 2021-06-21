@@ -1,0 +1,1 @@
+Atlite's contributor guidelines can be found in the official [documentation](https://atlite.readthedocs.io/en/master/contributing.html).
