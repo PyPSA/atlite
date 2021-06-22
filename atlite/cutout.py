@@ -222,22 +222,27 @@ class Cutout:
 
     @property
     def name(self):
+        """Name of the cutout."""
         return self.path.stem
 
     @property
     def module(self):
+        """Data module of the cutout."""
         return self.data.attrs.get("module")
 
     @property
     def crs(self):
+        """Coordinate Reference System of the cutout."""
         return CRS(datamodules[atleast_1d(self.module)[0]].crs)
 
     @property
     def available_features(self):
+        """List of available features for the cutout."""
         return available_features(self.module)
 
     @property
     def chunks(self):
+        """Chunking of the cutout data (dask)."""
         chunks = {
             k.lstrip("chunksize_"): v
             for k, v in self.data.attrs.items()
@@ -247,10 +252,12 @@ class Cutout:
 
     @property
     def coords(self):
+        """Geographical coordinated of the cutout."""
         return self.data.coords
 
     @property
     def meta(self):
+        """Meta data of the cutout. Deprecated since v0.2."""
         warn(
             "The `meta` attribute is deprecated in favour of direct "
             "access to `data`",
@@ -260,6 +267,7 @@ class Cutout:
 
     @property
     def shape(self):
+        """Geographical shape of the cutout (size y, size x)."""
         return len(self.coords["y"]), len(self.coords["x"])
 
     @property
@@ -302,26 +310,31 @@ class Cutout:
 
     @property
     def dx(self):
+        """Spatial resolution on the x axis."""
         x = self.coords["x"]
         return round((x[-1] - x[0]).item() / (x.size - 1), 8)
 
     @property
     def dy(self):
+        """Spatial resolution on the y axis."""
         y = self.coords["y"]
         return round((y[-1] - y[0]).item() / (y.size - 1), 8)
 
     @property
     def dt(self):
+        """Time resolution of the cutout."""
         return pd.infer_freq(self.coords["time"].to_index())
 
     @property
     def prepared(self):
+        """Boolean indicating whether all available features are prepared."""
         return self.prepared_features.sort_index().equals(
             self.available_features.sort_index()
         )
 
     @property
     def prepared_features(self):
+        """Get the list of prepared features in the cutout."""
         index = [
             (self.data[v].attrs["module"], self.data[v].attrs["feature"])
             for v in self.data
@@ -330,6 +343,7 @@ class Cutout:
         return pd.Series(list(self.data), index, dtype=object)
 
     def grid_coordinates(self):
+        """Array of grid coordinates, deprecated since v0.2.1."""
         warn(
             "The function `grid_coordinates` has been deprecated in favour of "
             "`grid`",
@@ -342,6 +356,7 @@ class Cutout:
         return self.grid[["x", "y"]].values
 
     def grid_cells(self):
+        """List of grid cells, deprecated since v0.2.1."""
         warn(
             "The function `grid_cells` has been deprecated in favour of `grid`",
             DeprecationWarning,
@@ -354,6 +369,18 @@ class Cutout:
 
     @CachedAttribute
     def grid(self):
+        """
+        Cutout grid with coordinates and geometries.
+
+        The coordinates are placed in the middle of the grid cells.
+
+        Returns
+        -------
+        geopandas.GeoDataFrame
+            Frame with coordinate columns 'x' and 'y', and geometries of the
+            corresponding grid cells.
+
+        """
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
         coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
         span = (coords[self.shape[1] + 1] - coords[0]) / 2
@@ -490,7 +517,7 @@ class Cutout:
         Note that the polygons must be in the same crs.
 
         Parameters
-        ---------
+        ----------
         shapes : Collection of shapely polygons
 
         Returns
