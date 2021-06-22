@@ -126,6 +126,8 @@ class Cutout:
         gebco_path: str
             Path to find the gebco netcdf file. Only necessary when including
             the gebco module.
+        roughness_path: 
+            Path to external roughness dataset
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.

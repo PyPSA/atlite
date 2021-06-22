@@ -42,14 +42,16 @@ def get_features(cutout, module, features, tmpdir=None):
             cutout, feature, tmpdir=tmpdir, lock=lock, **parameters
         )
         datasets.append(feature_data)
-
     datasets = compute(*datasets)
 
     ds = xr.merge(datasets, compat="equals")
     for v in ds:
-        ds[v].attrs["module"] = module
         fd = datamodules[module].features.items()
-        ds[v].attrs["feature"] = [k for k, l in fd if v in l].pop()
+        if v in fd:
+            ds[v].attrs["module"] = module
+
+            print([k for k, l in fd if v in l])
+            ds[v].attrs["feature"] = [k for k, l in fd if v in l].pop()
     return ds
 
 

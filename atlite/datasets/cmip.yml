@@ -1,0 +1,9 @@
+EC-Earth3:
+  data_node: 'esg-dn2.nsc.liu.se'
+  source_id: 'EC-Earth3'
+  variant_label: 'r1i1p1f1'
+  experiment_id: 'ssp126'
+  frequency: '3hr'
+  project: 'CMIP6'
+
+
