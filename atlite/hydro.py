@@ -87,7 +87,7 @@ def shift_and_aggregate_runoff_for_plants(
 ):
     inflow = xr.DataArray(
         np.zeros((len(basins.plants), runoff.indexes["time"].size)),
-        [("plant", basins.plants.index), ("time", runoff.coords["time"])],
+        [("plant", basins.plants.index), runoff.coords["time"]],
     )
 
     for ppl in tqdm(

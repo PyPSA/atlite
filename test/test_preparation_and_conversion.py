@@ -23,6 +23,7 @@ import atlite
 from atlite import Cutout
 from xarray.testing import assert_allclose, assert_equal
 import numpy as np
+import pandas as pd
 
 
 # %% Predefine tests for cutout
@@ -107,6 +108,56 @@ def pv_test(cutout):
 
     assert production_opt.sum() > production.sum()
 
+    # now use the non simple trigon model
+    production_other = cutout.pv(
+        atlite.resource.solarpanels.CdTe,
+        "latitude_optimal",
+        layout=cap_factor_opt,
+        trigon_model="other",
+    )
+
+    assert production_other.sel(time=TIME + " 00:00") == 0
+    # should be roughly the same
+    assert (production_other.sum() / production_opt.sum()).round(0) == 1
+
+    # now another solarpanel with bofinger model
+    production_other = cutout.pv(
+        atlite.resource.solarpanels.KANENA,
+        "latitude_optimal",
+        layout=cap_factor_opt,
+    )
+
+    assert production_other.sel(time=TIME + " 00:00") == 0
+    # should be roughly the same
+    assert (production_other.sum() / production_opt.sum()).round(0) == 1
+
+
+def solar_thermal_test(cutout):
+    """
+    Test the atlite.Cutout.solar_thermal function with different settings.
+    """
+    cap_factor = cutout.solar_thermal()
+    assert cap_factor.notnull().all()
+    assert cap_factor.sum() > 0
+
+
+def heat_demand_test(cutout):
+    """
+    Test the atlite.Cutout.heat_demand function with different settings.
+    """
+    demand = cutout.heat_demand()
+    assert demand.notnull().all()
+    assert demand.sum() > 0
+
+
+def soil_temperature_test(cutout):
+    """
+    Test the atlite.Cutout.soil_temperature function with different settings.
+    """
+    demand = cutout.soil_temperature()
+    assert demand.notnull().all()
+    assert demand.sum() > 0
+
 
 def wind_test(cutout):
     """
@@ -131,6 +182,14 @@ def wind_test(cutout):
     )
 
     assert better_production.sum() > production.sum()
+
+    # now use smooth wind power curve
+    production = cutout.wind(
+        atlite.windturbines.Enercon_E101_3000kW, layout=cap_factor, smooth=True
+    )
+
+    assert production.notnull().all()
+    assert production.sum() > 0
 
 
 def runoff_test(cutout):
@@ -158,17 +217,25 @@ def runoff_test(cutout):
     assert low_level_prod.sum() < high_level_prod.sum()
 
 
-# I don't understand the problems with the crs and projection here leaving this
-# out:
-
-# def test_hydro():
-#     plants = pd.DataFrame({'lon' : [x0, x1],
-#                            'lat': [y0, y1]})
-#     basins = gpd.GeoDataFrame(dict(geometry=[cutout_era5.grid_cells[0], cutout_era5.grid_cells[-1]],
-#                                    HYBAS_ID = [0,1],
-#                                    DIST_MAIN = 10,
-#                                    NEXT_DOWN = None), index=[0,1], crs=dict(proj="aea"))
-#     cutout_era5.hydro(plants, basins)
+def hydro_test(cutout):
+    """
+    Test the atlite.Cutout.hydro function.
+    """
+    plants = pd.DataFrame(
+        cutout.grid.loc[[0], ["x", "y"]].values, columns=["lon", "lat"]
+    )
+    basins = gpd.GeoDataFrame(
+        dict(
+            geometry=[cutout.grid.geometry[0]],
+            HYBAS_ID=[0],
+            DIST_MAIN=10,
+            NEXT_DOWN=None,
+        ),
+        index=[0],
+        crs=cutout.crs,
+    )
+    ds = cutout.hydro(plants, basins)
+    assert ds.sel(plant=0).sum() > 0
 
 
 # %% Prepare cutouts to test
@@ -177,6 +244,7 @@ def runoff_test(cutout):
 TIME = "2013-01-01"
 BOUNDS = (-4, 56, 1.5, 61)
 SARAH_DIR = os.getenv("SARAH_DIR", "/home/vres/climate-data/sarah_v2")
+GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 
 
 @pytest.fixture(scope="session")
@@ -198,8 +266,8 @@ def cutout_era5_coarse(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def cutout_era5_weird(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("era5_weird")
+def cutout_era5_weird_resolution(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5_weird_resolution")
     cutout = Cutout(
         path=tmp_path / "era5",
         module="era5",
@@ -250,8 +318,8 @@ def cutout_sarah_fine(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def cutout_sarah_weird(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("sarah_weird")
+def cutout_sarah_weird_resolution(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("sarah_weird_resolution")
     cutout = Cutout(
         path=tmp_path / "sarah",
         module="sarah",
@@ -260,6 +328,20 @@ def cutout_sarah_weird(tmp_path_factory):
         dx=0.132,
         dy=0.32,
         sarah_dir=SARAH_DIR,
+    )
+    cutout.prepare()
+    return cutout
+
+
+@pytest.fixture(scope="session")
+def cutout_gebco(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("gebco")
+    cutout = Cutout(
+        path=tmp_path / "gebco",
+        module="gebco",
+        bounds=BOUNDS,
+        time=TIME,
+        gebco_path=GEBCO_PATH,
     )
     cutout.prepare()
     return cutout
@@ -290,9 +372,9 @@ class TestERA5:
         reason="This test breaks on windows machine on travis"
         " due to unknown reasons.",
     )
-    def test_all_non_na_era5_weird(cutout_era5_weird):
+    def test_all_non_na_era5_weird_resolution(cutout_era5_weird_resolution):
         """Every cells should have data."""
-        assert np.isfinite(cutout_era5_weird.data).all()
+        assert np.isfinite(cutout_era5_weird_resolution.data).all()
 
     @staticmethod
     def test_dx_dy_preservation_era5(cutout_era5):
@@ -316,13 +398,15 @@ class TestERA5:
         reason="This test breaks on windows machine on travis"
         " due to unknown reasons.",
     )
-    def test_dx_dy_preservation_era5_weird(cutout_era5_weird):
+    def test_dx_dy_preservation_era5_weird_resolution(cutout_era5_weird_resolution):
         """The coordinates should be the same after preparation."""
         assert np.allclose(
-            np.diff(cutout_era5_weird.data.x), cutout_era5_weird.data.attrs["dx"]
+            np.diff(cutout_era5_weird_resolution.data.x),
+            cutout_era5_weird_resolution.data.attrs["dx"],
         )
         assert np.allclose(
-            np.diff(cutout_era5_weird.data.y), cutout_era5_weird.data.attrs["dy"]
+            np.diff(cutout_era5_weird_resolution.data.y),
+            cutout_era5_weird_resolution.data.attrs["dy"],
         )
 
     @staticmethod
@@ -362,6 +446,22 @@ class TestERA5:
     def test_runoff_era5(cutout_era5):
         return runoff_test(cutout_era5)
 
+    @staticmethod
+    def test_hydro_era5(cutout_era5):
+        return hydro_test(cutout_era5)
+
+    @staticmethod
+    def test_solar_thermal_era5(cutout_era5):
+        return solar_thermal_test(cutout_era5)
+
+    @staticmethod
+    def test_heat_demand_era5(cutout_era5):
+        return heat_demand_test(cutout_era5)
+
+    @staticmethod
+    def test_soil_temperature_era5(cutout_era5):
+        return soil_temperature_test(cutout_era5)
+
 
 @pytest.mark.skipif(
     not os.path.exists(SARAH_DIR), reason="'sarah_dir' is not a valid path"
@@ -378,9 +478,9 @@ class TestSarah:
         assert np.isfinite(cutout_sarah_fine.data).all()
 
     @staticmethod
-    def test_all_non_na_sarah_weird(cutout_sarah_weird):
+    def test_all_non_na_sarah_weird_resolution(cutout_sarah_weird_resolution):
         """Every cells should have data."""
-        assert np.isfinite(cutout_sarah_weird.data).all()
+        assert np.isfinite(cutout_sarah_weird_resolution.data).all()
 
     @staticmethod
     def test_dx_dy_preservation_sarah(cutout_sarah):
@@ -407,3 +507,13 @@ class TestSarah:
     @staticmethod
     def test_runoff_sarah(cutout_sarah):
         return runoff_test(cutout_sarah)
+
+
+@pytest.mark.skipif(
+    not os.path.exists(GEBCO_PATH), reason="'gebco_path' is not a valid path"
+)
+class TestGebco:
+    @staticmethod
+    def test_all_non_na_gebco(cutout_gebco):
+        """Every cells should have data."""
+        assert np.isfinite(cutout_gebco.data).all()
