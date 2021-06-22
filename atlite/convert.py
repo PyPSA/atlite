@@ -120,9 +120,9 @@ def convert_and_aggregate(
                 "given for `per_unit` or `return_capacity`"
             )
         if capacity_factor:
-            return maybe_progressbar(da.mean("time"), show_progress)
+            return maybe_progressbar(da.mean("time"), show_progress, **dask_kwargs)
         else:
-            return maybe_progressbar(da.sum("time"), show_progress)
+            return maybe_progressbar(da.sum("time"), show_progress, **dask_kwargs)
 
     if shapes is not None:
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
