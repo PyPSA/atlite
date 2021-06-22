@@ -257,6 +257,20 @@ def test_availability_matrix_flat_parallel(ref):
     assert np.allclose(I, ds.sum("shape"))
 
 
+# def test_availability_matrix_flat_parallel_anonymous_function(ref, raster_codes):
+#     """
+#     Test availability matrix in parallel mode with a anonymous filter function.
+#     """
+#     shapes = gpd.GeoSeries(
+#         [box(X0 + 1, Y0 + 1, X1 - 1, Y1 - 1)], crs=ref.crs
+#     ).rename_axis("shape")
+#     I = ref.indicatormatrix(shapes).sum(0).reshape(ref.shape)
+#     I = xr.DataArray(I, coords=[ref.coords["y"], ref.coords["x"]])
+#     excluder = ExclusionContainer(ref.crs, res=0.01)
+#     excluder.add_raster(raster_codes, codes=lambda x: x < 20, invert=True)
+#     ref.availabilitymatrix(shapes, excluder, nprocesses=2)
+
+
 def test_availability_matrix_flat_wo_progressbar(ref):
     """
     Same as `test_availability_matrix_flat` but without progressbar.

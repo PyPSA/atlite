@@ -43,7 +43,9 @@ def get_data_gebco_height(xs, ys, gebco_path):
         tags = dataset.tags(bidx=1)
         tags = {k: to_numeric(v, errors="ignore") for k, v in tags.items()}
 
-    return xr.DataArray(gebco, coords=[("y", ys), ("x", xs)], name="height", attrs=tags)
+    return xr.DataArray(
+        gebco, coords=[("y", ys.data), ("x", xs.data)], name="height", attrs=tags
+    )
 
 
 def get_data(cutout, feature, tmpdir, **creation_parameters):
