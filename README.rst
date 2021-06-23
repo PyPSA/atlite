@@ -33,7 +33,7 @@ resources low.
 ..   combined with ERA5 temperature).
 
 
-Atlite can process the following weather data fields and can convert them into following power-system relevant time series for any subsets of a full weather data base.
+Atlite can process the following weather data fields and can convert them into following power-system relevant time series for any subsets of a full weather database.
 
 .. image:: doc/workflow_chart.png
 
