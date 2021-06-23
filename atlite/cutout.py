@@ -267,7 +267,7 @@ class Cutout:
 
     @property
     def shape(self):
-        """Geographical shape of the cutout (size y, size x)."""
+        """Size of spatial dimensions (y, x) of the cutout data."""
         return len(self.coords["y"]), len(self.coords["x"])
 
     @property
