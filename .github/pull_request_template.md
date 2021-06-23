@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2021 The Atlite Authors
+
+SPDX-License-Identifier: CC0-1.0
+-->
+
 Closes # (if applicable).
 
 ## Change proposed in this Pull Request
@@ -31,3 +37,4 @@ Closes # (if applicable).
 - [ ] I have documented the effects of my code changes in the documentation `doc/`.
 - [ ] I have added newly introduced dependencies to `environment.yaml` file.
 - [ ] I have added a note to release notes `doc/release_notes.rst`.
+- [ ] I have used `pre-commit run --all` to lint/format/check my contribution

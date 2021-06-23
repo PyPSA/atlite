@@ -19,6 +19,7 @@ from dask import delayed, compute
 from dask.utils import SerializableLock
 from dask.diagnostics import ProgressBar
 import logging
+
 logger = logging.getLogger(__name__)
 
 from .datasets import modules as datamodules
@@ -37,17 +38,18 @@ def get_features(cutout, module, features, tmpdir=None):
     get_data = datamodules[module].get_data
 
     for feature in features:
-        feature_data = delayed(get_data)(cutout, feature, tmpdir=tmpdir,
-                                         lock=lock, **parameters)
+        feature_data = delayed(get_data)(
+            cutout, feature, tmpdir=tmpdir, lock=lock, **parameters
+        )
         datasets.append(feature_data)
 
     datasets = compute(*datasets)
 
-    ds = xr.merge(datasets, compat='equals')
+    ds = xr.merge(datasets, compat="equals")
     for v in ds:
-        ds[v].attrs['module'] = module
+        ds[v].attrs["module"] = module
         fd = datamodules[module].features.items()
-        ds[v].attrs['feature'] = [k for k, l in fd if v in l].pop()
+        ds[v].attrs["feature"] = [k for k, l in fd if v in l].pop()
     return ds
 
 
@@ -70,31 +72,38 @@ def available_features(module=None):
 
     """
     features = {name: m.features for name, m in datamodules.items()}
-    features =  pd.DataFrame(features).unstack().dropna() \
-                  .rename_axis(index=['module', 'feature']).rename('variables')
+    features = (
+        pd.DataFrame(features)
+        .unstack()
+        .dropna()
+        .rename_axis(index=["module", "feature"])
+        .rename("variables")
+    )
     if module is not None:
-        features = features.reindex(atleast_1d(module), level='module')
+        features = features.reindex(atleast_1d(module), level="module")
     return features.explode()
 
 
 def non_bool_dict(d):
     """Convert bool to int for netCDF4 storing"""
-    return {k: v if not isinstance(v, bool) else int(v) for k,v in d.items()}
+    return {k: v if not isinstance(v, bool) else int(v) for k, v in d.items()}
 
 
 def maybe_remove_tmpdir(func):
-    'Use this wrapper to make tempfile deletion compatible with windows machines.'
+    "Use this wrapper to make tempfile deletion compatible with windows machines."
+
     @wraps(func)
     def wrapper(*args, **kwargs):
-        if kwargs.get('tmpdir', None):
+        if kwargs.get("tmpdir", None):
             res = func(*args, **kwargs)
         else:
-            kwargs['tmpdir'] = mkdtemp()
+            kwargs["tmpdir"] = mkdtemp()
             try:
                 res = func(*args, **kwargs)
             finally:
-                rmtree(kwargs['tmpdir'])
+                rmtree(kwargs["tmpdir"])
         return res
+
     return wrapper
 
 
@@ -132,32 +141,33 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
 
     """
     if cutout.prepared and not overwrite:
-        logger.info('Cutout already prepared.')
+        logger.info("Cutout already prepared.")
         return cutout
 
-    logger.info(f'Storing temporary files in {tmpdir}')
+    logger.info(f"Storing temporary files in {tmpdir}")
 
     modules = atleast_1d(cutout.module)
     features = atleast_1d(features) if features else slice(None)
-    prepared = set(atleast_1d(cutout.data.attrs['prepared_features']))
+    prepared = set(atleast_1d(cutout.data.attrs["prepared_features"]))
 
     # target is series of all available variables for given module and features
     target = available_features(modules).loc[:, features].drop_duplicates()
 
-    for module in target.index.unique('module'):
+    for module in target.index.unique("module"):
         missing_vars = target[module]
         if not overwrite:
             missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
         if missing_vars.empty:
             continue
-        logger.info(f'Calculating and writing with module {module}:')
-        missing_features = missing_vars.index.unique('feature')
+        logger.info(f"Calculating and writing with module {module}:")
+        missing_features = missing_vars.index.unique("feature")
         ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
         prepared |= set(missing_features)
 
         cutout.data.attrs.update(dict(prepared_features=list(prepared)))
-        ds = (cutout.data.merge(ds[missing_vars.values])
-              .assign_attrs(**non_bool_dict(cutout.data.attrs), **ds.attrs))
+        attrs = non_bool_dict(cutout.data.attrs)
+        attrs.update(ds.attrs)
+        ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
 
         # write data to tmp file, copy it to original data, this is much safer
         # than appending variables

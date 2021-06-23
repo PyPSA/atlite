@@ -5,6 +5,12 @@ title: ''
 labels: bug
 assignees: ''
 ---
+<!---
+SPDX-FileCopyrightText: 2021 The Atlite Authors
+
+SPDX-License-Identifier: CC0-1.0
+--->
+
 
 <!-- Provide a general summary of the issue -->
 

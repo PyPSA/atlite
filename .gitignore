@@ -20,7 +20,11 @@ examples/*.csv
 examples/*.zip
 examples/*.tif
 atlite/version.py
+
 paper/*.pdf
 paper/scripts/*.nc
 paper/scripts/*.geojson
 paper/scripts/*.tif
+
+.coverage*
+
