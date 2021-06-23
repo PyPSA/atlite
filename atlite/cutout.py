@@ -147,6 +147,7 @@ class Cutout:
         chunks = cutoutparams.pop("chunks", {"time": 100})
         storable_chunks = {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
 
+        self.esgf_params = cutoutparams.pop("esgf_params", None)
         # Backward compatibility for xs, ys, months and years
         if {"xs", "ys"}.intersection(cutoutparams):
             warn(
@@ -306,7 +307,7 @@ class Cutout:
     def dx(self):
         x = self.coords["x"]
         return round((x[-1] - x[0]).item() / (x.size - 1), 8)
-
+    
     @property
     def dy(self):
         y = self.coords["y"]

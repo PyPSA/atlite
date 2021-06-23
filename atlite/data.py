@@ -19,6 +19,7 @@ from dask import delayed, compute
 from dask.utils import SerializableLock
 from dask.diagnostics import ProgressBar
 import logging
+from itertools import chain
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +44,12 @@ def get_features(cutout, module, features, tmpdir=None):
         )
         datasets.append(feature_data)
     datasets = compute(*datasets)
-
     ds = xr.merge(datasets, compat="equals")
+    fd = datamodules[module].features.items()
+    datavars = list(chain(*[l for k, l in fd]))
     for v in ds:
-        fd = datamodules[module].features.items()
-        if v in fd:
-            ds[v].attrs["module"] = module
-
-            print([k for k, l in fd if v in l])
+        ds[v].attrs["module"] = module
+        if v in datavars:       
             ds[v].attrs["feature"] = [k for k, l in fd if v in l].pop()
     return ds
 

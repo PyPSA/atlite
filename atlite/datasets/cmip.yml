@@ -1,7 +1,7 @@
 EC-Earth3:
-  data_node: 'esg-dn2.nsc.liu.se'
+  data_node: 'esgf-cnr.hpc.cineca.it'
   source_id: 'EC-Earth3'
-  variant_label: 'r1i1p1f1'
+  variant_label: 'r4i1p1f1'
   experiment_id: 'ssp126'
   frequency: '3hr'
   project: 'CMIP6'

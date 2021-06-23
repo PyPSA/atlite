@@ -48,6 +48,17 @@ def search_ESGF(esgf_params, url='https://esgf-data.dkrz.de/esg-search'):
     latest = ctx.search()[0]
     return latest.file_context().search()
 
+def get_data_runoff(esgf_params,cutout,**retrieval_params):
+    """Get runoff data for given retrieval parameters"""
+    coords = cutout.coords
+    ds = retrieve_data(esgf_params, coords,
+        variables=["mrro"],
+        **retrieval_params,
+    )
+    ds = _rename_and_fix_coords(ds, cutout.dt)
+    ds = ds.rename({'mrro':'runoff'})
+    return ds
+
 
 def get_data_influx(esgf_params,cutout,**retrieval_params):
     """Get influx data for given retrieval parameters."""
@@ -73,6 +84,7 @@ def get_data_temperature(esgf_params,cutout,**retrieval_params):
 
     ds = _rename_and_fix_coords(ds, cutout.dt)
     ds = ds.rename({"tas": "temperature"})
+    ds = ds.drop_vars('height')
     
 
     return ds
@@ -84,7 +96,8 @@ def get_data_wind(esgf_params,cutout,**retrieval_params):
     coords = cutout.coords
     ds = retrieve_data(esgf_params, coords, ['sfcWind'], **retrieval_params)
     ds = _rename_and_fix_coords(ds, cutout.dt)
-    ds = ds.rename({'sfcWind':'wnd{:0d}'.format(int(ds.sfcWind.height.values))})
+    ds = ds.rename({'sfcWind':'wnd{:0d}m'.format(int(ds.sfcWind.height.values))})
+    ds = ds.drop_vars('height')
     return ds
 
 def retrieve_data(esgf_params, coords,variables , 
@@ -99,15 +112,16 @@ def retrieve_data(esgf_params, coords,variables ,
     for variable in variables:
         esgf_params['variable'] = variable
         search_results = search_ESGF(esgf_params)
-        
         files = [f.opendap_url for f in search_results if int(f.opendap_url.split('_')[-1][:4]) in years]
+
         dsets.append(xr.open_mfdataset(files,chunks=chunks,concat_dim=['time']))
     ds = xr.merge(dsets)
 
     ds.attrs = {**ds.attrs, **esgf_params}
+    
     return ds
 
-def _rename_and_fix_coords(ds, dt,add_lon_lat=True, add_ctime=True):
+def _rename_and_fix_coords(ds, dt,add_lon_lat=True, add_ctime=False):
     """Rename 'longitude' and 'latitude' columns to 'x' and 'y' and fix roundings.
 
     Optionally (add_lon_lat, default:True) preserves latitude and longitude
@@ -169,7 +183,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     # sanitize = creation_parameters.get("sanitize", True)
 
-    if creation_parameters.get("esgf_params")== None:
+    if cutout.esgf_params== None:
         with open(CMIP_SETUP_FILE , 'r') as f:
             cmip_params = yaml.safe_load(f)
         
@@ -182,7 +196,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
         else:
             raise(ValueError('Model not specified'))
     else:
-        esgf_params = cutout.data.attrs.pop('esgf_params')
+        esgf_params = cutout.esgf_params
     if esgf_params.get("frequency")==None:
         if cutout.dt =='H':
             freq = 'h'
