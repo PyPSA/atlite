@@ -152,6 +152,8 @@ class CachedAttribute(object):
     computed once and accessed many times. Sort of like memoization.
     """
 
+    # For python 3.8 >= use functoolts.cached_property instead.
+
     def __init__(self, method, name=None, doc=None):
         # record the unbound-method and the name
         self.method = method
