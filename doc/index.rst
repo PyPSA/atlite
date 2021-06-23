@@ -82,6 +82,7 @@ solar thermal collectors and heating demand.
 
    introduction
    installation
+   conventions
 
 .. toctree::
    :hidden:

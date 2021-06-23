@@ -195,7 +195,9 @@ class ExclusionContainer:
         codes : int/list/function, optional
             Codes in the raster which to exclude. Can be a callable function
             which takes the mask (np.array) as argument and performs a
-            elementwise condition (must not change the shape). The default is 1.
+            elementwise condition (must not change the shape). The function may
+            not be an anonymous (lambda) function.
+            The default is 1.
         buffer : int, optional
             Buffer around the excluded areas in units of ExclusionContainer.crs.
             Use this to create a buffer around the excluded/included area.

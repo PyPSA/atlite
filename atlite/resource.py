@@ -131,7 +131,7 @@ def windturbine_smooth(turbine, params=None):
     for energy system analysis, Energy 93, Part 1 (2015) 1074–1088.
     """
 
-    if params is None:
+    if params is None or params == True:
         params = {}
 
     eta = params.get("eta", 0.95)

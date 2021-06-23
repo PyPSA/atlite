@@ -19,6 +19,7 @@ import xarray as xr
 import numpy as np
 import rasterio as rio
 import rasterio.warp
+import functools
 from atlite import Cutout
 from atlite.gis import ExclusionContainer, shape_availability, pad_extent, regrid
 from shapely.geometry import box
@@ -191,7 +192,7 @@ def test_regrid():
 
 
 def test_pad_extent():
-    """Test whether padding works with arrays of dimension > 2 """
+    """Test whether padding works with arrays of dimension > 2."""
     src = np.ones((3, 2))
     src_trans = rio.Affine(1, 0, 0, 0, 1, 0)
     dst_trans = rio.Affine(2, 0, 0, 0, 2, 0)
@@ -255,6 +256,21 @@ def test_availability_matrix_flat_parallel(ref):
     excluder = ExclusionContainer(ref.crs, res=0.01)
     ds = ref.availabilitymatrix(shapes, excluder, nprocesses=2)
     assert np.allclose(I, ds.sum("shape"))
+
+
+def test_availability_matrix_flat_parallel_anonymous_function(ref, raster_codes):
+    """
+    Test availability matrix in parallel mode with a non-anonymous filter function.
+    """
+    shapes = gpd.GeoSeries(
+        [box(X0 + 1, Y0 + 1, X1 - 1, Y1 - 1)], crs=ref.crs
+    ).rename_axis("shape")
+    I = ref.indicatormatrix(shapes).sum(0).reshape(ref.shape)
+    I = xr.DataArray(I, coords=[ref.coords["y"], ref.coords["x"]])
+    excluder = ExclusionContainer(ref.crs, res=0.01)
+    func = functools.partial(np.greater_equal, 20)
+    excluder.add_raster(raster_codes, codes=func)
+    ref.availabilitymatrix(shapes, excluder, nprocesses=2)
 
 
 def test_availability_matrix_flat_wo_progressbar(ref):
