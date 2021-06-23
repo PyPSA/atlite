@@ -237,12 +237,12 @@ class Cutout:
 
     @property
     def available_features(self):
-        """List of available features for the cutout."""
+        """List of available weather data features for the cutout."""
         return available_features(self.module)
 
     @property
     def chunks(self):
-        """Chunking of the cutout data (dask)."""
+        """Chunking of the cutout data used by dask."""
         chunks = {
             k.lstrip("chunksize_"): v
             for k, v in self.data.attrs.items()
@@ -252,12 +252,12 @@ class Cutout:
 
     @property
     def coords(self):
-        """Geographical coordinated of the cutout."""
+        """Geographic coordinates of the cutout."""
         return self.data.coords
 
     @property
     def meta(self):
-        """Meta data of the cutout. Deprecated since v0.2."""
+        """Metadata of the cutout. Deprecated since v0.2."""
         warn(
             "The `meta` attribute is deprecated in favour of direct "
             "access to `data`",
@@ -372,7 +372,7 @@ class Cutout:
         """
         Cutout grid with coordinates and geometries.
 
-        The coordinates are placed in the middle of the grid cells.
+        The coordinates represent the centers of the grid cells.
 
         Returns
         -------
