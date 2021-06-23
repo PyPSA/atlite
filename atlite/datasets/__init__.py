@@ -6,4 +6,4 @@
 
 from . import era5, sarah, gebco, cmip
 
-modules = {"era5": era5, "sarah": sarah, "gebco": gebco, "cmip":cmip}
+modules = {"era5": era5, "sarah": sarah, "gebco": gebco, "cmip": cmip}

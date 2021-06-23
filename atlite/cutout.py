@@ -126,7 +126,7 @@ class Cutout:
         gebco_path: str
             Path to find the gebco netcdf file. Only necessary when including
             the gebco module.
-        roughness_path: 
+        roughness_path:
             Path to external roughness dataset
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
@@ -316,7 +316,7 @@ class Cutout:
         """Spatial resolution on the x coordinates."""
         x = self.coords["x"]
         return round((x[-1] - x[0]).item() / (x.size - 1), 8)
-    
+
     @property
     def dy(self):
         """Spatial resolution on the y coordinates."""
