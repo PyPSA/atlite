@@ -310,13 +310,13 @@ class Cutout:
 
     @property
     def dx(self):
-        """Spatial resolution on the x axis."""
+        """Spatial resolution on the x coordinates."""
         x = self.coords["x"]
         return round((x[-1] - x[0]).item() / (x.size - 1), 8)
 
     @property
     def dy(self):
-        """Spatial resolution on the y axis."""
+        """Spatial resolution on the y coordinates."""
         y = self.coords["y"]
         return round((y[-1] - y[0]).item() / (y.size - 1), 8)
 
