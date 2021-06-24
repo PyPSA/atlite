@@ -43,6 +43,7 @@ setup(
         "pyproj>=2",
         "geopandas",
         "cdsapi",
+        "esgf-pyclient",
     ],
     extras_require={
         "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme", "nbsphinx", "nbsphinx-link"],
