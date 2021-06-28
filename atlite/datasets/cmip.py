@@ -71,6 +71,12 @@ def get_data_runoff(esgf_params, cutout, **retrieval_params):
     ds = ds.rename({"mrro": "runoff"})
     return ds
 
+def sanitize_runoff(ds):
+    """Sanitize retrieved runoff data."""
+    ds["runoff"] = ds["runoff"].clip(min=0.0)
+    return ds
+
+
 
 def get_data_influx(esgf_params, cutout, **retrieval_params):
     """Get influx data for given retrieval parameters."""
@@ -86,6 +92,11 @@ def get_data_influx(esgf_params, cutout, **retrieval_params):
 
     ds = ds.rename({"rsds": "influx", "rsus": "outflux"})
 
+    return ds
+
+def sanitize_inflow(ds):
+    """Sanitize retrieved inflow data."""
+    ds['influx'] = ds['influx'].clip(min=0.0)
     return ds
 
 
@@ -113,8 +124,7 @@ def get_data_wind(esgf_params, cutout, **retrieval_params):
 
 
 def retrieve_data(
-    esgf_params, coords, variables, chunks=None, tmpdir=None, lock=None, **updates
-):
+    esgf_params, coords, variables, chunks=None, tmpdir=None, lock=None):
     """
     Download data from egsf database
 
@@ -122,16 +132,19 @@ def retrieve_data(
     time = coords["time"].to_index()
     years = time.year.unique()
     dsets = []
-    for variable in variables:
-        esgf_params["variable"] = variable
-        search_results = search_ESGF(esgf_params)
-        files = [
-            f.opendap_url
-            for f in search_results
-            if int(f.opendap_url.split("_")[-1][:4]) in years
-        ]
+    if lock is None:
+        lock = nullcontext()
+    with lock:
+        for variable in variables:
+            esgf_params["variable"] = variable
+            search_results = search_ESGF(esgf_params)
+            files = [
+                f.opendap_url
+                for f in search_results
+                if int(f.opendap_url.split("_")[-1][:4]) in years
+            ]
 
-        dsets.append(xr.open_mfdataset(files, chunks=chunks, concat_dim=["time"]))
+            dsets.append(xr.open_mfdataset(files, chunks=chunks, concat_dim=["time"]))
     ds = xr.merge(dsets)
 
     ds.attrs = {**ds.attrs, **esgf_params}
@@ -234,6 +247,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     retrieval_params = {"chunks": cutout.chunks, "tmpdir": tmpdir, "lock": lock}
 
     func = globals().get(f"get_data_{feature}")
+
     # sanitize_func = globals().get(f"sanitize_{feature}")
 
     logger.info(f"Requesting data for feature {feature}...")
