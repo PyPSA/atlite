@@ -181,8 +181,7 @@ def sanitize_runoff(ds):
 
 def get_data_height(retrieval_params):
     """Get height data for given retrieval parameters."""
-    ds = retrieve_data(variable='geopotential',**retrieval_params)
-    #ds = retrieve_data(variable="orography", **retrieval_params)
+    ds = retrieve_data(variable="geopotential", **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
     ds = _add_height(ds)

@@ -8,8 +8,11 @@ Release Notes
 #############
 
 
-Upcoming Release
-=================
+.. Upcoming Release
+.. =================
+
+Version 0.2.5 
+==============
 
 * Clarification for ``ExclusionContainer.add_raster(..)`` that ``codes=..`` does not accept ``lambda``-functions in combination with ``multiprocessing``.
 * Internal change: We are moving to `black` for internal code formatting.
