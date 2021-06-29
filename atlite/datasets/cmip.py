@@ -71,11 +71,11 @@ def get_data_runoff(esgf_params, cutout, **retrieval_params):
     ds = ds.rename({"mrro": "runoff"})
     return ds
 
+
 def sanitize_runoff(ds):
     """Sanitize retrieved runoff data."""
     ds["runoff"] = ds["runoff"].clip(min=0.0)
     return ds
-
 
 
 def get_data_influx(esgf_params, cutout, **retrieval_params):
@@ -94,9 +94,10 @@ def get_data_influx(esgf_params, cutout, **retrieval_params):
 
     return ds
 
+
 def sanitize_inflow(ds):
     """Sanitize retrieved inflow data."""
-    ds['influx'] = ds['influx'].clip(min=0.0)
+    ds["influx"] = ds["influx"].clip(min=0.0)
     return ds
 
 
@@ -123,8 +124,7 @@ def get_data_wind(esgf_params, cutout, **retrieval_params):
     return ds
 
 
-def retrieve_data(
-    esgf_params, coords, variables, chunks=None, tmpdir=None, lock=None):
+def retrieve_data(esgf_params, coords, variables, chunks=None, tmpdir=None, lock=None):
     """
     Download data from egsf database
 

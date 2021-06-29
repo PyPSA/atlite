@@ -132,7 +132,7 @@ class Cutout:
             The ESGF search parameters can also be specified in the cmip.yml file,
             then model correspond to the name of the model specifed in the cmip.yml file.
         roughness_path: str
-            Path to external roughness dataset, required for converting CMIP 
+            Path to external roughness dataset, required for converting CMIP
             winds.
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
