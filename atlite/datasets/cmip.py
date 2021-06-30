@@ -225,8 +225,8 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
             raise (ValueError(f"{cutout.dt} not valid time frequency in CMIP"))
     else:
         freq = esgf_params.get("frequency")
-    
-    esgf_params['frequency'] = freq
+
+    esgf_params["frequency"] = freq
 
     retrieval_params = {"chunks": cutout.chunks, "tmpdir": tmpdir, "lock": lock}
 
@@ -234,16 +234,14 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     logger.info(f"Requesting data for feature {feature}...")
 
-
     ds = func(esgf_params, cutout, **retrieval_params)
     ds = ds.sel(time=coords["time"])
     bounds = cutout.bounds
     ds = ds.sel(x=slice(bounds[0], bounds[2]), y=slice(bounds[1], bounds[3]))
     ds = ds.interp({"x": cutout.data.x, "y": cutout.data.y})
-    
+
     if globals().get(f"sanitize_{feature}") != None and sanitize:
         sanitize_func = globals().get(f"sanitize_{feature}")
         ds = sanitize_func(ds)
-
 
     return ds
