@@ -1,22 +1,22 @@
+# -*- coding: utf-8 -*-
+# SPDX-FileCopyrightText: 2020-2021 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 """
 Module for downloading and preparing data from the ESGF servers 
-to be used in atlite
-
-
+to be used in atlite.
 """
 
 import xarray as xr
 from pyesgf.search import SearchConnection
 
 import logging
-import yaml
 import dask
 from pathlib import Path
-import pkg_resources
 from ..gis import maybe_swap_spatial_dims
 import numpy as np
 
-# Null context for running a with statements wihout any context
+# Null context for running a with statements without any context
 try:
     from contextlib import nullcontext
 except ImportError:
@@ -36,12 +36,8 @@ features = {
     "temperature": ["temperature"],
     "runoff": ["runoff"],
 }
-CMIP_SETUP_FILE = Path(pkg_resources.resource_filename(__name__, "cmip.yml"))
-
 
 crs = 4326
-
-static_features = {"height"}
 
 dask.config.set({"array.slicing.split_large_chunks": True})
 
@@ -49,7 +45,6 @@ dask.config.set({"array.slicing.split_large_chunks": True})
 def search_ESGF(esgf_params, url="https://esgf-data.dkrz.de/esg-search"):
     conn = SearchConnection(url, distrib=True)
     ctx = conn.new_context(latest=True, **esgf_params)
-
     if ctx.hit_count == 0:
         ctx = ctx.constrain(frequency=esgf_params["frequency"] + "Pt")
         if ctx.hit_count == 0:
@@ -158,9 +153,8 @@ def _rename_and_fix_coords(ds, dt, add_lon_lat=True, add_ctime=False):
     Optionally (add_lon_lat, default:True) preserves latitude and longitude
     columns as 'lat' and 'lon'.
 
-    CMIP specifics; shif the longitude from 0..360 to -180..180. In addition
-    CMIP sometimes specify the time in the center of the output intervall this shifted
-    to the beginning.
+    CMIP specifics; shift the longitude from 0..360 to -180..180. In addition
+    CMIP sometimes specify the time in the center of the output intervall this shifted to the beginning.
     """
     ds = ds.assign_coords(lon=(((ds.lon + 180) % 360) - 180))
     ds.lon.attrs["valid_max"] = 180
@@ -168,10 +162,6 @@ def _rename_and_fix_coords(ds, dt, add_lon_lat=True, add_ctime=False):
     ds = ds.sortby("lon")
 
     ds = ds.rename({"lon": "x", "lat": "y"})
-    # round coords since cds coords are float32 which would lead to mismatches
-    # ds = ds.assign_coords(
-    #     x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
-    # )
 
     ds = maybe_swap_spatial_dims(ds)
     if add_lon_lat:
@@ -197,7 +187,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     cutout : atlite.Cutout
     feature : str
         Name of the feature data to retrieve. Must be in
-        `atlite.datasets.era5.features`
+        `atlite.datasets.cmip.features`
     tmpdir : str/Path
         Directory where the temporary netcdf files are stored.
     **creation_parameters :
@@ -212,20 +202,10 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     """
     coords = cutout.coords
 
-    # sanitize = creation_parameters.get("sanitize", True)
+    sanitize = creation_parameters.get("sanitize", True)
 
     if cutout.esgf_params == None:
-        with open(CMIP_SETUP_FILE, "r") as f:
-            cmip_params = yaml.safe_load(f)
-
-        model = creation_parameters.get("model")
-        if model:
-            try:
-                esgf_params = cmip_params[model]
-            except:
-                KeyError(f"{model} not reconized, update cmip.yml")
-        else:
-            raise (ValueError("Model not specified"))
+        raise (ValueError("ESGF search parameters not provided"))
     else:
         esgf_params = cutout.esgf_params
     if esgf_params.get("frequency") == None:
@@ -243,17 +223,27 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
             freq = "year"
         else:
             raise (ValueError(f"{cutout.dt} not valid time frequency in CMIP"))
+    else:
+        freq = esgf_params.get("frequency")
+    
+    esgf_params['frequency'] = freq
 
     retrieval_params = {"chunks": cutout.chunks, "tmpdir": tmpdir, "lock": lock}
 
     func = globals().get(f"get_data_{feature}")
 
-    # sanitize_func = globals().get(f"sanitize_{feature}")
-
     logger.info(f"Requesting data for feature {feature}...")
+
+
     ds = func(esgf_params, cutout, **retrieval_params)
     ds = ds.sel(time=coords["time"])
     bounds = cutout.bounds
     ds = ds.sel(x=slice(bounds[0], bounds[2]), y=slice(bounds[1], bounds[3]))
     ds = ds.interp({"x": cutout.data.x, "y": cutout.data.y})
+    
+    if globals().get(f"sanitize_{feature}") != None and sanitize:
+        sanitize_func = globals().get(f"sanitize_{feature}")
+        ds = sanitize_func(ds)
+
+
     return ds
