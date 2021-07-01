@@ -11,6 +11,12 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+Version 0.2.5 
+==============
+
+* Clarification for ``ExclusionContainer.add_raster(..)`` that ``codes=..`` does not accept ``lambda``-functions in combination with ``multiprocessing``.
+* Internal change: We are moving to `black` for internal code formatting.
+* Fix ignored keywords in convert_and_aggregate(...) for capacity_layout=True.
 
 Version 0.2.4 
 ==============

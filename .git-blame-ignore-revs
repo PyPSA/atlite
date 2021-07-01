@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2021 The Atlite Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# apply pre-commit setup to all files (including black)
+ac500eba4d04b06fd278c22f470892f4ddb42e89

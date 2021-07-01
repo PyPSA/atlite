@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2021 The Atlite Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+    -   id: check-yaml
+-   repo: https://github.com/psf/black
+    rev: 21.6b0
+    hooks:
+    -   id: black
+-   repo: https://github.com/fsfe/reuse-tool
+    rev: v0.13.0
+    hooks:
+    -   id: reuse

@@ -19,6 +19,7 @@ from dask.diagnostics import ProgressBar
 from scipy.sparse import csr_matrix
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 from .aggregate import aggregate_matrix
@@ -32,15 +33,24 @@ from .pv.orientation import get_orientation, SurfaceOrientation
 from . import hydro as hydrom
 from . import wind as windm
 
-from .resource import (get_windturbineconfig, get_solarpanelconfig,
-                       windturbine_smooth)
+from .resource import get_windturbineconfig, get_solarpanelconfig, windturbine_smooth
 
 
-def convert_and_aggregate(cutout, convert_func, matrix=None,
-                          index=None, layout=None, shapes=None,
-                          shapes_crs=4326, per_unit=False,
-                          return_capacity=False, capacity_factor=False,
-                          show_progress=True, dask_kwargs={}, **convert_kwds):
+def convert_and_aggregate(
+    cutout,
+    convert_func,
+    matrix=None,
+    index=None,
+    layout=None,
+    shapes=None,
+    shapes_crs=4326,
+    per_unit=False,
+    return_capacity=False,
+    capacity_factor=False,
+    show_progress=True,
+    dask_kwargs={},
+    **convert_kwds,
+):
     """
     Convert and aggregate a weather-based renewable generation time-series.
 
@@ -97,7 +107,7 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
     """
 
-    func_name = convert_func.__name__.replace('convert_', '')
+    func_name = convert_func.__name__.replace("convert_", "")
     logger.info(f"Convert and aggregate '{func_name}'.")
     da = convert_func(cutout.data, **convert_kwds)
 
@@ -105,13 +115,14 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
 
     if no_args:
         if per_unit or return_capacity:
-            raise ValueError("One of `matrix`, `shapes` and `layout` must be "
-                             "given for `per_unit` or `return_capacity`")
+            raise ValueError(
+                "One of `matrix`, `shapes` and `layout` must be "
+                "given for `per_unit` or `return_capacity`"
+            )
         if capacity_factor:
-            return maybe_progressbar(da.mean('time'), show_progress)
+            return maybe_progressbar(da.mean("time"), show_progress, **dask_kwargs)
         else:
-            return maybe_progressbar(da.sum('time'), show_progress)
-
+            return maybe_progressbar(da.sum("time"), show_progress, **dask_kwargs)
 
     if shapes is not None:
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
@@ -119,12 +130,11 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
             index = shapes.index
         matrix = cutout.indicatormatrix(shapes, shapes_crs)
 
-
     if layout is not None:
         assert isinstance(layout, xr.DataArray)
-        layout = layout.reindex_like(cutout.data).stack(spatial=['y', 'x'])
+        layout = layout.reindex_like(cutout.data).stack(spatial=["y", "x"])
         if matrix is None:
-            matrix = layout.expand_dims('new')
+            matrix = layout.expand_dims("new")
         else:
             matrix = csr_matrix(matrix) * spdiag(layout)
 
@@ -132,18 +142,16 @@ def convert_and_aggregate(cutout, convert_func, matrix=None,
     matrix = csr_matrix(matrix)
     results = aggregate_matrix(da, matrix=matrix, index=index)
 
-
     if per_unit or return_capacity:
         caps = matrix.sum(-1)
         capacity = xr.DataArray(np.asarray(caps).flatten(), [index])
-        capacity.attrs['units'] ='MW'
+        capacity.attrs["units"] = "MW"
 
     if per_unit:
-        results = (results / capacity.where(capacity!=0)).fillna(0.)
-        results.attrs['units'] = 'p.u.'
+        results = (results / capacity.where(capacity != 0)).fillna(0.0)
+        results.attrs["units"] = "p.u."
     else:
-        results.attrs['units'] = 'MW'
-
+        results.attrs["units"] = "MW"
 
     if return_capacity:
         return maybe_progressbar(results, show_progress, **dask_kwargs), capacity
@@ -168,12 +176,11 @@ def convert_temperature(ds):
     """
 
     # Temperature is in Kelvin
-    return ds['temperature'] - 273.15
+    return ds["temperature"] - 273.15
 
 
 def temperature(cutout, **params):
-    return cutout.convert_and_aggregate(
-        convert_func=convert_temperature, **params)
+    return cutout.convert_and_aggregate(convert_func=convert_temperature, **params)
 
 
 # soil temperature
@@ -187,37 +194,31 @@ def convert_soil_temperature(ds):
     # There are nans where there is sea; by setting them
     # to zero we guarantee they do not contribute when multiplied
     # by matrix in atlite/aggregate.py
-    return (ds['soil temperature'] - 273.15).fillna(0.)
+    return (ds["soil temperature"] - 273.15).fillna(0.0)
 
 
 def soil_temperature(cutout, **params):
-    return cutout.convert_and_aggregate(
-        convert_func=convert_soil_temperature, **params)
+    return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
 
 
 # heat demand
 def convert_heat_demand(ds, threshold, a, constant, hour_shift):
     # Temperature is in Kelvin; take daily average
-    T = ds['temperature']
-    T = T.assign_coords(time=(T.coords['time'] +
-                              np.timedelta64(dt.timedelta(hours=hour_shift))))
+    T = ds["temperature"]
+    T = T.assign_coords(
+        time=(T.coords["time"] + np.timedelta64(dt.timedelta(hours=hour_shift)))
+    )
 
-    T = T.resample(time="1D").mean(dim='time')
+    T = T.resample(time="1D").mean(dim="time")
     threshold += 273.15
     heat_demand = a * (threshold - T)
 
-    heat_demand = heat_demand.clip(min=0.)
+    heat_demand = heat_demand.clip(min=0.0)
 
-    return (constant + heat_demand).rename('heat_demand')
+    return (constant + heat_demand).rename("heat_demand")
 
 
-def heat_demand(
-        cutout,
-        threshold=15.,
-        a=1.,
-        constant=0.,
-        hour_shift=0.,
-        **params):
+def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **params):
     """
     Convert outside temperature into daily heat demand using the
     degree-day approximation.
@@ -260,16 +261,20 @@ def heat_demand(
     documented in the `convert_and_aggregate` function.
     """
 
-    return cutout.convert_and_aggregate(convert_func=convert_heat_demand,
-                                        threshold=threshold, a=a,
-                                        constant=constant,
-                                        hour_shift=hour_shift,
-                                        **params)
+    return cutout.convert_and_aggregate(
+        convert_func=convert_heat_demand,
+        threshold=threshold,
+        a=a,
+        constant=constant,
+        hour_shift=hour_shift,
+        **params,
+    )
 
 
 # solar thermal collectors
-def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model,
-                          c0, c1, t_store):
+def convert_solar_thermal(
+    ds, orientation, trigon_model, clearsky_model, c0, c1, t_store
+):
     # convert storage temperature to Kelvin in line with reanalysis data
     t_store += 273.15
 
@@ -277,24 +282,31 @@ def convert_solar_thermal(ds, orientation, trigon_model, clearsky_model,
     # http://rda.ucar.edu/datasets/ds094.0/#metadata/detailed.html?_do=y
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    irradiation = TiltedIrradiation(ds, solar_position, surface_orientation,
-                                    trigon_model, clearsky_model)
+    irradiation = TiltedIrradiation(
+        ds, solar_position, surface_orientation, trigon_model, clearsky_model
+    )
 
     # overall efficiency; can be negative, so need to remove negative values
     # below
-    eta = c0 - c1 * ((t_store - ds['temperature']) /
-                     irradiation.where(irradiation!=0)).fillna(0)
+    eta = c0 - c1 * (
+        (t_store - ds["temperature"]) / irradiation.where(irradiation != 0)
+    ).fillna(0)
 
     output = irradiation * eta
 
-    return output.where(output > 0., 0.)
+    return output.where(output > 0.0, 0.0)
 
 
-def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
-                  trigon_model="simple",
-                  clearsky_model="simple",
-                  c0=0.8, c1=3., t_store=80.,
-                  **params):
+def solar_thermal(
+    cutout,
+    orientation={"slope": 45.0, "azimuth": 180.0},
+    trigon_model="simple",
+    clearsky_model="simple",
+    c0=0.8,
+    c1=3.0,
+    t_store=80.0,
+    **params,
+):
     """
     Convert downward short-wave radiation flux and outside temperature
     into time series for solar thermal collectors.
@@ -331,30 +343,37 @@ def solar_thermal(cutout, orientation={'slope': 45., 'azimuth': 180.},
     if not callable(orientation):
         orientation = get_orientation(orientation)
 
-    return cutout.convert_and_aggregate(convert_func=convert_solar_thermal,
-                                        orientation=orientation,
-                                        trigon_model=trigon_model,
-                                        clearsky_model=clearsky_model,
-                                        c0=c0, c1=c1, t_store=t_store,
-                                        **params)
+    return cutout.convert_and_aggregate(
+        convert_func=convert_solar_thermal,
+        orientation=orientation,
+        trigon_model=trigon_model,
+        clearsky_model=clearsky_model,
+        c0=c0,
+        c1=c1,
+        t_store=t_store,
+        **params,
+    )
 
 
 # wind
 def convert_wind(ds, turbine):
     """Convert wind speeds for turbine to wind energy generation."""
 
-    V, POW, hub_height, P = itemgetter('V', 'POW', 'hub_height', 'P')(turbine)
+    V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
     wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
 
     def _interpolate(da):
         return np.interp(da, V, POW / P)
 
-    return xr.apply_ufunc(_interpolate, wnd_hub,
-                          input_core_dims=[[]],
-                          output_core_dims=[[]],
-                          output_dtypes=[wnd_hub.dtype],
-                          dask="parallelized")
+    return xr.apply_ufunc(
+        _interpolate,
+        wnd_hub,
+        input_core_dims=[[]],
+        output_core_dims=[[]],
+        output_dtypes=[wnd_hub.dtype],
+        dask="parallelized",
+    )
 
 
 def wind(cutout, turbine, smooth=False, **params):
@@ -394,21 +413,21 @@ def wind(cutout, turbine, smooth=False, **params):
         turbine = windturbine_smooth(turbine, params=smooth)
 
     return cutout.convert_and_aggregate(
-        convert_func=convert_wind, turbine=turbine, **params)
+        convert_func=convert_wind, turbine=turbine, **params
+    )
 
 
 # solar PV
-def convert_pv(
-        ds,
-        panel,
-        orientation,
-        trigon_model='simple',
-        clearsky_model='simple'):
+def convert_pv(ds, panel, orientation, trigon_model="simple", clearsky_model="simple"):
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    irradiation = TiltedIrradiation(ds, solar_position, surface_orientation,
-                                    trigon_model=trigon_model,
-                                    clearsky_model=clearsky_model)
+    irradiation = TiltedIrradiation(
+        ds,
+        solar_position,
+        surface_orientation,
+        trigon_model=trigon_model,
+        clearsky_model=clearsky_model,
+    )
     solar_panel = SolarPanelModel(ds, irradiation, panel)
     return solar_panel
 
@@ -466,40 +485,49 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
     if not callable(orientation):
         orientation = get_orientation(orientation)
 
-    return cutout.convert_and_aggregate(convert_func=convert_pv,
-                                        panel=panel, orientation=orientation,
-                                        clearsky_model=clearsky_model,
-                                        **params)
+    return cutout.convert_and_aggregate(
+        convert_func=convert_pv,
+        panel=panel,
+        orientation=orientation,
+        clearsky_model=clearsky_model,
+        **params,
+    )
+
 
 # hydro
 def convert_runoff(ds, weight_with_height=True):
-    runoff = ds['runoff']
+    runoff = ds["runoff"]
 
     if weight_with_height:
-        runoff = runoff * ds['height']
+        runoff = runoff * ds["height"]
 
     return runoff
 
 
-def runoff(cutout, smooth=None, lower_threshold_quantile=None,
-           normalize_using_yearly=None, **params):
+def runoff(
+    cutout,
+    smooth=None,
+    lower_threshold_quantile=None,
+    normalize_using_yearly=None,
+    **params,
+):
     result = cutout.convert_and_aggregate(convert_func=convert_runoff, **params)
 
     if smooth is not None:
         if smooth is True:
             smooth = 24 * 7
         if "return_capacity" in params.keys():
-            result = result[0].rolling(
-                time=smooth, min_periods=1).mean(), result[1]
+            result = result[0].rolling(time=smooth, min_periods=1).mean(), result[1]
         else:
             result = result.rolling(time=smooth, min_periods=1).mean()
 
     if lower_threshold_quantile is not None:
         if lower_threshold_quantile is True:
             lower_threshold_quantile = 5e-3
-        lower_threshold = pd.Series(result.values.ravel())\
-                            .quantile(lower_threshold_quantile)
-        result = result.where(result >= lower_threshold, 0.)
+        lower_threshold = pd.Series(result.values.ravel()).quantile(
+            lower_threshold_quantile
+        )
+        result = result.where(result >= lower_threshold, 0.0)
 
     if normalize_using_yearly is not None:
         normalize_using_yearly_i = normalize_using_yearly.index
@@ -508,26 +536,33 @@ def runoff(cutout, smooth=None, lower_threshold_quantile=None,
         else:
             normalize_using_yearly_i = normalize_using_yearly_i.astype(int)
 
-        years = (pd.Series(pd.to_datetime(result.coords['time'].values).year)
-                 .value_counts().loc[lambda x: x > 8700].index
-                 .intersection(normalize_using_yearly_i))
+        years = (
+            pd.Series(pd.to_datetime(result.coords["time"].values).year)
+            .value_counts()
+            .loc[lambda x: x > 8700]
+            .index.intersection(normalize_using_yearly_i)
+        )
         assert len(years), "Need at least a full year of data (more is better)"
         years_overlap = slice(str(min(years)), str(max(years)))
 
-        dim = result.dims[1 - result.get_axis_num('time')]
+        dim = result.dims[1 - result.get_axis_num("time")]
         result *= (
-            (xr.DataArray(
-                normalize_using_yearly.loc[years_overlap].sum(),
-                dims=[dim]) /
-                result.sel(
-                time=years_overlap).sum('time')) .reindex(
-                countries=result.coords['countries']))
+            xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim])
+            / result.sel(time=years_overlap).sum("time")
+        ).reindex(countries=result.coords["countries"])
 
     return result
 
 
-def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
-          show_progress=True, **kwargs):
+def hydro(
+    cutout,
+    plants,
+    hydrobasins,
+    flowspeed=1,
+    weight_with_height=False,
+    show_progress=True,
+    **kwargs,
+):
     """
     Compute inflow time-series for `plants` by aggregating over catchment
     basins from `hydrobasins`
@@ -558,20 +593,25 @@ def hydro(cutout, plants, hydrobasins, flowspeed=1, weight_with_height=False,
     systems. Hydrological Processes, 27(15): 2171–2186. Data is available at
     www.hydrosheds.org.
     """
-    basins = hydrom.determine_basins(
-        plants, hydrobasins, show_progress=show_progress)
+    basins = hydrom.determine_basins(plants, hydrobasins, show_progress=show_progress)
 
     matrix = cutout.indicatormatrix(basins.shapes)
     # compute the average surface runoff in each basin
     matrix_normalized = matrix / matrix.sum(axis=1)
-    runoff = cutout.runoff(matrix=matrix_normalized, index=basins.shapes.index,
-                           weight_with_height=weight_with_height,
-                           show_progress=show_progress, **kwargs)
+    runoff = cutout.runoff(
+        matrix=matrix_normalized,
+        index=basins.shapes.index,
+        weight_with_height=weight_with_height,
+        show_progress=show_progress,
+        **kwargs,
+    )
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3
     # d-1 = m3 h-1 / 24
-    runoff *= (1000. / 24.) * \
-        xr.DataArray(basins.shapes.to_crs(dict(proj="cea")).area)
+    runoff *= (1000.0 / 24.0) * xr.DataArray(
+        basins.shapes.to_crs(dict(proj="cea")).area
+    )
 
     return hydrom.shift_and_aggregate_runoff_for_plants(
-        basins, runoff, flowspeed, show_progress)
+        basins, runoff, flowspeed, show_progress
+    )
