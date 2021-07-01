@@ -11,6 +11,7 @@ Functions for use in conjunction with wind data generation.
 import numpy as np
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,13 +69,17 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
     from_name = "wnd{h:0d}m".format(h=int(from_height))
 
     # Wind speed extrapolation
-    wnd_spd = ds[from_name] * (np.log(to_height / ds['roughness'])
-                               / np.log(from_height / ds['roughness']))
+    wnd_spd = ds[from_name] * (
+        np.log(to_height / ds["roughness"]) / np.log(from_height / ds["roughness"])
+    )
 
-    wnd_spd.attrs.update({"long name":
-                          "extrapolated {ht} m wind speed using logarithmic "
-                          "method with roughness and {hf} m wind speed"
-                          "".format(ht=to_height, hf=from_height),
-                          "units": "m s**-1"})
+    wnd_spd.attrs.update(
+        {
+            "long name": "extrapolated {ht} m wind speed using logarithmic "
+            "method with roughness and {hf} m wind speed"
+            "".format(ht=to_height, hf=from_height),
+            "units": "m s**-1",
+        }
+    )
 
     return wnd_spd.rename(to_name)

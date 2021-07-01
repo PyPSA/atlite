@@ -27,9 +27,11 @@ try:
 except ImportError:
     # for Python verions < 3.7:
     import contextlib
+
     @contextlib.contextmanager
     def nullcontext():
         yield
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,21 +39,14 @@ logger = logging.getLogger(__name__)
 crs = 4326
 
 features = {
-    'height': ['height'],
-    'wind': [
-        'wnd100m',
-        'roughness'],
-    'influx': [
-        'influx_toa',
-        'influx_direct',
-        'influx_diffuse',
-        'albedo'],
-    'temperature': [
-        'temperature',
-        'soil temperature'],
-    'runoff': ['runoff']}
+    "height": ["height"],
+    "wind": ["wnd100m", "roughness"],
+    "influx": ["influx_toa", "influx_direct", "influx_diffuse", "albedo"],
+    "temperature": ["temperature", "soil temperature"],
+    "runoff": ["runoff"],
+}
 
-static_features = {'height'}
+static_features = {"height"}
 
 
 def _add_height(ds):
@@ -64,13 +59,12 @@ def _add_height(ds):
 
     """
     g0 = 9.80665
-    z = ds['z']
-    if 'time' in z.coords:
+    z = ds["z"]
+    if "time" in z.coords:
         z = z.isel(time=0, drop=True)
-    ds['height'] = z / g0
-    ds = ds.drop_vars('z')
+    ds["height"] = z / g0
+    ds = ds.drop_vars("z")
     return ds
-
 
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
@@ -79,13 +73,14 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     Optionally (add_lon_lat, default:True) preserves latitude and longitude
     columns as 'lat' and 'lon'.
     """
-    ds = ds.rename({'longitude': 'x', 'latitude': 'y'})
+    ds = ds.rename({"longitude": "x", "latitude": "y"})
     # round coords since cds coords are float32 which would lead to mismatches
-    ds = ds.assign_coords(x=np.round(ds.x.astype(float), 5),
-                          y=np.round(ds.y.astype(float), 5))
+    ds = ds.assign_coords(
+        x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
+    )
     ds = maybe_swap_spatial_dims(ds)
     if add_lon_lat:
-        ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
+        ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
     return ds
 
 
@@ -93,24 +88,26 @@ def get_data_wind(retrieval_params):
     """Get wind data for given retrieval parameters."""
     ds = retrieve_data(
         variable=[
-            '100m_u_component_of_wind',
-            '100m_v_component_of_wind',
-            'forecast_surface_roughness'],
-        **retrieval_params)
+            "100m_u_component_of_wind",
+            "100m_v_component_of_wind",
+            "forecast_surface_roughness",
+        ],
+        **retrieval_params,
+    )
     ds = _rename_and_clean_coords(ds)
 
-    ds['wnd100m'] = (np.sqrt(ds['u100']**2 + ds['v100']**2)
-                     .assign_attrs(units=ds['u100'].attrs['units'],
-                                   long_name="100 metre wind speed"))
-    ds = ds.drop_vars(['u100', 'v100'])
-    ds = ds.rename({'fsr': 'roughness'})
+    ds["wnd100m"] = np.sqrt(ds["u100"] ** 2 + ds["v100"] ** 2).assign_attrs(
+        units=ds["u100"].attrs["units"], long_name="100 metre wind speed"
+    )
+    ds = ds.drop_vars(["u100", "v100"])
+    ds = ds.rename({"fsr": "roughness"})
 
     return ds
 
 
 def sanitize_wind(ds):
     """Sanitize retrieved wind data."""
-    ds['roughness'] = ds['roughness'].where(ds['roughness'] >= 0.0, 2e-4)
+    ds["roughness"] = ds["roughness"].where(ds["roughness"] >= 0.0, 2e-4)
     return ds
 
 
@@ -118,70 +115,73 @@ def get_data_influx(retrieval_params):
     """Get influx data for given retrieval parameters."""
     ds = retrieve_data(
         variable=[
-            'surface_net_solar_radiation',
-            'surface_solar_radiation_downwards',
-            'toa_incident_solar_radiation',
-            'total_sky_direct_solar_radiation_at_surface'],
-        **retrieval_params)
+            "surface_net_solar_radiation",
+            "surface_solar_radiation_downwards",
+            "toa_incident_solar_radiation",
+            "total_sky_direct_solar_radiation_at_surface",
+        ],
+        **retrieval_params,
+    )
 
     ds = _rename_and_clean_coords(ds)
 
-    ds = ds.rename({'fdir': 'influx_direct', 'tisr': 'influx_toa'})
-    ds['albedo'] = (((ds['ssrd'] - ds['ssr']) /
-                     ds['ssrd'].where(ds['ssrd'] != 0))
-                    .fillna(0.)
-                    .assign_attrs(units='(0 - 1)', long_name='Albedo'))
-    ds['influx_diffuse'] = (
-        (ds['ssrd'] - ds['influx_direct'])
-        .assign_attrs(units='J m**-2',
-                      long_name='Surface diffuse solar radiation downwards'))
-    ds = ds.drop_vars(['ssrd', 'ssr'])
+    ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
+    ds["albedo"] = (
+        ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
+        .fillna(0.0)
+        .assign_attrs(units="(0 - 1)", long_name="Albedo")
+    )
+    ds["influx_diffuse"] = (ds["ssrd"] - ds["influx_direct"]).assign_attrs(
+        units="J m**-2", long_name="Surface diffuse solar radiation downwards"
+    )
+    ds = ds.drop_vars(["ssrd", "ssr"])
 
     # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
-    for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
-        ds[a] = ds[a] / (60. * 60.)
-        ds[a].attrs['units'] = 'W m**-2'
+    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
+        ds[a] = ds[a] / (60.0 * 60.0)
+        ds[a].attrs["units"] = "W m**-2"
 
     return ds
 
 
 def sanitize_inflow(ds):
     """Sanitize retrieved inflow data."""
-    for a in ('influx_direct', 'influx_diffuse', 'influx_toa'):
-        ds[a] = ds[a].clip(min=0.)
+    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
+        ds[a] = ds[a].clip(min=0.0)
     return ds
 
 
 def get_data_temperature(retrieval_params):
     """Get wind temperature for given retrieval parameters."""
-    ds = retrieve_data(variable=['2m_temperature', 'soil_temperature_level_4'],
-                       **retrieval_params)
+    ds = retrieve_data(
+        variable=["2m_temperature", "soil_temperature_level_4"], **retrieval_params
+    )
 
     ds = _rename_and_clean_coords(ds)
-    ds = ds.rename({'t2m': 'temperature', 'stl4': 'soil temperature'})
+    ds = ds.rename({"t2m": "temperature", "stl4": "soil temperature"})
 
     return ds
 
 
 def get_data_runoff(retrieval_params):
     """Get runoff data for given retrieval parameters."""
-    ds = retrieve_data(variable=['runoff'], **retrieval_params)
+    ds = retrieve_data(variable=["runoff"], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
-    ds = ds.rename({'ro': 'runoff'})
+    ds = ds.rename({"ro": "runoff"})
 
     return ds
 
 
 def sanitize_runoff(ds):
     """Sanitize retrieved runoff data."""
-    ds['runoff'] = ds['runoff'].clip(min=0.)
+    ds["runoff"] = ds["runoff"].clip(min=0.0)
     return ds
 
 
 def get_data_height(retrieval_params):
     """Get height data for given retrieval parameters."""
-    ds = retrieve_data(variable='orography', **retrieval_params)
+    ds = retrieve_data(variable="geopotential", **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
     ds = _add_height(ds)
@@ -191,8 +191,8 @@ def get_data_height(retrieval_params):
 
 def _area(coords):
     # North, West, South, East. Default: global
-    x0, x1 = coords['x'].min().item(), coords['x'].max().item()
-    y0, y1 = coords['y'].min().item(), coords['y'].max().item()
+    x0, x1 = coords["x"].min().item(), coords["x"].max().item()
+    y0, y1 = coords["y"].min().item(), coords["y"].max().item()
     return [y1, x0, y0, x1]
 
 
@@ -214,18 +214,24 @@ def retrieval_times(coords, static=False):
     list of dicts witht retrieval arguments
 
     """
-    time = coords['time'].to_index()
+    time = coords["time"].to_index()
     if static:
-        return {'year': str(time[0].year), 'month': str(time[0].month),
-                'day': str(time[0].day), 'time': time[0].strftime("%H:00")}
+        return {
+            "year": str(time[0].year),
+            "month": str(time[0].month),
+            "day": str(time[0].day),
+            "time": time[0].strftime("%H:00"),
+        }
 
     times = []
     for year in time.year.unique():
-        t = time[time.year==year]
-        query = {'year': str(year),
-                 'month': list(t.month.unique()),
-                 'day': list(t.day.unique()),
-                 'time': ["%02d:00" %h for h in t.hour.unique()]}
+        t = time[time.year == year]
+        query = {
+            "year": str(year),
+            "month": list(t.month.unique()),
+            "day": list(t.day.unique()),
+            "time": ["%02d:00" % h for h in t.hour.unique()],
+        }
         times.append(query)
     return times
 
@@ -246,27 +252,28 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     If you want to track the state of your request go to
     https://cds.climate.copernicus.eu/cdsapp#!/yourrequests
     """
-    request = {
-        'product_type': 'reanalysis',
-        'format': 'netcdf'}
+    request = {"product_type": "reanalysis", "format": "netcdf"}
     request.update(updates)
 
-    assert {'year', 'month', 'variable'}.issubset(request), (
-            "Need to specify at least 'variable', 'year' and 'month'")
+    assert {"year", "month", "variable"}.issubset(
+        request
+    ), "Need to specify at least 'variable', 'year' and 'month'"
 
-    client = cdsapi.Client(info_callback=logger.debug,
-                            debug=logging.DEBUG >= logging.root.level)
+    client = cdsapi.Client(
+        info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
+    )
     result = client.retrieve(product, request)
 
     if lock is None:
         lock = nullcontext()
 
     with lock:
-        fd, target = mkstemp(suffix='.nc', dir=tmpdir); os.close(fd)
+        fd, target = mkstemp(suffix=".nc", dir=tmpdir)
+        os.close(fd)
 
-        yearstr = ', '.join(atleast_1d(request['year']))
-        variables = atleast_1d(request['variable'])
-        varstr = ''.join(['\t * ' + v + f' ({yearstr})\n' for v in variables])
+        yearstr = ", ".join(atleast_1d(request["year"]))
+        variables = atleast_1d(request["variable"])
+        varstr = "".join(["\t * " + v + f" ({yearstr})\n" for v in variables])
         logger.info(f"CDS: Downloading variables\n{varstr}")
         result.download(target)
 
@@ -276,7 +283,6 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
 
     return ds
-
 
 
 def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
@@ -306,19 +312,21 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     """
     coords = cutout.coords
 
-    sanitize = creation_parameters.get('sanitize', True)
+    sanitize = creation_parameters.get("sanitize", True)
 
-    retrieval_params = {'product': 'reanalysis-era5-single-levels',
-                        'area': _area(coords),
-                        'chunks': cutout.chunks,
-                        'grid': [cutout.dx, cutout.dy],
-                        'tmpdir': tmpdir,
-                        'lock': lock}
+    retrieval_params = {
+        "product": "reanalysis-era5-single-levels",
+        "area": _area(coords),
+        "chunks": cutout.chunks,
+        "grid": [cutout.dx, cutout.dy],
+        "tmpdir": tmpdir,
+        "lock": lock,
+    }
 
     func = globals().get(f"get_data_{feature}")
     sanitize_func = globals().get(f"sanitize_{feature}")
 
-    logger.info(f'Requesting data for feature {feature}...')
+    logger.info(f"Requesting data for feature {feature}...")
 
     def retrieve_once(time):
         ds = func({**retrieval_params, **time})
@@ -331,4 +339,4 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     datasets = map(retrieve_once, retrieval_times(coords))
 
-    return xr.concat(datasets, dim='time').sel(time=coords['time'])
+    return xr.concat(datasets, dim="time").sel(time=coords["time"])

@@ -33,10 +33,11 @@ from tqdm import tqdm
 
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
-def get_coords(x, y, time, dx=0.25, dy=0.25, dt='h', **kwargs):
+def get_coords(x, y, time, dx=0.25, dy=0.25, dt="h", **kwargs):
     """
     Create an cutout coordinate system on the basis of slices and step sizes.
 
@@ -65,10 +66,14 @@ def get_coords(x, y, time, dx=0.25, dy=0.25, dt='h', **kwargs):
     x = slice(*sorted([x.start, x.stop]))
     y = slice(*sorted([y.start, y.stop]))
 
-    ds = xr.Dataset({'x': np.round(np.arange(-180, 180, dx), 9),
-                     'y': np.round(np.arange(-90, 90, dy), 9),
-                     'time': pd.date_range(start="1979", end="now", freq=dt)})
-    ds = ds.assign_coords(lon=ds.coords['x'], lat=ds.coords['y'])
+    ds = xr.Dataset(
+        {
+            "x": np.round(np.arange(-180, 180, dx), 9),
+            "y": np.round(np.arange(-90, 90, dy), 9),
+            "time": pd.date_range(start="1979", end="now", freq=dt),
+        }
+    )
+    ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
     ds = ds.sel(x=x, y=y, time=time)
     return ds
 
@@ -108,7 +113,6 @@ def reproject(shapes, p1, p2):
 reproject.__doc__ = reproject_shapes.__doc__
 
 
-
 def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     """
     Compute the indicatormatrix.
@@ -135,7 +139,7 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
     dest = reproject_shapes(dest, dest_crs, orig_crs)
-    indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=np.float)
+    indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=float)
     tree = STRtree(orig)
     idx = dict((id(o), i) for i, o in enumerate(orig))
 
@@ -171,8 +175,16 @@ class ExclusionContainer:
         self.crs = crs
         self.res = res
 
-    def add_raster(self, raster, codes=None, buffer=0, invert=False, nodata=255,
-                   allow_no_overlap=False, crs=None):
+    def add_raster(
+        self,
+        raster,
+        codes=None,
+        buffer=0,
+        invert=False,
+        nodata=255,
+        allow_no_overlap=False,
+        crs=None,
+    ):
         """
         Register a raster to the ExclusionContainer.
 
@@ -183,7 +195,9 @@ class ExclusionContainer:
         codes : int/list/function, optional
             Codes in the raster which to exclude. Can be a callable function
             which takes the mask (np.array) as argument and performs a
-            elementwise condition (must not change the shape). The default is 1.
+            elementwise condition (must not change the shape). The function may
+            not be an anonymous (lambda) function.
+            The default is 1.
         buffer : int, optional
             Buffer around the excluded areas in units of ExclusionContainer.crs.
             Use this to create a buffer around the excluded/included area.
@@ -198,8 +212,15 @@ class ExclusionContainer:
         crs : rasterio.CRS/EPSG
             CRS of the raster. Specify this if the raster has invalid crs.
         """
-        d = dict(raster=raster, codes=codes, buffer=buffer, invert=invert,
-                 nodata=nodata, allow_no_overlap=allow_no_overlap, crs=crs)
+        d = dict(
+            raster=raster,
+            codes=codes,
+            buffer=buffer,
+            invert=invert,
+            nodata=nodata,
+            allow_no_overlap=allow_no_overlap,
+            crs=crs,
+        )
         self.rasters.append(d)
 
     def add_geometry(self, geometry, buffer=0, invert=False):
@@ -220,25 +241,25 @@ class ExclusionContainer:
         d = dict(geometry=geometry, buffer=buffer, invert=invert)
         self.geometries.append(d)
 
-
     def open_files(self):
         """Open rasters and load geometries."""
         for d in self.rasters:
-            raster = d['raster']
+            raster = d["raster"]
             if isinstance(raster, (str, Path)):
                 raster = rio.open(raster)
             else:
                 assert isinstance(raster, rio.DatasetReader)
-            if (not raster.crs.is_valid if raster.crs is not None else True):
-                if d['crs']:
-                    raster._crs = CRS(d['crs'])
+            if not raster.crs.is_valid if raster.crs is not None else True:
+                if d["crs"]:
+                    raster._crs = CRS(d["crs"])
                 else:
-                    raise ValueError(f'CRS of {raster} is invalid, please '
-                                     'provide it.')
-            d['raster'] = raster
+                    raise ValueError(
+                        f"CRS of {raster} is invalid, please " "provide it."
+                    )
+            d["raster"] = raster
 
         for d in self.geometries:
-            geometry = d['geometry']
+            geometry = d["geometry"]
             if isinstance(geometry, (str, Path)):
                 geometry = gpd.read_file(geometry)
             if isinstance(geometry, gpd.GeoDataFrame):
@@ -246,26 +267,28 @@ class ExclusionContainer:
             assert isinstance(geometry, gpd.GeoSeries)
             assert geometry.crs is not None
             geometry = geometry.to_crs(self.crs)
-            if d.get('buffer', 0) and not d.get('_buffered', False):
-                geometry = geometry.buffer(d['buffer'])
-                d['_buffered'] = True
-            d['geometry'] = geometry
+            if d.get("buffer", 0) and not d.get("_buffered", False):
+                geometry = geometry.buffer(d["buffer"])
+                d["_buffered"] = True
+            d["geometry"] = geometry
 
     @property
     def all_closed(self):
         """Check whether all files in the raster container are closed."""
-        return all(isinstance(d['raster'], (str, Path)) for d in self.rasters)
+        return all(isinstance(d["raster"], (str, Path)) for d in self.rasters)
 
     @property
     def all_open(self):
         """Check whether all files in the raster container are open."""
-        return all(isinstance(d['raster'], rio.DatasetReader) for d in self.rasters)
+        return all(isinstance(d["raster"], rio.DatasetReader) for d in self.rasters)
 
     def __repr__(self):
-        return (f"Exclusion Container"
-                f"\n registered rasters: {len(self.rasters)} "
-                f"\n registered geometry collections: {len(self.geometries)}"
-                f"\n CRS: {self.crs} - Resolution: {self.res}")
+        return (
+            f"Exclusion Container"
+            f"\n registered rasters: {len(self.rasters)} "
+            f"\n registered geometry collections: {len(self.geometries)}"
+            f"\n CRS: {self.crs} - Resolution: {self.res}"
+        )
 
 
 def padded_transform_and_shape(bounds, res):
@@ -273,17 +296,18 @@ def padded_transform_and_shape(bounds, res):
     Get the (transform, shape) tuple of a raster with resolution `res` and
     bounds `bounds`.
     """
-    left, bottom = [(b // res)* res for b in bounds[:2]]
+    left, bottom = [(b // res) * res for b in bounds[:2]]
     right, top = [(b // res + 1) * res for b in bounds[2:]]
     shape = int((top - bottom) / res), int((right - left) / res)
     return rio.Affine(res, 0, left, 0, -res, top), shape
 
 
-def projected_mask(raster, geom, transform=None, shape=None, crs=None,
-                   allow_no_overlap=False, **kwargs):
+def projected_mask(
+    raster, geom, transform=None, shape=None, crs=None, allow_no_overlap=False, **kwargs
+):
     """Load a mask and optionally project it to target resolution and shape."""
-    nodata = kwargs.get('nodata', 255)
-    kwargs.setdefault('indexes', 1)
+    nodata = kwargs.get("nodata", 255)
+    kwargs.setdefault("indexes", 1)
     if geom.crs != raster.crs:
         geom = geom.to_crs(raster.crs)
 
@@ -301,9 +325,15 @@ def projected_mask(raster, geom, transform=None, shape=None, crs=None,
         return masked, transform_
 
     assert shape is not None and crs is not None
-    return rio.warp.reproject(masked, empty(shape), src_crs=raster.crs,
-                              dst_crs=crs, src_transform=transform_,
-                              dst_transform=transform, dst_nodata=nodata)
+    return rio.warp.reproject(
+        masked,
+        empty(shape),
+        src_crs=raster.crs,
+        dst_crs=crs,
+        src_transform=transform_,
+        dst_transform=transform,
+        dst_nodata=nodata,
+    )
 
 
 def pad_extent(src, src_transform, dst_transform, src_crs, dst_crs, **kwargs):
@@ -318,17 +348,17 @@ def pad_extent(src, src_transform, dst_transform, src_crs, dst_crs, **kwargs):
     if src.size == 0:
         return src, src_transform
 
-    left, top, right, bottom = *(src_transform*(0,0)), *(src_transform*(1,1))
+    left, top, right, bottom = *(src_transform * (0, 0)), *(src_transform * (1, 1))
     covered = transform_bounds(src_crs, dst_crs, left, bottom, right, top)
     covered_res = min(abs(covered[2] - covered[0]), abs(covered[3] - covered[1]))
     pad = int(dst_transform[0] // covered_res * 1.1)
 
-    kwargs.setdefault('mode', 'constant')
+    kwargs.setdefault("mode", "constant")
 
     if src.ndim == 2:
         return rio.pad(src, src_transform, pad, **kwargs)
 
-    npad = ((0,0),) * (src.ndim - 2) + ((pad, pad), (pad, pad))
+    npad = ((0, 0),) * (src.ndim - 2) + ((pad, pad), (pad, pad))
     padded = np.pad(src, npad, **kwargs)
     transform = list(src_transform)
     transform[2] -= pad * transform[0]
@@ -372,38 +402,39 @@ def shape_availability(geometry, excluder):
     raster = None
     for d in excluder.rasters:
         # allow reusing preloaded raster with different post-processing
-        if raster != d['raster']:
-            raster = d['raster']
-            kwargs_keys = ['allow_no_overlap', 'nodata']
+        if raster != d["raster"]:
+            raster = d["raster"]
+            kwargs_keys = ["allow_no_overlap", "nodata"]
             kwargs = {k: v for k, v in d.items() if k in kwargs_keys}
-            masked, transform = projected_mask(d['raster'], geometry, transform,
-                                               shape, excluder.crs, **kwargs)
-        if d['codes']:
-            if callable(d['codes']):
-                masked_ = d['codes'](masked)
+            masked, transform = projected_mask(
+                d["raster"], geometry, transform, shape, excluder.crs, **kwargs
+            )
+        if d["codes"]:
+            if callable(d["codes"]):
+                masked_ = d["codes"](masked)
             else:
-                masked_ = isin(masked, d['codes'])
+                masked_ = isin(masked, d["codes"])
         else:
             masked_ = masked
 
-        if d['invert']:
+        if d["invert"]:
             masked_ = ~(masked_).astype(bool)
-        if d['buffer']:
-            iterations = int(d['buffer'] / excluder.res) + 1
+        if d["buffer"]:
+            iterations = int(d["buffer"] / excluder.res) + 1
             masked_ = dilation(masked_, iterations=iterations).astype(int)
 
         exclusions.append(masked_.astype(int))
 
     for d in excluder.geometries:
-        masked = ~geometry_mask(d['geometry'], shape, transform,
-                                invert=d['invert'])
+        masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
         exclusions.append(masked.astype(int))
 
     return (sum(exclusions) == 0).astype(float), transform
 
 
-def shape_availability_reprojected(geometry, excluder, dst_transform, dst_crs,
-                                   dst_shape):
+def shape_availability_reprojected(
+    geometry, excluder, dst_transform, dst_crs, dst_shape
+):
     """
     Compute and reproject the eligible area of one or more geometries.
 
@@ -436,12 +467,18 @@ def shape_availability_reprojected(geometry, excluder, dst_transform, dst_crs,
 
     """
     masked, transform = shape_availability(geometry, excluder)
-    masked, transform = pad_extent(masked, transform, dst_transform,
-                                   excluder.crs, dst_crs)
-    return rio.warp.reproject(masked, empty(dst_shape), resampling=5,
-                              src_transform=transform,
-                              dst_transform=dst_transform,
-                              src_crs=excluder.crs, dst_crs=dst_crs,)
+    masked, transform = pad_extent(
+        masked, transform, dst_transform, excluder.crs, dst_crs
+    )
+    return rio.warp.reproject(
+        masked,
+        empty(dst_shape),
+        resampling=5,
+        src_transform=transform,
+        dst_transform=dst_transform,
+        src_crs=excluder.crs,
+        dst_crs=dst_crs,
+    )
 
 
 def _init_process(shapes_, excluder_, dst_transform_, dst_crs_, dst_shapes_):
@@ -455,8 +492,9 @@ def _process_func(i):
     return shape_availability_reprojected(shapes.loc[[i]], *args)[0]
 
 
-def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
-                               disable_progressbar=False):
+def compute_availabilitymatrix(
+    cutout, shapes, excluder, nprocesses=None, disable_progressbar=False
+):
     """
     Compute the eligible share within cutout cells in the overlap with shapes.
 
@@ -502,37 +540,41 @@ def compute_availabilitymatrix(cutout, shapes, excluder, nprocesses=None,
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
     shapes = shapes.to_crs(excluder.crs)
 
-
     args = (excluder, cutout.transform_r, cutout.crs, cutout.shape)
-    tqdm_kwargs = dict(ascii=False, unit=' gridcells', total=len(shapes),
-                       desc='Compute availability matrix')
+    tqdm_kwargs = dict(
+        ascii=False,
+        unit=" gridcells",
+        total=len(shapes),
+        desc="Compute availability matrix",
+    )
     if nprocesses is None:
         for i in tqdm(shapes.index, **tqdm_kwargs):
             _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
             availability.append(_)
     else:
-        assert excluder.all_closed, ('For parallelization all raster files '
-                                     'in excluder must be closed')
-        kwargs = {'initializer': _init_process,
-                   'initargs': (shapes, *args),
-                   'maxtasksperchild': 20,
-                   'processes': nprocesses}
-        with mp.Pool(**kwargs) as pool:
+        assert (
+            excluder.all_closed
+        ), "For parallelization all raster files in excluder must be closed"
+        kwargs = {
+            "initializer": _init_process,
+            "initargs": (shapes, *args),
+            "maxtasksperchild": 20,
+            "processes": nprocesses,
+        }
+        with mp.get_context("spawn").Pool(**kwargs) as pool:
             if disable_progressbar:
                 availability = list(pool.map(_process_func, shapes.index))
             else:
-                availability = list(tqdm(pool.imap(_process_func, shapes.index),
-                                    **tqdm_kwargs))
+                availability = list(
+                    tqdm(pool.imap(_process_func, shapes.index), **tqdm_kwargs)
+                )
 
-
-
-    availability = np.stack(availability)[:, ::-1] # flip axis, see Notes
-    coords=[(shapes.index), ('y', cutout.data.y), ('x', cutout.data.x)]
+    availability = np.stack(availability)[:, ::-1]  # flip axis, see Notes
+    coords = [(shapes.index), ("y", cutout.data.y.data), ("x", cutout.data.x.data)]
     return xr.DataArray(availability, coords=coords)
 
 
-
-def maybe_swap_spatial_dims(ds, namex='x', namey='y'):
+def maybe_swap_spatial_dims(ds, namex="x", namey="y"):
     """Swap order of spatial dimensions according to atlite concention."""
     swaps = {}
     lx, rx = ds.indexes[namex][[0, -1]]
@@ -553,7 +595,7 @@ def _as_transform(x, y):
     dx = float(rx - lx) / float(len(x) - 1)
     dy = float(uy - ly) / float(len(y) - 1)
 
-    return rio.Affine(dx, 0, lx - dx/2, 0, dy, ly - dy/2)
+    return rio.Affine(dx, 0, lx - dx / 2, 0, dy, ly - dy / 2)
 
 
 def regrid(ds, dimx, dimy, **kwargs):
@@ -593,28 +635,40 @@ def regrid(ds, dimx, dimy, **kwargs):
 
     def _reproject(src, **kwargs):
         shape = src.shape[:-2] + dst_shape
-        src, trans = pad_extent(src, src_transform, dst_transform,
-                                kwargs['src_crs'], kwargs['dst_crs'], mode='edge')
+        src, trans = pad_extent(
+            src,
+            src_transform,
+            dst_transform,
+            kwargs["src_crs"],
+            kwargs["dst_crs"],
+            mode="edge",
+        )
 
         return rio.warp.reproject(src, empty(shape), src_transform=trans, **kwargs)[0]
 
-
     data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
     dtypes = {da.dtype for da in data_vars}
-    assert len(dtypes) == 1, \
-        "regrid can only reproject datasets with homogeneous dtype"
+    assert len(dtypes) == 1, "regrid can only reproject datasets with homogeneous dtype"
 
-    return (xr.apply_ufunc(_reproject,
-                           ds,
-                           input_core_dims=[[namey, namex]],
-                           output_core_dims=[['yout', 'xout']],
-                           output_dtypes=[dtypes.pop()],
-                           dask_gufunc_kwargs =
-                               dict(output_sizes={'yout': dst_shape[0],
-                                                  'xout': dst_shape[1]}),
-                           dask='parallelized',
-                           kwargs=kwargs)
-            .rename({'yout': namey, 'xout': namex})
-            .assign_coords(**{namey: (namey, dimy, ds.coords[namey].attrs),
-                              namex: (namex, dimx, ds.coords[namex].attrs)})
-            .assign_attrs(**ds.attrs))
+    return (
+        xr.apply_ufunc(
+            _reproject,
+            ds,
+            input_core_dims=[[namey, namex]],
+            output_core_dims=[["yout", "xout"]],
+            output_dtypes=[dtypes.pop()],
+            dask_gufunc_kwargs=dict(
+                output_sizes={"yout": dst_shape[0], "xout": dst_shape[1]}
+            ),
+            dask="parallelized",
+            kwargs=kwargs,
+        )
+        .rename({"yout": namey, "xout": namex})
+        .assign_coords(
+            **{
+                namey: (namey, dimy.data, ds.coords[namey].attrs),
+                namex: (namex, dimx.data, ds.coords[namex].attrs),
+            }
+        )
+        .assign_attrs(**ds.attrs)
+    )

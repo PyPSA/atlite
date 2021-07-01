@@ -8,8 +8,21 @@ Release Notes
 #############
 
 
-Upcoming Release
-=================
+.. Upcoming Release
+.. =================
+
+Version 0.2.5 
+==============
+
+* Clarification for ``ExclusionContainer.add_raster(..)`` that ``codes=..`` does not accept ``lambda``-functions in combination with ``multiprocessing``.
+* Internal change: We are moving to `black` for internal code formatting.
+* Fix ignored keywords in convert_and_aggregate(...) for capacity_layout=True.
+
+Version 0.2.4 
+==============
+
+* Fix cutout merge and update for xarray ``>=v0.18.0`` (https://github.com/PyPSA/atlite/issues/147)
+* Set multiprocessing context to ``spawn`` for ensuring equal computation across all platforms. 
 
 Version 0.2.3 
 ==============

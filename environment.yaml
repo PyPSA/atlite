@@ -6,21 +6,30 @@
 
 name: atlite
 channels:
-  - defaults
   - conda-forge
   - defaults
 dependencies:
   - python>=3.6
+  - numpy
   - scipy
-  - pandas>=1.0
+  - pandas>=0.25
   - xarray>=0.16.2
   - netcdf4
-  - dask>=0.18.0,<20.04.0
+  - dask>=0.18.0 ,<2021.04.0
+  - toolz
   - yaml
+  - requests
   - geopandas
   - cdsapi
   - pyproj>=2.0
   - rasterio>=1.0
+  - shapely
+  - progressbar2
+  - tqdm
+
+  # dev tools
+  - black
+  - pre-commit
 
   # Recommended for pandas and xarray
   - bottleneck

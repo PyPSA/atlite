@@ -3,14 +3,15 @@ Upstream-Name: Atlite
 Upstream-Contact: Jonas Hörsch <jonas.hoersch@posteo.de>
 Source: https://github.com/PyPSA/atlite
 
-Files: atlite/resources/*
-Copyright: 2019 The Atlite Authors
-License: CC-BY-4.0
-
-Files: examples/*
-Copyright: 2019 The Atlite Authors
-License: GPL-3.0-or-later
-
 Files: doc/img/*
-Copyright: 2019 The Atlite Authors
+Copyright: 2019-2021 The Atlite Authors
 License: CC-BY-4.0
+
+Files: doc/workflow*
+Copyright: 2021 The Atlite Authors
+License: CC-BY-4.0
+
+Files: doc/examples/*.nblink
+Copyright: 2020-2021 The Atlite Authors
+License: CC-BY-4.0
+

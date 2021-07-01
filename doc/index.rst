@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+  SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 
   SPDX-License-Identifier: CC-BY-4.0
 
@@ -14,9 +14,9 @@ Atlite: Convert weather data to energy systems data
     :target: https://anaconda.org/conda-forge/atlite
     :alt: Conda version
 
-.. .. image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
-..     :target: https://travis-ci.org/PyPSA/atlite
-..     :alt: Build status on Linux
+.. image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
+    :target: https://travis-ci.org/PyPSA/atlite
+    :alt: Build status
 
 .. image:: https://readthedocs.org/projects/atlite/badge/?version=master
     :target: https://atlite.readthedocs.io/en/latest/?badge=master
@@ -24,6 +24,12 @@ Atlite: Convert weather data to energy systems data
 
 .. image:: https://img.shields.io/pypi/l/atlite.svg
     :target: License
+
+.. image:: https://api.reuse.software/badge/github.com/pypsa/atlite
+    :target: https://api.reuse.software/info/github.com/pypsa/atlite
+
+.. image:: https://joss.theoj.org/papers/10.21105/joss.03294/status.svg
+    :target: https://doi.org/10.21105/joss.03294
 
 Atlite is a `free software
 <http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
@@ -69,6 +75,13 @@ climate change and to compute other time series, such as hydro power,
 solar thermal collectors and heating demand.
 
 
+Citing Atlite
+=============
+
+If you would like to cite the Atlite software, please refer to `this paper <https://doi.org/10.21105/joss.03294>`_ published in `JOSS <https://joss.theoj.org/>`_.
+
+
+
 .. Documentation
 .. =============
 
@@ -79,6 +92,7 @@ solar thermal collectors and heating demand.
 
    introduction
    installation
+   conventions
 
 .. toctree::
    :hidden:
