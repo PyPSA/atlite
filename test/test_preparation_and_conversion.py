@@ -287,15 +287,17 @@ def cutout_era5_reduced(tmp_path_factory):
     return cutout
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def cutout_era5_backextension(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("era5_backextension")
-    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time="1970-01-01")
+    cutout = Cutout(
+        path=tmp_path / "era5", module="era5", bounds=BOUNDS, time="1970-01-01"
+    )
     cutout.prepare()
     return cutout
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def cutout_sarah(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("sarah")
     cutout = Cutout(

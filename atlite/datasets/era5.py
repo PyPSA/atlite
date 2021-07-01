@@ -314,8 +314,8 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     sanitize = creation_parameters.get("sanitize", True)
 
-    product_1950 = 'reanalysis-era5-single-levels-preliminary-back-extension'
-    product_1979 = 'reanalysis-era5-single-levels'
+    product_1950 = "reanalysis-era5-single-levels-preliminary-back-extension"
+    product_1979 = "reanalysis-era5-single-levels"
 
     retrieval_params = {
         "area": _area(coords),
@@ -331,7 +331,9 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     logger.info(f"Requesting data for feature {feature}...")
 
     def retrieve_once(time):
-        retrieval_params["product"] = product_1950 if int(time['year']) < 1979 else product_1979
+        retrieval_params["product"] = (
+            product_1950 if int(time["year"]) < 1979 else product_1979
+        )
         ds = func({**retrieval_params, **time})
         if sanitize and sanitize_func is not None:
             ds = sanitize_func(ds)
