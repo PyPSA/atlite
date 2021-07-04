@@ -1,0 +1,8 @@
+[run]
+branch = True
+source = atlite
+omit =  
+    test/*
+    setup.py
+    atlite/datasets/ncep*
+    atlite/datasets/cordex*
