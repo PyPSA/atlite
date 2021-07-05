@@ -211,7 +211,7 @@ class Cutout:
                 ) from exc
 
             # TODO: check for dx, dy, x, y fine with module requirements
-            coords = get_coords(x, y, time, **cutoutparams)
+            coords = get_coords(x, y, time,module=module, **cutoutparams)
 
             attrs = {
                 "module": module,
