@@ -191,15 +191,17 @@ def _rename_and_fix_coords(ds, dt, add_lon_lat=True, add_ctime=False):
         ds = ds.assign_coords(ctime=ds.coords["time"])
 
     # shift averaged data to beginning of bin
-    if isinstance(ds.time[0].values,np.datetime64) ==False:
-        ds = ds.assign_coords(time=xr.CFTimeIndex(ds.time.values).to_datetimeindex(unsafe=True))
-    
-    if 'time_bnds' in ds.data_vars:
-        ds = ds.drop_vars('time_bnds')
-    if 'lat_bnds' in ds.data_vars:
-        ds = ds.drop_vars('lat_bnds')
-    if 'lon_bnds' in ds.data_vars:
-        ds = ds.drop_vars('lon_bnds')
+    if isinstance(ds.time[0].values, np.datetime64) == False:
+        ds = ds.assign_coords(
+            time=xr.CFTimeIndex(ds.time.values).to_datetimeindex(unsafe=True)
+        )
+
+    if "time_bnds" in ds.data_vars:
+        ds = ds.drop_vars("time_bnds")
+    if "lat_bnds" in ds.data_vars:
+        ds = ds.drop_vars("lat_bnds")
+    if "lon_bnds" in ds.data_vars:
+        ds = ds.drop_vars("lon_bnds")
     if isinstance(ds.time[0].values, np.datetime64) == False:
         ds = ds.assign_coords(
             time=xr.CFTimeIndex(ds.time.values).to_datetimeindex(unsafe=True)
