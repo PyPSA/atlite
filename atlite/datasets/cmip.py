@@ -126,19 +126,20 @@ def _year_in_file(time_range, years):
     Parameters:
         time_range: str
             fmt YYYYMMDD-YYYYMMDD
-        years: list 
+        years: list
     """
 
-    time_range = time_range.split('.')[0]
-    s_year = int(time_range.split('-')[0][:4])
-    e_year = int(time_range.split('-')[1][:4])
-    date_range = pd.date_range(str(s_year),str(e_year),freq='AS')
+    time_range = time_range.split(".")[0]
+    s_year = int(time_range.split("-")[0][:4])
+    e_year = int(time_range.split("-")[1][:4])
+    date_range = pd.date_range(str(s_year), str(e_year), freq="AS")
     if s_year == e_year and e_year in years:
         return True
-    elif date_range.year.isin(years).any() ==True:
+    elif date_range.year.isin(years).any() == True:
         return True
     else:
         return False
+
 
 def retrieve_data(esgf_params, coords, variables, chunks=None, tmpdir=None, lock=None):
     """
@@ -157,7 +158,7 @@ def retrieve_data(esgf_params, coords, variables, chunks=None, tmpdir=None, lock
             files = [
                 f.opendap_url
                 for f in search_results
-                if _year_in_file(f.opendap_url.split("_")[-1],years) 
+                if _year_in_file(f.opendap_url.split("_")[-1], years)
             ]
             dsets.append(xr.open_mfdataset(files, chunks=chunks, concat_dim=["time"]))
     ds = xr.merge(dsets)
@@ -199,6 +200,10 @@ def _rename_and_fix_coords(ds, dt, add_lon_lat=True, add_ctime=False):
         ds = ds.drop_vars('lat_bnds')
     if 'lon_bnds' in ds.data_vars:
         ds = ds.drop_vars('lon_bnds')
+    if isinstance(ds.time[0].values, np.datetime64) == False:
+        ds = ds.assign_coords(
+            time=xr.CFTimeIndex(ds.time.values).to_datetimeindex(unsafe=True)
+        )
 
     ds = ds.assign_coords(time=ds.coords["time"].dt.floor(dt))
 
