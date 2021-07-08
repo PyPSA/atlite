@@ -11,6 +11,8 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+* Automated upload of code coverage reports via Codecov.
+
 Version 0.2.5 
 ==============
 

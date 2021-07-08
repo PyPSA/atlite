@@ -14,9 +14,11 @@ Atlite: Convert weather data to energy systems data
     :target: https://anaconda.org/conda-forge/atlite
     :alt: Conda version
 
-.. image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
-    :target: https://travis-ci.org/PyPSA/atlite
-    :alt: Build status
+.. image:: https://github.com/PyPSA/atlite/actions/workflows/CI.yaml/badge.svg
+   :target: https://github.com/PyPSA/atlite/actions/workflows/CI.yaml
+
+.. image:: https://codecov.io/gh/PyPSA/atlite/branch/master/graph/badge.svg?token=TEJ16CMIHJ
+   :target: https://codecov.io/gh/PyPSA/atlite
 
 .. image:: https://readthedocs.org/projects/atlite/badge/?version=master
     :target: https://atlite.readthedocs.io/en/latest/?badge=master
