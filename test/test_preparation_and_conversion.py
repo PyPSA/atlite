@@ -88,7 +88,7 @@ def pv_test(cutout):
         return_capacity=True,
     )
     cap_per_region = (
-        cells.assign(cap_factor=cap_factor.stack(spatial=["y", "x"]))
+        cells.assign(cap_factor=cap_factor.stack(spatial=["y", "x"]).values)
         .groupby("regions")
         .cap_factor.sum()
     )
