@@ -55,7 +55,7 @@ def search_ESGF(esgf_params, url="https://esgf-data.dkrz.de/esg-search"):
 
 def get_data_runoff(esgf_params, cutout, **retrieval_params):
     """
-    Get runoff data for given retrieval parameters 
+    Get runoff data for given retrieval parameters
        (the run off retrival have not be tested extensively)
     """
     coords = cutout.coords
@@ -86,7 +86,7 @@ def get_data_influx(esgf_params, cutout, **retrieval_params):
         **retrieval_params,
     )
 
-    ds = _rename_and_fix_coords(cutout,ds)
+    ds = _rename_and_fix_coords(cutout, ds)
 
     ds = ds.rename({"rsds": "influx", "rsus": "outflux"})
 
@@ -104,7 +104,7 @@ def get_data_temperature(esgf_params, cutout, **retrieval_params):
     coords = cutout.coords
     ds = retrieve_data(esgf_params, coords, variables=["tas"], **retrieval_params)
 
-    ds = _rename_and_fix_coords(cutout,ds)
+    ds = _rename_and_fix_coords(cutout, ds)
     ds = ds.rename({"tas": "temperature"})
     ds = ds.drop_vars("height")
 
@@ -116,7 +116,7 @@ def get_data_wind(esgf_params, cutout, **retrieval_params):
 
     coords = cutout.coords
     ds = retrieve_data(esgf_params, coords, ["sfcWind"], **retrieval_params)
-    ds = _rename_and_fix_coords(cutout,ds)
+    ds = _rename_and_fix_coords(cutout, ds)
     ds = ds.rename({"sfcWind": "wnd{:0d}m".format(int(ds.sfcWind.height.values))})
     ds = ds.drop_vars("height")
     return ds
@@ -171,7 +171,7 @@ def retrieve_data(esgf_params, coords, variables, chunks=None, tmpdir=None, lock
     return ds
 
 
-def _rename_and_fix_coords(cutout,ds,  add_lon_lat=True, add_ctime=False):
+def _rename_and_fix_coords(cutout, ds, add_lon_lat=True, add_ctime=False):
     """Rename 'longitude' and 'latitude' columns to 'x' and 'y' and fix roundings.
 
     Optionally (add_lon_lat, default:True) preserves latitude and longitude
@@ -195,29 +195,27 @@ def _rename_and_fix_coords(cutout,ds,  add_lon_lat=True, add_ctime=False):
 
     # shift averaged data to beginning of bin
 
-
     if "time_bnds" in ds.data_vars:
         ds = ds.drop_vars("time_bnds")
     if "time_bounds" in ds.data_vars:
         ds = ds.drop_vars("time_bounds")
-    
+
     if "lat_bnds" in ds.data_vars:
         ds = ds.drop_vars("lat_bnds")
     if "lon_bnds" in ds.data_vars:
         ds = ds.drop_vars("lon_bnds")
-    
+
     ds = ds.assign_coords(time=ds.coords["time"].dt.floor(dt))
 
     if isinstance(ds.time[0].values, np.datetime64) == False:
-        if xr.CFTimeIndex(ds.time.values).calendar == '360_day':
+        if xr.CFTimeIndex(ds.time.values).calendar == "360_day":
             from xclim.core.calendar import convert_calendar
-            ds = convert_calendar(ds,cutout.data.time,align_on='year')
+
+            ds = convert_calendar(ds, cutout.data.time, align_on="year")
         else:
             ds = ds.assign_coords(
-            time=xr.CFTimeIndex(ds.time.values).to_datetimeindex(unsafe=True)
-        )
-
-    
+                time=xr.CFTimeIndex(ds.time.values).to_datetimeindex(unsafe=True)
+            )
 
     return ds
 
