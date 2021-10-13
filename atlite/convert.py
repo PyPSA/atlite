@@ -15,6 +15,7 @@ import geopandas as gpd
 import datetime as dt
 from operator import itemgetter
 from pathlib import Path
+from dask import delayed, compute
 from dask.diagnostics import ProgressBar
 from scipy.sparse import csr_matrix
 
@@ -615,3 +616,180 @@ def hydro(
     return hydrom.shift_and_aggregate_runoff_for_plants(
         basins, runoff, flowspeed, show_progress
     )
+
+
+def convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha):
+    """
+    Convert the cutout data to dynamic line rating time series.
+
+    The formulation is based on:
+
+    [1]“IEEE Std 738™-2012 (Revision of IEEE Std 738-2006/Incorporates IEEE Std
+        738-2012/Cor 1-2013), IEEE Standard for Calculating the Current-Temperature
+        Relationship of Bare Overhead Conductors,” p. 72.
+
+    The following simplifications/assumptions were made:
+        1. Only forced convection heat losses are considered. These are heat
+           losses which occur for wind speeds > 0. The natural heat loss, for times
+           without wind, is neglected.
+        2. Wind speed is set taken at height 100 meters above ground. Ironmen
+           and transmission lines are typically at 50-60 meters.
+        3. Solar heat influx is set proportional to solar short wave influx.
+        4. The incidence angle of the solar heat influx is assumed to be 90 degree.
+
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Subset of the cutout data including all weather cells overlapping with
+        the line.
+    psi : int/float
+        Azimuth angle of the line in degree, that is the incidence angle of the line
+        with a pointer directing north (90 is east, 180 is south, 270 is west).
+    R : float
+        Resistance of the conductor in per unit system (typical value is 1-e5).
+    D : float,
+        Conductor diameter
+    Ts : float
+        Surface temperature.
+    epsilon : float
+        Conductor emissivity
+    alpha : float
+        Conductor absorptivity
+
+    Returns
+    -------
+    ds
+        xr.DataArray giving the nominal capacity per timestep.
+
+    """
+
+    Ta = ds["temperature"]
+    Tfilm = (Ta + Ts) / 2
+
+    # 1. Convective Loss (forced convection only)
+    V = ds["wnd100m"]  # typically ironmen are about 40-60 meters high
+    mu = (1.458e-6 * Tfilm ** 1.5) / (Tfilm + 100)  # Dynamic viscosity of air (13a)
+    H = ds["height"]
+    rho = (1.293 - 1.525e-4 * H + 6.379e-9 * H ** 2) / (
+        1 + 0.00367 * (Tfilm - 273)
+    )  # (14a)
+
+    reynold = D * V * rho / mu
+
+    k = 2.424e-2 + 7.477e-5 * Tfilm - 4.407e-9 * Tfilm ** 2  # thermal conductivity
+    Phi = np.abs(np.mod(ds["wnd_azimuth"], np.pi) - np.mod(np.deg2rad(psi), np.pi))
+    K = (
+        1.194 - np.cos(Phi) + 0.194 * np.cos(2 * Phi) + 0.368 * np.sin(2 * Phi)
+    )  # wind direction factor
+
+    qc1 = K * (1.01 + 1.35 * reynold ** 0.52) * k * (Ts - Ta)  # (3a) in [1]
+    qc2 = K * 0.754 * reynold ** 0.6 * k * (Ts - Ta)  # (3b) in [1]
+
+    qc = np.maximum(qc1, qc2)
+
+    # 2. Radiated Loss
+    qr = 17.8 * D * epsilon * ((Ts / 100) ** 4 - (Ta / 100) ** 4)
+
+    # 3. Solar Radiance Heat Gain
+    Q = ds["influx_direct"]  # assumption, this is short wave and not heat influx
+    A = D * 1  # projected area of conductor in square meters
+
+    qs = alpha * Q * A
+
+    return np.sqrt((qc + qr - qs) / R).min("spatial")
+
+
+def line_rating(
+    cutout,
+    shapes,
+    line_resistance,
+    **params,
+):
+    """
+    Create a dynamic line rating time series based on the IEEE-738 standard [1].
+
+
+    The per-unit steady-state capacity is derived from the balance between heat
+    losses due to radiation and convection, and heat gains due to solar influx
+    and conductur resistance. For more information on assumptions and modifications
+    see ``convert_line_rating``.
+
+
+    [1]“IEEE Std 738™-2012 (Revision of IEEE Std 738-2006/Incorporates IEEE Std
+        738-2012/Cor 1-2013), IEEE Standard for Calculating the Current-Temperature
+        Relationship of Bare Overhead Conductors,” p. 72.
+
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+    shapes : geopandas.GeoSeries
+        Line shapes of the lines.
+    line_resistance : float/series
+        Resistance of the lines in per unit system (typical value is 1-e5).
+    params : keyword arguments as float/series
+        Arguments to tweak/modify the line rating calculations based on [1].
+        Defaults are:
+            * D : 0.03 (conductor diameter)
+            * Ts : 343 (surface temperature)
+            * epsilon : 0.6 (conductor emissivity)
+            * alpha : 0.6 (conductor absorptivity)
+
+    Returns
+    -------
+    Line-rating timeseries with dimensions time x lines
+
+    Example
+    -------
+
+    >>> import pypsa
+    >>> import atlite
+    >>> import geopandas as gpd
+    >>> from shapely.geometry import Point, LineString as Line
+
+    >>> n = pypsa.examples.ac_dc_meshed()
+    >>> x = n.buses.x
+    >>> y = n.buses.y
+    >>> func = lambda ds: Line([Point(x[ds.bus0], y[ds.bus0]),
+                                Point(x[ds.bus1], y[ds.bus1])])
+    >>> shapes = gpd.GeoSeries(n.lines.apply(func, axis=1))
+
+    >>> cutout = atlite.Cutout('test', x=slice(x.min(), x.max()), y=slice(y.min(), y.max()),
+                            time='2020-01-01', module='era5', dx=1, dy=1)
+    >>> cutout.prepare()
+
+    >>> r = line_rating(cutout, shapes, n.lines.r_pu)
+
+    """
+
+    I = cutout.intersectionmatrix(shapes)
+    rows, cols = I.nonzero()
+
+    data = cutout.data.stack(spatial=["x", "y"])
+
+    def get_azimuth(shape):
+        start = shape.coords[0]
+        end = shape.coords[-1]
+        return np.arctan2(start[0] - end[0], start[1] - end[1])
+
+    azimuth = shapes.apply(get_azimuth)
+    azimuth = azimuth.where(azimuth >= 0, azimuth + np.pi)
+
+    params.setdefault("D", 0.03)
+    params.setdefault("Ts", 343)
+    params.setdefault("epsilon", 0.6)
+    params.setdefault("alpha", 0.6)
+    df = pd.DataFrame({"psi": azimuth, "R": line_resistance}).assign(**params)
+
+    assert df.notnull().all().all(), "Nan values encountered."
+    assert df.columns.equals(pd.Index(["psi", "R", "D", "Ts", "epsilon", "alpha"]))
+
+    res = []
+    for i in range(len(df)):
+        ds = data.isel(spatial=cols[rows == i])
+        res.append(delayed(convert_line_rating)(ds, *df.iloc[i].values))
+    with ProgressBar():
+        res = compute(res)
+
+    return xr.concat(*res, dim=df.index)
