@@ -49,6 +49,7 @@ from .convert import (
     runoff,
     solar_thermal,
     soil_temperature,
+    line_rating,
 )
 from .datasets import modules as datamodules
 
@@ -631,3 +632,5 @@ class Cutout:
     runoff = runoff
 
     hydro = hydro
+
+    line_rating = line_rating

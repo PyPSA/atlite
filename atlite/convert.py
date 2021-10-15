@@ -700,12 +700,7 @@ def convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha):
     return np.sqrt((qc + qr - qs) / R).min("spatial")
 
 
-def line_rating(
-    cutout,
-    shapes,
-    line_resistance,
-    **params,
-):
+def line_rating(cutout, shapes, line_resistance, **params):
     """
     Create a dynamic line rating time series based on the IEEE-738 standard [1].
 
@@ -780,15 +775,21 @@ def line_rating(
     params.setdefault("Ts", 343)
     params.setdefault("epsilon", 0.6)
     params.setdefault("alpha", 0.6)
+
     df = pd.DataFrame({"psi": azimuth, "R": line_resistance}).assign(**params)
 
     assert df.notnull().all().all(), "Nan values encountered."
     assert df.columns.equals(pd.Index(["psi", "R", "D", "Ts", "epsilon", "alpha"]))
 
+    dummy = xr.DataArray(np.full(len(data.time), np.nan), coords=(data.time,))
     res = []
     for i in range(len(df)):
-        ds = data.isel(spatial=cols[rows == i])
-        res.append(delayed(convert_line_rating)(ds, *df.iloc[i].values))
+        cells_i = cols[rows == i]
+        if cells_i.size:
+            ds = data.isel(spatial=cells_i)
+            res.append(delayed(convert_line_rating)(ds, *df.iloc[i].values))
+        else:
+            res.append(dummy)
     with ProgressBar():
         res = compute(res)
 
