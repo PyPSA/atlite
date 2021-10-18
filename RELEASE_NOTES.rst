@@ -11,6 +11,8 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+* Atlite now supports calculating dynamic line ratings based on the IEEE-738 standard (https://github.com/PyPSA/atlite/pull/189).
+
 * Automated upload of code coverage reports via Codecov.
 
 Version 0.2.5 
