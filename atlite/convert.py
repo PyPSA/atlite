@@ -632,9 +632,9 @@ def convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha):
         1. Only forced convection heat losses are considered. These are heat
            losses which occur for wind speeds > 0. The natural heat loss, for times
            without wind, is neglected.
-        2. Wind speed is set taken at height 100 meters above ground. Ironmen
+        2. Wind speed are taken at height 100 meters above ground. However, ironmen
            and transmission lines are typically at 50-60 meters.
-        3. Solar heat influx is set proportional to solar short wave influx.
+        3. Solar heat influx is set proportionally to solar short wave influx.
         4. The incidence angle of the solar heat influx is assumed to be 90 degree.
 
 
