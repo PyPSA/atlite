@@ -646,21 +646,20 @@ def convert_line_rating(
         Azimuth angle of the line in degree, that is the incidence angle of the line
         with a pointer directing north (90 is east, 180 is south, 270 is west).
     R : float
-        Resistance of the conductor in [Ω/m] at maximally allowed
-        temperature Ts (typical value is 1-e5).
+        Resistance of the conductor in [Ω/m] at maximally allowed temperature Ts.
     D : float,
-        Conductor diameter
+        Conductor diameter.
     Ts : float
         Maximally allowed surface temperature (typically 100°C).
     epsilon : float
-        Conductor emissivity
+        Conductor emissivity.
     alpha : float
-        Conductor absorptivity
+        Conductor absorptivity.
 
     Returns
     -------
     Imax
-        xr.DataArray giving the nominal current capacity per timestep.
+        xr.DataArray giving the maximal current capacity per timestep in Ampere.
 
     """
 
@@ -735,18 +734,19 @@ def line_rating(cutout, shapes, line_resistance, **params):
     shapes : geopandas.GeoSeries
         Line shapes of the lines.
     line_resistance : float/series
-        Resistance of the lines in per unit system (typical value is 1-e5).
+        Resistance of the lines in Ohm/meter. Alternatively in p.u. system in
+        Ohm/1000km (see example below).
     params : keyword arguments as float/series
         Arguments to tweak/modify the line rating calculations based on [1].
         Defaults are:
-            * D : 0.03 (conductor diameter)
+            * D : 0.028 (conductor diameter)
             * Ts : 373 (maximally allowed surface temperature)
             * epsilon : 0.6 (conductor emissivity)
             * alpha : 0.6 (conductor absorptivity)
 
     Returns
     -------
-    Current thermal limit timeseries with dimensions time x lines
+    Current thermal limit timeseries with dimensions time x lines in Ampere.
 
     Example
     -------
@@ -773,7 +773,7 @@ def line_rating(cutout, shapes, line_resistance, **params):
     >>> v = xr.DataArray(n.lines.v_nom, dims='name')
     >>> s = np.sqrt(3) * i * v / 1e3 # in MW
 
-    Alternatively, the units play nicely out when we use the per unit system
+    Alternatively, the units nicely play out when we use the per unit system
     while scaling the resistance with a factor 1000.
 
     >>> s = np.sqrt(3) * cutout.line_rating(shapes, n.lines.r_pu * 1e3) # in MW
