@@ -618,7 +618,9 @@ def hydro(
     )
 
 
-def convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha):
+def convert_line_rating(
+    ds, psi, R, D=0.028, Ts=373, epsilon=0.6, alpha=0.6, per_unit=False
+):
     """
     Convert the cutout data to dynamic line rating time series.
 
@@ -629,13 +631,10 @@ def convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha):
         Relationship of Bare Overhead Conductors,” p. 72.
 
     The following simplifications/assumptions were made:
-        1. Only forced convection heat losses are considered. These are heat
-           losses which occur for wind speeds > 0. The natural heat loss, for times
-           without wind, is neglected.
-        2. Wind speed are taken at height 100 meters above ground. However, ironmen
+        1. Wind speed are taken at height 100 meters above ground. However, ironmen
            and transmission lines are typically at 50-60 meters.
-        3. Solar heat influx is set proportionally to solar short wave influx.
-        4. The incidence angle of the solar heat influx is assumed to be 90 degree.
+        2. Solar heat influx is set proportionally to solar short wave influx.
+        3. The incidence angle of the solar heat influx is assumed to be 90 degree.
 
 
     Parameters
@@ -647,11 +646,12 @@ def convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha):
         Azimuth angle of the line in degree, that is the incidence angle of the line
         with a pointer directing north (90 is east, 180 is south, 270 is west).
     R : float
-        Resistance of the conductor in per unit system (typical value is 1-e5).
+        Resistance of the conductor in [Ω/m] at maximally allowed
+        temperature Ts (typical value is 1-e5).
     D : float,
         Conductor diameter
     Ts : float
-        Surface temperature.
+        Maximally allowed surface temperature (typically 100°C).
     epsilon : float
         Conductor emissivity
     alpha : float
@@ -659,34 +659,46 @@ def convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha):
 
     Returns
     -------
-    ds
-        xr.DataArray giving the nominal capacity per timestep.
+    Imax
+        xr.DataArray giving the nominal current capacity per timestep.
 
     """
 
     Ta = ds["temperature"]
     Tfilm = (Ta + Ts) / 2
+    T0 = 273.15
 
-    # 1. Convective Loss (forced convection only)
+    # 1. Convective Loss, at first forced convection
     V = ds["wnd100m"]  # typically ironmen are about 40-60 meters high
-    mu = (1.458e-6 * Tfilm ** 1.5) / (Tfilm + 100)  # Dynamic viscosity of air (13a)
+    mu = (1.458e-6 * Tfilm ** 1.5) / (
+        Tfilm + 383.4 - T0
+    )  # Dynamic viscosity of air (13a)
     H = ds["height"]
     rho = (1.293 - 1.525e-4 * H + 6.379e-9 * H ** 2) / (
-        1 + 0.00367 * (Tfilm - 273)
+        1 + 0.00367 * (Tfilm - T0)
     )  # (14a)
 
     reynold = D * V * rho / mu
 
-    k = 2.424e-2 + 7.477e-5 * Tfilm - 4.407e-9 * Tfilm ** 2  # thermal conductivity
+    k = (
+        2.424e-2 + 7.477e-5 * (Tfilm - T0) - 4.407e-9 * (Tfilm - T0) ** 2
+    )  # thermal conductivity
     Phi = np.abs(np.mod(ds["wnd_azimuth"], np.pi) - np.mod(np.deg2rad(psi), np.pi))
     K = (
         1.194 - np.cos(Phi) + 0.194 * np.cos(2 * Phi) + 0.368 * np.sin(2 * Phi)
     )  # wind direction factor
 
-    qc1 = K * (1.01 + 1.35 * reynold ** 0.52) * k * (Ts - Ta)  # (3a) in [1]
-    qc2 = K * 0.754 * reynold ** 0.6 * k * (Ts - Ta)  # (3b) in [1]
+    Tdiff = Ts - Ta
+    qcf1 = K * (1.01 + 1.347 * reynold ** 0.52) * k * Tdiff  # (3a) in [1]
+    qcf2 = K * 0.754 * reynold ** 0.6 * k * Tdiff  # (3b) in [1]
 
-    qc = np.maximum(qc1, qc2)
+    qcf = np.maximum(qcf1, qcf2)
+
+    #  natural convection
+    qcn = 3.645 * rho * D ** 0.75 * Tdiff ** 1.25
+
+    # convection loss is the max between forced and natural
+    qc = np.maximum(qcf, qcn)
 
     # 2. Radiated Loss
     qr = 17.8 * D * epsilon * ((Ts / 100) ** 4 - (Ta / 100) ** 4)
@@ -697,7 +709,8 @@ def convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha):
 
     qs = alpha * Q * A
 
-    return np.sqrt((qc + qr - qs) / R).min("spatial")
+    Imax = np.sqrt((qc + qr - qs) / R)
+    return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
 
 
 def line_rating(cutout, shapes, line_resistance, **params):
@@ -705,7 +718,7 @@ def line_rating(cutout, shapes, line_resistance, **params):
     Create a dynamic line rating time series based on the IEEE-738 standard [1].
 
 
-    The per-unit steady-state capacity is derived from the balance between heat
+    The steady-state capacity is derived from the balance between heat
     losses due to radiation and convection, and heat gains due to solar influx
     and conductur resistance. For more information on assumptions and modifications
     see ``convert_line_rating``.
@@ -727,23 +740,25 @@ def line_rating(cutout, shapes, line_resistance, **params):
         Arguments to tweak/modify the line rating calculations based on [1].
         Defaults are:
             * D : 0.03 (conductor diameter)
-            * Ts : 343 (surface temperature)
+            * Ts : 373 (maximally allowed surface temperature)
             * epsilon : 0.6 (conductor emissivity)
             * alpha : 0.6 (conductor absorptivity)
 
     Returns
     -------
-    Line-rating timeseries with dimensions time x lines
+    Current thermal limit timeseries with dimensions time x lines
 
     Example
     -------
 
     >>> import pypsa
     >>> import atlite
+    >>> import numpy as np
     >>> import geopandas as gpd
     >>> from shapely.geometry import Point, LineString as Line
 
     >>> n = pypsa.examples.ac_dc_meshed()
+    >>> n.calculate_dependent_values()
     >>> x = n.buses.x
     >>> y = n.buses.y
     >>> func = lambda ds: Line([Point(x[ds.bus0], y[ds.bus0]),
@@ -754,7 +769,14 @@ def line_rating(cutout, shapes, line_resistance, **params):
                             time='2020-01-01', module='era5', dx=1, dy=1)
     >>> cutout.prepare()
 
-    >>> r = line_rating(cutout, shapes, n.lines.r_pu)
+    >>> i = cutout.line_rating(shapes, n.lines.r/1e3)
+    >>> v = xr.DataArray(n.lines.v_nom, dims='name')
+    >>> s = np.sqrt(3) * i * v / 1e3 # in MW
+
+    Alternatively, the units play nicely out when we use the per unit system
+    while scaling the resistance with a factor 1000.
+
+    >>> s = np.sqrt(3) * cutout.line_rating(shapes, n.lines.r_pu * 1e3) # in MW
 
     """
 
@@ -771,8 +793,8 @@ def line_rating(cutout, shapes, line_resistance, **params):
     azimuth = shapes.apply(get_azimuth)
     azimuth = azimuth.where(azimuth >= 0, azimuth + np.pi)
 
-    params.setdefault("D", 0.03)
-    params.setdefault("Ts", 343)
+    params.setdefault("D", 0.028)
+    params.setdefault("Ts", 373)
     params.setdefault("epsilon", 0.6)
     params.setdefault("alpha", 0.6)
 
