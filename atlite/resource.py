@@ -83,9 +83,10 @@ def get_solarpanelconfig(panel):
 
     return conf
 
+
 def get_cspinstallationconfig(installation):
     """Load the 'installation'.csv file from local disk to provide the system efficiencies.
-    
+
     Parameters
     ----------
     installation : str
@@ -103,36 +104,33 @@ def get_cspinstallationconfig(installation):
     if isinstance(installation, str):
         if not installation.endswith(".csv"):
             installation += ".csv"
-        
+
         installation = CSPINSTALLATION_DIRECTORY / installation
 
     # Load and set expected index columns
-    da = pd.read_csv(installation, index_col=['altitude','azimuth'])
+    da = pd.read_csv(installation, index_col=["altitude", "azimuth"])
 
-    # Handle as xarray DataArray early - da will be 'return'-ed 
-    da = da.to_xarray()['efficiency']
+    # Handle as xarray DataArray early - da will be 'return'-ed
+    da = da.to_xarray()["efficiency"]
 
     # Solar altitude + azimuth expected in deg for better readibility
     # calculations use solar position in rad
     # Convert da to new coordinates and drop old
-    da = da.rename({
-        'azimuth':'azimuth [deg]',
-        'altitude':'altitude [deg]'
-    })
-    da = da.assign_coords({
-        'altitude':np.deg2rad(da['altitude [deg]']),
-        'azimuth':np.deg2rad(da['azimuth [deg]']),
-    })
-    da = da.swap_dims({
-        'altitude [deg]':'altitude',
-        'azimuth [deg]':'azimuth'
-    })
-    da = da.drop(['altitude [deg]','azimuth [deg]'])
+    da = da.rename({"azimuth": "azimuth [deg]", "altitude": "altitude [deg]"})
+    da = da.assign_coords(
+        {
+            "altitude": np.deg2rad(da["altitude [deg]"]),
+            "azimuth": np.deg2rad(da["azimuth [deg]"]),
+        }
+    )
+    da = da.swap_dims({"altitude [deg]": "altitude", "azimuth [deg]": "azimuth"})
+    da = da.drop(["altitude [deg]", "azimuth [deg]"])
 
     # Efficiency unit from % to p.u.
-    da /= 1.e2
+    da /= 1.0e2
 
     return da
+
 
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
