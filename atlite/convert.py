@@ -682,7 +682,8 @@ def convert_line_rating(
     k = (
         2.424e-2 + 7.477e-5 * (Tfilm - T0) - 4.407e-9 * (Tfilm - T0) ** 2
     )  # thermal conductivity
-    Phi = np.abs(np.mod(ds["wnd_azimuth"], np.pi) - np.mod(np.deg2rad(psi), np.pi))
+    anglediff = ds["wnd_azimuth"] - np.deg2rad(psi)
+    Phi = np.abs(np.mod(anglediff + np.pi / 2, np.pi) - np.pi / 2)
     K = (
         1.194 - np.cos(Phi) + 0.194 * np.cos(2 * Phi) + 0.368 * np.sin(2 * Phi)
     )  # wind direction factor
@@ -752,6 +753,7 @@ def line_rating(cutout, shapes, line_resistance, **params):
     -------
 
     >>> import pypsa
+    >>> import xarray as xr
     >>> import atlite
     >>> import numpy as np
     >>> import geopandas as gpd
@@ -761,9 +763,9 @@ def line_rating(cutout, shapes, line_resistance, **params):
     >>> n.calculate_dependent_values()
     >>> x = n.buses.x
     >>> y = n.buses.y
-    >>> func = lambda ds: Line([Point(x[ds.bus0], y[ds.bus0]),
-                                Point(x[ds.bus1], y[ds.bus1])])
-    >>> shapes = gpd.GeoSeries(n.lines.apply(func, axis=1))
+    >>> buses = n.lines[["bus0", "bus1"]].values
+    >>> shapes = [Line([Point(x[b0], y[b0]), Point(x[b1], y[b1])]) for (b0, b1) in buses]
+    >>> shapes = gpd.GeoSeries(shapes, index=n.lines.index)
 
     >>> cutout = atlite.Cutout('test', x=slice(x.min(), x.max()), y=slice(y.min(), y.max()),
                             time='2020-01-01', module='era5', dx=1, dy=1)
@@ -786,8 +788,9 @@ def line_rating(cutout, shapes, line_resistance, **params):
     data = cutout.data.stack(spatial=["x", "y"])
 
     def get_azimuth(shape):
-        start = shape.coords[0]
-        end = shape.coords[-1]
+        coords = np.array(shape.coords)
+        start = coords[0]
+        end = coords[-1]
         return np.arctan2(start[0] - end[0], start[1] - end[1])
 
     azimuth = shapes.apply(get_azimuth)

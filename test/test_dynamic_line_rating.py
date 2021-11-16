@@ -13,6 +13,7 @@ Created on Mon Oct 18 15:11:42 2021
 
 from atlite.convert import convert_line_rating
 import numpy as np
+import pandas as pd
 
 
 def test_ieee_sample_case():
@@ -102,3 +103,71 @@ def test_suedkabel_sample_case():
 
     assert np.isclose(i, 2460, rtol=0.02)
     assert np.isclose(s, 1619, rtol=0.02)
+
+
+def test_right_angle_in_different_configuration():
+    """
+    Test different configurations of angle difference of 90 degree.
+    """
+    ds = dict(
+        temperature=273 + 40, wnd100m=0.61, height=0, wnd_azimuth=0, influx_direct=1027
+    )
+
+    psi = 90  # line azimuth
+    D = 0.02814  # line diameter
+    Ts = 273 + 100  # max allowed line surface temp
+    epsilon = 0.8  # emissivity
+    alpha = 0.8  # absorptivity
+
+    R = 9.39e-5  # resistance at 100°C
+
+    expected = convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha)
+
+    psi = 270  # line azimuth
+    assert expected == convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha)
+
+    # now set wind angle to 90 degree, line angle to 0 and 180 (preserving right angle)
+    ds2 = {**ds, "wnd_azimuth": np.pi / 2}
+
+    psi = 0  # line azimuth
+    assert expected == convert_line_rating(ds2, psi, R, D, Ts, epsilon, alpha)
+
+    psi = 180  # line azimuth
+    assert expected == convert_line_rating(ds2, psi, R, D, Ts, epsilon, alpha)
+
+    # now set wind angle to 180 degree, line angle to 90 and 270 (preserving right angle)
+    ds2 = {**ds, "wnd_azimuth": np.pi}
+
+    psi = 90  # line azimuth
+    assert expected == convert_line_rating(ds2, psi, R, D, Ts, epsilon, alpha)
+
+    # exchange psi and wind azimuth
+    psi = 270  # line azimuth
+    assert expected == convert_line_rating(ds2, psi, R, D, Ts, epsilon, alpha)
+
+
+def test_angle_increase():
+    """
+    Test an increasing angle which should lead to an increasing capacity
+    """
+    ds = dict(
+        temperature=273 + 40, wnd100m=0.61, height=0, wnd_azimuth=0, influx_direct=1027
+    )
+
+    D = 0.02814  # line diameter
+    Ts = 273 + 100  # max allowed line surface temp
+    epsilon = 0.8  # emissivity
+    alpha = 0.8  # absorptivity
+
+    R = 9.39e-5  # resistance at 100°C
+
+    func = lambda psi: convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha)
+    Psi = np.arange(0, 370, 10)
+    res = pd.Series([func(psi) for psi in Psi], index=Psi)
+
+    assert (res[:10].diff().dropna() >= 0).all()
+    assert (res[9:19].diff().dropna() <= 0).all()
+
+    # check point reflection
+    assert np.isclose(res[:19], res[:17:-1], atol=1e-10, rtol=1e-10).all()
+    assert np.isclose(res[:19], res[18:], atol=1e-10, rtol=1e-10).all()
