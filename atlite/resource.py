@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -368,3 +368,4 @@ def get_oedb_windturbineconfig(search=None, **search_params):
 _oedb_turbines = None
 windturbines = arrowdict({p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
 solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
+cspinstallations = arrowdict({p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.csv")})
