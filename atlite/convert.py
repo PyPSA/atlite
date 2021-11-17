@@ -32,6 +32,7 @@ from .pv.orientation import get_orientation, SurfaceOrientation
 
 from . import hydro as hydrom
 from . import wind as windm
+from . import csp as cspm
 
 from .resource import (
     get_cspinstallationconfig,
@@ -509,7 +510,7 @@ def convert_csp(ds, technology, installation):
     if technology == "parabolic trough":
         irradiation = ds["influx_direct"]
     elif technology == "solar tower":
-        irradiation = calculate_dni(ds, solar_position)
+        irradiation = cspm.calculate_dni(ds, solar_position)
     else:
         raise ValueError(f'Unknown CSP technology option "{technology}".')
 
