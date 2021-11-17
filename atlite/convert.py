@@ -501,8 +501,6 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
 
 
 # solar CSP
-
-
 def convert_csp(ds, technology, installation):
 
     solar_position = SolarPosition(ds)
@@ -516,12 +514,12 @@ def convert_csp(ds, technology, installation):
 
     # Determine solar_position dependend efficiency for each grid cell and time step
     efficiency = installation.interp(
-        altitude=solar_position['altitude'],
-        azimuth=solar_position['azimuth'],
+        altitude=solar_position["altitude"],
+        azimuth=solar_position["azimuth"],
         # faster than lin. interpolation; sufficient for high res efficiency map 'installation'
-        method='nearest',
+        method="nearest",
         # Fill values outside efficiencies specified with alt/az.
-        kwargs={'fill_value':0.}
+        kwargs={"fill_value": 0.0},
     )
 
     return efficiency * irradiation
