@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -33,7 +33,7 @@ from .pv.orientation import get_orientation, SurfaceOrientation
 from . import hydro as hydrom
 from . import wind as windm
 
-from .resource import get_windturbineconfig, get_solarpanelconfig, windturbine_smooth
+from .resource import get_cspinstallationconfig, get_windturbineconfig, get_solarpanelconfig, windturbine_smooth
 
 
 def convert_and_aggregate(
@@ -493,6 +493,69 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
         **params,
     )
 
+# solar CSP
+
+def convert_csp(ds, technology, installation):
+    
+    solar_position = SolarPosition(da)
+    
+    if technology == 'parabolic trough':
+        irradiation = ds['influx_direct']
+    elif technology == 'solar tower':
+        irradiation = calculate_dni(ds, solar_position)
+    else:
+        raise ValueError(f'Unknown CSP technology option "{technology}".')
+    
+    return (installation*irradiation)
+
+
+def csp(cutout, technology, installation, **params):
+    """
+    Convert downward shortwave direct radiation into a csp generation time-series.
+
+    Parameters
+    ----------
+    technology: str
+        CSP technology and subsequently which direct radiation to consider.
+        Either 'parabolic trough' (DHI) or 'solar tower' (DNI).
+    installation: str or xr.DataArray
+        CSP installation details determining the solar field efficiency dependent on
+        the local solar position. Can be either the name of one of the standard 
+        installations provided through `atlite.cspinstallationsPanel` or an 
+        xarray.DataArray with 'azimuth' (in rad) and 'altitude' (in rad) coordinates 
+        and an 'efficiency' (in p.u.) entry.
+
+    Returns
+    -------
+    csp : xr.DataArray
+        Time-series or capacity factors based on additional general
+        conversion arguments.
+
+    Note
+    ----
+    You can also specify all of the general conversion arguments
+    documented in the `convert_and_aggregate` function.
+
+    References
+    ----------
+    [1] Tobias Hirsch (ed.). SolarPACES Guideline for Bankable STE Yield Assessment,
+    IEA Technology Collaboration Programme SolarPACES, 2017.
+    URL: https://www.solarpaces.org/csp-research-tasks/task-annexes-iea/task-i-solar-thermal-electric-systems/solarpaces-guideline-for-bankable-ste-yield-assessment/
+
+    [2] Tobias Hirsch (ed.). CSPBankability Project Report, DLR, 2017.
+    URL: https://www.dlr.de/sf/en/desktopdefault.aspx/tabid-11126/19467_read-48251/
+
+    """
+
+    if isinstance(installation, (str, Path)):
+        installation = get_cspinstallationconfig(installation)
+
+    return cutout.convert_and_aggregate(
+        convert_func=convert_csp,
+        technology=technology,
+        installation=installation,
+        **params,
+    )
 
 # hydro
 def convert_runoff(ds, weight_with_height=True):
