@@ -41,6 +41,7 @@ from .convert import (
     temperature,
     wind,
     pv,
+    csp,
     runoff,
     solar_thermal,
     soil_temperature,
@@ -601,6 +602,8 @@ class Cutout:
     wind = wind
 
     pv = pv
+
+    csp = csp
 
     runoff = runoff
 
