@@ -368,4 +368,6 @@ def get_oedb_windturbineconfig(search=None, **search_params):
 _oedb_turbines = None
 windturbines = arrowdict({p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
 solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
-cspinstallations = arrowdict({p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.csv")})
+cspinstallations = arrowdict(
+    {p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.csv")}
+)

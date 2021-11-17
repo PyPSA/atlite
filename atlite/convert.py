@@ -33,7 +33,12 @@ from .pv.orientation import get_orientation, SurfaceOrientation
 from . import hydro as hydrom
 from . import wind as windm
 
-from .resource import get_cspinstallationconfig, get_windturbineconfig, get_solarpanelconfig, windturbine_smooth
+from .resource import (
+    get_cspinstallationconfig,
+    get_windturbineconfig,
+    get_solarpanelconfig,
+    windturbine_smooth,
+)
 
 
 def convert_and_aggregate(
@@ -493,20 +498,22 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
         **params,
     )
 
+
 # solar CSP
 
+
 def convert_csp(ds, technology, installation):
-    
+
     solar_position = SolarPosition(da)
-    
-    if technology == 'parabolic trough':
-        irradiation = ds['influx_direct']
-    elif technology == 'solar tower':
+
+    if technology == "parabolic trough":
+        irradiation = ds["influx_direct"]
+    elif technology == "solar tower":
         irradiation = calculate_dni(ds, solar_position)
     else:
         raise ValueError(f'Unknown CSP technology option "{technology}".')
-    
-    return (installation*irradiation)
+
+    return installation * irradiation
 
 
 def csp(cutout, technology, installation, **params):
@@ -520,9 +527,9 @@ def csp(cutout, technology, installation, **params):
         Either 'parabolic trough' (DHI) or 'solar tower' (DNI).
     installation: str or xr.DataArray
         CSP installation details determining the solar field efficiency dependent on
-        the local solar position. Can be either the name of one of the standard 
-        installations provided through `atlite.cspinstallationsPanel` or an 
-        xarray.DataArray with 'azimuth' (in rad) and 'altitude' (in rad) coordinates 
+        the local solar position. Can be either the name of one of the standard
+        installations provided through `atlite.cspinstallationsPanel` or an
+        xarray.DataArray with 'azimuth' (in rad) and 'altitude' (in rad) coordinates
         and an 'efficiency' (in p.u.) entry.
 
     Returns
@@ -556,6 +563,7 @@ def csp(cutout, technology, installation, **params):
         installation=installation,
         **params,
     )
+
 
 # hydro
 def convert_runoff(ds, weight_with_height=True):
