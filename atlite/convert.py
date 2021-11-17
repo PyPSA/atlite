@@ -120,9 +120,15 @@ def convert_and_aggregate(
                 "given for `per_unit` or `return_capacity`"
             )
         if capacity_factor:
-            return maybe_progressbar(da.mean("time"), show_progress, **dask_kwargs)
+            return maybe_progressbar(
+                da.mean("time").assign_attrs(units="p.u.").rename("capacity factor"),
+                show_progress,
+                **dask_kwargs,
+            )
         else:
-            return maybe_progressbar(da.sum("time"), show_progress, **dask_kwargs)
+            return maybe_progressbar(
+                da.sum("time", keep_attrs=True), show_progress, **dask_kwargs
+            )
 
     if shapes is not None:
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
@@ -366,7 +372,7 @@ def convert_wind(ds, turbine):
     def _interpolate(da):
         return np.interp(da, V, POW / P)
 
-    return xr.apply_ufunc(
+    da = xr.apply_ufunc(
         _interpolate,
         wnd_hub,
         input_core_dims=[[]],
@@ -374,6 +380,10 @@ def convert_wind(ds, turbine):
         output_dtypes=[wnd_hub.dtype],
         dask="parallelized",
     )
+
+    da.attrs["units"] = "MWh/MWp"
+    da = da.rename("specific generation")
+    return da
 
 
 def wind(cutout, turbine, smooth=False, **params):
