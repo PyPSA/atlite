@@ -781,6 +781,8 @@ def line_rating(cutout, shapes, line_resistance, **params):
     >>> s = np.sqrt(3) * cutout.line_rating(shapes, n.lines.r_pu * 1e3) # in MW
 
     """
+    if not isinstance(shapes, gpd.GeoSeries):
+        shapes = gpd.GeoSeries(shapes).rename_axis("dim_0")
 
     I = cutout.intersectionmatrix(shapes)
     rows, cols = I.nonzero()
