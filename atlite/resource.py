@@ -85,7 +85,7 @@ def get_solarpanelconfig(panel):
 
 
 def get_cspinstallationconfig(installation):
-    """Load the 'installation'.csv file from local disk to provide the system efficiencies.
+    """Load the 'installation'.yaml file from local disk to provide the system efficiencies.
 
     Parameters
     ----------
@@ -95,23 +95,27 @@ def get_cspinstallationconfig(installation):
 
     Returns
     -------
-    da : xr.DataArray
-        DataArray containing the solar efficiency (in p.u.) of the installation depending on
-        the local solar position.
-
+    config : dict
+        Config with details on the CSP installation.
     """
 
     if isinstance(installation, str):
-        if not installation.endswith(".csv"):
-            installation += ".csv"
+        if not installation.endswith(".yaml"):
+            installation += ".yaml"
 
-        installation = CSPINSTALLATION_DIRECTORY / installation
+    installation = CSPINSTALLATION_DIRECTORY / installation
 
     # Load and set expected index columns
-    da = pd.read_csv(installation, index_col=["altitude", "azimuth"])
+    with open(installation,'r') as f:
+        config = yaml.safe_load(f)
+
+    config['path'] = installation
+
+    ## Convert efficiency dict to xr.DataArray and convert units to deg -> rad, % -> p.u.
+    da = pd.DataFrame(config['efficiency']).set_index(['altitude','azimuth'])
 
     # Handle as xarray DataArray early - da will be 'return'-ed
-    da = da.to_xarray()["efficiency"]
+    da = da.to_xarray()["value"]
 
     # Solar altitude + azimuth expected in deg for better readibility
     # calculations use solar position in rad
@@ -129,7 +133,9 @@ def get_cspinstallationconfig(installation):
     # Efficiency unit from % to p.u.
     da /= 1.0e2
 
-    return da
+    config['efficiency'] = da
+
+    return config
 
 
 def solarpanel_rated_capacity_per_unit(panel):
@@ -369,5 +375,5 @@ _oedb_turbines = None
 windturbines = arrowdict({p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
 solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
 cspinstallations = arrowdict(
-    {p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.csv")}
+    {p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.yaml")}
 )

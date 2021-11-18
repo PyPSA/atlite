@@ -501,23 +501,24 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
 
 
 # solar CSP
-def convert_csp(ds, technology, installation):
+def convert_csp(ds, installation):
 
     solar_position = SolarPosition(ds)
 
-    if technology == "parabolic trough":
+    if installation["technology"] == "parabolic trough":
         irradiation = ds["influx_direct"]
-    elif technology == "solar tower":
+    elif installation["technology"] == "solar tower":
         irradiation = cspm.calculate_dni(ds, solar_position)
     else:
         raise ValueError(f'Unknown CSP technology option "{technology}".')
 
+
     # Determine solar_position dependend efficiency for each grid cell and time step
-    efficiency = installation.interp(
+    efficiency = installation["efficiency"].interp(
         altitude=solar_position["altitude"],
         azimuth=solar_position["azimuth"],
         # faster than lin. interpolation; sufficient for high res efficiency map 'installation'
-        method="nearest",
+        method="linear",
         # Fill values outside efficiencies specified with alt/az.
         kwargs={"fill_value": 0.0},
     )
@@ -525,21 +526,22 @@ def convert_csp(ds, technology, installation):
     return efficiency * irradiation
 
 
-def csp(cutout, technology, installation, **params):
+def csp(cutout, installation, technology=None, **params):
     """
     Convert downward shortwave direct radiation into a csp generation time-series.
 
     Parameters
     ----------
-    technology: str
-        CSP technology and subsequently which direct radiation to consider.
-        Either 'parabolic trough' (DHI) or 'solar tower' (DNI).
     installation: str or xr.DataArray
         CSP installation details determining the solar field efficiency dependent on
         the local solar position. Can be either the name of one of the standard
         installations provided through `atlite.cspinstallationsPanel` or an
         xarray.DataArray with 'azimuth' (in rad) and 'altitude' (in rad) coordinates
         and an 'efficiency' (in p.u.) entry.
+    technology: str
+        Overwrite CSP technology from the installation configuration. The technology
+        affects which direct radiation is considered. Either 'parabolic trough' (DHI) 
+        or 'solar tower' (DNI).
 
     Returns
     -------
@@ -566,9 +568,12 @@ def csp(cutout, technology, installation, **params):
     if isinstance(installation, (str, Path)):
         installation = get_cspinstallationconfig(installation)
 
+    # Overwrite technology
+    if technology is not None:
+        installation['technology'] = technology
+
     return cutout.convert_and_aggregate(
         convert_func=convert_csp,
-        technology=technology,
         installation=installation,
         **params,
     )
