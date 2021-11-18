@@ -125,7 +125,7 @@ def convert_and_aggregate(
             return maybe_progressbar(res, show_progress, **dask_kwargs)
         else:
             res = da.sum("time", keep_attrs=True)
-            return maybe_progressbar(res,  show_progress, **dask_kwargs)
+            return maybe_progressbar(res, show_progress, **dask_kwargs)
 
     if shapes is not None:
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
