@@ -40,7 +40,7 @@ crs = 4326
 
 features = {
     "height": ["height"],
-    "wind": ["wnd100m", "roughness"],
+    "wind": ["wnd100m", "wnd_azimuth", "roughness"],
     "influx": ["influx_toa", "influx_direct", "influx_diffuse", "albedo"],
     "temperature": ["temperature", "soil temperature"],
     "runoff": ["runoff"],
@@ -99,6 +99,9 @@ def get_data_wind(retrieval_params):
     ds["wnd100m"] = np.sqrt(ds["u100"] ** 2 + ds["v100"] ** 2).assign_attrs(
         units=ds["u100"].attrs["units"], long_name="100 metre wind speed"
     )
+    # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
+    azimuth = np.arctan2(ds["u100"], ds["v100"])
+    ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
     ds = ds.drop_vars(["u100", "v100"])
     ds = ds.rename({"fsr": "roughness"})
 

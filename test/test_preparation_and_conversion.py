@@ -21,6 +21,7 @@ urllib3.disable_warnings()
 
 import atlite
 from atlite import Cutout
+from shapely.geometry import Point, LineString as Line
 from xarray.testing import assert_allclose, assert_equal
 import numpy as np
 import pandas as pd
@@ -236,6 +237,13 @@ def hydro_test(cutout):
     )
     ds = cutout.hydro(plants, basins)
     assert ds.sel(plant=0).sum() > 0
+
+
+def line_rating_test(cutout):
+    shapes = [Line([Point(-3, 57), Point(0, 60)])]
+    resistance = 0.06 * 1e-3
+    i = cutout.line_rating(shapes, resistance)
+    assert i.notnull().all().item()
 
 
 # %% Prepare cutouts to test
@@ -461,6 +469,10 @@ class TestERA5:
     @staticmethod
     def test_soil_temperature_era5(cutout_era5):
         return soil_temperature_test(cutout_era5)
+
+    @staticmethod
+    def test_line_rating_era5(cutout_era5):
+        return line_rating_test(cutout_era5)
 
 
 @pytest.mark.skipif(
