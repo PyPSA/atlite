@@ -33,7 +33,12 @@ from pyproj import CRS
 
 from .utils import CachedAttribute
 from .data import cutout_prepare, available_features
-from .gis import get_coords, compute_indicatormatrix, compute_availabilitymatrix
+from .gis import (
+    get_coords,
+    compute_indicatormatrix,
+    compute_availabilitymatrix,
+    compute_intersectionmatrix,
+)
 from .convert import (
     convert_and_aggregate,
     heat_demand,
@@ -44,6 +49,7 @@ from .convert import (
     runoff,
     solar_thermal,
     soil_temperature,
+    line_rating,
 )
 from .datasets import modules as datamodules
 
@@ -527,6 +533,27 @@ class Cutout:
         """
         return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
 
+    def intersectionmatrix(self, shapes, shapes_crs=4326):
+        """
+        Compute the intersectionmatrix.
+
+        The intersectionmatrix is a sparse matrix with entries (i,j) being one
+        if shapes orig[j] and dest[i] are intersecting, and zero otherwise.
+
+        Note that the polygons must be in the same crs.
+
+        Parameters
+        ----------
+        orig : Collection of shapely polygons
+        dest : Collection of shapely polygons
+
+        Returns
+        -------
+        I : sp.sparse.lil_matrix
+          Intersectionmatrix
+        """
+        return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
+
     def uniform_layout(self):
         """Get a uniform capacity layout for all grid cells."""
         return xr.DataArray(1, [self.coords["y"], self.coords["x"]])
@@ -605,3 +632,5 @@ class Cutout:
     runoff = runoff
 
     hydro = hydro
+
+    line_rating = line_rating

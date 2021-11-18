@@ -153,6 +153,40 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     return indicator
 
 
+def compute_intersectionmatrix(orig, dest, orig_crs=4326, dest_crs=4326):
+    """
+    Compute the intersectionmatrix.
+
+    The intersectionmatrix is a sparse matrix with entries (i,j) being one
+    if shapes orig[j] and dest[i] are intersecting, and zero otherwise.
+
+    Note that the polygons must be in the same crs.
+
+    Parameters
+    ----------
+    orig : Collection of shapely polygons
+    dest : Collection of shapely polygons
+
+    Returns
+    -------
+    I : sp.sparse.lil_matrix
+      Intersectionmatrix
+    """
+    orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
+    dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
+    dest = reproject_shapes(dest, dest_crs, orig_crs)
+    intersection = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=float)
+    tree = STRtree(orig)
+    idx = dict((id(o), i) for i, o in enumerate(orig))
+
+    for i, d in enumerate(dest):
+        for o in tree.query(d):
+            j = idx[id(o)]
+            intersection[i, j] = o.intersects(d)
+
+    return intersection
+
+
 class ExclusionContainer:
     """Container for exclusion objects and meta data."""
 
