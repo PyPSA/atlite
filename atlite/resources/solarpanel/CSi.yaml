@@ -17,7 +17,7 @@ c_temp_irrad: 0.035 # 0.035 K / (W/m2)
 # Reference conditions
 r_tamb: 293 # 20 degC
 r_tmod: 298 # 25 degC
-r_irradiance: 1000 # W
+r_irradiance: 1000 # W/m^2
 
 # Fitting parameters
 k_1: -0.017162
