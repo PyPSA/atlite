@@ -92,7 +92,4 @@ def SolarPosition(ds):
     vars = {da.name: da for da in [alt, az, atmospheric_insolation]}
     solar_position = xr.Dataset(vars)
 
-    # Align dimensions with ds
-    solar_position = solar_position.transpose(*list(ds.dims))
-
     return solar_position
