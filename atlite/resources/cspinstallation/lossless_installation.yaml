@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2021 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
 
 # Special type of CSP installation without efficiency losses.
 # This has by default no technology attached, a technology must
