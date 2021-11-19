@@ -106,13 +106,13 @@ def get_cspinstallationconfig(installation):
     installation = CSPINSTALLATION_DIRECTORY / installation
 
     # Load and set expected index columns
-    with open(installation,'r') as f:
+    with open(installation, "r") as f:
         config = yaml.safe_load(f)
 
-    config['path'] = installation
+    config["path"] = installation
 
     ## Convert efficiency dict to xr.DataArray and convert units to deg -> rad, % -> p.u.
-    da = pd.DataFrame(config['efficiency']).set_index(['altitude','azimuth'])
+    da = pd.DataFrame(config["efficiency"]).set_index(["altitude", "azimuth"])
 
     # Handle as xarray DataArray early - da will be 'return'-ed
     da = da.to_xarray()["value"]
@@ -130,12 +130,12 @@ def get_cspinstallationconfig(installation):
     da = da.swap_dims({"altitude [deg]": "altitude", "azimuth [deg]": "azimuth"})
     da = da.drop(["altitude [deg]", "azimuth [deg]"])
 
-    da = da.chunk('auto')
+    da = da.chunk("auto")
 
     # Efficiency unit from % to p.u.
     da /= 1.0e2
 
-    config['efficiency'] = da
+    config["efficiency"] = da
 
     return config
 

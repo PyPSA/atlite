@@ -523,14 +523,13 @@ def convert_csp(ds, installation):
 
     # Determine solar_position dependend efficiency for each grid cell and time step
     efficiency = installation["efficiency"].interp(
-        altitude=solar_position["altitude"],
-        azimuth=solar_position["azimuth"]
+        altitude=solar_position["altitude"], azimuth=solar_position["azimuth"]
     )
 
     da = efficiency * irradiation
     da /= installation["r_irradiance"]  # output relative to reference irradiance
 
-    da = da.fillna(0.)
+    da = da.fillna(0.0)
     da.attrs["units"] = "kWh/kW_ref"
     da = da.rename("specific generation")
 
@@ -551,7 +550,7 @@ def csp(cutout, installation, technology=None, **params):
         and an 'efficiency' (in p.u.) entry.
     technology: str
         Overwrite CSP technology from the installation configuration. The technology
-        affects which direct radiation is considered. Either 'parabolic trough' (DHI) 
+        affects which direct radiation is considered. Either 'parabolic trough' (DHI)
         or 'solar tower' (DNI).
 
     Returns
@@ -581,7 +580,7 @@ def csp(cutout, installation, technology=None, **params):
 
     # Overwrite technology
     if technology is not None:
-        installation['technology'] = technology
+        installation["technology"] = technology
 
     return cutout.convert_and_aggregate(
         convert_func=convert_csp,
