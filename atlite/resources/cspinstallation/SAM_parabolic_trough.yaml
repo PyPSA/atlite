@@ -1,6 +1,9 @@
 name: Parabolic Trough field
 source: NREL System Advisor Model
-r_irradiance: 950
+
+technology: parabolic trough
+r_irradiance: 950 # in W/m^2
+
 efficiency:
   altitude:
     0: 0

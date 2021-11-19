@@ -513,25 +513,29 @@ def convert_csp(ds, installation):
 
     solar_position = SolarPosition(ds)
 
-    if installation["technology"] == "parabolic trough":
+    tech = installation["technology"]
+    if tech == "parabolic trough":
         irradiation = ds["influx_direct"]
-    elif installation["technology"] == "solar tower":
+    elif tech == "solar tower":
         irradiation = cspm.calculate_dni(ds, solar_position)
     else:
-        raise ValueError(f'Unknown CSP technology option "{technology}".')
-
+        raise ValueError(f'Unknown CSP technology option "{tech}".')
 
     # Determine solar_position dependend efficiency for each grid cell and time step
     efficiency = installation["efficiency"].interp(
         altitude=solar_position["altitude"],
         azimuth=solar_position["azimuth"],
-        # faster than lin. interpolation; sufficient for high res efficiency map 'installation'
         method="linear",
         # Fill values outside efficiencies specified with alt/az.
         kwargs={"fill_value": 0.0},
     )
 
-    return efficiency * irradiation
+    da = efficiency * irradiation
+    da /= installation["r_irradiance"]  # output relative to reference irradiance
+    da.attrs["units"] = "kWh/kW_ref"
+    da = da.rename("specific generation")
+
+    return da
 
 
 def csp(cutout, installation, technology=None, **params):
