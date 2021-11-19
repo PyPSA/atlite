@@ -55,6 +55,5 @@ def calculate_dni(ds, solar_position=None, altitude_threshold=3.75):
     # Calculate DNI and remove NaNs introduced during altitude sanitation
     # DNI is determined either by dividing by cos(azimuth) or sin(altitude)
     dni = ds["influx_direct"] / np.sin(altitude)
-    dni = dni.fillna(0.0)
 
     return dni
