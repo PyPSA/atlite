@@ -130,6 +130,8 @@ def get_cspinstallationconfig(installation):
     da = da.swap_dims({"altitude [deg]": "altitude", "azimuth [deg]": "azimuth"})
     da = da.drop(["altitude [deg]", "azimuth [deg]"])
 
+    da = da.chunk('auto')
+
     # Efficiency unit from % to p.u.
     da /= 1.0e2
 
