@@ -52,7 +52,7 @@ def SolarPosition(ds, time_shift="0H"):
 
     """
 
-    # Act like a getter if these return variables are already in ds 
+    # Act like a getter if these return variables are already in ds
     rvs = {
         "solar_position: azimuth",
         "solar_position: altitude",

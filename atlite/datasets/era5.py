@@ -42,7 +42,15 @@ crs = 4326
 features = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_azimuth", "roughness"],
-    "influx": ["influx_toa", "influx_direct", "influx_diffuse", "albedo", "solar_position: altitude", "solar_position: azimuth", "solar_position: atmospheric insolation"],
+    "influx": [
+        "influx_toa",
+        "influx_direct",
+        "influx_diffuse",
+        "albedo",
+        "solar_position: altitude",
+        "solar_position: azimuth",
+        "solar_position: atmospheric insolation",
+    ],
     "temperature": ["temperature", "soil temperature"],
     "runoff": ["runoff"],
 }
@@ -149,9 +157,9 @@ def get_data_influx(retrieval_params):
     # account by calculating the SolarPosition for the center of the interval for aggregation happens
     # see https://github.com/PyPSA/atlite/issues/158
     sp = SolarPosition(ds, time_shift="-30min")
-    sp = sp.rename({v:f"solar_position: {v}" for v in sp.data_vars})
+    sp = sp.rename({v: f"solar_position: {v}" for v in sp.data_vars})
 
-    ds = xr.merge([ds,sp])
+    ds = xr.merge([ds, sp])
 
     return ds
 

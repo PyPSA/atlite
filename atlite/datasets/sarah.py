@@ -28,7 +28,15 @@ crs = 4326
 dx = 0.05
 dy = 0.05
 dt = "30min"
-features = {"influx": ["influx_direct", "influx_diffuse", "solar_position: altitude", "solar_position: azimuth", "solar_position: atmospheric insolation"]}
+features = {
+    "influx": [
+        "influx_direct",
+        "influx_diffuse",
+        "solar_position: altitude",
+        "solar_position: azimuth",
+        "solar_position: atmospheric insolation",
+    ]
+}
 static_features = {}
 
 
@@ -217,8 +225,8 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     ds = ds.swap_dims({"lon": "x", "lat": "y"})
 
     sp = SolarPosition(ds, time_shift="0H")
-    sp = sp.rename({v:f"solar_position: {v}" for v in sp.data_vars})
+    sp = sp.rename({v: f"solar_position: {v}" for v in sp.data_vars})
 
-    ds = xr.merge([ds,sp])
+    ds = xr.merge([ds, sp])
 
     return ds
