@@ -526,10 +526,18 @@ def convert_csp(ds, installation):
         altitude=solar_position["altitude"], azimuth=solar_position["azimuth"]
     )
 
+    # Thermal system output
     da = efficiency * irradiation
-    da /= installation["r_irradiance"]  # output relative to reference irradiance
+    
+    # output relative to reference irradiance
+    da /= installation["r_irradiance"]
 
+    # Limit output to max of reference irradiance
+    da = da.clip(max=1.0)
+
+    # Fill NaNs originating from DNI or solar positions outside efficiency bounds
     da = da.fillna(0.0)
+
     da.attrs["units"] = "kWh/kW_ref"
     da = da.rename("specific generation")
 
