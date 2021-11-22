@@ -7,14 +7,24 @@
 from numpy import pi
 import xarray as xr
 from numpy import sin, cos, arcsin, arccos, arctan2, deg2rad
+import pandas as pd
 
-
-def SolarPosition(ds):
+def SolarPosition(ds, time_shift="0H"):
     """
     Compute solar azimuth and altitude
 
     Solar altitude errors are up to 1.5 deg during sun-rise and set, but at
     0.05-0.1 deg during daytime.
+
+    Parameters
+    ----------
+    ds: xr.DataSet
+        DataSet for which the solar positions are calculated.
+    time_shift: str (optional)
+        Time shift to apply before the solar position calculations. Useful
+        for datasets representing aggregate data (e.g. ERA5) instead of
+        instantenous data (e.g. SARAH). Must be parseable by pandas.to_timedelta().
+        Default: "0H"
 
     References
     ----------
@@ -42,16 +52,18 @@ def SolarPosition(ds):
 
     # up to h and dec from [1]
 
-    t = ds.indexes["time"]
-    n = xr.DataArray(t.to_julian_date(), [t]) - 2451545.0
-    hour = ds["time.hour"]
-    minute = ds["time.minute"]
+    time_shift = pd.to_timedelta(time_shift)
 
-    if "time" in ds.chunks:
-        chunks = {"time": ds.chunks["time"]}
-        n = n.chunk(chunks)
-        hour = hour.chunk(chunks)
-        minute = minute.chunk(chunks)
+    t = ds.indexes["time"] - time_shift
+    n = xr.DataArray(t.to_julian_date(), coords=ds["time"].coords) - 2451545.0
+    hour = (ds["time"] - time_shift).dt.hour
+    minute = (ds["time"] - time_shift).dt.minute
+
+    # Operations make new DataArray eager; reconvert to lazy dask arrays
+    chunks = ds.chunksizes.get("time","auto")
+    n = n.chunk(chunks)
+    hour = hour.chunk(chunks)
+    minute = minute.chunk(chunks)
 
     L = 280.460 + 0.9856474 * n  # mean longitude (deg)
     g = deg2rad(357.528 + 0.9856003 * n)  # mean anomaly (rad)
