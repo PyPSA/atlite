@@ -8,6 +8,8 @@ from numpy import pi
 import xarray as xr
 from numpy import sin, cos, arcsin, arccos, arctan2, deg2rad
 import pandas as pd
+from warnings import warn
+
 
 def SolarPosition(ds, time_shift="0H"):
     """
@@ -50,17 +52,38 @@ def SolarPosition(ds, time_shift="0H"):
 
     """
 
+    # Act like a getter if these return variables are already in ds 
+    rvs = {
+        "solar_position: azimuth",
+        "solar_position: altitude",
+        "solar_position: atmospheric insolation",
+    }
+
+    if rvs.issubset(set(ds.data_vars)):
+        solar_position = ds[rvs]
+        solar_position = solar_position.rename(
+            {v: v.replace("solar_position: ", "") for v in rvs}
+        )
+        return solar_position
+
+    warn(
+        """The calculation method and handling of solar position variables will change.
+    The solar position will in the future be a permanent variables of a cutout.
+    Recreate your cutout to remove this warning and permanently include the solar position variables into your cutout.""",
+        DeprecationWarning,
+    )
+
     # up to h and dec from [1]
 
     time_shift = pd.to_timedelta(time_shift)
 
-    t = ds.indexes["time"] - time_shift
+    t = ds.indexes["time"] + time_shift
     n = xr.DataArray(t.to_julian_date(), coords=ds["time"].coords) - 2451545.0
-    hour = (ds["time"] - time_shift).dt.hour
-    minute = (ds["time"] - time_shift).dt.minute
+    hour = (ds["time"] + time_shift).dt.hour
+    minute = (ds["time"] + time_shift).dt.minute
 
     # Operations make new DataArray eager; reconvert to lazy dask arrays
-    chunks = ds.chunksizes.get("time","auto")
+    chunks = ds.chunksizes.get("time", "auto")
     n = n.chunk(chunks)
     hour = hour.chunk(chunks)
     minute = minute.chunk(chunks)
@@ -83,8 +106,10 @@ def SolarPosition(ds, time_shift="0H"):
     # Clip before arcsin to prevent values < -1. from rounding errors; can
     # cause NaNs later
     alt = arcsin(
-        (sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(h)).clip(min=-1.0, max=1.0)
+        (sin(dec) * sin(lat) + cos(dec) * cos(lat) * cos(h)).clip(min=-1.0, max=1.0)
     ).rename("altitude")
+    alt.attrs["time shift"] = f"{time_shift}"
+    alt.attrs["units"] = "rad"
 
     az = arccos(
         ((sin(dec) * cos(lat) - cos(dec) * sin(lat) * cos(h)) / cos(alt)).clip(
@@ -92,6 +117,8 @@ def SolarPosition(ds, time_shift="0H"):
         )
     )
     az = az.where(h <= 0, 2 * pi - az).rename("azimuth")
+    az.attrs["time shift"] = f"{time_shift}"
+    az.attrs["units"] = "rad"
 
     if "influx_toa" in ds:
         atmospheric_insolation = ds["influx_toa"].rename("atmospheric insolation")
@@ -100,6 +127,8 @@ def SolarPosition(ds, time_shift="0H"):
         atmospheric_insolation = (1366.1 * (1 + 0.033 * cos(g)) * sin(alt)).rename(
             "atmospheric insolation"
         )
+        atmospheric_insolation.attrs["time shift"] = f"{time_shift}"
+        atmospheric_insolation.attrs["units"] = "W m**-2"
 
     vars = {da.name: da for da in [alt, az, atmospheric_insolation]}
     solar_position = xr.Dataset(vars)
