@@ -9,6 +9,7 @@ Module containing specific operations for creating cutouts from the SARAH2 datas
 """
 
 from ..gis import regrid
+from ..pv.solar_position import SolarPosition
 from rasterio.warp import Resampling
 import os
 import glob
@@ -27,7 +28,7 @@ crs = 4326
 dx = 0.05
 dy = 0.05
 dt = "30min"
-features = {"influx": ["influx_direct", "influx_diffuse"]}
+features = {"influx": ["influx_direct", "influx_diffuse", "solar_position: altitude", "solar_position: azimuth", "solar_position: atmospheric insolation"]}
 static_features = {}
 
 
@@ -213,4 +214,11 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     ds = ds.rename({"SID": "influx_direct"}).drop_vars("SIS")
     ds = ds.assign_coords(x=ds.coords["lon"], y=ds.coords["lat"])
 
-    return ds.swap_dims({"lon": "x", "lat": "y"})
+    ds = ds.swap_dims({"lon": "x", "lat": "y"})
+
+    sp = SolarPosition(ds, time_shift="0H")
+    sp = sp.rename({v:f"solar_position: {v}" for v in sp.data_vars})
+
+    ds = xr.merge([ds,sp])
+
+    return ds

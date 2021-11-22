@@ -20,6 +20,7 @@ import cdsapi
 import logging
 from numpy import atleast_1d
 from ..gis import maybe_swap_spatial_dims
+from ..pv.solar_position import SolarPosition
 
 # Null context for running a with statements wihout any context
 try:
@@ -41,7 +42,7 @@ crs = 4326
 features = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_azimuth", "roughness"],
-    "influx": ["influx_toa", "influx_direct", "influx_diffuse", "albedo"],
+    "influx": ["influx_toa", "influx_direct", "influx_diffuse", "albedo", "solar_position: altitude", "solar_position: azimuth", "solar_position: atmospheric insolation"],
     "temperature": ["temperature", "soil temperature"],
     "runoff": ["runoff"],
 }
@@ -143,6 +144,14 @@ def get_data_influx(retrieval_params):
     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
         ds[a] = ds[a] / (60.0 * 60.0)
         ds[a].attrs["units"] = "W m**-2"
+
+    # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00 are labelled as "14:00"
+    # account by calculating the SolarPosition for the center of the interval for aggregation happens
+    # see https://github.com/PyPSA/atlite/issues/158
+    sp = SolarPosition(ds, time_shift="-30min")
+    sp = sp.rename({v:f"solar_position: {v}" for v in sp.data_vars})
+
+    ds = xr.merge([ds,sp])
 
     return ds
 
