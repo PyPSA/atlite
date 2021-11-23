@@ -12,6 +12,7 @@ https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
 import os
+import warnings
 import numpy as np
 import xarray as xr
 from tempfile import mkstemp
@@ -156,7 +157,10 @@ def get_data_influx(retrieval_params):
     # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00 are labelled as "14:00"
     # account by calculating the SolarPosition for the center of the interval for aggregation happens
     # see https://github.com/PyPSA/atlite/issues/158
-    sp = SolarPosition(ds, time_shift="-30min")
+    # Do not show DeprecationWarning from new SolarPosition calculation (#199)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore",DeprecationWarning)
+        sp = SolarPosition(ds, time_shift="-30min")
     sp = sp.rename({v: f"solar_position: {v}" for v in sp.data_vars})
 
     ds = xr.merge([ds, sp])

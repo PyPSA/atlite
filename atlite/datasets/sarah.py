@@ -12,6 +12,7 @@ from ..gis import regrid
 from ..pv.solar_position import SolarPosition
 from rasterio.warp import Resampling
 import os
+import warnings
 import glob
 import pandas as pd
 import numpy as np
@@ -224,7 +225,10 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     ds = ds.swap_dims({"lon": "x", "lat": "y"})
 
-    sp = SolarPosition(ds, time_shift="0H")
+    # Do not show DeprecationWarning from new SolarPosition calculation (#199)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore",DeprecationWarning)
+        sp = SolarPosition(ds, time_shift="0H")
     sp = sp.rename({v: f"solar_position: {v}" for v in sp.data_vars})
 
     ds = xr.merge([ds, sp])
