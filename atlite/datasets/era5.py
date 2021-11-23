@@ -159,7 +159,7 @@ def get_data_influx(retrieval_params):
     # see https://github.com/PyPSA/atlite/issues/158
     # Do not show DeprecationWarning from new SolarPosition calculation (#199)
     with warnings.catch_warnings():
-        warnings.simplefilter("ignore",DeprecationWarning)
+        warnings.simplefilter("ignore", DeprecationWarning)
         sp = SolarPosition(ds, time_shift="-30min")
     sp = sp.rename({v: f"solar_position: {v}" for v in sp.data_vars})
 
