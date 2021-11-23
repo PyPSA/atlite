@@ -528,7 +528,7 @@ def convert_csp(ds, installation):
 
     # Thermal system output
     da = efficiency * irradiation
-    
+
     # output relative to reference irradiance
     da /= installation["r_irradiance"]
 
