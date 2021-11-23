@@ -164,8 +164,8 @@ def get_data_influx(retrieval_params):
     return ds
 
 
-def sanitize_inflow(ds):
-    """Sanitize retrieved inflow data."""
+def sanitize_influx(ds):
+    """Sanitize retrieved influx data."""
     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
         ds[a] = ds[a].clip(min=0.0)
     return ds
