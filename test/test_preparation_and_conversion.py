@@ -141,11 +141,11 @@ def csp_test(cutout):
 
     ## Test technology = "solar tower"
     st = cutout.csp(atlite.cspinstallations.SAM_solar_tower, capacity_factor=True)
-    
+
     assert st.notnull().all()
     assert (st >= 0).all()
     assert (st <= 1).all()
-    
+
     # Efficiencies <= 1 should lead to the conversion to always be less than perfect
     st = cutout.csp(atlite.cspinstallations.SAM_solar_tower)
     ll = cutout.csp(atlite.cspinstallations.lossless_installation)
@@ -153,7 +153,7 @@ def csp_test(cutout):
 
     ## Test technology = "parabolic trough"
     pt = cutout.csp(atlite.cspinstallations.SAM_parabolic_trough, capacity_factor=True)
-    
+
     assert pt.notnull().all()
     assert (pt >= 0).all()
     assert (pt <= 1).all()
@@ -162,7 +162,6 @@ def csp_test(cutout):
     pt = cutout.csp(atlite.cspinstallations.SAM_parabolic_trough)
     ll = cutout.csp(atlite.cspinstallations.lossless_installation)
     assert (pt <= ll).all()
-
 
 
 def solar_thermal_test(cutout):
