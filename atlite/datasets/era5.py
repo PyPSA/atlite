@@ -15,6 +15,7 @@ import os
 import warnings
 import numpy as np
 import xarray as xr
+import pandas as pd
 from tempfile import mkstemp
 import weakref
 import cdsapi
@@ -160,7 +161,10 @@ def get_data_influx(retrieval_params):
     # Do not show DeprecationWarning from new SolarPosition calculation (#199)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
-        sp = SolarPosition(ds, time_shift="-30min")
+        # Convert dt / time frequency to timedelta and shift solar position by half
+        # (freqs like ["H","30T"] do not work with pd.to_timedelta(...)
+        time_shift = -1 / 2 * pd.to_timedelta(pd.date_range('1970-01-01', periods=1, freq=pd.infer_freq(ds["time"])).freq)
+        sp = SolarPosition(ds, time_shift=time_shift)
     sp = sp.rename({v: f"solar_position: {v}" for v in sp.data_vars})
 
     ds = xr.merge([ds, sp])

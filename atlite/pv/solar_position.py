@@ -22,7 +22,7 @@ def SolarPosition(ds, time_shift="0H"):
     ----------
     ds: xr.DataSet
         DataSet for which the solar positions are calculated.
-    time_shift: str (optional)
+    time_shift: str or pandas.TimeDelta (optional)
         Time shift to apply before the solar position calculations. Useful
         for datasets representing aggregate data (e.g. ERA5) instead of
         instantenous data (e.g. SARAH). Must be parseable by pandas.to_timedelta().
