@@ -17,6 +17,7 @@ Release Notes
 
 
 * Automated upload of code coverage reports via Codecov.
+* DataArrays returned by `.pv(...)` and `.wind(...)` now have a clearer name and 'units' attribute.
 
 Version 0.2.5 
 ==============
