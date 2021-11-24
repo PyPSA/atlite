@@ -69,7 +69,7 @@ def get_filenames(sarah_dir, coords):
     start = coords["time"].to_index()[0]
     end = coords["time"].to_index()[-1]
 
-    if (start < files.index[0]) or (end.date() > files.index[-1]):
+    if (start < files.index[0]) or (end > files.index[-1]):
         logger.error(
             f"Files in {sarah_dir} do not cover the whole time span:"
             f"\n\t{start} until {end}"
