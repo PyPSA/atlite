@@ -30,7 +30,7 @@ def test_ieee_sample_case():
     epsilon = 0.8  # emissivity
     alpha = 0.8  # absorptivity
 
-    R = 9.39e-5  # resistance at 100°C
+    R = 9.39e-5  # resistance at 100°C in Ohm/m
 
     i = convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha)
 

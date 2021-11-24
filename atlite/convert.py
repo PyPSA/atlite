@@ -766,7 +766,7 @@ def line_rating(cutout, shapes, line_resistance, **params):
     >>> import geopandas as gpd
     >>> from shapely.geometry import Point, LineString as Line
 
-    >>> n = pypsa.examples.ac_dc_meshed()
+    >>> n = pypsa.examples.scigrid_de()
     >>> n.calculate_dependent_values()
     >>> x = n.buses.x
     >>> y = n.buses.y
@@ -778,14 +778,9 @@ def line_rating(cutout, shapes, line_resistance, **params):
                             time='2020-01-01', module='era5', dx=1, dy=1)
     >>> cutout.prepare()
 
-    >>> i = cutout.line_rating(shapes, n.lines.r/1e3)
+    >>> i = cutout.line_rating(shapes, n.lines.r/n.lines.length)
     >>> v = xr.DataArray(n.lines.v_nom, dims='name')
     >>> s = np.sqrt(3) * i * v / 1e3 # in MW
-
-    Alternatively, the units nicely play out when we use the per unit system
-    while scaling the resistance with a factor 1000.
-
-    >>> s = np.sqrt(3) * cutout.line_rating(shapes, n.lines.r_pu * 1e3) # in MW
 
     """
     if not isinstance(shapes, gpd.GeoSeries):
@@ -827,4 +822,4 @@ def line_rating(cutout, shapes, line_resistance, **params):
     with ProgressBar():
         res = compute(res)
 
-    return xr.concat(*res, dim=df.index)
+    return xr.concat(*res, dim=df.index).assign_attrs(units="A")
