@@ -286,7 +286,7 @@ def convert_solar_thermal(
     # http://rda.ucar.edu/datasets/ds094.0/#metadata/detailed.html?_do=y
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    irradiation = TiltedIrradiation(
+    irradiation, direct, diffuse, ground = TiltedIrradiation(
         ds, solar_position, surface_orientation, trigon_model, clearsky_model
     )
 
@@ -429,7 +429,7 @@ def wind(cutout, turbine, smooth=False, **params):
 def convert_pv(ds, panel, orientation, trigon_model="simple", clearsky_model="simple"):
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    irradiation = TiltedIrradiation(
+    irradiation, direct, diffuse, ground = TiltedIrradiation(
         ds,
         solar_position,
         surface_orientation,

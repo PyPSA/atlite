@@ -186,6 +186,7 @@ def TiltedIrradiation(
         diffuse_t = (1.0 + cos_surface_slope) / 2.0 * diffuse + _albedo(
             ds, influx
         ) * influx * ((1.0 - cos_surface_slope) / 2.0)
+        ground_t = None
 
         total_t = direct_t.fillna(0.0) + diffuse_t.fillna(0.0)
     else:
@@ -205,5 +206,9 @@ def TiltedIrradiation(
 
     cap_alt = solar_position["altitude"] < deg2rad(altitude_threshold)
     total_t = total_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
+    direct_t = direct_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
+    diffuse_t = diffuse_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
+    if ground_t != None:
+        ground_t = ground_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
 
-    return total_t
+    return total_t, direct_t, diffuse_t, ground_t
