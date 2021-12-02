@@ -286,7 +286,7 @@ def convert_solar_thermal(
     # http://rda.ucar.edu/datasets/ds094.0/#metadata/detailed.html?_do=y
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    irradiation, direct, diffuse, ground = TiltedIrradiation(
+    irradiation = TiltedIrradiation(
         ds, solar_position, surface_orientation, trigon_model, clearsky_model
     )
 
@@ -431,21 +431,15 @@ def convert_irradiation(
 ):
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    total, direct, diffuse, ground = TiltedIrradiation(
+    irradiation = TiltedIrradiation(
         ds,
         solar_position,
         surface_orientation,
         trigon_model=trigon_model,
         clearsky_model=clearsky_model,
+        irradiation=irradiation,
     )
-    if irradiation == "total":
-        return total
-    elif irradiation == "direct":
-        return direct
-    elif irradiation == "diffuse":
-        return diffuse
-    elif irradiation == "ground":
-        return ground
+    return irradiation
 
 
 def irradiation(
@@ -510,7 +504,7 @@ def irradiation(
 def convert_pv(ds, panel, orientation, trigon_model="simple", clearsky_model="simple"):
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
-    irradiation, direct, diffuse, ground = TiltedIrradiation(
+    irradiation = TiltedIrradiation(
         ds,
         solar_position,
         surface_orientation,

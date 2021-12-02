@@ -157,6 +157,7 @@ def TiltedIrradiation(
     trigon_model,
     clearsky_model,
     altitude_threshold=1.0,
+    irradiation="total",
 ):
 
     influx_toa = solar_position["atmospheric insolation"]
@@ -200,15 +201,20 @@ def TiltedIrradiation(
 
         total_t = (direct_t + diffuse_t + ground_t).rename("total tilted")
 
+    if irradiation == "total":
+        result = total_t
+    elif irradiation == "direct":
+        result = direct_t
+    elif irradiation == "diffuse":
+        result = diffuse_t
+    elif irradiation == "ground":
+        result = ground_t
+
     # The solar_position algorithms have a high error for small solar altitude
     # values, leading to big overall errors from the 1/sinaltitude factor.
     # => Suppress irradiation below solar altitudes of 1 deg.
 
     cap_alt = solar_position["altitude"] < deg2rad(altitude_threshold)
-    total_t = total_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
-    direct_t = direct_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
-    diffuse_t = diffuse_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
-    if ground_t != None:
-        ground_t = ground_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
+    result = result.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
 
-    return total_t, direct_t, diffuse_t, ground_t
+    return result
