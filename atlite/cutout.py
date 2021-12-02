@@ -45,6 +45,7 @@ from .convert import (
     hydro,
     temperature,
     wind,
+    irradiation,
     pv,
     runoff,
     solar_thermal,
@@ -626,6 +627,8 @@ class Cutout:
     solar_thermal = solar_thermal
 
     wind = wind
+
+    irradiation = irradiation
 
     pv = pv
 
