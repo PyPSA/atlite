@@ -28,7 +28,7 @@ setup(
         "pandas>=0.25",
         "bottleneck",
         "numexpr",
-        "xarray>=0.16.2",
+        "xarray>=0.20",
         "netcdf4",
         "dask>=2021.10.0",
         "toolz",
