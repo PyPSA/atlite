@@ -446,7 +446,7 @@ def irradiation(
     cutout, orientation, irradiation="total", clearsky_model=None, **params
 ):
     """
-    Calculate the total, direct, diffuse, and ground irradiation on a tilted
+    Calculate the total, direct, diffuse, or ground irradiation on a tilted
     surface.
 
     Parameters
@@ -470,13 +470,8 @@ def irradiation(
     Returns
     -------
     irradiation : xr.DataArray
-        Total irradiation on the tilted surface.
-    direct : xr.DataArray
-        Direct beam radiation on the tilted surface.
-    diffuse : xr.DataArray
-        Diffuse radiation on the tilted surface.
-    ground : xr.DataArray
-        Ground radiation on the tilted surface.
+        The desired irradiation quantity on the tilted surface. Defaults to
+        "total".
 
     Note
     ----
