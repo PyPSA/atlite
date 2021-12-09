@@ -104,6 +104,7 @@ If you would like to cite the Atlite software, please refer to `this paper <http
    examples/create_cutout.ipynb
    examples/create_cutout_SARAH.ipynb
    examples/historic-comparison-germany.ipynb
+   examples/finnish_building_stock_weather_aggregation.ipynb
    examples/landuse-availability.ipynb
    examples/using_gebco_heightmap.ipynb
    examples/plotting_with_atlite.ipynb
