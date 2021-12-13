@@ -168,7 +168,7 @@ def get_data_influx(retrieval_params):
             / 2
             * pd.to_timedelta(
                 pd.date_range(
-                    "1970-01-01", periods=1, freq=pd.infer_freq(ds["time"])
+                    "1970-01-01", periods=1, freq=pd.infer_freq(ds["time"].data)
                 ).freq
             )
         )
