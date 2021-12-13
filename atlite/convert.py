@@ -713,10 +713,12 @@ def convert_line_rating(
     # 3. Solar Radiance Heat Gain
     Q = ds["influx_direct"]  # assumption, this is short wave and not heat influx
     A = D * 1  # projected area of conductor in square meters
-    solar_altitude=ds["solar_position: altitude"]
-    solar_azimuth=ds["solar_position: azimuth"]
-    Phi_s=np.arccos(np.cos(solar_altitude)*np.cos((solar_azimuth)-np.deg2rad(psi)))
-    qs = alpha *  Q * A * np.sin(Phi_s)
+    solar_altitude = ds["solar_position: altitude"]
+    solar_azimuth = ds["solar_position: azimuth"]
+    Phi_s = np.arccos(
+        np.cos(solar_altitude) * np.cos((solar_azimuth) - np.deg2rad(psi))
+    )
+    qs = alpha * Q * A * np.sin(Phi_s)
 
     Imax = np.sqrt((qc + qr - qs) / R)
     return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
