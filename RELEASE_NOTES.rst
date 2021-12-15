@@ -20,7 +20,7 @@ Release Notes
 * DataArrays returned by `.pv(...)` and `.wind(...)` now have a clearer name and 'units' attribute.
 * Conversion functions (`.pv(...)`, `.wind(...)` etc.) now support a matrix of shape (N, X, Y). In this case the matrix must be a `xarray.DataArray` with dimensions `x` and `y` equal to those of `cutout.data`. 
 * Due to ambiguity, conversion functions (`.pv(...)`, `.wind(...)` etc.) now raise an `ValueError` if shapes and matrix are given. 
-
+* Atlite now supports calculating of heat pump coefficients of performance (https://github.com/PyPSA/atlite/pull/145).
 
 **Bug fixes**
 * The solar position for ERA5 cutouts is now calculated for half a time step earlier (time-shift by `cutout.dt/2`) to account for the aggregated nature of

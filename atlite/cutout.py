@@ -49,6 +49,7 @@ from .convert import (
     runoff,
     solar_thermal,
     soil_temperature,
+    coefficient_of_performance,
     line_rating,
 )
 from .datasets import modules as datamodules
@@ -622,6 +623,8 @@ class Cutout:
     temperature = temperature
 
     soil_temperature = soil_temperature
+
+    coefficient_of_performance = coefficient_of_performance
 
     solar_thermal = solar_thermal
 
