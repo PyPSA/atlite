@@ -7,7 +7,7 @@
 """
 All functions for converting weather data into energy system model data.
 """
-
+from collections import namedtuple
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -713,11 +713,19 @@ def convert_line_rating(
     # 3. Solar Radiance Heat Gain
     Q = ds["influx_direct"]  # assumption, this is short wave and not heat influx
     A = D * 1  # projected area of conductor in square meters
-    solar_altitude = ds["solar_position: altitude"]
-    solar_azimuth = ds["solar_position: azimuth"]
+
+    if isinstance(ds, dict):
+        Position = namedtuple("solarposition", ["altitude", "azimuth"])
+        solar_position = Position(
+            ds["solar_position: altitude"], ds["solar_position: azimuth"]
+        )
+    else:
+        solar_position = SolarPosition(ds)
     Phi_s = np.arccos(
-        np.cos(solar_altitude) * np.cos((solar_azimuth) - np.deg2rad(psi))
+        np.cos(solar_position.altitude)
+        * np.cos((solar_position.azimuth) - np.deg2rad(psi))
     )
+
     qs = alpha * Q * A * np.sin(Phi_s)
 
     Imax = np.sqrt((qc + qr - qs) / R)
