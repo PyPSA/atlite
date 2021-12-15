@@ -18,7 +18,7 @@ Release Notes
 
 * Automated upload of code coverage reports via Codecov.
 * DataArrays returned by `.pv(...)` and `.wind(...)` now have a clearer name and 'units' attribute.
-* Conversion functions (`.pv(...)`, `.wind(...)` etc.) now support a matrix of shape (N, X, Y). In this case the matrix must be a `xarray.DataArray` with dimensions `x` and `y` equal to those of `cutout.data`. 
+* If the `matrix` argument in conversion functions (`.pv(...)`, `.wind(...)` etc.) is a `DataArray`, the alignment of the coordinate axis with the cutout grid is double-checked. 
 * Due to ambiguity, conversion functions (`.pv(...)`, `.wind(...)` etc.) now raise an `ValueError` if shapes and matrix are given. 
 
 

@@ -62,11 +62,10 @@ def convert_and_aggregate(
 
     Parameters
     -----------
-    matrix : N x S or N x X x Y- xr.DataArray or sp.sparse.csr_matrix or None
+    matrix : N x S - xr.DataArray or sp.sparse.csr_matrix or None
         If given, it is used to aggregate the grid cells to buses.
         N is the number of buses, S the number of spatial coordinates, in the
-        order of `cutout.grid`. If matrix is of shape N x X x Y, it must be
-        a xr.DataArray with same `x` and `y` coordinates as `cutout.data`.
+        order of `cutout.grid`.
     index : pd.Index
         Index of Buses.
     layout : X x Y - xr.DataArray
@@ -138,10 +137,6 @@ def convert_and_aggregate(
 
         if isinstance(matrix, xr.DataArray):
 
-            if {"x", "y"}.issubset(matrix.dims):
-                matrix = matrix.stack(spatial=["y", "x"])
-
-            # ensure correct alignment of spatial axis
             coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
             if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
                 raise ValueError(
