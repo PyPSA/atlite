@@ -205,6 +205,74 @@ def soil_temperature(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
 
 
+def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
+
+    assert source in ["air", "soil"], NotImplementedError(
+        "'source' must be one of  ['air', 'soil']"
+    )
+
+    if source == "air":
+        source_T = convert_temperature(ds)
+        if c0 is None:
+            c0 = 6.81
+        if c1 is None:
+            c1 = -0.121
+        if c2 is None:
+            c2 = 0.000630
+    elif source == "soil":
+        source_T = convert_soil_temperature(ds)
+        if c0 is None:
+            c0 = 8.77
+        if c1 is None:
+            c1 = -0.150
+        if c2 is None:
+            c2 = 0.000734
+
+    delta_T = sink_T - source_T
+
+    return c0 + c1 * delta_T + c2 * delta_T ** 2
+
+
+def coefficient_of_performance(
+    cutout, source="air", sink_T=55.0, c0=None, c1=None, c2=None, **params
+):
+    """
+    Convert ambient or soil temperature to coefficient of performance (COP)
+    of air- or ground-sourced heat pumps. The COP is a function of
+    temperature difference from source to sink. The defaults for either source
+    (c0, c1, c2) are based on a quadratic regression in [1].
+
+    Paramterers
+    -----------
+    source : str
+        The heat source. Can be 'air' or 'soil'.
+    sink_T : float
+        The temperature of the heat sink.
+    c0 : float
+        The constant regression coefficient for the temperature difference.
+    c1 : float
+        The linear regression coefficient for the temperature difference.
+    c2 : float
+        The quadratic regression coefficient for the temperature difference.
+
+    Reference
+    ---------
+    [1] Staffell, Brett, Brandon, Hawkes, A review of domestic heat pumps,
+    Energy & Environmental Science (2012), 5, 9291-9306,
+    https://doi.org/10.1039/C2EE22653G.
+    """
+
+    return cutout.convert_and_aggregate(
+        convert_func=convert_coefficient_of_performance,
+        source=source,
+        sink_T=sink_T,
+        c0=c0,
+        c1=c1,
+        c2=c2,
+        **params,
+    )
+
+
 # heat demand
 def convert_heat_demand(ds, threshold, a, constant, hour_shift):
     # Temperature is in Kelvin; take daily average
