@@ -246,6 +246,19 @@ def line_rating_test(cutout):
     assert i.notnull().all().item()
 
 
+def coefficient_of_performance_test(cutout):
+    """
+    Test the coefficient_of_performance function.
+    """
+    cap_factor = cutout.coefficient_of_performance(source="air")
+    assert cap_factor.notnull().all()
+    assert cap_factor.sum() > 0
+
+    cap_factor = cutout.coefficient_of_performance(source="soil")
+    assert cap_factor.notnull().all()
+    assert cap_factor.sum() > 0
+
+
 # %% Prepare cutouts to test
 
 
