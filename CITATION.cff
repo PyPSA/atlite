@@ -1,9 +1,15 @@
-message: "If you use atlite in your work, please use the following citation."
-title: "Atlite: A Light-weight version of Aarhus RE Atlas for converting weather data to power systems data"
-abstract: "Atlite is a free software, xarray-based Python library for converting weather data (like wind speeds, solar influx) into energy systems data."
-date-released: 2021-06-24
+# SPDX-FileCopyrightText: : 2022 The Atlite Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+cff-version: 1.2.0
+message: "If you use this package, please cite our corresponding paper in JOSS (The Journal of Open Source Software)."
+title: "atlite: A Lightweight Python Package for Calculating Renewable Power Potentials and Time Series"
+journal: The Journal of Open Source Software
+doi: "10.21105/joss.03294"
+repository: "https://github.com/PyPSA/atlite"
 version: "0.2.5"
-cff-version: "1.2.0"
+date-released: "2021-06-24"
 license: "GPL-3.0-or-later"
 authors: 
   - family-names: "Hofmann"
@@ -21,4 +27,3 @@ authors:
   - family-names: "Hörsch"
     given-names: "Jonas"
     orcid: "https://orcid.org/0000-0001-9438-767X"
-url: "https://github.com/PyPSA/atlite"
