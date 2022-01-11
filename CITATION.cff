@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: : 2022 The Atlite Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+cff-version: 1.2.0
+message: "If you use this package, please cite our corresponding paper in JOSS (The Journal of Open Source Software)."
+title: "atlite: A Lightweight Python Package for Calculating Renewable Power Potentials and Time Series"
+journal: The Journal of Open Source Software
+doi: "10.21105/joss.03294"
+repository: "https://github.com/PyPSA/atlite"
+version: "0.2.5"
+date-released: "2021-06-24"
+license: "GPL-3.0-or-later"
+authors: 
+  - family-names: "Hofmann"
+    given-names: "Fabian"
+    orcid: "https://orcid.org/0000-0002-6604-5450"
+  - family-names: "Hampp"
+    given-names: "Johannes"
+    orcid: "https://orcid.org/0000-0002-1776-116X"
+  - family-names: "Neumann"
+    given-names: "Fabian"
+    orcid: "https://orcid.org/0000-0001-8551-1480"
+  - family-names: "Brown"
+    given-names: "Tom"
+    orcid: "https://orcid.org/0000-0001-5898-1911"
+  - family-names: "Hörsch"
+    given-names: "Jonas"
+    orcid: "https://orcid.org/0000-0001-9438-767X"
