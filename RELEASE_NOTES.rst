@@ -12,6 +12,7 @@ Release Notes
 .. =================
 
 * Automated upload of code coverage reports via Codecov.
+* Enabled the GitHub feature "Cite this repository" to generate a BibTeX file (Added a `CITATION.cff` file to the repository).
 
 Version 0.2.5 
 ==============
