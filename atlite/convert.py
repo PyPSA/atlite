@@ -7,7 +7,7 @@
 """
 All functions for converting weather data into energy system model data.
 """
-
+from collections import namedtuple
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -15,6 +15,7 @@ import geopandas as gpd
 import datetime as dt
 from operator import itemgetter
 from pathlib import Path
+from dask import delayed, compute
 from dask.diagnostics import ProgressBar
 from scipy.sparse import csr_matrix
 
@@ -120,9 +121,12 @@ def convert_and_aggregate(
                 "given for `per_unit` or `return_capacity`"
             )
         if capacity_factor:
-            return maybe_progressbar(da.mean("time"), show_progress, **dask_kwargs)
+            res = da.mean("time").rename("capacity factor")
+            res.attrs["units"] = "p.u."
+            return maybe_progressbar(res, show_progress, **dask_kwargs)
         else:
-            return maybe_progressbar(da.sum("time"), show_progress, **dask_kwargs)
+            res = da.sum("time", keep_attrs=True)
+            return maybe_progressbar(res, show_progress, **dask_kwargs)
 
     if shapes is not None:
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
@@ -199,6 +203,74 @@ def convert_soil_temperature(ds):
 
 def soil_temperature(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
+
+
+def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
+
+    assert source in ["air", "soil"], NotImplementedError(
+        "'source' must be one of  ['air', 'soil']"
+    )
+
+    if source == "air":
+        source_T = convert_temperature(ds)
+        if c0 is None:
+            c0 = 6.81
+        if c1 is None:
+            c1 = -0.121
+        if c2 is None:
+            c2 = 0.000630
+    elif source == "soil":
+        source_T = convert_soil_temperature(ds)
+        if c0 is None:
+            c0 = 8.77
+        if c1 is None:
+            c1 = -0.150
+        if c2 is None:
+            c2 = 0.000734
+
+    delta_T = sink_T - source_T
+
+    return c0 + c1 * delta_T + c2 * delta_T ** 2
+
+
+def coefficient_of_performance(
+    cutout, source="air", sink_T=55.0, c0=None, c1=None, c2=None, **params
+):
+    """
+    Convert ambient or soil temperature to coefficient of performance (COP)
+    of air- or ground-sourced heat pumps. The COP is a function of
+    temperature difference from source to sink. The defaults for either source
+    (c0, c1, c2) are based on a quadratic regression in [1].
+
+    Paramterers
+    -----------
+    source : str
+        The heat source. Can be 'air' or 'soil'.
+    sink_T : float
+        The temperature of the heat sink.
+    c0 : float
+        The constant regression coefficient for the temperature difference.
+    c1 : float
+        The linear regression coefficient for the temperature difference.
+    c2 : float
+        The quadratic regression coefficient for the temperature difference.
+
+    Reference
+    ---------
+    [1] Staffell, Brett, Brandon, Hawkes, A review of domestic heat pumps,
+    Energy & Environmental Science (2012), 5, 9291-9306,
+    https://doi.org/10.1039/C2EE22653G.
+    """
+
+    return cutout.convert_and_aggregate(
+        convert_func=convert_coefficient_of_performance,
+        source=source,
+        sink_T=sink_T,
+        c0=c0,
+        c1=c1,
+        c2=c2,
+        **params,
+    )
 
 
 # heat demand
@@ -366,7 +438,7 @@ def convert_wind(ds, turbine):
     def _interpolate(da):
         return np.interp(da, V, POW / P)
 
-    return xr.apply_ufunc(
+    da = xr.apply_ufunc(
         _interpolate,
         wnd_hub,
         input_core_dims=[[]],
@@ -374,6 +446,10 @@ def convert_wind(ds, turbine):
         output_dtypes=[wnd_hub.dtype],
         dask="parallelized",
     )
+
+    da.attrs["units"] = "MWh/MWp"
+    da = da.rename("specific generation")
+    return da
 
 
 def wind(cutout, turbine, smooth=False, **params):
@@ -615,3 +691,215 @@ def hydro(
     return hydrom.shift_and_aggregate_runoff_for_plants(
         basins, runoff, flowspeed, show_progress
     )
+
+
+def convert_line_rating(
+    ds, psi, R, D=0.028, Ts=373, epsilon=0.6, alpha=0.6, per_unit=False
+):
+    """
+    Convert the cutout data to dynamic line rating time series.
+
+    The formulation is based on:
+
+    [1]“IEEE Std 738™-2012 (Revision of IEEE Std 738-2006/Incorporates IEEE Std
+        738-2012/Cor 1-2013), IEEE Standard for Calculating the Current-Temperature
+        Relationship of Bare Overhead Conductors,” p. 72.
+
+    The following simplifications/assumptions were made:
+        1. Wind speed are taken at height 100 meters above ground. However, ironmen
+           and transmission lines are typically at 50-60 meters.
+        2. Solar heat influx is set proportionally to solar short wave influx.
+        3. The incidence angle of the solar heat influx is assumed to be 90 degree.
+
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Subset of the cutout data including all weather cells overlapping with
+        the line.
+    psi : int/float
+        Azimuth angle of the line in degree, that is the incidence angle of the line
+        with a pointer directing north (90 is east, 180 is south, 270 is west).
+    R : float
+        Resistance of the conductor in [Ω/m] at maximally allowed temperature Ts.
+    D : float,
+        Conductor diameter.
+    Ts : float
+        Maximally allowed surface temperature (typically 100°C).
+    epsilon : float
+        Conductor emissivity.
+    alpha : float
+        Conductor absorptivity.
+
+    Returns
+    -------
+    Imax
+        xr.DataArray giving the maximal current capacity per timestep in Ampere.
+
+    """
+
+    Ta = ds["temperature"]
+    Tfilm = (Ta + Ts) / 2
+    T0 = 273.15
+
+    # 1. Convective Loss, at first forced convection
+    V = ds["wnd100m"]  # typically ironmen are about 40-60 meters high
+    mu = (1.458e-6 * Tfilm ** 1.5) / (
+        Tfilm + 383.4 - T0
+    )  # Dynamic viscosity of air (13a)
+    H = ds["height"]
+    rho = (1.293 - 1.525e-4 * H + 6.379e-9 * H ** 2) / (
+        1 + 0.00367 * (Tfilm - T0)
+    )  # (14a)
+
+    reynold = D * V * rho / mu
+
+    k = (
+        2.424e-2 + 7.477e-5 * (Tfilm - T0) - 4.407e-9 * (Tfilm - T0) ** 2
+    )  # thermal conductivity
+    anglediff = ds["wnd_azimuth"] - np.deg2rad(psi)
+    Phi = np.abs(np.mod(anglediff + np.pi / 2, np.pi) - np.pi / 2)
+    K = (
+        1.194 - np.cos(Phi) + 0.194 * np.cos(2 * Phi) + 0.368 * np.sin(2 * Phi)
+    )  # wind direction factor
+
+    Tdiff = Ts - Ta
+    qcf1 = K * (1.01 + 1.347 * reynold ** 0.52) * k * Tdiff  # (3a) in [1]
+    qcf2 = K * 0.754 * reynold ** 0.6 * k * Tdiff  # (3b) in [1]
+
+    qcf = np.maximum(qcf1, qcf2)
+
+    #  natural convection
+    qcn = 3.645 * rho * D ** 0.75 * Tdiff ** 1.25
+
+    # convection loss is the max between forced and natural
+    qc = np.maximum(qcf, qcn)
+
+    # 2. Radiated Loss
+    qr = 17.8 * D * epsilon * ((Ts / 100) ** 4 - (Ta / 100) ** 4)
+
+    # 3. Solar Radiance Heat Gain
+    Q = ds["influx_direct"]  # assumption, this is short wave and not heat influx
+    A = D * 1  # projected area of conductor in square meters
+
+    if isinstance(ds, dict):
+        Position = namedtuple("solarposition", ["altitude", "azimuth"])
+        solar_position = Position(
+            ds["solar_position: altitude"], ds["solar_position: azimuth"]
+        )
+    else:
+        solar_position = SolarPosition(ds)
+    Phi_s = np.arccos(
+        np.cos(solar_position.altitude)
+        * np.cos((solar_position.azimuth) - np.deg2rad(psi))
+    )
+
+    qs = alpha * Q * A * np.sin(Phi_s)
+
+    Imax = np.sqrt((qc + qr - qs) / R)
+    return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
+
+
+def line_rating(cutout, shapes, line_resistance, **params):
+    """
+    Create a dynamic line rating time series based on the IEEE-738 standard [1].
+
+
+    The steady-state capacity is derived from the balance between heat
+    losses due to radiation and convection, and heat gains due to solar influx
+    and conductur resistance. For more information on assumptions and modifications
+    see ``convert_line_rating``.
+
+
+    [1]“IEEE Std 738™-2012 (Revision of IEEE Std 738-2006/Incorporates IEEE Std
+        738-2012/Cor 1-2013), IEEE Standard for Calculating the Current-Temperature
+        Relationship of Bare Overhead Conductors,” p. 72.
+
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+    shapes : geopandas.GeoSeries
+        Line shapes of the lines.
+    line_resistance : float/series
+        Resistance of the lines in Ohm/meter. Alternatively in p.u. system in
+        Ohm/1000km (see example below).
+    params : keyword arguments as float/series
+        Arguments to tweak/modify the line rating calculations based on [1].
+        Defaults are:
+            * D : 0.028 (conductor diameter)
+            * Ts : 373 (maximally allowed surface temperature)
+            * epsilon : 0.6 (conductor emissivity)
+            * alpha : 0.6 (conductor absorptivity)
+
+    Returns
+    -------
+    Current thermal limit timeseries with dimensions time x lines in Ampere.
+
+    Example
+    -------
+
+    >>> import pypsa
+    >>> import xarray as xr
+    >>> import atlite
+    >>> import numpy as np
+    >>> import geopandas as gpd
+    >>> from shapely.geometry import Point, LineString as Line
+
+    >>> n = pypsa.examples.scigrid_de()
+    >>> n.calculate_dependent_values()
+    >>> x = n.buses.x
+    >>> y = n.buses.y
+    >>> buses = n.lines[["bus0", "bus1"]].values
+    >>> shapes = [Line([Point(x[b0], y[b0]), Point(x[b1], y[b1])]) for (b0, b1) in buses]
+    >>> shapes = gpd.GeoSeries(shapes, index=n.lines.index)
+
+    >>> cutout = atlite.Cutout('test', x=slice(x.min(), x.max()), y=slice(y.min(), y.max()),
+                            time='2020-01-01', module='era5', dx=1, dy=1)
+    >>> cutout.prepare()
+
+    >>> i = cutout.line_rating(shapes, n.lines.r/n.lines.length)
+    >>> v = xr.DataArray(n.lines.v_nom, dims='name')
+    >>> s = np.sqrt(3) * i * v / 1e3 # in MW
+
+    """
+    if not isinstance(shapes, gpd.GeoSeries):
+        shapes = gpd.GeoSeries(shapes).rename_axis("dim_0")
+
+    I = cutout.intersectionmatrix(shapes)
+    rows, cols = I.nonzero()
+
+    data = cutout.data.stack(spatial=["x", "y"])
+
+    def get_azimuth(shape):
+        coords = np.array(shape.coords)
+        start = coords[0]
+        end = coords[-1]
+        return np.arctan2(start[0] - end[0], start[1] - end[1])
+
+    azimuth = shapes.apply(get_azimuth)
+    azimuth = azimuth.where(azimuth >= 0, azimuth + np.pi)
+
+    params.setdefault("D", 0.028)
+    params.setdefault("Ts", 373)
+    params.setdefault("epsilon", 0.6)
+    params.setdefault("alpha", 0.6)
+
+    df = pd.DataFrame({"psi": azimuth, "R": line_resistance}).assign(**params)
+
+    assert df.notnull().all().all(), "Nan values encountered."
+    assert df.columns.equals(pd.Index(["psi", "R", "D", "Ts", "epsilon", "alpha"]))
+
+    dummy = xr.DataArray(np.full(len(data.time), np.nan), coords=(data.time,))
+    res = []
+    for i in range(len(df)):
+        cells_i = cols[rows == i]
+        if cells_i.size:
+            ds = data.isel(spatial=cells_i)
+            res.append(delayed(convert_line_rating)(ds, *df.iloc[i].values))
+        else:
+            res.append(dummy)
+    with ProgressBar():
+        res = compute(res)
+
+    return xr.concat(*res, dim=df.index).assign_attrs(units="A")

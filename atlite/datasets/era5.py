@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -12,14 +12,17 @@ https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
 import os
+import warnings
 import numpy as np
 import xarray as xr
+import pandas as pd
 from tempfile import mkstemp
 import weakref
 import cdsapi
 import logging
 from numpy import atleast_1d
 from ..gis import maybe_swap_spatial_dims
+from ..pv.solar_position import SolarPosition
 
 # Null context for running a with statements wihout any context
 try:
@@ -40,8 +43,16 @@ crs = 4326
 
 features = {
     "height": ["height"],
-    "wind": ["wnd100m", "roughness"],
-    "influx": ["influx_toa", "influx_direct", "influx_diffuse", "albedo"],
+    "wind": ["wnd100m", "wnd_azimuth", "roughness"],
+    "influx": [
+        "influx_toa",
+        "influx_direct",
+        "influx_diffuse",
+        "albedo",
+        "solar_position: altitude",
+        "solar_position: azimuth",
+        "solar_position: atmospheric insolation",
+    ],
     "temperature": ["temperature", "soil temperature"],
     "runoff": ["runoff"],
 }
@@ -99,6 +110,9 @@ def get_data_wind(retrieval_params):
     ds["wnd100m"] = np.sqrt(ds["u100"] ** 2 + ds["v100"] ** 2).assign_attrs(
         units=ds["u100"].attrs["units"], long_name="100 metre wind speed"
     )
+    # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
+    azimuth = np.arctan2(ds["u100"], ds["v100"])
+    ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
     ds = ds.drop_vars(["u100", "v100"])
     ds = ds.rename({"fsr": "roughness"})
 
@@ -141,11 +155,33 @@ def get_data_influx(retrieval_params):
         ds[a] = ds[a] / (60.0 * 60.0)
         ds[a].attrs["units"] = "W m**-2"
 
+    # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00 are labelled as "14:00"
+    # account by calculating the SolarPosition for the center of the interval for aggregation happens
+    # see https://github.com/PyPSA/atlite/issues/158
+    # Do not show DeprecationWarning from new SolarPosition calculation (#199)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        # Convert dt / time frequency to timedelta and shift solar position by half
+        # (freqs like ["H","30T"] do not work with pd.to_timedelta(...)
+        time_shift = (
+            -1
+            / 2
+            * pd.to_timedelta(
+                pd.date_range(
+                    "1970-01-01", periods=1, freq=pd.infer_freq(ds["time"])
+                ).freq
+            )
+        )
+        sp = SolarPosition(ds, time_shift=time_shift)
+    sp = sp.rename({v: f"solar_position: {v}" for v in sp.data_vars})
+
+    ds = xr.merge([ds, sp])
+
     return ds
 
 
-def sanitize_inflow(ds):
-    """Sanitize retrieved inflow data."""
+def sanitize_influx(ds):
+    """Sanitize retrieved influx data."""
     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
         ds[a] = ds[a].clip(min=0.0)
     return ds

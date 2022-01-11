@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2020-2021 The Atlite Authors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+
+[tool.setuptools_scm]
+write_to = "atlite/version.py"
