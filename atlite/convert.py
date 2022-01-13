@@ -128,22 +128,52 @@ def convert_and_aggregate(
             res = da.sum("time", keep_attrs=True)
             return maybe_progressbar(res, show_progress, **dask_kwargs)
 
+    if matrix is not None:
+
+        if shapes is not None:
+            raise ValueError(
+                "Passing matrix and shapes is ambiguous. Pass " "only one of them."
+            )
+
+        if isinstance(matrix, xr.DataArray):
+
+            coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
+            if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
+                raise ValueError(
+                    "Matrix spatial coordinates not aligned with cutout spatial "
+                    "coordinates."
+                )
+
+            if index is None:
+                index = matrix
+
+        if not matrix.ndim == 2:
+            raise ValueError("Matrix not 2-dimensional.")
+
+        matrix = csr_matrix(matrix)
+
     if shapes is not None:
+
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
         if isinstance(shapes, geoseries_like) and index is None:
             index = shapes.index
+
         matrix = cutout.indicatormatrix(shapes, shapes_crs)
 
     if layout is not None:
+
         assert isinstance(layout, xr.DataArray)
         layout = layout.reindex_like(cutout.data).stack(spatial=["y", "x"])
+
         if matrix is None:
-            matrix = layout.expand_dims("new")
+            matrix = csr_matrix(layout.expand_dims("new"))
         else:
             matrix = csr_matrix(matrix) * spdiag(layout)
 
-    index = pd.RangeIndex(matrix.shape[0]) if index is None else index
-    matrix = csr_matrix(matrix)
+    # From here on, matrix is defined and ensured to be a csr matrix.
+    if index is None:
+        index = pd.RangeIndex(matrix.shape[0])
+
     results = aggregate_matrix(da, matrix=matrix, index=index)
 
     if per_unit or return_capacity:
@@ -869,7 +899,7 @@ def line_rating(cutout, shapes, line_resistance, **params):
     I = cutout.intersectionmatrix(shapes)
     rows, cols = I.nonzero()
 
-    data = cutout.data.stack(spatial=["x", "y"])
+    data = cutout.data.stack(spatial=["y", "x"])
 
     def get_azimuth(shape):
         coords = np.array(shape.coords)
