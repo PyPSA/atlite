@@ -7,7 +7,7 @@
 """
 All functions for converting weather data into energy system model data.
 """
-
+from collections import namedtuple
 import xarray as xr
 import numpy as np
 import pandas as pd
@@ -134,22 +134,52 @@ def convert_and_aggregate(
             res = da.sum("time", keep_attrs=True)
             return maybe_progressbar(res, show_progress, **dask_kwargs)
 
+    if matrix is not None:
+
+        if shapes is not None:
+            raise ValueError(
+                "Passing matrix and shapes is ambiguous. Pass " "only one of them."
+            )
+
+        if isinstance(matrix, xr.DataArray):
+
+            coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
+            if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
+                raise ValueError(
+                    "Matrix spatial coordinates not aligned with cutout spatial "
+                    "coordinates."
+                )
+
+            if index is None:
+                index = matrix
+
+        if not matrix.ndim == 2:
+            raise ValueError("Matrix not 2-dimensional.")
+
+        matrix = csr_matrix(matrix)
+
     if shapes is not None:
+
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
         if isinstance(shapes, geoseries_like) and index is None:
             index = shapes.index
+
         matrix = cutout.indicatormatrix(shapes, shapes_crs)
 
     if layout is not None:
+
         assert isinstance(layout, xr.DataArray)
         layout = layout.reindex_like(cutout.data).stack(spatial=["y", "x"])
+
         if matrix is None:
-            matrix = layout.expand_dims("new")
+            matrix = csr_matrix(layout.expand_dims("new"))
         else:
             matrix = csr_matrix(matrix) * spdiag(layout)
 
-    index = pd.RangeIndex(matrix.shape[0]) if index is None else index
-    matrix = csr_matrix(matrix)
+    # From here on, matrix is defined and ensured to be a csr matrix.
+    if index is None:
+        index = pd.RangeIndex(matrix.shape[0])
+
     results = aggregate_matrix(da, matrix=matrix, index=index)
 
     if per_unit or return_capacity:
@@ -209,6 +239,74 @@ def convert_soil_temperature(ds):
 
 def soil_temperature(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
+
+
+def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
+
+    assert source in ["air", "soil"], NotImplementedError(
+        "'source' must be one of  ['air', 'soil']"
+    )
+
+    if source == "air":
+        source_T = convert_temperature(ds)
+        if c0 is None:
+            c0 = 6.81
+        if c1 is None:
+            c1 = -0.121
+        if c2 is None:
+            c2 = 0.000630
+    elif source == "soil":
+        source_T = convert_soil_temperature(ds)
+        if c0 is None:
+            c0 = 8.77
+        if c1 is None:
+            c1 = -0.150
+        if c2 is None:
+            c2 = 0.000734
+
+    delta_T = sink_T - source_T
+
+    return c0 + c1 * delta_T + c2 * delta_T ** 2
+
+
+def coefficient_of_performance(
+    cutout, source="air", sink_T=55.0, c0=None, c1=None, c2=None, **params
+):
+    """
+    Convert ambient or soil temperature to coefficient of performance (COP)
+    of air- or ground-sourced heat pumps. The COP is a function of
+    temperature difference from source to sink. The defaults for either source
+    (c0, c1, c2) are based on a quadratic regression in [1].
+
+    Paramterers
+    -----------
+    source : str
+        The heat source. Can be 'air' or 'soil'.
+    sink_T : float
+        The temperature of the heat sink.
+    c0 : float
+        The constant regression coefficient for the temperature difference.
+    c1 : float
+        The linear regression coefficient for the temperature difference.
+    c2 : float
+        The quadratic regression coefficient for the temperature difference.
+
+    Reference
+    ---------
+    [1] Staffell, Brett, Brandon, Hawkes, A review of domestic heat pumps,
+    Energy & Environmental Science (2012), 5, 9291-9306,
+    https://doi.org/10.1039/C2EE22653G.
+    """
+
+    return cutout.convert_and_aggregate(
+        convert_func=convert_coefficient_of_performance,
+        source=source,
+        sink_T=sink_T,
+        c0=c0,
+        c1=c1,
+        c2=c2,
+        **params,
+    )
 
 
 # heat demand
@@ -809,7 +907,19 @@ def convert_line_rating(
     Q = ds["influx_direct"]  # assumption, this is short wave and not heat influx
     A = D * 1  # projected area of conductor in square meters
 
-    qs = alpha * Q * A
+    if isinstance(ds, dict):
+        Position = namedtuple("solarposition", ["altitude", "azimuth"])
+        solar_position = Position(
+            ds["solar_position: altitude"], ds["solar_position: azimuth"]
+        )
+    else:
+        solar_position = SolarPosition(ds)
+    Phi_s = np.arccos(
+        np.cos(solar_position.altitude)
+        * np.cos((solar_position.azimuth) - np.deg2rad(psi))
+    )
+
+    qs = alpha * Q * A * np.sin(Phi_s)
 
     Imax = np.sqrt((qc + qr - qs) / R)
     return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
@@ -861,7 +971,7 @@ def line_rating(cutout, shapes, line_resistance, **params):
     >>> import geopandas as gpd
     >>> from shapely.geometry import Point, LineString as Line
 
-    >>> n = pypsa.examples.ac_dc_meshed()
+    >>> n = pypsa.examples.scigrid_de()
     >>> n.calculate_dependent_values()
     >>> x = n.buses.x
     >>> y = n.buses.y
@@ -873,14 +983,9 @@ def line_rating(cutout, shapes, line_resistance, **params):
                             time='2020-01-01', module='era5', dx=1, dy=1)
     >>> cutout.prepare()
 
-    >>> i = cutout.line_rating(shapes, n.lines.r/1e3)
+    >>> i = cutout.line_rating(shapes, n.lines.r/n.lines.length)
     >>> v = xr.DataArray(n.lines.v_nom, dims='name')
     >>> s = np.sqrt(3) * i * v / 1e3 # in MW
-
-    Alternatively, the units nicely play out when we use the per unit system
-    while scaling the resistance with a factor 1000.
-
-    >>> s = np.sqrt(3) * cutout.line_rating(shapes, n.lines.r_pu * 1e3) # in MW
 
     """
     if not isinstance(shapes, gpd.GeoSeries):
@@ -889,7 +994,7 @@ def line_rating(cutout, shapes, line_resistance, **params):
     I = cutout.intersectionmatrix(shapes)
     rows, cols = I.nonzero()
 
-    data = cutout.data.stack(spatial=["x", "y"])
+    data = cutout.data.stack(spatial=["y", "x"])
 
     def get_azimuth(shape):
         coords = np.array(shape.coords)
@@ -922,4 +1027,4 @@ def line_rating(cutout, shapes, line_resistance, **params):
     with ProgressBar():
         res = compute(res)
 
-    return xr.concat(*res, dim=df.index)
+    return xr.concat(*res, dim=df.index).assign_attrs(units="A")

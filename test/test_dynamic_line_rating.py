@@ -20,9 +20,15 @@ def test_ieee_sample_case():
     """
     Test the implementation against the documented results from IEEE standard (chapter 4.6).
     """
-    ds = dict(
-        temperature=273 + 40, wnd100m=0.61, height=0, wnd_azimuth=0, influx_direct=1027
-    )
+    ds = {
+        "temperature": 313,
+        "wnd100m": 0.61,
+        "height": 0,
+        "wnd_azimuth": 0,
+        "influx_direct": 1027,
+        "solar_position: altitude": np.pi / 2,
+        "solar_position: azimuth": np.pi,
+    }
 
     psi = 90  # line azimuth
     D = 0.02814  # line diameter
@@ -30,7 +36,7 @@ def test_ieee_sample_case():
     epsilon = 0.8  # emissivity
     alpha = 0.8  # absorptivity
 
-    R = 9.39e-5  # resistance at 100°C
+    R = 9.39e-5  # resistance at 100°C in Ohm/m
 
     i = convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha)
 
@@ -43,7 +49,15 @@ def test_openmod_sample_case():
     https://wiki.openmod-initiative.org/wiki/Transmission_network_datasets#European_50_Hz_transmission_lines
     assuming 20°C, no wind and no sun.
     """
-    ds = dict(temperature=273 + 20, wnd100m=0, height=0, wnd_azimuth=0, influx_direct=0)
+    ds = {
+        "temperature": 293,
+        "wnd100m": 0,
+        "height": 0,
+        "wnd_azimuth": 0,
+        "influx_direct": 0,
+        "solar_position: altitude": np.pi / 2,
+        "solar_position: azimuth": np.pi,
+    }
     psi = 0  # line azimuth
 
     # first entry
@@ -73,7 +87,15 @@ def test_openmod_sample_case_per_unit():
     https://wiki.openmod-initiative.org/wiki/Transmission_network_datasets#European_50_Hz_transmission_lines
     assuming 20°C, no wind and no sun and using the per unit system.
     """
-    ds = dict(temperature=273 + 20, wnd100m=0, height=0, wnd_azimuth=0, influx_direct=0)
+    ds = {
+        "temperature": 293,
+        "wnd100m": 0,
+        "height": 0,
+        "wnd_azimuth": 0,
+        "influx_direct": 0,
+        "solar_position: altitude": np.pi / 2,
+        "solar_position: azimuth": np.pi,
+    }
     psi = 0  # line azimuth
 
     # feels a bit like cheating: pypsa give the resistance in Ohm/km, if we
@@ -93,7 +115,15 @@ def test_suedkabel_sample_case():
     temperature of 90°C.
     """
 
-    ds = dict(temperature=273 + 20, wnd100m=0, height=0, wnd_azimuth=0, influx_direct=0)
+    ds = {
+        "temperature": 293,
+        "wnd100m": 0,
+        "height": 0,
+        "wnd_azimuth": 0,
+        "influx_direct": 0,
+        "solar_position: altitude": np.pi / 2,
+        "solar_position: azimuth": np.pi,
+    }
     R = 0.0136 * 1e-3
     psi = 0  # line azimuth
 
@@ -109,10 +139,15 @@ def test_right_angle_in_different_configuration():
     """
     Test different configurations of angle difference of 90 degree.
     """
-    ds = dict(
-        temperature=273 + 40, wnd100m=0.61, height=0, wnd_azimuth=0, influx_direct=1027
-    )
-
+    ds = {
+        "temperature": 313,
+        "wnd100m": 0.61,
+        "height": 0,
+        "wnd_azimuth": 0,
+        "influx_direct": 1027,
+        "solar_position: altitude": np.pi / 2,
+        "solar_position: azimuth": np.pi,
+    }
     psi = 90  # line azimuth
     D = 0.02814  # line diameter
     Ts = 273 + 100  # max allowed line surface temp
@@ -150,10 +185,15 @@ def test_angle_increase():
     """
     Test an increasing angle which should lead to an increasing capacity
     """
-    ds = dict(
-        temperature=273 + 40, wnd100m=0.61, height=0, wnd_azimuth=0, influx_direct=1027
-    )
-
+    ds = {
+        "temperature": 313,
+        "wnd100m": 0.61,
+        "height": 0,
+        "wnd_azimuth": 0,
+        "influx_direct": 1027,
+        "solar_position: altitude": np.pi / 2,
+        "solar_position: azimuth": np.pi,
+    }
     D = 0.02814  # line diameter
     Ts = 273 + 100  # max allowed line surface temp
     epsilon = 0.8  # emissivity
