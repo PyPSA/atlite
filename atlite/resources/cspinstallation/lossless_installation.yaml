@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2021 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Special type of CSP installation without efficiency losses.
+# This has by default no technology attached, a technology must
+# be selected before or during the conversion process.
+# Maybe used to determine the direct radiation in a location or
+# for a simplified CSP installation with static efficiency.
+name: lossless
+source: None
+
+technology: None
+r_irradiance: 1000 # in W/m^2
+
+efficiency:
+  altitude:
+    0: 0
+    1: 0
+    2: 90
+    3: 90
+  azimuth:
+    0: 0
+    1: 360
+    2: 0
+    3: 360
+  value:
+    0: 100
+    1: 100
+    2: 100
+    3: 100

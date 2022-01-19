@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -28,6 +28,7 @@ logger = logging.getLogger(name=__name__)
 RESOURCE_DIRECTORY = Path(pkg_resources.resource_filename(__name__, "resources"))
 WINDTURBINE_DIRECTORY = RESOURCE_DIRECTORY / "windturbine"
 SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
+CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 
 
 def get_windturbineconfig(turbine):
@@ -81,6 +82,61 @@ def get_solarpanelconfig(panel):
         conf = yaml.safe_load(f)
 
     return conf
+
+
+def get_cspinstallationconfig(installation):
+    """Load the 'installation'.yaml file from local disk to provide the system efficiencies.
+
+    Parameters
+    ----------
+    installation : str
+        Name of CSP installation kind. Must correspond to name of one of the files
+        in resources/cspinstallation.
+
+    Returns
+    -------
+    config : dict
+        Config with details on the CSP installation.
+    """
+
+    if isinstance(installation, str):
+        if not installation.endswith(".yaml"):
+            installation += ".yaml"
+
+    installation = CSPINSTALLATION_DIRECTORY / installation
+
+    # Load and set expected index columns
+    with open(installation, "r") as f:
+        config = yaml.safe_load(f)
+
+    config["path"] = installation
+
+    ## Convert efficiency dict to xr.DataArray and convert units to deg -> rad, % -> p.u.
+    da = pd.DataFrame(config["efficiency"]).set_index(["altitude", "azimuth"])
+
+    # Handle as xarray DataArray early - da will be 'return'-ed
+    da = da.to_xarray()["value"]
+
+    # Solar altitude + azimuth expected in deg for better readibility
+    # calculations use solar position in rad
+    # Convert da to new coordinates and drop old
+    da = da.rename({"azimuth": "azimuth [deg]", "altitude": "altitude [deg]"})
+    da = da.assign_coords(
+        {
+            "altitude": np.deg2rad(da["altitude [deg]"]),
+            "azimuth": np.deg2rad(da["azimuth [deg]"]),
+        }
+    )
+    da = da.swap_dims({"altitude [deg]": "altitude", "azimuth [deg]": "azimuth"})
+
+    da = da.chunk("auto")
+
+    # Efficiency unit from % to p.u.
+    da /= 1.0e2
+
+    config["efficiency"] = da
+
+    return config
 
 
 def solarpanel_rated_capacity_per_unit(panel):
@@ -319,3 +375,6 @@ def get_oedb_windturbineconfig(search=None, **search_params):
 _oedb_turbines = None
 windturbines = arrowdict({p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
 solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
+cspinstallations = arrowdict(
+    {p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.yaml")}
+)

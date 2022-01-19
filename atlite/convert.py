@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -33,8 +33,14 @@ from .pv.orientation import get_orientation, SurfaceOrientation
 
 from . import hydro as hydrom
 from . import wind as windm
+from . import csp as cspm
 
-from .resource import get_windturbineconfig, get_solarpanelconfig, windturbine_smooth
+from .resource import (
+    get_cspinstallationconfig,
+    get_windturbineconfig,
+    get_solarpanelconfig,
+    windturbine_smooth,
+)
 
 
 def convert_and_aggregate(
@@ -596,6 +602,95 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
         panel=panel,
         orientation=orientation,
         clearsky_model=clearsky_model,
+        **params,
+    )
+
+
+# solar CSP
+def convert_csp(ds, installation):
+
+    solar_position = SolarPosition(ds)
+
+    tech = installation["technology"]
+    if tech == "parabolic trough":
+        irradiation = ds["influx_direct"]
+    elif tech == "solar tower":
+        irradiation = cspm.calculate_dni(ds, solar_position)
+    else:
+        raise ValueError(f'Unknown CSP technology option "{tech}".')
+
+    # Determine solar_position dependend efficiency for each grid cell and time step
+    efficiency = installation["efficiency"].interp(
+        altitude=solar_position["altitude"], azimuth=solar_position["azimuth"]
+    )
+
+    # Thermal system output
+    da = efficiency * irradiation
+
+    # output relative to reference irradiance
+    da /= installation["r_irradiance"]
+
+    # Limit output to max of reference irradiance
+    da = da.clip(max=1.0)
+
+    # Fill NaNs originating from DNI or solar positions outside efficiency bounds
+    da = da.fillna(0.0)
+
+    da.attrs["units"] = "kWh/kW_ref"
+    da = da.rename("specific generation")
+
+    return da
+
+
+def csp(cutout, installation, technology=None, **params):
+    """
+    Convert downward shortwave direct radiation into a csp generation time-series.
+
+    Parameters
+    ----------
+    installation: str or xr.DataArray
+        CSP installation details determining the solar field efficiency dependent on
+        the local solar position. Can be either the name of one of the standard
+        installations provided through `atlite.cspinstallationsPanel` or an
+        xarray.DataArray with 'azimuth' (in rad) and 'altitude' (in rad) coordinates
+        and an 'efficiency' (in p.u.) entry.
+    technology: str
+        Overwrite CSP technology from the installation configuration. The technology
+        affects which direct radiation is considered. Either 'parabolic trough' (DHI)
+        or 'solar tower' (DNI).
+
+    Returns
+    -------
+    csp : xr.DataArray
+        Time-series or capacity factors based on additional general
+        conversion arguments.
+
+    Note
+    ----
+    You can also specify all of the general conversion arguments
+    documented in the `convert_and_aggregate` function.
+
+    References
+    ----------
+    [1] Tobias Hirsch (ed.). SolarPACES Guideline for Bankable STE Yield Assessment,
+    IEA Technology Collaboration Programme SolarPACES, 2017.
+    URL: https://www.solarpaces.org/csp-research-tasks/task-annexes-iea/task-i-solar-thermal-electric-systems/solarpaces-guideline-for-bankable-ste-yield-assessment/
+
+    [2] Tobias Hirsch (ed.). CSPBankability Project Report, DLR, 2017.
+    URL: https://www.dlr.de/sf/en/desktopdefault.aspx/tabid-11126/19467_read-48251/
+
+    """
+
+    if isinstance(installation, (str, Path)):
+        installation = get_cspinstallationconfig(installation)
+
+    # Overwrite technology
+    if technology is not None:
+        installation["technology"] = technology
+
+    return cutout.convert_and_aggregate(
+        convert_func=convert_csp,
+        installation=installation,
         **params,
     )
 
