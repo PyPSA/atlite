@@ -47,6 +47,7 @@ from .convert import (
     wind,
     irradiation,
     pv,
+    csp,
     runoff,
     solar_thermal,
     soil_temperature,
@@ -634,6 +635,8 @@ class Cutout:
     irradiation = irradiation
 
     pv = pv
+
+    csp = csp
 
     runoff = runoff
 
