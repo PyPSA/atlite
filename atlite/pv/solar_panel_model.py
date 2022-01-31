@@ -35,8 +35,8 @@ def _power_huld(irradiance, t_amb, pc):
         1
         + pc["k_1"] * log_G_
         + pc["k_2"] * (log_G_) ** 2
-        + T_ * (pc["k_3"] + pc["k_4"] * log_G_ + pc["k_5"] * log_G_ ** 2)
-        + pc["k_6"] * (T_ ** 2)
+        + T_ * (pc["k_3"] + pc["k_4"] * log_G_ + pc["k_5"] * log_G_**2)
+        + pc["k_6"] * (T_**2)
     )
 
     eff = eff.fillna(0.0).clip(min=0)

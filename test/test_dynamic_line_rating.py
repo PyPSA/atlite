@@ -101,7 +101,7 @@ def test_openmod_sample_case_per_unit():
     # feels a bit like cheating: pypsa give the resistance in Ohm/km, if we
     # convert that to Ohm/1000km and use the pu system, the units nicely play
     # out to MW in the end.
-    R = 0.06 * 1e3 / 220 ** 2
+    R = 0.06 * 1e3 / 220**2
 
     s = np.sqrt(3) * convert_line_rating(ds, psi, R)
     assert np.isclose(s, 492, rtol=0.01)
