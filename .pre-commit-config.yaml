@@ -4,7 +4,7 @@
 
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
+    rev: v4.1.0
     hooks:
     -   id: check-yaml
 -   repo: https://github.com/psf/black
@@ -12,6 +12,6 @@ repos:
     hooks:
     -   id: black
 -   repo: https://github.com/fsfe/reuse-tool
-    rev: v0.13.0
+    rev: v0.14.0
     hooks:
     -   id: reuse

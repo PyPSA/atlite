@@ -135,7 +135,7 @@ nbsphinx_prolog = """
 .. note::
 
     Download this example as a Jupyter notebook here:
-    https://github.com/pypsa/atlite/{{ env.doc2path(env.docname, base="").replace("nblink","ipynb") }}
+    https://github.com/pypsa/atlite/blob/master/{{ env.doc2path(env.docname, base="").replace("nblink","ipynb") }}
 
 """
 

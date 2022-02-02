@@ -132,4 +132,5 @@ def SolarPosition(ds, time_shift="0H"):
 
     vars = {da.name: da for da in [alt, az, atmospheric_insolation]}
     solar_position = xr.Dataset(vars)
+
     return solar_position

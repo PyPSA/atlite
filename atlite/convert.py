@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -33,8 +33,14 @@ from .pv.orientation import get_orientation, SurfaceOrientation
 
 from . import hydro as hydrom
 from . import wind as windm
+from . import csp as cspm
 
-from .resource import get_windturbineconfig, get_solarpanelconfig, windturbine_smooth
+from .resource import (
+    get_cspinstallationconfig,
+    get_windturbineconfig,
+    get_solarpanelconfig,
+    windturbine_smooth,
+)
 
 
 def convert_and_aggregate(
@@ -128,22 +134,52 @@ def convert_and_aggregate(
             res = da.sum("time", keep_attrs=True)
             return maybe_progressbar(res, show_progress, **dask_kwargs)
 
+    if matrix is not None:
+
+        if shapes is not None:
+            raise ValueError(
+                "Passing matrix and shapes is ambiguous. Pass " "only one of them."
+            )
+
+        if isinstance(matrix, xr.DataArray):
+
+            coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
+            if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
+                raise ValueError(
+                    "Matrix spatial coordinates not aligned with cutout spatial "
+                    "coordinates."
+                )
+
+            if index is None:
+                index = matrix
+
+        if not matrix.ndim == 2:
+            raise ValueError("Matrix not 2-dimensional.")
+
+        matrix = csr_matrix(matrix)
+
     if shapes is not None:
+
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
         if isinstance(shapes, geoseries_like) and index is None:
             index = shapes.index
+
         matrix = cutout.indicatormatrix(shapes, shapes_crs)
 
     if layout is not None:
+
         assert isinstance(layout, xr.DataArray)
         layout = layout.reindex_like(cutout.data).stack(spatial=["y", "x"])
+
         if matrix is None:
-            matrix = layout.expand_dims("new")
+            matrix = csr_matrix(layout.expand_dims("new"))
         else:
             matrix = csr_matrix(matrix) * spdiag(layout)
 
-    index = pd.RangeIndex(matrix.shape[0]) if index is None else index
-    matrix = csr_matrix(matrix)
+    # From here on, matrix is defined and ensured to be a csr matrix.
+    if index is None:
+        index = pd.RangeIndex(matrix.shape[0])
+
     results = aggregate_matrix(da, matrix=matrix, index=index)
 
     if per_unit or return_capacity:
@@ -570,6 +606,95 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
     )
 
 
+# solar CSP
+def convert_csp(ds, installation):
+
+    solar_position = SolarPosition(ds)
+
+    tech = installation["technology"]
+    if tech == "parabolic trough":
+        irradiation = ds["influx_direct"]
+    elif tech == "solar tower":
+        irradiation = cspm.calculate_dni(ds, solar_position)
+    else:
+        raise ValueError(f'Unknown CSP technology option "{tech}".')
+
+    # Determine solar_position dependend efficiency for each grid cell and time step
+    efficiency = installation["efficiency"].interp(
+        altitude=solar_position["altitude"], azimuth=solar_position["azimuth"]
+    )
+
+    # Thermal system output
+    da = efficiency * irradiation
+
+    # output relative to reference irradiance
+    da /= installation["r_irradiance"]
+
+    # Limit output to max of reference irradiance
+    da = da.clip(max=1.0)
+
+    # Fill NaNs originating from DNI or solar positions outside efficiency bounds
+    da = da.fillna(0.0)
+
+    da.attrs["units"] = "kWh/kW_ref"
+    da = da.rename("specific generation")
+
+    return da
+
+
+def csp(cutout, installation, technology=None, **params):
+    """
+    Convert downward shortwave direct radiation into a csp generation time-series.
+
+    Parameters
+    ----------
+    installation: str or xr.DataArray
+        CSP installation details determining the solar field efficiency dependent on
+        the local solar position. Can be either the name of one of the standard
+        installations provided through `atlite.cspinstallationsPanel` or an
+        xarray.DataArray with 'azimuth' (in rad) and 'altitude' (in rad) coordinates
+        and an 'efficiency' (in p.u.) entry.
+    technology: str
+        Overwrite CSP technology from the installation configuration. The technology
+        affects which direct radiation is considered. Either 'parabolic trough' (DHI)
+        or 'solar tower' (DNI).
+
+    Returns
+    -------
+    csp : xr.DataArray
+        Time-series or capacity factors based on additional general
+        conversion arguments.
+
+    Note
+    ----
+    You can also specify all of the general conversion arguments
+    documented in the `convert_and_aggregate` function.
+
+    References
+    ----------
+    [1] Tobias Hirsch (ed.). SolarPACES Guideline for Bankable STE Yield Assessment,
+    IEA Technology Collaboration Programme SolarPACES, 2017.
+    URL: https://www.solarpaces.org/csp-research-tasks/task-annexes-iea/task-i-solar-thermal-electric-systems/solarpaces-guideline-for-bankable-ste-yield-assessment/
+
+    [2] Tobias Hirsch (ed.). CSPBankability Project Report, DLR, 2017.
+    URL: https://www.dlr.de/sf/en/desktopdefault.aspx/tabid-11126/19467_read-48251/
+
+    """
+
+    if isinstance(installation, (str, Path)):
+        installation = get_cspinstallationconfig(installation)
+
+    # Overwrite technology
+    if technology is not None:
+        installation["technology"] = technology
+
+    return cutout.convert_and_aggregate(
+        convert_func=convert_csp,
+        installation=installation,
+        **params,
+    )
+
+
 # hydro
 def convert_runoff(ds, weight_with_height=True):
     runoff = ds["runoff"]
@@ -770,7 +895,7 @@ def convert_line_rating(
     qcf = np.maximum(qcf1, qcf2)
 
     #  natural convection
-    qcn = 3.645 * rho * D ** 0.75 * Tdiff ** 1.25
+    qcn = 3.645 * np.sqrt(rho) * D ** 0.75 * Tdiff ** 1.25
 
     # convection loss is the max between forced and natural
     qc = np.maximum(qcf, qcn)
@@ -869,7 +994,7 @@ def line_rating(cutout, shapes, line_resistance, **params):
     I = cutout.intersectionmatrix(shapes)
     rows, cols = I.nonzero()
 
-    data = cutout.data.stack(spatial=["x", "y"])
+    data = cutout.data.stack(spatial=["y", "x"])
 
     def get_azimuth(shape):
         coords = np.array(shape.coords)
