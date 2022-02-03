@@ -23,6 +23,31 @@ def get_orientation(name, **params):
     return getattr(sys.modules[__name__], "make_{}".format(name))(**params)
 
 
+def make_hsat():
+    """
+    Returns a function mimicing a Horizontal Single Axis Tracker (HSAT).
+
+    The method sets the east-west tilt of the PV panel perpendicular to the
+    solar altitude. The axis of rotation is horizontal with respect to the
+    ground.
+    """
+
+    def horizontal_tracking(lon, lat, solar_position):
+
+        altitude = solar_position.altitude
+        slope = np.pi / 2 - np.abs(altitude)
+
+        # South orientation for panels on northern hemisphere and vice versa
+        azimuth = np.where(solar_position.azimuth < np.pi, pi / 2, 3 * pi / 2)
+
+        return dict(
+            slope=slope,
+            azimuth=xr.DataArray(azimuth, coords=altitude.coords),
+        )
+
+    return horizontal_tracking
+
+
 def make_latitude_optimal():
     """
     Returns an optimal tilt angle for the given ``lat``, assuming that

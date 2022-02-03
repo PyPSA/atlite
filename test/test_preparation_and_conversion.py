@@ -132,6 +132,17 @@ def pv_test(cutout):
     # should be roughly the same
     assert (production_other.sum() / production_opt.sum()).round(0) == 1
 
+    # now use horizontal tracking
+    production_hsat = cutout.pv(
+        atlite.resource.solarpanels.CdTe,
+        "hsat",
+        layout=cap_factor_opt,
+    )
+
+    assert production_hsat.sel(time=TIME + " 00:00") == 0
+    # should be lower since it's winter
+    assert (production_hsat.sum() / production_opt.sum()) < 1
+
 
 def csp_test(cutout):
     """
