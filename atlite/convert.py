@@ -965,7 +965,7 @@ def convert_line_rating(
     qcf = np.maximum(qcf1, qcf2)
 
     #  natural convection
-    qcn = 3.645 * rho * D ** 0.75 * Tdiff ** 1.25
+    qcn = 3.645 * np.sqrt(rho) * D ** 0.75 * Tdiff ** 1.25
 
     # convection loss is the max between forced and natural
     qc = np.maximum(qcf, qcn)

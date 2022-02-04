@@ -7,7 +7,7 @@
 import sys
 import numpy as np
 import xarray as xr
-from numpy import sin, cos, deg2rad
+from numpy import sin, cos, deg2rad, pi
 
 
 def get_orientation(name, **params):
@@ -60,7 +60,7 @@ def make_latitude_optimal():
         slope[~below_50] = np.deg2rad(40.0)
 
         # South orientation for panels on northern hemisphere and vice versa
-        azimuth = np.where(lat.values < 0, 0, 180)
+        azimuth = np.where(lat.values < 0, 0, pi)
 
         return dict(
             slope=xr.DataArray(slope, coords=lat.coords),
@@ -81,6 +81,8 @@ def make_constant(slope, azimuth):
 
 
 def make_latitude(azimuth=180):
+    azimuth = deg2rad(azimuth)
+
     def latitude(lon, lat, solar_position):
         return dict(slope=lat, azimuth=azimuth)
 
