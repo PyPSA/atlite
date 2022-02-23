@@ -22,6 +22,7 @@ Release Notes
 * Due to ambiguity, conversion functions (`.pv(...)`, `.wind(...)` etc.) now raise an `ValueError` if shapes and matrix are given. 
 * Atlite now supports calculating of heat pump coefficients of performance (https://github.com/PyPSA/atlite/pull/145).
 * Enabled the GitHub feature "Cite this repository" to generate a BibTeX file (Added a `CITATION.cff` file to the repository).
+* The function `SolarPosition` does not return the atmospheric insolation anymore. This data variable was not used by any of the currently supported modules. 
 
 **Bug fixes**
 * The solar position for ERA5 cutouts is now calculated for half a time step earlier (time-shift by `cutout.dt/2`) to account for the aggregated nature of

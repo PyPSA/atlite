@@ -26,8 +26,8 @@ def test_ieee_sample_case():
         "height": 0,
         "wnd_azimuth": 0,
         "influx_direct": 1027,
-        "solar_position: altitude": np.pi / 2,
-        "solar_position: azimuth": np.pi,
+        "solar_altitude": np.pi / 2,
+        "solar_azimuth": np.pi,
     }
 
     psi = 90  # line azimuth
@@ -60,8 +60,8 @@ def test_oeding_and_oswald_sample_case():
         "height": 0,
         "wnd_azimuth": 0,
         "influx_direct": 0,
-        "solar_position: altitude": np.pi / 2,
-        "solar_position: azimuth": np.pi,
+        "solar_altitude": np.pi / 2,
+        "solar_azimuth": np.pi,
     }
     psi = 90  # line azimuth
     D = 0.0218  # line diameter
@@ -89,8 +89,8 @@ def test_suedkabel_sample_case():
         "height": 0,
         "wnd_azimuth": 0,
         "influx_direct": 0,
-        "solar_position: altitude": np.pi / 2,
-        "solar_position: azimuth": np.pi,
+        "solar_altitude": np.pi / 2,
+        "solar_azimuth": np.pi,
     }
     R = 0.0136 * 1e-3
     psi = 0  # line azimuth
@@ -113,8 +113,8 @@ def test_right_angle_in_different_configuration():
         "height": 0,
         "wnd_azimuth": 0,
         "influx_direct": 1027,
-        "solar_position: altitude": np.pi / 2,
-        "solar_position: azimuth": np.pi,
+        "solar_altitude": np.pi / 2,
+        "solar_azimuth": np.pi,
     }
     psi = 90  # line azimuth
     D = 0.02814  # line diameter
@@ -159,8 +159,8 @@ def test_angle_increase():
         "height": 0,
         "wnd_azimuth": 0,
         "influx_direct": 1027,
-        "solar_position: altitude": np.pi / 2,
-        "solar_position: azimuth": np.pi,
+        "solar_altitude": np.pi / 2,
+        "solar_azimuth": np.pi,
     }
     D = 0.02814  # line diameter
     Ts = 273 + 100  # max allowed line surface temp

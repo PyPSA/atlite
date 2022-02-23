@@ -33,10 +33,9 @@ features = {
     "influx": [
         "influx_direct",
         "influx_diffuse",
-        "solar_position: altitude",
-        "solar_position: azimuth",
-        "solar_position: atmospheric insolation",
-    ]
+        "solar_altitude",
+        "solar_azimuth",
+    ],
 }
 static_features = {}
 
@@ -229,7 +228,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         sp = SolarPosition(ds, time_shift="0H")
-    sp = sp.rename({v: f"solar_position: {v}" for v in sp.data_vars})
+    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
     ds = xr.merge([ds, sp])
 

@@ -54,15 +54,14 @@ def SolarPosition(ds, time_shift="0H"):
 
     # Act like a getter if these return variables are already in ds
     rvs = {
-        "solar_position: azimuth",
-        "solar_position: altitude",
-        "solar_position: atmospheric insolation",
+        "solar_azimuth",
+        "solar_altitude",
     }
 
     if rvs.issubset(set(ds.data_vars)):
         solar_position = ds[rvs]
         solar_position = solar_position.rename(
-            {v: v.replace("solar_position: ", "") for v in rvs}
+            {v: v.replace("solar_: ", "") for v in rvs}
         )
         return solar_position
 
@@ -120,17 +119,7 @@ def SolarPosition(ds, time_shift="0H"):
     az.attrs["time shift"] = f"{time_shift}"
     az.attrs["units"] = "rad"
 
-    if "influx_toa" in ds:
-        atmospheric_insolation = ds["influx_toa"].rename("atmospheric insolation")
-    else:
-        # [3]
-        atmospheric_insolation = (1366.1 * (1 + 0.033 * cos(g)) * sin(alt)).rename(
-            "atmospheric insolation"
-        )
-        atmospheric_insolation.attrs["time shift"] = f"{time_shift}"
-        atmospheric_insolation.attrs["units"] = "W m**-2"
-
-    vars = {da.name: da for da in [alt, az, atmospheric_insolation]}
+    vars = {da.name: da for da in [alt, az]}
     solar_position = xr.Dataset(vars)
 
     return solar_position
