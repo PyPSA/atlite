@@ -61,7 +61,7 @@ def SolarPosition(ds, time_shift="0H"):
     if rvs.issubset(set(ds.data_vars)):
         solar_position = ds[rvs]
         solar_position = solar_position.rename(
-            {v: v.replace("solar_: ", "") for v in rvs}
+            {v: v.replace("solar_", "") for v in rvs}
         )
         return solar_position
 
