@@ -43,14 +43,19 @@ def test_ieee_sample_case():
     assert np.isclose(i, 1025, rtol=0.005)
 
 
-def test_openmod_sample_case():
+def test_oeding_and_oswald_sample_case():
     """
     Test the implementation against the documented line parameters documented at
-    https://wiki.openmod-initiative.org/wiki/Transmission_network_datasets#European_50_Hz_transmission_lines
-    assuming 20°C, no wind and no sun.
+    https://link.springer.com/content/pdf/10.1007%2F978-3-642-19246-3.pdf
+    table 9.2, Al 240/40
+
+    This is the same as the DIN 48204-4/84.
+
+    We do not exactly know at what ambient temperature the DIN is calculated.
+    30 degree is a good guess that fits.
     """
     ds = {
-        "temperature": 293,
+        "temperature": 30 + 273,
         "wnd100m": 0,
         "height": 0,
         "wnd_azimuth": 0,
@@ -58,53 +63,16 @@ def test_openmod_sample_case():
         "solar_position: altitude": np.pi / 2,
         "solar_position: azimuth": np.pi,
     }
-    psi = 0  # line azimuth
+    psi = 90  # line azimuth
+    D = 0.0218  # line diameter
+    Ts = 273 + 80  # max allowed line surface temp
+    epsilon = 0.8  # emissivity
+    alpha = 0.8  # absorptivity
 
-    # first entry
-    R = 0.06 * 1e-3  # in Ohm/m
+    R = 0.1188 * 1e-3  # in Ohm/m
 
-    i = convert_line_rating(ds, psi, R)  # Ampere
-    v = 220  # 220 kV
-    s = np.sqrt(3) * i * v / 1e3  # in MW
-
-    assert np.isclose(i, 1290, rtol=0.005)
-    assert np.isclose(s, 492, rtol=0.01)
-
-    # second entry (does not work)
-    R = 0.03 * 1e-3
-
-    i = convert_line_rating(ds, psi, R)
-    v = 380  # 380 kV
-    s = np.sqrt(3) * i * v  # in MW
-
-    # assert np.isclose(s, 1698, rtol=0.01)
-    # assert np.isclose(i, 2580, rtol=0.005)
-
-
-def test_openmod_sample_case_per_unit():
-    """
-    Test the implementation against the documented line parameters documented at
-    https://wiki.openmod-initiative.org/wiki/Transmission_network_datasets#European_50_Hz_transmission_lines
-    assuming 20°C, no wind and no sun and using the per unit system.
-    """
-    ds = {
-        "temperature": 293,
-        "wnd100m": 0,
-        "height": 0,
-        "wnd_azimuth": 0,
-        "influx_direct": 0,
-        "solar_position: altitude": np.pi / 2,
-        "solar_position: azimuth": np.pi,
-    }
-    psi = 0  # line azimuth
-
-    # feels a bit like cheating: pypsa give the resistance in Ohm/km, if we
-    # convert that to Ohm/1000km and use the pu system, the units nicely play
-    # out to MW in the end.
-    R = 0.06 * 1e3 / 220**2
-
-    s = np.sqrt(3) * convert_line_rating(ds, psi, R)
-    assert np.isclose(s, 492, rtol=0.01)
+    i = convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha)
+    assert np.isclose(i, 645, rtol=0.015)
 
 
 def test_suedkabel_sample_case():
