@@ -909,9 +909,7 @@ def convert_line_rating(
 
     if isinstance(ds, dict):
         Position = namedtuple("solarposition", ["altitude", "azimuth"])
-        solar_position = Position(
-            ds["solar_position: altitude"], ds["solar_position: azimuth"]
-        )
+        solar_position = Position(ds["solar_altitude"], ds["solar_azimuth"])
     else:
         solar_position = SolarPosition(ds)
     Phi_s = np.arccos(
