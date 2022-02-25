@@ -37,7 +37,7 @@ def make_hsat():
         slope = np.pi / 2 - np.abs(solar_position["altitude"])
 
         # South orientation for panels on northern hemisphere and vice versa
-        azimuth = np.where(solar_position["azimuth"]< np.pi, np.pi / 2, 3 * np.pi / 2)
+        azimuth = np.where(solar_position["azimuth"] < np.pi, np.pi / 2, 3 * np.pi / 2)
 
         return dict(
             slope=slope,
