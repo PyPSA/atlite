@@ -266,7 +266,7 @@ def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
 
     delta_T = sink_T - source_T
 
-    return c0 + c1 * delta_T + c2 * delta_T ** 2
+    return c0 + c1 * delta_T + c2 * delta_T**2
 
 
 def coefficient_of_performance(
@@ -869,11 +869,11 @@ def convert_line_rating(
 
     # 1. Convective Loss, at first forced convection
     V = ds["wnd100m"]  # typically ironmen are about 40-60 meters high
-    mu = (1.458e-6 * Tfilm ** 1.5) / (
+    mu = (1.458e-6 * Tfilm**1.5) / (
         Tfilm + 383.4 - T0
     )  # Dynamic viscosity of air (13a)
     H = ds["height"]
-    rho = (1.293 - 1.525e-4 * H + 6.379e-9 * H ** 2) / (
+    rho = (1.293 - 1.525e-4 * H + 6.379e-9 * H**2) / (
         1 + 0.00367 * (Tfilm - T0)
     )  # (14a)
 
@@ -889,13 +889,13 @@ def convert_line_rating(
     )  # wind direction factor
 
     Tdiff = Ts - Ta
-    qcf1 = K * (1.01 + 1.347 * reynold ** 0.52) * k * Tdiff  # (3a) in [1]
-    qcf2 = K * 0.754 * reynold ** 0.6 * k * Tdiff  # (3b) in [1]
+    qcf1 = K * (1.01 + 1.347 * reynold**0.52) * k * Tdiff  # (3a) in [1]
+    qcf2 = K * 0.754 * reynold**0.6 * k * Tdiff  # (3b) in [1]
 
     qcf = np.maximum(qcf1, qcf2)
 
     #  natural convection
-    qcn = 3.645 * np.sqrt(rho) * D ** 0.75 * Tdiff ** 1.25
+    qcn = 3.645 * np.sqrt(rho) * D**0.75 * Tdiff**1.25
 
     # convection loss is the max between forced and natural
     qc = np.maximum(qcf, qcn)
