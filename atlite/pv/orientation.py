@@ -34,15 +34,14 @@ def make_hsat():
 
     def horizontal_tracking(lon, lat, solar_position):
 
-        altitude = solar_position.altitude
-        slope = np.pi / 2 - np.abs(altitude)
+        slope = np.pi / 2 - np.abs(solar_position["altitude"])
 
         # South orientation for panels on northern hemisphere and vice versa
-        azimuth = np.where(solar_position.azimuth < np.pi, pi / 2, 3 * pi / 2)
+        azimuth = np.where(solar_position["azimuth"]< np.pi, np.pi / 2, 3 * np.pi / 2)
 
         return dict(
             slope=slope,
-            azimuth=xr.DataArray(azimuth, coords=altitude.coords),
+            azimuth=xr.DataArray(azimuth, coords=solar_position["altitude"].coords),
         )
 
     return horizontal_tracking
