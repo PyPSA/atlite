@@ -11,6 +11,9 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+Version 0.2.6 
+==============
+
 * Atlite now supports calculating dynamic line ratings based on the IEEE-738 standard (https://github.com/PyPSA/atlite/pull/189).
 * The wind feature provided by ERA5 now also calculates the wind angle `wnd_azimuth` in range [0 - 2π) spanning the cirlce from north in clock-wise direction (0 is north, π/2 is east, -π is south, 3π/2 is west).
 * A new intersection matrix function was added, which works similarly to incidence matrix but has boolean values.
