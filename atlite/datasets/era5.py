@@ -49,9 +49,8 @@ features = {
         "influx_direct",
         "influx_diffuse",
         "albedo",
-        "solar_position: altitude",
-        "solar_position: azimuth",
-        "solar_position: atmospheric insolation",
+        "solar_altitude",
+        "solar_azimuth",
     ],
     "temperature": ["temperature", "soil temperature"],
     "runoff": ["runoff"],
@@ -173,7 +172,7 @@ def get_data_influx(retrieval_params):
             )
         )
         sp = SolarPosition(ds, time_shift=time_shift)
-    sp = sp.rename({v: f"solar_position: {v}" for v in sp.data_vars})
+    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
     ds = xr.merge([ds, sp])
 

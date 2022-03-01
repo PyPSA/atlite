@@ -208,7 +208,7 @@ def wind_test(cutout):
     assert production.sum() > 0
 
     # Now create a better layout with same amount of installed power
-    better_layout = (cap_factor ** 2) / (cap_factor ** 2).sum() * cap_factor.sum()
+    better_layout = (cap_factor**2) / (cap_factor**2).sum() * cap_factor.sum()
     better_production = cutout.wind(
         atlite.windturbines.Enercon_E101_3000kW, layout=better_layout
     )

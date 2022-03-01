@@ -314,7 +314,7 @@ def test_shape_availability_area(ref):
 
     shapes = shapes.to_crs(3035)
     masked, transform = shape_availability(shapes, excluder)
-    assert np.isclose(shapes.area, masked.sum() * res ** 2)
+    assert np.isclose(shapes.area, masked.sum() * res**2)
 
 
 def test_exclusioncontainer_geometries():
@@ -354,13 +354,13 @@ def test_shape_availability_exclude_geometry(ref):
     excluder.add_geometry(exclude)
     masked, transform = shape_availability(shapes, excluder)
     area = shapes.geometry[0].area  # get area without warning
-    assert isclose(3 * area / 4, masked.sum() * res ** 2)
+    assert isclose(3 * area / 4, masked.sum() * res**2)
 
     excluder = ExclusionContainer(ref.crs, res=res)
     excluder.add_geometry(exclude, invert=True)
     masked, transform = shape_availability(shapes, excluder)
     area = shapes.geometry[0].area  # get area without warning
-    assert isclose(area / 4, masked.sum() * res ** 2)
+    assert isclose(area / 4, masked.sum() * res**2)
 
 
 def test_shape_availability_exclude_raster(ref, raster):
@@ -408,17 +408,17 @@ def test_shape_availability_excluder_partial_overlap(ref, raster):
     excluder = ExclusionContainer(ref.crs, res=res)
     excluder.add_raster(raster, codes=[0, 1])
     masked, transform = shape_availability(shapes, excluder)
-    assert masked.sum() * (res ** 2) == area / 2
+    assert masked.sum() * (res**2) == area / 2
 
     excluder = ExclusionContainer(ref.crs, res=res)
     excluder.add_raster(raster, nodata=0)
     masked, transform = shape_availability(shapes, excluder)
-    assert masked.sum() * (res ** 2) > area / 2
+    assert masked.sum() * (res**2) > area / 2
 
     excluder = ExclusionContainer(ref.crs, res=res)
     excluder.add_raster(raster, nodata=1)
     masked, transform = shape_availability(shapes, excluder)
-    assert masked.sum() * (res ** 2) < area / 2
+    assert masked.sum() * (res**2) < area / 2
 
 
 def test_shape_availability_excluder_raster_no_overlap(ref, raster):
@@ -441,12 +441,12 @@ def test_shape_availability_excluder_raster_no_overlap(ref, raster):
     excluder = ExclusionContainer(ref.crs, res=res)
     excluder.add_raster(raster, allow_no_overlap=True, codes=[1, 255], invert=True)
     masked, transform = shape_availability(shapes, excluder)
-    assert masked.sum() * (res ** 2) == area
+    assert masked.sum() * (res**2) == area
 
     excluder = ExclusionContainer(ref.crs, res=res)
     excluder.add_raster(raster, allow_no_overlap=True, nodata=0)
     masked, transform = shape_availability(shapes, excluder)
-    assert masked.sum() * (res ** 2) == area
+    assert masked.sum() * (res**2) == area
 
 
 def test_availability_matrix_rastered(ref, raster):

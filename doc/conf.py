@@ -66,10 +66,10 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"atlite"
-author = u"The Atlite Authors"
-copyright = u"2016-2019" + u", " + author
-documentation_title = u"Atlite Documentation"
+project = "atlite"
+author = "The Atlite Authors"
+copyright = "2016-2019" + ", " + author
+documentation_title = "Atlite Documentation"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -269,14 +269,14 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-latex_documents = [(master_doc, "atlite.tex", documentation_title, author, u"manual")]
+latex_documents = [(master_doc, "atlite.tex", documentation_title, author, "manual")]
 
 
 # Added for rinoh http://www.mos6581.org/rinohtype/quickstart.html
 rinoh_documents = [
     (
         master_doc,  # top-level file (index.rst)
-        project + u".pdf",  # output (target.pdf)
+        project + ".pdf",  # output (target.pdf)
         documentation_title,  # document title
         author,
     )
