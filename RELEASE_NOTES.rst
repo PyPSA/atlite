@@ -11,6 +11,10 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+* Bugfix: When creating cutouts using SARAH2 data, an error was previously wrongly thrown if exactly
+  the data was available as input as required. The error is now correctly thrown only if
+  insufficient SARAH data is available.
+
 Version 0.2.7 
 ==============
 
