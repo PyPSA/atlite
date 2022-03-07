@@ -63,7 +63,7 @@ def get_filenames(sarah_dir, coords):
         files = pd.Series(glob.glob(pattern, recursive=True))
         assert not files.empty, (
             f"No files found at {pattern}. Make sure "
-            "sarah_dir points to the correct directory!"
+            f"sarah_dir points to the correct directory!"
         )
 
         files.index = pd.to_datetime(files.str.extract(r"SI.in(\d{8})", expand=False))
@@ -75,13 +75,14 @@ def get_filenames(sarah_dir, coords):
         axis=1,
     )
 
-    start = coords["time"].to_index()[0]
-    end = coords["time"].to_index()[-1]
+    # SARAH files are named based on day, need to .floor("D") to compare correctly
+    start = coords["time"].to_index()[0].floor("D")
+    end = coords["time"].to_index()[-1].floor("D")
 
     if (start < files.index[0]) or (end > files.index[-1]):
         logger.error(
             f"Files in {sarah_dir} do not cover the whole time span:"
-            f"\n\t{start} until {end}"
+            f"\t{start} until {end}"
         )
 
     return files.loc[(files.index >= start) & (files.index <= end)].sort_index()
