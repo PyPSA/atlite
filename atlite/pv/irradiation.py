@@ -159,6 +159,43 @@ def TiltedIrradiation(
     altitude_threshold=1.0,
     irradiation="total",
 ):
+    """
+    Calculate the irradiation on a tilted surface.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Cutout data used for calculating the irradiation on a tilted surface.
+    solar_position : xarray.Dataset
+        Solar position calculated using atlite.pv.SolarPosition,
+        containing a solar 'altitude' (in rad, 0 to pi/2) for the 'ds' dataset.
+    surface_orientation : xarray.Dataset
+        Surface orientation calculated using atlite.orientation.SurfaceOrientation.
+    trigon_model : str
+        Type of trigonometry model. Defaults to 'simple'if used via `convert_irradiation`.
+    clearsky_model : str or None
+        Either the 'simple' or the 'enhanced' Reindl clearsky
+        model. The default choice of None will choose dependending on
+        data availability, since the 'enhanced' model also
+        incorporates ambient air temperature and relative humidity.
+        NOTE: this option is only used if the used climate dataset
+        doesn't provide direct and diffuse irradiation separately!
+    altitude_threshold : float
+        Threshold for solar altitude in degrees. Values in range (0, altitude_threshold]
+        will be set to zero. Default value equals 1.0 degrees.
+    irradiation : str
+        The irradiation quantity to be returned. Defaults to "total" for total
+        combined irradiation. Other options include "direct" for direct irradiation,
+        "diffuse" for diffuse irradation, and "ground" for irradiation reflected
+        by the ground via albedo. NOTE: "ground" irradiation is not calculated
+        by all `trigon_model` options in the `convert_irradiation` method,
+        so use with caution!
+
+    Returns
+    -------
+    result : xarray.DataArray
+        The desired irradiation quantity on the tilted surface.
+    """
 
     influx_toa = ds["influx_toa"]
 
