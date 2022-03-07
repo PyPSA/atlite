@@ -564,7 +564,8 @@ def irradiation(
     irradiation : str
         The irradiation quantity to be returned. Defaults to "total" for total
         irradiation. Other options include "direct" for direct irradiation,
-        "diffuse" for diffuse irradation, and "ground" for ground irradiation.
+        "diffuse" for diffuse irradation, and "ground" for irradiation reflected
+        by the ground via albedo.
     clearsky_model : str or None
         Either the 'simple' or the 'enhanced' Reindl clearsky
         model. The default choice of None will choose dependending on
