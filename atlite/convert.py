@@ -566,7 +566,7 @@ def irradiation(
         The irradiation quantity to be returned. Defaults to "total" for total
         combined irradiation. Other options include "direct" for direct irradiation,
         "diffuse" for diffuse irradation, and "ground" for irradiation reflected
-        by the ground via albedo. Note that "ground" irradiation is not calculated
+        by the ground via albedo. NOTE: "ground" irradiation is not calculated
         by all `trigon_model` options in the `convert_irradiation` method,
         so use with caution!
     clearsky_model : str or None
@@ -574,7 +574,7 @@ def irradiation(
         model. The default choice of None will choose dependending on
         data availability, since the 'enhanced' model also
         incorporates ambient air temperature and relative humidity.
-        Note that this option is only used if the used climate dataset
+        NOTE: this option is only used if the used climate dataset
         doesn't provide direct and diffuse irradiation separately!
 
     Returns
