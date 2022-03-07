@@ -184,12 +184,10 @@ def TiltedIrradiation(
 
         influx = direct + diffuse
         direct_t = k * direct
-        diffuse_t = (1.0 + cos_surface_slope) / 2.0 * diffuse + _albedo(
-            ds, influx
-        ) * influx * ((1.0 - cos_surface_slope) / 2.0)
-        ground_t = None
+        diffuse_t = (1.0 + cos_surface_slope) / 2.0 * diffuse
+        ground_t = _albedo(ds, influx) * influx * ((1.0 - cos_surface_slope) / 2.0)
 
-        total_t = direct_t.fillna(0.0) + diffuse_t.fillna(0.0)
+        total_t = direct_t.fillna(0.0) + diffuse_t.fillna(0.0) + ground_t.fillna(0.0)
     else:
         diffuse_t = TiltedDiffuseIrrad(
             ds, solar_position, surface_orientation, direct, diffuse
@@ -199,16 +197,16 @@ def TiltedIrradiation(
             ds, solar_position, surface_orientation, direct + diffuse
         )
 
-        total_t = (direct_t + diffuse_t + ground_t).rename("total tilted")
+        total_t = direct_t + diffuse_t + ground_t
 
     if irradiation == "total":
-        result = total_t
+        result = total_t.rename("total tilted")
     elif irradiation == "direct":
-        result = direct_t
+        result = direct_t.rename("direct tilted")
     elif irradiation == "diffuse":
-        result = diffuse_t
+        result = diffuse_t.rename("diffuse tilted")
     elif irradiation == "ground":
-        result = ground_t
+        result = ground_t.rename("ground tilted")
 
     # The solar_position algorithms have a high error for small solar altitude
     # values, leading to big overall errors from the 1/sinaltitude factor.
@@ -216,5 +214,6 @@ def TiltedIrradiation(
 
     cap_alt = solar_position["altitude"] < deg2rad(altitude_threshold)
     result = result.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
+    result.attrs["units"] = "W m**-2"
 
     return result
