@@ -144,7 +144,7 @@ def test_open_closed_checks(ref, raster):
     assert excluder.all_closed and not excluder.all_open
 
     excluder.open_files()
-    assert not excluder.all_closed  and excluder.all_open
+    assert not excluder.all_closed and excluder.all_open
 
     # First add raster, then geometries
     excluder = ExclusionContainer(ref.crs, res=res)
