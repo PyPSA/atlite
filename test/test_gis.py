@@ -116,6 +116,57 @@ def raster_codes(tmp_path_factory):
     return path
 
 
+def test_open_closed_checks(ref, raster):
+    """Test atlite.ExclusionContainer(...) file open/closed checks for plausibility. C.f. GH issue #225."""
+
+    res = 0.01
+    excluder = ExclusionContainer(ref.crs, res=res)
+    geometry = gpd.GeoSeries(
+        [box(X0 / 2 + X1 / 2, Y0 / 2 + Y1 / 2, X1, Y1)], crs=ref.crs
+    )
+
+    # Without raster/shapes, both should evaluate to True
+    assert excluder.all_closed is True and excluder.all_open is True
+
+    # First add geometries, than raster
+    excluder.add_geometry(geometry, buffer=1)
+    assert excluder.all_closed is True and excluder.all_open is False
+
+    # Check if still works with 2nd geometry
+    excluder.add_geometry(geometry, buffer=1)
+    assert excluder.all_closed is True and excluder.all_open is False
+
+    excluder.add_raster(raster)
+    assert excluder.all_closed is True and excluder.all_open is False
+
+    # Check if still works with 2nd raster
+    excluder.add_raster(raster)
+    assert excluder.all_closed is True and excluder.all_open is False
+
+    excluder.open_files()
+    assert excluder.all_closed is False and excluder.all_open is True
+
+    # First add raster, then geometries
+    excluder = ExclusionContainer(ref.crs, res=res)
+
+    excluder.add_raster(raster)
+    assert excluder.all_closed is True and excluder.all_open is False
+
+    # 2nd raster
+    excluder.add_raster(raster)
+    assert excluder.all_closed is True and excluder.all_open is False
+
+    excluder.add_geometry(geometry, buffer=1)
+    assert excluder.all_closed is True and excluder.all_open is False
+
+    # 2nd geometry
+    excluder.add_geometry(geometry, buffer=1)
+    assert excluder.all_closed is True and excluder.all_open is False
+
+    excluder.open_files()
+    assert excluder.all_closed is False and excluder.all_open is True
+
+
 def test_transform():
     """Test the affine transform. It always has to point to cell origin."""
     cutout = Cutout(
