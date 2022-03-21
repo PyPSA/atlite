@@ -126,45 +126,45 @@ def test_open_closed_checks(ref, raster):
     )
 
     # Without raster/shapes, both should evaluate to True
-    assert excluder.all_closed is True and excluder.all_open is True
+    assert excluder.all_closed and excluder.all_open
 
     # First add geometries, than raster
     excluder.add_geometry(geometry, buffer=1)
-    assert excluder.all_closed is True and excluder.all_open is False
+    assert excluder.all_closed and not excluder.all_open
 
     # Check if still works with 2nd geometry
     excluder.add_geometry(geometry, buffer=1)
-    assert excluder.all_closed is True and excluder.all_open is False
+    assert excluder.all_closed and not excluder.all_open
 
     excluder.add_raster(raster)
-    assert excluder.all_closed is True and excluder.all_open is False
+    assert excluder.all_closed and not excluder.all_open
 
     # Check if still works with 2nd raster
     excluder.add_raster(raster)
-    assert excluder.all_closed is True and excluder.all_open is False
+    assert excluder.all_closed and not excluder.all_open
 
     excluder.open_files()
-    assert excluder.all_closed is False and excluder.all_open is True
+    assert not excluder.all_closed  and excluder.all_open
 
     # First add raster, then geometries
     excluder = ExclusionContainer(ref.crs, res=res)
 
     excluder.add_raster(raster)
-    assert excluder.all_closed is True and excluder.all_open is False
+    assert excluder.all_closed and not excluder.all_open
 
     # 2nd raster
     excluder.add_raster(raster)
-    assert excluder.all_closed is True and excluder.all_open is False
+    assert excluder.all_closed and not excluder.all_open
 
     excluder.add_geometry(geometry, buffer=1)
-    assert excluder.all_closed is True and excluder.all_open is False
+    assert excluder.all_closed and not excluder.all_open
 
     # 2nd geometry
     excluder.add_geometry(geometry, buffer=1)
-    assert excluder.all_closed is True and excluder.all_open is False
+    assert excluder.all_closed and not excluder.all_open
 
     excluder.open_files()
-    assert excluder.all_closed is False and excluder.all_open is True
+    assert not excluder.all_closed and excluder.all_open
 
 
 def test_transform():

@@ -427,7 +427,7 @@ def shape_availability(geometry, excluder):
 
     """
     exclusions = []
-    if excluder.all_open is False:
+    if not excluder.all_open:
         excluder.open_files()
     assert geometry.crs == excluder.crs
 
