@@ -43,12 +43,15 @@ def ref():
         path="creation_ref", module="era5", bounds=(X0, Y0, X1, Y1), time=TIME
     )
 
+
 @pytest.fixture(scope="session")
 def geometry(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("geometries")
     geometry = gpd.GeoSeries(
-        [box(X0 / 2 + X1 / 2, Y0 / 2 + Y1 / 2, X1, Y1)], crs="EPSG:4326",
-        index=[0], name="boxes"
+        [box(X0 / 2 + X1 / 2, Y0 / 2 + Y1 / 2, X1, Y1)],
+        crs="EPSG:4326",
+        index=[0],
+        name="boxes",
     )
     geometry = geometry.to_frame().set_geometry("boxes")
 
@@ -57,6 +60,7 @@ def geometry(tmp_path_factory):
     geometry.to_file(path, driver="GPKG")
 
     return path
+
 
 @pytest.fixture(scope="session")
 def raster(tmp_path_factory):
