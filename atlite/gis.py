@@ -309,12 +309,16 @@ class ExclusionContainer:
     @property
     def all_closed(self):
         """Check whether all files in the raster container are closed."""
-        return all(isinstance(d["raster"], (str, Path)) for d in self.rasters)
+        return all(isinstance(d["raster"], (str, Path)) for d in self.rasters) and all(
+            isinstance(d["geometry"], (str, Path)) for d in self.geometries
+        )
 
     @property
     def all_open(self):
         """Check whether all files in the raster container are open."""
-        return all(isinstance(d["raster"], rio.DatasetReader) for d in self.rasters)
+        return all(
+            isinstance(d["raster"], rio.DatasetReader) for d in self.rasters
+        ) and all(isinstance(d["geometry"], gpd.GeoSeries) for d in self.geometries)
 
     def __repr__(self):
         return (

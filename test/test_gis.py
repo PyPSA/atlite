@@ -45,6 +45,24 @@ def ref():
 
 
 @pytest.fixture(scope="session")
+def geometry(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("geometries")
+    geometry = gpd.GeoSeries(
+        [box(X0 / 2 + X1 / 2, Y0 / 2 + Y1 / 2, X1, Y1)],
+        crs="EPSG:4326",
+        index=[0],
+        name="boxes",
+    )
+    geometry = geometry.to_frame().set_geometry("boxes")
+
+    path = tmp_path / "geometry.gpkg"
+
+    geometry.to_file(path, driver="GPKG")
+
+    return path
+
+
+@pytest.fixture(scope="session")
 def raster(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("rasters")
     bounds = (X0, Y0, X1, Y1)  # same as in test_gis.py
@@ -114,6 +132,54 @@ def raster_codes(tmp_path_factory):
     ) as dst:
         dst.write(mask, indexes=1)
     return path
+
+
+def test_open_closed_checks(ref, geometry, raster):
+    """Test atlite.ExclusionContainer(...) file open/closed checks for plausibility. C.f. GH issue #225."""
+
+    res = 0.01
+    excluder = ExclusionContainer(ref.crs, res=res)
+
+    # Without raster/shapes, both should evaluate to True
+    assert excluder.all_closed and excluder.all_open
+
+    # First add geometries, than raster
+    excluder.add_geometry(geometry)
+    assert excluder.all_closed and not excluder.all_open
+
+    # Check if still works with 2nd geometry
+    excluder.add_geometry(geometry)
+    assert excluder.all_closed and not excluder.all_open
+
+    excluder.add_raster(raster)
+    assert excluder.all_closed and not excluder.all_open
+
+    # Check if still works with 2nd raster
+    excluder.add_raster(raster)
+    assert excluder.all_closed and not excluder.all_open
+
+    excluder.open_files()
+    assert not excluder.all_closed and excluder.all_open
+
+    # First add raster, then geometries
+    excluder = ExclusionContainer(ref.crs, res=res)
+
+    excluder.add_raster(raster)
+    assert excluder.all_closed and not excluder.all_open
+
+    # 2nd raster
+    excluder.add_raster(raster)
+    assert excluder.all_closed and not excluder.all_open
+
+    excluder.add_geometry(geometry)
+    assert excluder.all_closed and not excluder.all_open
+
+    # 2nd geometry
+    excluder.add_geometry(geometry)
+    assert excluder.all_closed and not excluder.all_open
+
+    excluder.open_files()
+    assert not excluder.all_closed and excluder.all_open
 
 
 def test_transform():
