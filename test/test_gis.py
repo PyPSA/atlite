@@ -43,6 +43,20 @@ def ref():
         path="creation_ref", module="era5", bounds=(X0, Y0, X1, Y1), time=TIME
     )
 
+@pytest.fixture(scope="session")
+def geometry(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("geometries")
+    geometry = gpd.GeoSeries(
+        [box(X0 / 2 + X1 / 2, Y0 / 2 + Y1 / 2, X1, Y1)], crs="EPSG:4326",
+        index=[0], name="boxes"
+    )
+    geometry = geometry.to_frame().set_geometry("boxes")
+
+    path = tmp_path / "geometry.gpkg"
+
+    geometry.to_file(path, driver="GPKG")
+
+    return path
 
 @pytest.fixture(scope="session")
 def raster(tmp_path_factory):
@@ -116,24 +130,21 @@ def raster_codes(tmp_path_factory):
     return path
 
 
-def test_open_closed_checks(ref, raster):
+def test_open_closed_checks(ref, geometry, raster):
     """Test atlite.ExclusionContainer(...) file open/closed checks for plausibility. C.f. GH issue #225."""
 
     res = 0.01
     excluder = ExclusionContainer(ref.crs, res=res)
-    geometry = gpd.GeoSeries(
-        [box(X0 / 2 + X1 / 2, Y0 / 2 + Y1 / 2, X1, Y1)], crs=ref.crs
-    )
 
     # Without raster/shapes, both should evaluate to True
     assert excluder.all_closed and excluder.all_open
 
     # First add geometries, than raster
-    excluder.add_geometry(geometry, buffer=1)
+    excluder.add_geometry(geometry)
     assert excluder.all_closed and not excluder.all_open
 
     # Check if still works with 2nd geometry
-    excluder.add_geometry(geometry, buffer=1)
+    excluder.add_geometry(geometry)
     assert excluder.all_closed and not excluder.all_open
 
     excluder.add_raster(raster)
@@ -156,11 +167,11 @@ def test_open_closed_checks(ref, raster):
     excluder.add_raster(raster)
     assert excluder.all_closed and not excluder.all_open
 
-    excluder.add_geometry(geometry, buffer=1)
+    excluder.add_geometry(geometry)
     assert excluder.all_closed and not excluder.all_open
 
     # 2nd geometry
-    excluder.add_geometry(geometry, buffer=1)
+    excluder.add_geometry(geometry)
     assert excluder.all_closed and not excluder.all_open
 
     excluder.open_files()
