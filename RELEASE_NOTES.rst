@@ -14,6 +14,9 @@ Release Notes
 * Bugfix: When creating cutouts using SARAH2 data, an error was previously wrongly thrown if exactly
   the data was available as input as required. The error is now correctly thrown only if
   insufficient SARAH data is available.
+* Bugfix: When only adding geometries to an `atlite.ExclusionContainer` the geometries were previously
+  not opened and an error was thrown. The error did not occur if one or more shapes were included.
+  Error is corrected and geometry-only exclusions can now be calculated. (GH Issue #225)
 
 Version 0.2.7 
 ==============
