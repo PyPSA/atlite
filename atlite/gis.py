@@ -65,12 +65,17 @@ def get_coords(x, y, time, dx=0.25, dy=0.25, dt="h", **kwargs):
     """
     x = slice(*sorted([x.start, x.stop]))
     y = slice(*sorted([y.start, y.stop]))
-
+    if "cmip" in kwargs.get("module"):
+        start = "2015"
+        end = "2100"
+    else:
+        start = "1979"
+        end = "now"
     ds = xr.Dataset(
         {
             "x": np.round(np.arange(-180, 180, dx), 9),
             "y": np.round(np.arange(-90, 90, dy), 9),
-            "time": pd.date_range(start="1979", end="now", freq=dt),
+            "time": pd.date_range(start=start, end=end, freq=dt),
         }
     )
     ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])

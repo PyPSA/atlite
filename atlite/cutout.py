@@ -86,7 +86,7 @@ class Cutout:
             NetCDF from which to load or where to store the cutout.
         module : str or list
             The dataset(s) which works as a basis for the cutout. Available
-            modules are "era5", "sarah" and "gebco".
+            modules are "era5", "sarah", "cmip" and "gebco".
             This is necessary when building a new cutout.
             If more than one module is given, their order determines how atlite
             fills up missing features when preparing the cutout with
@@ -134,6 +134,14 @@ class Cutout:
         gebco_path: str
             Path to find the gebco netcdf file. Only necessary when including
             the gebco module.
+        esgf_params: dict
+            Parameters to be used in search on the ESGF database.
+        model: str
+            The ESGF search parameters can also be specified in the cmip.yml file,
+            then model correspond to the name of the model specifed in the cmip.yml file.
+        roughness_path: str
+            Path to external roughness dataset, required for converting CMIP
+            winds.
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.
@@ -153,6 +161,7 @@ class Cutout:
         chunks = cutoutparams.pop("chunks", {"time": 100})
         storable_chunks = {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
 
+        self.esgf_params = cutoutparams.pop("esgf_params", None)
         # Backward compatibility for xs, ys, months and years
         if {"xs", "ys"}.intersection(cutoutparams):
             warn(
@@ -210,7 +219,7 @@ class Cutout:
                 ) from exc
 
             # TODO: check for dx, dy, x, y fine with module requirements
-            coords = get_coords(x, y, time, **cutoutparams)
+            coords = get_coords(x, y, time, module=module, **cutoutparams)
 
             attrs = {
                 "module": module,
