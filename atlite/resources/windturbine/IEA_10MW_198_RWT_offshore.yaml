@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2022 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Turbine characteristic data
+name: IEA_10MW_198_RWT
+# The manufacturer of this turbine
+manufacturer: NREL
+# Link to the original datasheet of the turbine
+source: https://nrel.github.io/turbine-models/IEA_10MW_198_RWT.html
+
+# Hub height in meters
+HUB_HEIGHT: 198.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 9.5, 10.0, 10.5, 11.0, 11.5, 12.0, 13.0, 14.0, 15.0, 16.0, 18.0, 20.0, 25.0]
+# Generated power from the power curves in MW
+POW: [0.03787, 0.44049, 1.0743699999999998, 1.97343, 3.1521399999999997, 4.7236899999999995, 6.73492, 7.86397, 9.057799999999999, 10.30969, 10.6383, 10.6383, 10.6383, 10.6383, 10.6383, 10.6383, 10.6383, 10.6383, 10.6383, 10.6383]

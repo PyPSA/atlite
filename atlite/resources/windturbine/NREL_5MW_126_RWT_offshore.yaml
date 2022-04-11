@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2022 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Turbine characteristic data
+name: NREL_5MW_126_RWT
+# The manufacturer of this turbine
+manufacturer: NREL
+# Link to the original datasheet of the turbine
+source: https://nrel.github.io/turbine-models/NREL_5MW_126_RWT.html
+
+# Hub height in meters
+HUB_HEIGHT: 126.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9, 11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0]
+# Generated power from the power curves in MW
+POW: [0.0405, 0.1777, 0.4039, 0.7376, 1.1872, 1.7711, 2.5185999999999997, 3.44841, 3.55215, 3.65795, 3.76516, 3.87395, 3.9844899999999996, 4.09656, 4.21069, 4.326149999999999, 4.44341, 4.5625100000000005, 4.68343, 4.80618, 4.92992, 5.00037, 5.00002, 5.0, 4.9999899999999995, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0]

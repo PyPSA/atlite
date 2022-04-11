@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2022 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Turbine characteristic data
+name: IEA_3.4MW_130_RWT
+# The manufacturer of this turbine
+manufacturer: NREL
+# Link to the original datasheet of the turbine
+source: https://nrel.github.io/turbine-models/IEA_3.4MW_130_RWT.html
+
+# Hub height in meters
+HUB_HEIGHT: 130.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [3.0, 3.5, 4.0, 4.5, 5.0, 5.4, 5.8, 6.1, 6.4, 6.7, 6.9, 7.1, 7.3, 7.4, 7.5, 7.5, 7.5, 7.6, 7.6, 7.8, 7.9, 8.1, 8.3, 8.6, 8.9, 9.2, 9.6, 9.8, 10.4, 10.9, 11.4, 11.9, 12.5, 13.0, 13.7, 14.3, 15.0, 15.6, 16.4, 17.1, 17.8, 18.6, 19.3, 20.1, 20.9, 21.7, 22.5, 23.4, 24.2, 25.0]
+# Generated power from the power curves in MW
+POW: [0.05162, 0.12337000000000001, 0.21324, 0.31883999999999996, 0.43595999999999996, 0.5609, 0.68891, 0.81913, 0.94972, 1.07593, 1.19368, 1.2991700000000002, 1.3889500000000001, 1.4600799999999998, 1.5102200000000001, 1.53773, 1.5416800000000002, 1.56157, 1.6058800000000002, 1.67586, 1.7735, 1.9015, 2.06334, 2.26333, 2.50664, 2.79933, 3.14846, 3.37, 3.37, 3.37, 3.37, 3.37, 3.37001, 3.37, 3.37, 3.37001, 3.3700300000000003, 3.37, 3.37, 3.37, 3.37, 3.37, 3.37002, 3.3700300000000003, 3.37, 3.37, 3.37, 3.37, 3.37, 3.3701]

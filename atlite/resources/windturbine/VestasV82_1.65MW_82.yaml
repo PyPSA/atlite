@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2022 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Turbine characteristic data
+name: VestasV82_1.65MW_82
+# The manufacturer of this turbine
+manufacturer: NREL
+# Link to the original datasheet of the turbine
+source: https://nrel.github.io/turbine-models/VestasV82_1.65MW_82.html
+
+# Hub height in meters
+HUB_HEIGHT: 82.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+# Generated power from the power curves in MW
+POW: [0.0, 0.028, 0.144, 0.309, 0.511, 0.758, 1.017, 1.285, 1.504, 1.637, 1.65, 1.65, 1.65, 1.65, 1.65, 1.65, 1.65, 1.65]
