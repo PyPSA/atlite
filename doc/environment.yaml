@@ -6,33 +6,33 @@
 
 name: atlite
 channels:
-  - defaults
-  - conda-forge
-  - defaults
+- defaults
+- conda-forge
+- defaults
 dependencies:
-  - python>=3.6
+- python>=3.6
 
   # Recommended for pandas and xarray
-  - bottleneck
-  - numexpr
+- bottleneck
+- numexpr
 
   # Following suggestion from nbsphinx documentation, install this from conda-forge
-  - pandoc
-  - ipython
-  - pip
+- pandoc
+- ipython
+- pip
 
-  - pip:
-    - sphinx
-    - sphinx_rtd_theme
-    - nbsphinx
-    - nbsphinx_link
-    - scipy
-    - pandas>=1.0
-    - xarray>=0.16.2
-    - netcdf4
-    - dask>=0.18.0
-    - pyyaml
-    - geopandas
-    - cdsapi
-    - pyproj>=2.0
-    - rasterio>=1.0
+- pip:
+  - sphinx
+  - sphinx_rtd_theme
+  - nbsphinx
+  - nbsphinx_link
+  - scipy
+  - pandas>=1.0
+  - xarray>=0.16.2
+  - netcdf4
+  - dask>=0.18.0
+  - pyyaml
+  - geopandas
+  - cdsapi
+  - pyproj>=2.0
+  - rasterio>=1.0
