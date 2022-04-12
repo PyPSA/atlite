@@ -3,6 +3,6 @@
 # SPDX-License-Identifier: CC0-1.0
 blank_issues_enabled: false
 contact_links:
-  - name: PyPSA Mailing List
-    url: https://groups.google.com/forum/#!forum/pypsa
-    about: Please use the PyPSA mailing list for general questions regarding the usage.
+- name: PyPSA Mailing List
+  url: https://groups.google.com/forum/#!forum/pypsa
+  about: Please use the PyPSA mailing list for general questions regarding the usage.

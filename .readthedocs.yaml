@@ -10,17 +10,17 @@
 version: 2
 
 build:
-    image: latest
+  image: latest
 
 
 python:
-   version: 3.8
-   install:
-      - method: pip
-        path: .
-        extra_requirements:
-           - docs
+  version: 3.8
+  install:
+  - method: pip
+    path: .
+    extra_requirements:
+    - docs
 
 # Location of SPHINX specific configuration file
 sphinx:
-    configuration: doc/conf.py
+  configuration: doc/conf.py
