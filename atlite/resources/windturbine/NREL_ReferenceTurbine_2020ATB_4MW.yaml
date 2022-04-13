@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: CC-BY-4.0
 
 # Turbine characteristic data
-name: 2020ATB_NREL_Reference_4MW_150
+name: 2020 ATB NREL Reference 4 MW 
 # The manufacturer of this turbine
 manufacturer: NREL
 # Link to the original datasheet of the turbine
 source: https://nrel.github.io/turbine-models/2020ATB_NREL_Reference_4MW_150.html
 
 # Hub height in meters
-HUB_HEIGHT: 150.0
+HUB_HEIGHT: 110
 # Power curve, specified as lists of velocities and powers, including
 # cut-in and cut-out speeds
 # Power curve velocities in m/s
