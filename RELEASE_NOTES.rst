@@ -17,6 +17,7 @@ Release Notes
 * Bugfix: When only adding geometries to an `atlite.ExclusionContainer` the geometries were previously
   not opened and an error was thrown. The error did not occur if one or more shapes were included.
   Error is corrected and geometry-only exclusions can now be calculated. (GH Issue #225)
+* Atlite now includes the reference turbines from the NREL turbine archive (see: https://nrel.github.io/turbine-models/). Available turbines can be consulted using `atlite.windturbines` and can be passed as string argument, e.g. `coutout.wind(turbine)`.
 
 Version 0.2.7 
 ==============
