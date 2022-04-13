@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2021 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Turbine characteristic data
+name: NREL offshore 5-MW baseline wind turbine
+# The manufacturer of this turbine
+manufacturer: NREL
+# Link to the original datasheet of the turbine
+source: http://www.nrel.gov/docs/fy09osti/38060.pdf
+
+# Hub height in meters
+HUB_HEIGHT: 90.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [0, 3, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 25, 25]
+# Generated power from the power curves in MW
+POW: [0.0, 0.0, 0.0405, 0.1777, 0.4039, 0.7376, 1.1872, 1.7711, 2.5186, 3.4484, 4.5625, 5.0, 5.0, 0.0]
