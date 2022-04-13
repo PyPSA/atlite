@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: CC-BY-4.0
 
 # Turbine characteristic data
-name: 2020 ATB NREL Reference 4 MW 
+name: 2020 ATB NREL Reference 4 MW
 # The manufacturer of this turbine
 manufacturer: NREL
 # Link to the original datasheet of the turbine
