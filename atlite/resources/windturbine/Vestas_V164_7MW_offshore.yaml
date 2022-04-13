@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2021 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Turbine characteristic data
+name: V164 7MW offshore
+# The manufacturer of this turbine
+manufacturer: Vestas
+# Link to the original datasheet of the turbine
+source: http://nozebra.ipapercms.dk/Vestas/Communication/Productbrochure/V16470MW/V16470MW/
+
+# Hub height in meters
+HUB_HEIGHT: 100.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 25, 25]
+# Generated power from the power curves in MW
+POW: [0.000, 0.000, 0.005, 0.095, 0.460, 0.900, 1.600, 2.500, 3.725, 5.000, 6.000, 6.700, 6.980, 7.000, 7.000, 0.000]

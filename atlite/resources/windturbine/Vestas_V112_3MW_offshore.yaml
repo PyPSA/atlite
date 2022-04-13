@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2021 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Turbine characteristic data
+name: V112 3MW offshore
+# The manufacturer of this turbine
+manufacturer: Vestas
+# Link to the original datasheet of the turbine
+source: http://nozebra.ipapercms.dk/Vestas/Communication/Productbrochure/V11230MW/V11230MWOffshoreUK/
+
+# Hub height in meters
+HUB_HEIGHT: 80.0
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 25, 25]
+# Generated power from the power curves in MW
+POW: [0.000, 0.000, 0.005, 0.115, 0.300, 0.550, 0.945, 1.375, 1.960, 2.525, 2.950, 2.990, 3.000, 3.000, 0.000]
