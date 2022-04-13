@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2022 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Turbine characteristic data
+name: 2020 ATB Reference 15 MW
+# The manufacturer of this turbine
+manufacturer: NREL
+# Link to the original datasheet of the turbine
+source: https://nrel.github.io/turbine-models/2020ATB_NREL_Reference_15MW_240.html
+
+# Hub height in meters
+HUB_HEIGHT: 150
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+# Generated power from the power curves in MW
+POW: [0.0, 0.72, 1.239, 2.271, 3.817, 5.876, 8.45, 11.536, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0, 15.0]
