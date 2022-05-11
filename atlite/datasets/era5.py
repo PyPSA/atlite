@@ -261,13 +261,14 @@ def retrieval_times(coords, static=False):
     times = []
     for year in time.year.unique():
         t = time[time.year == year]
-        query = {
-            "year": str(year),
-            "month": list(t.month.unique()),
-            "day": list(t.day.unique()),
-            "time": ["%02d:00" % h for h in t.hour.unique()],
-        }
-        times.append(query)
+        for month in t.month.unique():
+            query = {
+                "year": str(year),
+                "month": str(month),
+                "day": list(t[t.month==month].day.unique()),
+                "time": ["%02d:00" % h for h in t[t.month==month].hour.unique()],
+            }
+            times.append(query)
     return times
 
 
