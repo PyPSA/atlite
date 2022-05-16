@@ -175,9 +175,12 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
         fd, tmp = mkstemp(suffix=filename, dir=directory)
         os.close(fd)
 
+        logger.debug("Writing cutout to file...")
+        # Delayed writing for large cutout
+        # cf. https://stackoverflow.com/questions/69810367/python-how-to-write-large-netcdf-with-xarray
+        write_job = ds.to_netcdf(tmp, compute=False)
         with ProgressBar():
-            ds.to_netcdf(tmp)
-
+            write_job.compute()
         if cutout.path.exists():
             cutout.data.close()
             cutout.path.unlink()
