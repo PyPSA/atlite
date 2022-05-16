@@ -265,8 +265,8 @@ def retrieval_times(coords, static=False):
             query = {
                 "year": str(year),
                 "month": str(month),
-                "day": list(t[t.month==month].day.unique()),
-                "time": ["%02d:00" % h for h in t[t.month==month].hour.unique()],
+                "day": list(t[t.month == month].day.unique()),
+                "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
             }
             times.append(query)
     return times
