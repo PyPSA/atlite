@@ -18,6 +18,9 @@ Release Notes
   not opened and an error was thrown. The error did not occur if one or more shapes were included.
   Error is corrected and geometry-only exclusions can now be calculated. (GH Issue #225)
 * Atlite now includes the reference turbines from the NREL turbine archive (see: https://nrel.github.io/turbine-models/). Available turbines can be consulted using `atlite.windturbines` and can be passed as string argument, e.g. `coutout.wind(turbine)`.
+* Bugfix: Downsampling the availability matrix (high resolution to low resolution) failed. Only rasters with 0 or 1
+  were produced. Expected are also floats between 0 and 1 (GH Issue #238). Changing the rasterio version solved this.
+  See solution (https://github.com/PyPSA/atlite/pull/240).
 
 Version 0.2.7 
 ==============
