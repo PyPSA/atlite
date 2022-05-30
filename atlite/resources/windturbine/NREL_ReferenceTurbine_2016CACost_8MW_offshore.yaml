@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2022 The Atlite Authors
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+# Turbine characteristic data
+name: NREL Reference 8MW
+# The manufacturer of this turbine
+manufacturer: NREL
+# Link to the original datasheet of the turbine
+source: https://nrel.github.io/turbine-models/2016CACost_NREL_Reference_8MW_180.html
+
+# Hub height in meters
+HUB_HEIGHT: 112
+# Power curve, specified as lists of velocities and powers, including
+# cut-in and cut-out speeds
+# Power curve velocities in m/s
+V: [1.0, 2.0, 3.0, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0, 23.0, 24.0, 25.0]
+# Generated power from the power curves in MW
+POW: [0.0, 0.0, 0.0, 0.359, 0.561, 0.812, 1.118, 1.483, 1.911, 2.407, 2.974, 3.616, 4.336, 5.135, 6.015, 6.976, 7.518, 7.813, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0, 8.0]

@@ -511,7 +511,7 @@ def shape_availability_reprojected(
     return rio.warp.reproject(
         masked,
         empty(dst_shape),
-        resampling=5,
+        resampling=rio.warp.Resampling.average,
         src_transform=transform,
         dst_transform=dst_transform,
         src_crs=excluder.crs,
