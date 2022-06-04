@@ -433,12 +433,12 @@ def shape_availability(geometry, excluder):
 
     bounds = rio.features.bounds(geometry)
     transform, shape = padded_transform_and_shape(bounds, res=excluder.res)
-    masked = geometry_mask(geometry, shape, transform).astype(int)
-    exclusions.append(masked)
+    masked = geometry_mask(geometry, shape, transform)
+    exclusions = masked
 
     # For the following: 0 is eligible, 1 in excluded
     raster = None
-    for d in excluder.rasters:
+    for idx, d in enumerate(excluder.rasters, start=1):
         # allow reusing preloaded raster with different post-processing
         if raster != d["raster"]:
             raster = d["raster"]
@@ -459,15 +459,15 @@ def shape_availability(geometry, excluder):
             masked_ = ~(masked_).astype(bool)
         if d["buffer"]:
             iterations = int(d["buffer"] / excluder.res) + 1
-            masked_ = dilation(masked_, iterations=iterations).astype(int)
+            masked_ = dilation(masked_, iterations=iterations)
 
-        exclusions.append(masked_.astype(int))
+        exclusions = sum([exclusions, masked_])
 
-    for d in excluder.geometries:
+    for idx, d in enumerate(excluder.geometries, start=1):
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
-        exclusions.append(masked.astype(int))
+        exclusions = sum([exclusions, masked])
 
-    return (sum(exclusions) == 0).astype(float), transform
+    return (exclusions == False), transform
 
 
 def shape_availability_reprojected(
