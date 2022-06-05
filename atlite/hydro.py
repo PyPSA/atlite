@@ -106,7 +106,7 @@ def shift_and_aggregate_runoff_for_plants(
             # get upstream inflows
             upstream_inflow_b = runoff.sel(hid=b).shift(time=nhours.at[b])
             # replace null values with zeros
-            upstream_inflow_b.where(upstream_inflow_b.isnull()==False, 0.0)
+            upstream_inflow_b = upstream_inflow_b.where(upstream_inflow_b.isnull()==False, 0.0)
             # update inflow for the plant
             inflow_plant += upstream_inflow_b
 
