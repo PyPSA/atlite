@@ -461,11 +461,11 @@ def shape_availability(geometry, excluder):
             iterations = int(d["buffer"] / excluder.res) + 1
             masked_ = dilation(masked_, iterations=iterations)
 
-        exclusions = sum([exclusions, masked_])
+        exclusions = exclusions | masked_
 
     for idx, d in enumerate(excluder.geometries, start=1):
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
-        exclusions = sum([exclusions, masked])
+        exclusions = exclusions | masked
 
     return (exclusions == False), transform
 
