@@ -467,7 +467,7 @@ def shape_availability(geometry, excluder):
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
         exclusions = exclusions | masked
 
-    return (exclusions == False), transform
+    return ~exclusions, transform
 
 
 def shape_availability_reprojected(
