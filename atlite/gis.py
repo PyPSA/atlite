@@ -463,7 +463,7 @@ def shape_availability(geometry, excluder):
 
         exclusions = exclusions | masked_
 
-    for d in excluder.rasters:
+    for d in excluder.geometries:
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
         exclusions = exclusions | masked
 
