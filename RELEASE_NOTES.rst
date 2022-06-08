@@ -21,6 +21,7 @@ Release Notes
 * Bugfix: Downsampling the availability matrix (high resolution to low resolution) failed. Only rasters with 0 or 1
   were produced. Expected are also floats between 0 and 1 (GH Issue #238). Changing the rasterio version solved this.
   See solution (https://github.com/PyPSA/atlite/pull/240).
+* Bugfix: Avoid NaN values into the hydro inflows
 
 Version 0.2.7 
 ==============

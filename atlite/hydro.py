@@ -103,6 +103,6 @@ def shift_and_aggregate_runoff_for_plants(
         nhours = (distances * (flowspeed * 3.6) + 0.5).astype(int)
 
         for b in ppl.upstream:
-            inflow_plant += runoff.sel(hid=b).shift(time=nhours.at[b])
+            inflow_plant += runoff.sel(hid=b).roll(time=nhours.at[b])
 
     return inflow
