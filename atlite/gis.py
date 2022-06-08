@@ -437,7 +437,7 @@ def shape_availability(geometry, excluder):
 
     # For the following: 0 is eligible, 1 in excluded
     raster = None
-    for idx, d in enumerate(excluder.rasters, start=1):
+    for d in excluder.rasters:
         # allow reusing preloaded raster with different post-processing
         if raster != d["raster"]:
             raster = d["raster"]
@@ -462,7 +462,7 @@ def shape_availability(geometry, excluder):
 
         exclusions = exclusions | masked_
 
-    for idx, d in enumerate(excluder.geometries, start=1):
+    for d in excluder.geometries:
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
         exclusions = exclusions | masked
 
