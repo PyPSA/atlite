@@ -448,14 +448,14 @@ def shape_availability(geometry, excluder):
             )
         if d["codes"]:
             if callable(d["codes"]):
-                masked_ = d["codes"](masked)
+                masked_ = d["codes"](masked).astype(bool)
             else:
                 masked_ = isin(masked, d["codes"])
         else:
-            masked_ = masked
+            masked_ = masked.astype(bool)
 
         if d["invert"]:
-            masked_ = ~(masked_).astype(bool)
+            masked_ = ~masked_
         if d["buffer"]:
             iterations = int(d["buffer"] / excluder.res) + 1
             masked_ = dilation(masked_, iterations=iterations)
@@ -508,7 +508,7 @@ def shape_availability_reprojected(
         masked, transform, dst_transform, excluder.crs, dst_crs
     )
     return rio.warp.reproject(
-        masked,
+        masked.astype(np.uint8),
         empty(dst_shape),
         resampling=rio.warp.Resampling.average,
         src_transform=transform,
