@@ -22,6 +22,7 @@ Release Notes
   were produced. Expected are also floats between 0 and 1 (GH Issue #238). Changing the rasterio version solved this.
   See solution (https://github.com/PyPSA/atlite/pull/240).
 * Bugfix: Avoid NaN values into the hydro inflows
+* Feature: Option normalize_using_yearly for hydro
 
 Version 0.2.7 
 ==============
