@@ -853,6 +853,17 @@ def hydro(
             .to_dataframe()
         )
 
+        assert all(
+            [
+                any(
+                    [
+                        plants[plants.countries == c_bus, "installed_hydro"]
+                        for c_bus in plants.countries.unique()
+                    ]
+                )
+            ]
+        ), "All countries must have at least a bus used to normalize hydro inflows"
+
         # matrix used to scale the runoffs
         scaling_matrix = xr.DataArray(
             [
