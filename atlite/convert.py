@@ -837,6 +837,7 @@ def hydro(
             .loc[lambda x: x > 8700]
             .index.intersection(normalize_using_yearly_i)
         )
+        years_overlap = slice(str(min(years)), str(max(years)))
 
         # get buses that have installed hydro capacity to be used to compute
         # the normalization
