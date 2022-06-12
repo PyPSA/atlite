@@ -748,8 +748,7 @@ def runoff(
 
         dim = result.dims[1 - result.get_axis_num("time")]
         result *= (
-            xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim])
-            / result.sel(time=years_overlap).sum("time")
+            xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim]) / result.sel(time=years_overlap).sum("time")
         ).reindex(countries=result.coords["countries"])
 
     return result
@@ -762,6 +761,7 @@ def hydro(
     flowspeed=1,
     weight_with_height=False,
     show_progress=True,
+    normalize_using_yearly=None,
     **kwargs,
 ):
     """
@@ -771,7 +771,7 @@ def hydro(
     Parameters
     ----------
     plants : pd.DataFrame
-        Run-of-river plants or dams with lon, lat columns.
+        Run-of-river plants or dams with lon, lat, countries, installed_hydro columns.
     hydrobasins : str|gpd.GeoDataFrame
         Filename or GeoDataFrame of one level of the HydroBASINS dataset.
     flowspeed : float
@@ -782,6 +782,8 @@ def hydro(
         better for coarser resolution).
     show_progress : bool
         Whether to display progressbars.
+    normalize_using_yearly : pd.DataFrame
+        Dataframe to normalize the runoffs according to normalize runoffs by plants
 
     References
     ----------
@@ -806,6 +808,8 @@ def hydro(
         show_progress=show_progress,
         **kwargs,
     )
+
+
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3
     # d-1 = m3 h-1 / 24
@@ -813,9 +817,62 @@ def hydro(
         basins.shapes.to_crs(dict(proj="cea")).area
     )
 
-    return hydrom.shift_and_aggregate_runoff_for_plants(
+    reaggregated_flows = hydrom.shift_and_aggregate_runoff_for_plants(
         basins, runoff, flowspeed, show_progress
     )
+    
+    if normalize_using_yearly is not None:
+        normalize_using_yearly_i = normalize_using_yearly.index
+        if isinstance(normalize_using_yearly_i, pd.DatetimeIndex):
+            normalize_using_yearly_i = normalize_using_yearly_i.year
+        else:
+            normalize_using_yearly_i = normalize_using_yearly_i.astype(int)
+
+        years = (
+            pd.Series(pd.to_datetime(reaggregated_flows.coords["time"].values).year)
+            .value_counts()
+            .loc[lambda x: x > 8700]
+            .index.intersection(normalize_using_yearly_i)
+        )
+        assert len(years), "Need at least a full year of data (more is better)"
+        years_overlap = slice(str(min(years)), str(max(years)))
+
+        # get buses that have installed hydro capacity to be used to compute
+        # the normalization
+        normalization_buses = plants[plants.installed_hydro == True].index
+
+        # group runoff by country
+        grouped_runoffs = (
+            reaggregated_flows
+            .sel(time=years_overlap)
+            .sel(plant=normalization_buses)
+            .rename("runoff")
+            .to_dataset()
+            .assign(country=lambda x: plants.loc[x.plant, "countries"])
+            .groupby("country")
+            .sum(["plant", "bus", "time"])
+            .to_dataframe()
+        )
+
+        # matrix used to scale the runoffs
+        scaling_matrix = xr.DataArray(
+            [
+                (
+                    normalize_using_yearly.loc[years_overlap, c_bus].sum()
+                    / grouped_runoffs.runoff[c_bus]
+                    * np.ones(reaggregated_flows.time.shape)
+                )
+                for c_bus in plants.countries
+            ],
+            coords=dict(
+                plant=plants.index.values,
+                time=reaggregated_flows.time.values,
+            )
+        )
+
+        reaggregated_flows *= scaling_matrix
+    
+    return reaggregated_flows
 
 
 def convert_line_rating(
