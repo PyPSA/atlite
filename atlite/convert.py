@@ -748,7 +748,8 @@ def runoff(
 
         dim = result.dims[1 - result.get_axis_num("time")]
         result *= (
-            xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim]) / result.sel(time=years_overlap).sum("time")
+            xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim])
+            / result.sel(time=years_overlap).sum("time")
         ).reindex(countries=result.coords["countries"])
 
     return result
@@ -809,7 +810,6 @@ def hydro(
         **kwargs,
     )
 
-
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3
     # d-1 = m3 h-1 / 24
@@ -820,7 +820,7 @@ def hydro(
     reaggregated_flows = hydrom.shift_and_aggregate_runoff_for_plants(
         basins, runoff, flowspeed, show_progress
     )
-    
+
     if normalize_using_yearly is not None:
         normalize_using_yearly_i = normalize_using_yearly.index
         if isinstance(normalize_using_yearly_i, pd.DatetimeIndex):
@@ -843,8 +843,7 @@ def hydro(
 
         # group runoff by country
         grouped_runoffs = (
-            reaggregated_flows
-            .sel(time=years_overlap)
+            reaggregated_flows.sel(time=years_overlap)
             .sel(plant=normalization_buses)
             .rename("runoff")
             .to_dataset()
@@ -867,11 +866,11 @@ def hydro(
             coords=dict(
                 plant=plants.index.values,
                 time=reaggregated_flows.time.values,
-            )
+            ),
         )
 
         reaggregated_flows *= scaling_matrix
-    
+
     return reaggregated_flows
 
 
