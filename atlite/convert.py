@@ -773,6 +773,9 @@ def hydro(
     ----------
     plants : pd.DataFrame
         Run-of-river plants or dams with lon, lat, countries, installed_hydro columns.
+        Countries and installed_hydro column are only used with normalize_using_yearly
+        installed_hydro column shall be a boolean vector specifying whether that plant
+        is currently installed and used to normalize the inflows
     hydrobasins : str|gpd.GeoDataFrame
         Filename or GeoDataFrame of one level of the HydroBASINS dataset.
     flowspeed : float
