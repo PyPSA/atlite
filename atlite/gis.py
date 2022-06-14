@@ -20,7 +20,7 @@ import multiprocessing as mp
 
 from collections import OrderedDict
 from pathlib import Path
-from warnings import warn
+from warnings import warn, catch_warnings, simplefilter
 from pyproj import CRS, Transformer
 from shapely.ops import transform
 from rasterio.warp import reproject, transform_bounds
@@ -466,6 +466,9 @@ def shape_availability(geometry, excluder):
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
         exclusions = exclusions | masked
 
+    warn(
+        "Output dtype of shape_availability changed from float to boolean.", UserWarning
+    )
     return ~exclusions, transform
 
 
@@ -526,7 +529,9 @@ def _init_process(shapes_, excluder_, dst_transform_, dst_crs_, dst_shapes_):
 
 def _process_func(i):
     args = (excluder, dst_transform, dst_crs, dst_shapes)
-    return shape_availability_reprojected(shapes.loc[[i]], *args)[0]
+    with catch_warnings():
+        simplefilter("ignore")
+        return shape_availability_reprojected(shapes.loc[[i]], *args)[0]
 
 
 def compute_availabilitymatrix(
@@ -585,9 +590,11 @@ def compute_availabilitymatrix(
         desc="Compute availability matrix",
     )
     if nprocesses is None:
-        for i in tqdm(shapes.index, **tqdm_kwargs):
-            _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
-            availability.append(_)
+        with catch_warnings():
+            simplefilter("ignore")
+            for i in tqdm(shapes.index, **tqdm_kwargs):
+                _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
+                availability.append(_)
     else:
         assert (
             excluder.all_closed
