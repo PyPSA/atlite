@@ -20,7 +20,7 @@ import multiprocessing as mp
 
 from collections import OrderedDict
 from pathlib import Path
-from warnings import warn
+from warnings import warn, catch_warnings, simplefilter
 from pyproj import CRS, Transformer
 from shapely.ops import transform
 from rasterio.warp import reproject, transform_bounds
@@ -426,15 +426,14 @@ def shape_availability(geometry, excluder):
         Affine transform of the mask.
 
     """
-    exclusions = []
     if not excluder.all_open:
         excluder.open_files()
     assert geometry.crs == excluder.crs
 
     bounds = rio.features.bounds(geometry)
     transform, shape = padded_transform_and_shape(bounds, res=excluder.res)
-    masked = geometry_mask(geometry, shape, transform).astype(int)
-    exclusions.append(masked)
+    masked = geometry_mask(geometry, shape, transform)
+    exclusions = masked
 
     # For the following: 0 is eligible, 1 in excluded
     raster = None
@@ -449,25 +448,28 @@ def shape_availability(geometry, excluder):
             )
         if d["codes"]:
             if callable(d["codes"]):
-                masked_ = d["codes"](masked)
+                masked_ = d["codes"](masked).astype(bool)
             else:
                 masked_ = isin(masked, d["codes"])
         else:
-            masked_ = masked
+            masked_ = masked.astype(bool)
 
         if d["invert"]:
-            masked_ = ~(masked_).astype(bool)
+            masked_ = ~masked_
         if d["buffer"]:
             iterations = int(d["buffer"] / excluder.res) + 1
-            masked_ = dilation(masked_, iterations=iterations).astype(int)
+            masked_ = dilation(masked_, iterations=iterations)
 
-        exclusions.append(masked_.astype(int))
+        exclusions = exclusions | masked_
 
     for d in excluder.geometries:
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
-        exclusions.append(masked.astype(int))
+        exclusions = exclusions | masked
 
-    return (sum(exclusions) == 0).astype(float), transform
+    warn(
+        "Output dtype of shape_availability changed from float to boolean.", UserWarning
+    )
+    return ~exclusions, transform
 
 
 def shape_availability_reprojected(
@@ -509,7 +511,7 @@ def shape_availability_reprojected(
         masked, transform, dst_transform, excluder.crs, dst_crs
     )
     return rio.warp.reproject(
-        masked,
+        masked.astype(np.uint8),
         empty(dst_shape),
         resampling=rio.warp.Resampling.average,
         src_transform=transform,
@@ -527,7 +529,9 @@ def _init_process(shapes_, excluder_, dst_transform_, dst_crs_, dst_shapes_):
 
 def _process_func(i):
     args = (excluder, dst_transform, dst_crs, dst_shapes)
-    return shape_availability_reprojected(shapes.loc[[i]], *args)[0]
+    with catch_warnings():
+        simplefilter("ignore")
+        return shape_availability_reprojected(shapes.loc[[i]], *args)[0]
 
 
 def compute_availabilitymatrix(
@@ -586,9 +590,11 @@ def compute_availabilitymatrix(
         desc="Compute availability matrix",
     )
     if nprocesses is None:
-        for i in tqdm(shapes.index, **tqdm_kwargs):
-            _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
-            availability.append(_)
+        with catch_warnings():
+            simplefilter("ignore")
+            for i in tqdm(shapes.index, **tqdm_kwargs):
+                _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
+                availability.append(_)
     else:
         assert (
             excluder.all_closed
