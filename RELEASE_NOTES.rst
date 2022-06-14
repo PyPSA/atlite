@@ -22,8 +22,7 @@ Release Notes
   were produced. Expected are also floats between 0 and 1 (GH Issue #238). Changing the rasterio version solved this.
   See solution (https://github.com/PyPSA/atlite/pull/240).
 * Breaking Change: Due to better performance and memory efficiency the method of matrix summation, as well as the matrix dtpyes within `shape_availability()` in `atlite.gis`, have been changed.
-  The returned object `masked` (numpy.array) is now dtype `bool` instead of `float64`. This can create broken workflows, if `masked` is not transformed ahead of certain operations. 
-  A warning message has been added. (https://github.com/PyPSA/atlite/pull/243) 
+  The returned object `masked` (numpy.array) is now dtype `bool` instead of `float64`. This can create broken workflows, if `masked` is not transformed ahead of certain operations (https://github.com/PyPSA/atlite/pull/243).
 * Bugfix: Avoid NaN values into the hydro inflows
 
 Version 0.2.7 
