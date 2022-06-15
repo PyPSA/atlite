@@ -35,13 +35,17 @@ def _power_huld(irradiance, t_amb, pc):
         1
         + pc["k_1"] * log_G_
         + pc["k_2"] * (log_G_) ** 2
-        + T_ * (pc["k_3"] + pc["k_4"] * log_G_ + pc["k_5"] * log_G_ ** 2)
-        + pc["k_6"] * (T_ ** 2)
+        + T_ * (pc["k_3"] + pc["k_4"] * log_G_ + pc["k_5"] * log_G_**2)
+        + pc["k_6"] * (T_**2)
     )
 
     eff = eff.fillna(0.0).clip(min=0)
 
-    return G_ * eff * pc.get("inverter_efficiency", 1.0)
+    da = G_ * eff * pc.get("inverter_efficiency", 1.0)
+    da.attrs["units"] = "kWh/kWp"
+    da = da.rename("specific generation")
+
+    return da
 
 
 def _power_bofinger(irradiance, t_amb, pc):

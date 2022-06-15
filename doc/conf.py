@@ -66,10 +66,10 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"atlite"
-author = u"The Atlite Authors"
-copyright = u"2016-2019" + u", " + author
-documentation_title = u"Atlite Documentation"
+project = "atlite"
+author = "The Atlite Authors"
+copyright = "2016-2019" + ", " + author
+documentation_title = "Atlite Documentation"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -135,7 +135,7 @@ nbsphinx_prolog = """
 .. note::
 
     Download this example as a Jupyter notebook here:
-    https://github.com/pypsa/atlite/{{ env.doc2path(env.docname, base="").replace("nblink","ipynb") }}
+    https://github.com/pypsa/atlite/blob/master/{{ env.doc2path(env.docname, base="").replace("nblink","ipynb") }}
 
 """
 
@@ -155,12 +155,13 @@ html_theme_options = {
 }
 
 
-# Add any paths that contain custom themes here, relative to this directory.
+# These folders are copied to the documentation's HTML output
 html_static_path = ["_static"]
 
-html_context = {
-    "css_files": ["_static/theme_overrides.css"]  # override wide tables in RTD theme
-}
+# These paths are either relative to html_static_path
+# or fully qualified paths (eg. https://...)
+html_css_files = ["theme_overrides.css"]
+
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -268,14 +269,14 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-latex_documents = [(master_doc, "atlite.tex", documentation_title, author, u"manual")]
+latex_documents = [(master_doc, "atlite.tex", documentation_title, author, "manual")]
 
 
 # Added for rinoh http://www.mos6581.org/rinohtype/quickstart.html
 rinoh_documents = [
     (
         master_doc,  # top-level file (index.rst)
-        project + u".pdf",  # output (target.pdf)
+        project + ".pdf",  # output (target.pdf)
         documentation_title,  # document title
         author,
     )

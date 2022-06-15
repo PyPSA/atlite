@@ -153,6 +153,40 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     return indicator
 
 
+def compute_intersectionmatrix(orig, dest, orig_crs=4326, dest_crs=4326):
+    """
+    Compute the intersectionmatrix.
+
+    The intersectionmatrix is a sparse matrix with entries (i,j) being one
+    if shapes orig[j] and dest[i] are intersecting, and zero otherwise.
+
+    Note that the polygons must be in the same crs.
+
+    Parameters
+    ----------
+    orig : Collection of shapely polygons
+    dest : Collection of shapely polygons
+
+    Returns
+    -------
+    I : sp.sparse.lil_matrix
+      Intersectionmatrix
+    """
+    orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
+    dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
+    dest = reproject_shapes(dest, dest_crs, orig_crs)
+    intersection = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=float)
+    tree = STRtree(orig)
+    idx = dict((id(o), i) for i, o in enumerate(orig))
+
+    for i, d in enumerate(dest):
+        for o in tree.query(d):
+            j = idx[id(o)]
+            intersection[i, j] = o.intersects(d)
+
+    return intersection
+
+
 class ExclusionContainer:
     """Container for exclusion objects and meta data."""
 
@@ -275,12 +309,16 @@ class ExclusionContainer:
     @property
     def all_closed(self):
         """Check whether all files in the raster container are closed."""
-        return all(isinstance(d["raster"], (str, Path)) for d in self.rasters)
+        return all(isinstance(d["raster"], (str, Path)) for d in self.rasters) and all(
+            isinstance(d["geometry"], (str, Path)) for d in self.geometries
+        )
 
     @property
     def all_open(self):
         """Check whether all files in the raster container are open."""
-        return all(isinstance(d["raster"], rio.DatasetReader) for d in self.rasters)
+        return all(
+            isinstance(d["raster"], rio.DatasetReader) for d in self.rasters
+        ) and all(isinstance(d["geometry"], gpd.GeoSeries) for d in self.geometries)
 
     def __repr__(self):
         return (

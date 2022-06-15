@@ -17,7 +17,7 @@ threshold: 1
 # Area of the solar panel in m^2
 area: 1.22
 # Rated production in watt peak
-rated_production: 89.3  
+rated_production: 89.3
 
 # A. B. C are coefficients for the equation : efficiency = A + B*I + C*logI and
 # are calculated by using the three different values of solar
@@ -25,7 +25,7 @@ rated_production: 89.3
 # corresponding radiations from the data sheet
 # That model comes from 
 A: 0.0659164166836276
-B: -4.44310393547043E-06
+B: -4.44310393547042E-06
 C: 0.0122044905275824
 
 #temperature power coefficient given in data sheet

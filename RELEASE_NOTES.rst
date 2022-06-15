@@ -11,6 +11,42 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+* Bugfix: When creating cutouts using SARAH2 data, an error was previously wrongly thrown if exactly
+  the data was available as input as required. The error is now correctly thrown only if
+  insufficient SARAH data is available.
+* Bugfix: When only adding geometries to an `atlite.ExclusionContainer` the geometries were previously
+  not opened and an error was thrown. The error did not occur if one or more shapes were included.
+  Error is corrected and geometry-only exclusions can now be calculated. (GH Issue #225)
+* Atlite now includes the reference turbines from the NREL turbine archive (see: https://nrel.github.io/turbine-models/). Available turbines can be consulted using `atlite.windturbines` and can be passed as string argument, e.g. `coutout.wind(turbine)`.
+
+Version 0.2.7 
+==============
+
+* The function `SolarPosition` does not return the atmospheric insolation anymore. This data variable was not used by any of the currently supported modules. 
+
+
+Version 0.2.6 
+==============
+
+* Atlite now supports calculating dynamic line ratings based on the IEEE-738 standard (https://github.com/PyPSA/atlite/pull/189).
+* The wind feature provided by ERA5 now also calculates the wind angle `wnd_azimuth` in range [0 - 2π) spanning the cirlce from north in clock-wise direction (0 is north, π/2 is east, -π is south, 3π/2 is west).
+* A new intersection matrix function was added, which works similarly to incidence matrix but has boolean values.
+* Atlite now supports two CSP (concentrated solar power) technologies, solar tower and parabolic trough. See (https://atlite.readthedocs.io/en/latest/examples/working-with-csp.html) for details.
+* The solar position (azimuth and altitude) are now part of the cutout feature `influx`. Cutouts created with earlier versions will become incompatible with the next major.
+* Automated upload of code coverage reports via Codecov.
+* DataArrays returned by `.pv(...)` and `.wind(...)` now have a clearer name and 'units' attribute.
+* If the `matrix` argument in conversion functions (`.pv(...)`, `.wind(...)` etc.) is a `DataArray`, the alignment of the coordinate axis with the cutout grid is double-checked. 
+* Due to ambiguity, conversion functions (`.pv(...)`, `.wind(...)` etc.) now raise an `ValueError` if shapes and matrix are given. 
+* Atlite now supports calculating of heat pump coefficients of performance (https://github.com/PyPSA/atlite/pull/145).
+* Enabled the GitHub feature "Cite this repository" to generate a BibTeX file (Added a `CITATION.cff` file to the repository).
+
+**Bug fixes**
+* The solar position for ERA5 cutouts is now calculated for half a time step earlier (time-shift by `cutout.dt/2`) to account for the aggregated nature of
+  ERA5 variables (see https://github.com/PyPSA/atlite/issues/158). The fix is only applied to newly created cutouts. Previously created cutouts do not profit
+  from this fix and need to be recreated `cutout.prepare(overwrite=True)`.
+* The functions `make_latitude` and `make_latitude_optimal` were not converting degrees to radian correctly. This resulted in a wrong calculation of the power output when using the orientation `latitude_optimal` or `latitude` in the `pv` conversion function. We are sorry for inconveniences.   
+
+
 Version 0.2.5 
 ==============
 

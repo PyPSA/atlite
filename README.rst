@@ -6,14 +6,12 @@
 Atlite
 ======
 
-|PyPI version| |Conda version| |Documentation Status| |travis| |standard-readme compliant| |GPL-3-or-later-image| |reuse| |black| |pre-commit.ci| |joss|
+|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |GPL-3-or-later-image| |reuse| |black| |pre-commit.ci| |joss|
 
 Atlite is a `free software`_, `xarray`_-based Python library for
 converting weather data (like wind speeds, solar influx) into energy systems data.
-It has a  lightweight design and works with big weather datasets
-while keeping the resource requirements especially on CPU and RAM
-resources low.
-
+It is designed to be lightweight, keeping computing resource requirements (CPU, RAM) usage low.
+It is therefore well suited to be used with big weather datasets.
 
 .. Atlite is designed to be modular, so that it can work with any weather
 .. datasets. It currently has modules for the following datasets: 
@@ -162,9 +160,10 @@ See the individual files for license details.
    :target: https://github.com/RichardLitt/standard-readme
 .. |GPL-3-or-later-image| image:: https://img.shields.io/pypi/l/atlite.svg
    :target: LICENSES/GPL-3.0-or-later.txt
-.. |travis| image:: https://img.shields.io/travis/PyPSA/atlite/master.svg
-    :target: https://travis-ci.org/PyPSA/atlite
-    :alt: Build status
+.. |codecov| image:: https://codecov.io/gh/PyPSA/atlite/branch/master/graph/badge.svg?token=TEJ16CMIHJ
+   :target: https://codecov.io/gh/PyPSA/atlite
+.. |ci| image:: https://github.com/PyPSA/atlite/actions/workflows/CI.yaml/badge.svg
+   :target: https://github.com/PyPSA/atlite/actions/workflows/CI.yaml
 .. |reuse| image:: https://api.reuse.software/badge/github.com/pypsa/atlite
    :target: https://api.reuse.software/info/github.com/pypsa/atlite
 .. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg

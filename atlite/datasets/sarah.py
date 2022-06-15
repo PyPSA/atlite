@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -9,8 +9,10 @@ Module containing specific operations for creating cutouts from the SARAH2 datas
 """
 
 from ..gis import regrid
+from ..pv.solar_position import SolarPosition
 from rasterio.warp import Resampling
 import os
+import warnings
 import glob
 import pandas as pd
 import numpy as np
@@ -27,7 +29,14 @@ crs = 4326
 dx = 0.05
 dy = 0.05
 dt = "30min"
-features = {"influx": ["influx_direct", "influx_diffuse"]}
+features = {
+    "influx": [
+        "influx_direct",
+        "influx_diffuse",
+        "solar_altitude",
+        "solar_azimuth",
+    ],
+}
 static_features = {}
 
 
@@ -54,7 +63,7 @@ def get_filenames(sarah_dir, coords):
         files = pd.Series(glob.glob(pattern, recursive=True))
         assert not files.empty, (
             f"No files found at {pattern}. Make sure "
-            "sarah_dir points to the correct directory!"
+            f"sarah_dir points to the correct directory!"
         )
 
         files.index = pd.to_datetime(files.str.extract(r"SI.in(\d{8})", expand=False))
@@ -66,13 +75,14 @@ def get_filenames(sarah_dir, coords):
         axis=1,
     )
 
-    start = coords["time"].to_index()[0]
-    end = coords["time"].to_index()[-1]
+    # SARAH files are named based on day, need to .floor("D") to compare correctly
+    start = coords["time"].to_index()[0].floor("D")
+    end = coords["time"].to_index()[-1].floor("D")
 
-    if (start < files.index[0]) or (end.date() > files.index[-1]):
+    if (start < files.index[0]) or (end > files.index[-1]):
         logger.error(
             f"Files in {sarah_dir} do not cover the whole time span:"
-            f"\n\t{start} until {end}"
+            f"\t{start} until {end}"
         )
 
     return files.loc[(files.index >= start) & (files.index <= end)].sort_index()
@@ -213,4 +223,14 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     ds = ds.rename({"SID": "influx_direct"}).drop_vars("SIS")
     ds = ds.assign_coords(x=ds.coords["lon"], y=ds.coords["lat"])
 
-    return ds.swap_dims({"lon": "x", "lat": "y"})
+    ds = ds.swap_dims({"lon": "x", "lat": "y"})
+
+    # Do not show DeprecationWarning from new SolarPosition calculation (#199)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        sp = SolarPosition(ds, time_shift="0H")
+    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
+
+    ds = xr.merge([ds, sp])
+
+    return ds

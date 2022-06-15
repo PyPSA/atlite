@@ -22,17 +22,15 @@ setup(
     packages=find_packages(exclude=["doc", "test"]),
     include_package_data=True,
     python_requires=">=3.6",
-    use_scm_version={"write_to": "atlite/version.py"},
-    setup_requires=["setuptools_scm"],
     install_requires=[
         "numpy",
         "scipy",
         "pandas>=0.25",
         "bottleneck",
         "numexpr",
-        "xarray>=0.16.2",
+        "xarray>=0.20",
         "netcdf4",
-        "dask>=0.18.0, <2021.04.0",
+        "dask>=2021.10.0",
         "toolz",
         "requests",
         "pyyaml",
@@ -46,7 +44,7 @@ setup(
     ],
     extras_require={
         "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme", "nbsphinx", "nbsphinx-link"],
-        "dev": ["pre-commit", "pytest"],
+        "dev": ["pre-commit", "pytest", "pytest-cov"],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",

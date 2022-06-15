@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -15,7 +15,7 @@ on CPU and RAM resources low.
 
 from .cutout import Cutout
 from .gis import compute_indicatormatrix, regrid, ExclusionContainer
-from .resource import windturbines, solarpanels
+from .resource import windturbines, solarpanels, cspinstallations
 
 from .version import version as __version__
 

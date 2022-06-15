@@ -21,6 +21,7 @@ urllib3.disable_warnings()
 
 import atlite
 from atlite import Cutout
+from shapely.geometry import Point, LineString as Line
 from xarray.testing import assert_allclose, assert_equal
 import numpy as np
 import pandas as pd
@@ -88,7 +89,7 @@ def pv_test(cutout):
         return_capacity=True,
     )
     cap_per_region = (
-        cells.assign(cap_factor=cap_factor.stack(spatial=["y", "x"]))
+        cells.assign(cap_factor=cap_factor.stack(spatial=["y", "x"]).values)
         .groupby("regions")
         .cap_factor.sum()
     )
@@ -130,6 +131,37 @@ def pv_test(cutout):
     assert production_other.sel(time=TIME + " 00:00") == 0
     # should be roughly the same
     assert (production_other.sum() / production_opt.sum()).round(0) == 1
+
+
+def csp_test(cutout):
+    """
+    Test the atlite.Cutout.csp function with different for different
+    settings and technologies.
+    """
+
+    ## Test technology = "solar tower"
+    st = cutout.csp(atlite.cspinstallations.SAM_solar_tower, capacity_factor=True)
+
+    assert st.notnull().all()
+    assert (st >= 0).all()
+    assert (st <= 1).all()
+
+    # Efficiencies <= 1 should lead to the conversion to always be less than perfect
+    st = cutout.csp(atlite.cspinstallations.SAM_solar_tower)
+    ll = cutout.csp(atlite.cspinstallations.lossless_installation)
+    assert (st <= ll).all()
+
+    ## Test technology = "parabolic trough"
+    pt = cutout.csp(atlite.cspinstallations.SAM_parabolic_trough, capacity_factor=True)
+
+    assert pt.notnull().all()
+    assert (pt >= 0).all()
+    assert (pt <= 1).all()
+
+    # Efficiencies <= 1 should lead to the conversion to always be less than perfect
+    pt = cutout.csp(atlite.cspinstallations.SAM_parabolic_trough)
+    ll = cutout.csp(atlite.cspinstallations.lossless_installation)
+    assert (pt <= ll).all()
 
 
 def solar_thermal_test(cutout):
@@ -176,7 +208,7 @@ def wind_test(cutout):
     assert production.sum() > 0
 
     # Now create a better layout with same amount of installed power
-    better_layout = (cap_factor ** 2) / (cap_factor ** 2).sum() * cap_factor.sum()
+    better_layout = (cap_factor**2) / (cap_factor**2).sum() * cap_factor.sum()
     better_production = cutout.wind(
         atlite.windturbines.Enercon_E101_3000kW, layout=better_layout
     )
@@ -236,6 +268,26 @@ def hydro_test(cutout):
     )
     ds = cutout.hydro(plants, basins)
     assert ds.sel(plant=0).sum() > 0
+
+
+def line_rating_test(cutout):
+    shapes = [Line([Point(-3, 57), Point(0, 60)])]
+    resistance = 0.06 * 1e-3
+    i = cutout.line_rating(shapes, resistance)
+    assert i.notnull().all().item()
+
+
+def coefficient_of_performance_test(cutout):
+    """
+    Test the coefficient_of_performance function.
+    """
+    cap_factor = cutout.coefficient_of_performance(source="air")
+    assert cap_factor.notnull().all()
+    assert cap_factor.sum() > 0
+
+    cap_factor = cutout.coefficient_of_performance(source="soil")
+    assert cap_factor.notnull().all()
+    assert cap_factor.sum() > 0
 
 
 # %% Prepare cutouts to test
@@ -471,6 +523,10 @@ class TestERA5:
     @staticmethod
     def test_soil_temperature_era5(cutout_era5):
         return soil_temperature_test(cutout_era5)
+
+    @staticmethod
+    def test_line_rating_era5(cutout_era5):
+        return line_rating_test(cutout_era5)
 
 
 @pytest.mark.skipif(

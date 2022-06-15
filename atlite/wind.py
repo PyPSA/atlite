@@ -9,6 +9,7 @@ Functions for use in conjunction with wind data generation.
 """
 
 import numpy as np
+import re
 
 import logging
 
@@ -59,7 +60,7 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
     if from_height is None:
         # Determine closest height to to_name
-        heights = np.asarray([int(s[3:-1]) for s in ds if s.startswith("wnd")])
+        heights = np.asarray([int(s[3:-1]) for s in ds if re.match(r"wnd\d+m", s)])
 
         if len(heights) == 0:
             raise AssertionError("Wind speed is not in dataset")
