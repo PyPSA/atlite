@@ -831,10 +831,9 @@ def hydro(
         else:
             normalize_using_yearly_i = normalize_using_yearly_i.astype(int)
 
-        counts_years = (
-            pd.Series(pd.to_datetime(reaggregated_flows.coords["time"].values).year)
-            .value_counts()
-        )
+        counts_years = pd.Series(
+            pd.to_datetime(reaggregated_flows.coords["time"].values).year
+        ).value_counts()
 
         years = counts_years.index.intersection(normalize_using_yearly_i)
 
