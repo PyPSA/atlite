@@ -831,12 +831,14 @@ def hydro(
         else:
             normalize_using_yearly_i = normalize_using_yearly_i.astype(int)
 
-        years = (
+        counts_years = (
             pd.Series(pd.to_datetime(reaggregated_flows.coords["time"].values).year)
             .value_counts()
-            .loc[lambda x: x > 8700]
-            .index.intersection(normalize_using_yearly_i)
         )
+
+        years = counts_years.index.intersection(normalize_using_yearly_i)
+
+        # assert len(years), "Need at least a full year of data (more is better)"
         years_overlap = slice(str(min(years)), str(max(years)))
 
         # get buses that have installed hydro capacity to be used to compute
@@ -855,15 +857,9 @@ def hydro(
             .to_dataframe()
         )
 
-        assert all(
-            [
-                any(
-                    [
-                        plants[plants.countries == c_bus, "installed_hydro"]
-                        for c_bus in plants.countries.unique()
-                    ]
-                )
-            ]
+        assert ~all(
+            plants.loc[plants.countries == c_bus, "installed_hydro"].any()
+            for c_bus in plants.countries.unique()
         ), "All countries must have at least a bus used to normalize hydro inflows"
 
         # matrix used to scale the runoffs
