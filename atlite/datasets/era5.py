@@ -307,9 +307,10 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         fd, target = mkstemp(suffix=".nc", dir=tmpdir)
         os.close(fd)
 
-        yearstr = ", ".join(atleast_1d(request["year"]))
+        # Inform user about data being downloaded as "* variable (year-month)"
+        timestr = f"{request['year']}-{request['month']}"
         variables = atleast_1d(request["variable"])
-        varstr = "".join(["\t * " + v + f" ({yearstr})\n" for v in variables])
+        varstr = "".join(["\t * " + v + f" ({timestr})\n" for v in variables])
         logger.info(f"CDS: Downloading variables\n{varstr}")
         result.download(target)
 
