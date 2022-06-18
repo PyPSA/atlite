@@ -805,6 +805,9 @@ def hydro(
     matrix = cutout.indicatormatrix(basins.shapes)
     # compute the average surface runoff in each basin
     matrix_normalized = matrix / matrix.sum(axis=1)
+    if np.isnan(matrix_normalized).any():
+        logger.warn("Inflows normalization lead to np.nan values; check the hydrobasins. Nan values set to 0.0")
+        matrix_normalized[np.isnan(matrix_normalized)] = 0.0
     runoff = cutout.runoff(
         matrix=matrix_normalized,
         index=basins.shapes.index,
