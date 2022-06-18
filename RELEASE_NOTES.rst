@@ -11,6 +11,10 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+
+Version 0.2.8
+=============
+
 * Bugfix: When creating cutouts using SARAH2 data, an error was previously wrongly thrown if exactly
   the data was available as input as required. The error is now correctly thrown only if
   insufficient SARAH data is available.
@@ -21,6 +25,8 @@ Release Notes
 * Bugfix: Downsampling the availability matrix (high resolution to low resolution) failed. Only rasters with 0 or 1
   were produced. Expected are also floats between 0 and 1 (GH Issue #238). Changing the rasterio version solved this.
   See solution (https://github.com/PyPSA/atlite/pull/240).
+* Breaking Change: Due to better performance and memory efficiency the method of matrix summation, as well as the matrix dtpyes within `shape_availability()` in `atlite.gis`, have been changed.
+  The returned object `masked` (numpy.array) is now dtype `bool` instead of `float64`. This can create broken workflows, if `masked` is not transformed ahead of certain operations (https://github.com/PyPSA/atlite/pull/243).
 * Bugfix: Avoid NaN values into the hydro inflows
 * Feature: Option normalize_using_yearly for hydro
 
