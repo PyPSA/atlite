@@ -849,16 +849,22 @@ def hydro(
         # the normalization
         normalization_buses = plants[plants.installed_hydro == True].index
 
+        # runoff by plant
+        runoff_by_plant = (
+            reaggregated_flows
+            .rename("runoff")
+            .sel(time=years_overlap)
+            .sum("time")
+            .to_dataframe()
+        )
+        runoff_by_plant["country"] = plants.loc[runoff_by_plant.index, "countries"]
+
         # group runoff by country
         grouped_runoffs = (
-            reaggregated_flows.sel(time=years_overlap)
-            .sel(plant=normalization_buses)
-            .rename("runoff")
-            .to_dataset()
-            .assign(country=lambda x: plants.loc[x.plant, "countries"])
+            runoff_by_plant
+            .loc[normalization_buses]
             .groupby("country")
-            .sum(["plant", "bus", "time"])
-            .to_dataframe()
+            .sum()
         )
 
         assert ~all(
