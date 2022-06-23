@@ -887,9 +887,6 @@ def hydro(
             elif c_bus not in normalize_yearly.columns:
                 # data not available in the normalization procedure
                 # return unity factor
-                logger.warning(
-                    f"Missing country {c_bus} in the normalization dataframe; skip normalization for {c_bus}"
-                )
                 return default_value
             elif c_bus not in grouped_runoffs.index:
                 # no hydro inflows available for he country
@@ -897,6 +894,28 @@ def hydro(
                     f"No existing hydro powerplant to normalize data in {c_bus}; skip normalization for {c_bus}"
                 )
                 return default_value
+
+        unique_countries = plants.countries.unique()
+        missing_countries_normalization = np.intersect1d(
+            unique_countries, normalize_using_yearly.columns
+        )
+        missing_countries_grouped_runoff = np.intersect1d(
+            unique_countries, grouped_runoffs.index
+        )
+
+        if not missing_countries_normalization.empty:
+            logger.warning(
+                f"Missing countries in the normalization dataframe: "
+                + ", ".join(missing_countries_normalization)
+                + ". Default value used"
+            )
+
+        if not missing_countries_grouped_runoff.empty:
+            logger.warning(
+                f"Missing installed plants in: "
+                + ", ".join(missing_countries_grouped_runoff)
+                + ". Default value used"
+            )
 
         # matrix used to scale the runoffs
         scaling_matrix = xr.DataArray(
