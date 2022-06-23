@@ -863,13 +863,25 @@ def hydro(
             runoff_by_plant.loc[normalization_buses].groupby("country").sum()
         )
 
+        # common country indeces
+        common_countries = normalize_using_yearly.columns.intersection(
+            grouped_runoffs.index
+        )
+
+        tot_common_yearly = np.nansum(
+            normalize_using_yearly.loc[years_overlap, common_countries]
+        )
+        tot_common_runoff = np.nansum(grouped_runoffs.runoff[common_countries])
+
+        default_factor = tot_common_yearly / tot_common_runoff
+
         def create_scaling_factor(
-            normalize_yearly, grouped_runoffs, years_overlap, c_bus
+            normalize_yearly, grouped_runoffs, years_overlap, c_bus, default_value=1.0
         ):
             if c_bus in normalize_yearly.columns and c_bus in grouped_runoffs.index:
                 # normalization in place
                 return (
-                    normalize_yearly.loc[years_overlap, c_bus].sum()
+                    np.nansum(normalize_yearly.loc[years_overlap, c_bus])
                     / grouped_runoffs.runoff[c_bus]
                 )
             elif c_bus not in normalize_yearly.columns:
@@ -878,13 +890,13 @@ def hydro(
                 logger.warning(
                     f"Missing country {c_bus} in the normalization dataframe; skip normalization for {c_bus}"
                 )
-                return 1.0
+                return default_value
             elif c_bus not in grouped_runoffs.index:
                 # no hydro inflows available for he country
                 logger.warning(
                     f"No existing hydro powerplant to normalize data in {c_bus}; skip normalization for {c_bus}"
                 )
-                return 1.0
+                return default_value
 
         # matrix used to scale the runoffs
         scaling_matrix = xr.DataArray(
@@ -894,6 +906,7 @@ def hydro(
                     grouped_runoffs,
                     years_overlap,
                     c_bus,
+                    default_factor,
                 )
                 * np.ones(reaggregated_flows.time.shape)
                 for c_bus in plants.countries
