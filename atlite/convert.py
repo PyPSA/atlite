@@ -851,8 +851,7 @@ def hydro(
 
         # runoff by plant
         runoff_by_plant = (
-            reaggregated_flows
-            .rename("runoff")
+            reaggregated_flows.rename("runoff")
             .sel(time=years_overlap)
             .sum("time")
             .to_dataframe()
@@ -861,15 +860,12 @@ def hydro(
 
         # group runoff by country
         grouped_runoffs = (
-            runoff_by_plant
-            .loc[normalization_buses]
-            .groupby("country")
-            .sum()
+            runoff_by_plant.loc[normalization_buses].groupby("country").sum()
         )
 
         def create_scaling_factor(
             normalize_yearly, grouped_runoffs, years_overlap, c_bus
-            ):
+        ):
             if c_bus in normalize_yearly.columns and c_bus in grouped_runoffs.index:
                 # normalization in place
                 return (
@@ -879,11 +875,15 @@ def hydro(
             elif c_bus not in normalize_yearly.columns:
                 # data not available in the normalization procedure
                 # return unity factor
-                logger.warning(f"Missing country {c_bus} in the normalization dataframe; skip normalization for {c_bus}")
+                logger.warning(
+                    f"Missing country {c_bus} in the normalization dataframe; skip normalization for {c_bus}"
+                )
                 return 1.0
             elif c_bus not in grouped_runoffs.index:
                 # no hydro inflows available for he country
-                logger.warning(f"No existing hydro powerplant to normalize data in {c_bus}; skip normalization for {c_bus}")
+                logger.warning(
+                    f"No existing hydro powerplant to normalize data in {c_bus}; skip normalization for {c_bus}"
+                )
                 return 1.0
 
         # matrix used to scale the runoffs
@@ -894,7 +894,8 @@ def hydro(
                     grouped_runoffs,
                     years_overlap,
                     c_bus,
-                ) * np.ones(reaggregated_flows.time.shape)
+                )
+                * np.ones(reaggregated_flows.time.shape)
                 for c_bus in plants.countries
             ],
             coords=dict(
