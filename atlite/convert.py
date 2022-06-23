@@ -867,19 +867,34 @@ def hydro(
             .sum()
         )
 
-        assert ~all(
-            plants.loc[plants.countries == c_bus, "installed_hydro"].any()
-            for c_bus in plants.countries.unique()
-        ), "All countries must have at least a bus used to normalize hydro inflows"
+        def create_scaling_factor(
+            normalize_yearly, grouped_runoffs, years_overlap, c_bus
+            ):
+            if c_bus in normalize_yearly.columns and c_bus in grouped_runoffs.index:
+                # normalization in place
+                return (
+                    normalize_yearly.loc[years_overlap, c_bus].sum()
+                    / grouped_runoffs.runoff[c_bus]
+                )
+            elif c_bus not in normalize_yearly.columns:
+                # data not available in the normalization procedure
+                # return unity factor
+                logger.warning(f"Missing country {c_bus} in the normalization dataframe; skip normalization for {c_bus}")
+                return 1.0
+            elif c_bus not in grouped_runoffs.index:
+                # no hydro inflows available for he country
+                logger.warning(f"No existing hydro powerplant to normalize data in {c_bus}; skip normalization for {c_bus}")
+                return 1.0
 
         # matrix used to scale the runoffs
         scaling_matrix = xr.DataArray(
             [
-                (
-                    normalize_using_yearly.loc[years_overlap, c_bus].sum()
-                    / grouped_runoffs.runoff[c_bus]
-                    * np.ones(reaggregated_flows.time.shape)
-                )
+                create_scaling_factor(
+                    normalize_using_yearly,
+                    grouped_runoffs,
+                    years_overlap,
+                    c_bus,
+                ) * np.ones(reaggregated_flows.time.shape)
                 for c_bus in plants.countries
             ],
             coords=dict(
