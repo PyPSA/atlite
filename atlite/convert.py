@@ -925,6 +925,9 @@ def hydro(
                     default_factor,
                 )
                 * np.ones(reaggregated_flows.time.shape)
+                * len(reaggregated_flows.time)
+                / 8760
+                / len(years)
                 for c_bus in plants.countries
             ],
             coords=dict(
@@ -1146,3 +1149,4 @@ def line_rating(cutout, shapes, line_resistance, **params):
         res = compute(res)
 
     return xr.concat(*res, dim=df.index).assign_attrs(units="A")
+    
