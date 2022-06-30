@@ -1149,4 +1149,3 @@ def line_rating(cutout, shapes, line_resistance, **params):
         res = compute(res)
 
     return xr.concat(*res, dim=df.index).assign_attrs(units="A")
-    
