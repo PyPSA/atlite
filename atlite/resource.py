@@ -53,10 +53,17 @@ def get_windturbineconfig(turbine):
         return get_oedb_windturbineconfig(turbine[len("oedb:") :])
 
     if isinstance(turbine, str):
-        if not turbine.endswith(".yaml"):
-            turbine += ".yaml"
+        
+        if not Path(turbine).exists():
 
-        turbine = WINDTURBINE_DIRECTORY / turbine
+            if not turbine.endswith(".yaml"):
+                turbine += ".yaml"
+
+            turbine = WINDTURBINE_DIRECTORY / turbine
+        
+        else:
+
+            turbine = Path(turbine)
 
     with open(turbine, "r") as f:
         conf = yaml.safe_load(f)
