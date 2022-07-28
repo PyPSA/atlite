@@ -55,14 +55,12 @@ def get_windturbineconfig(turbine):
     if isinstance(turbine, str):
         
         if not Path(turbine).exists():
-
             if not turbine.endswith(".yaml"):
                 turbine += ".yaml"
 
             turbine = WINDTURBINE_DIRECTORY / turbine
         
         else:
-
             turbine = Path(turbine)
 
     with open(turbine, "r") as f:
