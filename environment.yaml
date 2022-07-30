@@ -22,7 +22,7 @@ dependencies:
 - geopandas
 - cdsapi
 - pyproj>=2.0
-- rasterio>=1.0,<1.2.10  # until 1.3.0 is released
+- rasterio<1.2.10,>=1.3.0
 - shapely
 - progressbar2
 - tqdm

@@ -34,7 +34,7 @@ setup(
         "toolz",
         "requests",
         "pyyaml",
-        "rasterio<1.2.10",
+        "rasterio>=1.3.0",
         "shapely",
         "progressbar2",
         "tqdm",
