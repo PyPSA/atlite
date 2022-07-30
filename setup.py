@@ -41,6 +41,7 @@ setup(
         "pyproj>=2",
         "geopandas",
         "cdsapi",
+        "fiona<=1.8.20",
     ],
     extras_require={
         "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme", "nbsphinx", "nbsphinx-link"],

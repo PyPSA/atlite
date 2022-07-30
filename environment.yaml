@@ -26,6 +26,7 @@ dependencies:
 - shapely
 - progressbar2
 - tqdm
+- fiona<=1.18.20
 
   # dev tools
 - black
