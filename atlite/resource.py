@@ -59,9 +59,8 @@ def get_windturbineconfig(turbine):
                 turbine += ".yaml"
 
             turbine = WINDTURBINE_DIRECTORY / turbine
+
         
-        else:
-            turbine = Path(turbine)
 
     with open(turbine, "r") as f:
         conf = yaml.safe_load(f)
@@ -78,10 +77,14 @@ def get_solarpanelconfig(panel):
     """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
 
     if isinstance(panel, str):
-        if not panel.endswith(".yaml"):
-            panel += ".yaml"
+        
+        if not Path(panel).exists():
+            if not panel.endswith(".yaml"):
+                panel += ".yaml"
+            panel = SOLARPANEL_DIRECTORY / panel
 
-        panel = SOLARPANEL_DIRECTORY / panel
+        else:
+            panel = Path(panel)
 
     with open(panel, "r") as f:
         conf = yaml.safe_load(f)
@@ -104,11 +107,18 @@ def get_cspinstallationconfig(installation):
         Config with details on the CSP installation.
     """
 
-    if isinstance(installation, str):
+        
+    if not Path(installation).exists():        
+
+        # if isinstance(installation, str):    # not sure what this does
         if not installation.endswith(".yaml"):
             installation += ".yaml"
 
-    installation = CSPINSTALLATION_DIRECTORY / installation
+        installation = CSPINSTALLATION_DIRECTORY / installation
+    
+    else:
+        installation = Path(installation)
+    
 
     # Load and set expected index columns
     with open(installation, "r") as f:
