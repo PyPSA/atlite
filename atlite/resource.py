@@ -34,10 +34,11 @@ CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
 
-    The configuration can either be one from local storage, then 'turbine' is
+    The configuration can be one from local storage, then 'turbine' is
     considered part of the file base name '<turbine>.yaml' in config.windturbine_dir.
-    Alternatively the configuration can be downloaded from the Open Energy Database (OEDB),
+    Alternatively, the configuration can be downloaded from the Open Energy Database (OEDB),
     in which case 'turbine' is a dictionary used for selecting a turbine from the database.
+    Finally, turbine can also be a path to a local config file.
 
     Parameters
     ----------
@@ -98,8 +99,8 @@ def get_cspinstallationconfig(installation):
     Parameters
     ----------
     installation : str
-        Name of CSP installation kind. Must correspond to name of one of the files
-        in resources/cspinstallation.
+        Name of CSP installation kind. Can either correspond to name of one of the files
+        in resources/cspinstallation or be a local file.
 
     Returns
     -------
