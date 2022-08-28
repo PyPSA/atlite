@@ -108,7 +108,14 @@ def get_cspinstallationconfig(installation):
         Config with details on the CSP installation.
     """
         
-    if not Path(installation).exists():        
+    if not Path(installation).exists(
+
+
+
+
+
+
+    ):
 
         # if isinstance(installation, str):    # not sure what this does
         if not installation.endswith(".yaml"):
