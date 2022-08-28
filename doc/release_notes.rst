@@ -5,6 +5,6 @@
 
 .. include:: ../RELEASE_NOTES.rst
 
-* In atlite/resource.py, the functions ``get_windturbineconfig``, ``get_solarpanelconfig``, and 
-  ``get_cspinstallationconfig`` will now recognize if a local file was passed, and load
+* In ``atlite/resource.py``, the functions ``get_windturbineconfig``, ``get_solarpanelconfig``, and 
+  ``get_cspinstallationconfig`` will now recognize if a local file was passed, and if so load
   it instead of one of the predefined ones.
