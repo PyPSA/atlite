@@ -54,14 +54,12 @@ def get_windturbineconfig(turbine):
         return get_oedb_windturbineconfig(turbine[len("oedb:") :])
 
     if isinstance(turbine, str):
-        
+
         if not Path(turbine).exists():
             if not turbine.endswith(".yaml"):
                 turbine += ".yaml"
 
             turbine = WINDTURBINE_DIRECTORY / turbine
-
-        
 
     with open(turbine, "r") as f:
         conf = yaml.safe_load(f)
@@ -78,7 +76,7 @@ def get_solarpanelconfig(panel):
     """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
 
     if isinstance(panel, str):
-        
+
         if not Path(panel).exists():
             if not panel.endswith(".yaml"):
                 panel += ".yaml"
@@ -107,21 +105,14 @@ def get_cspinstallationconfig(installation):
     config : dict
         Config with details on the CSP installation.
     """
-        
-    if not Path(installation).exists(
 
-
-
-
-
-
-    ):
+    if not Path(installation).exists():
 
         # if isinstance(installation, str):    # not sure what this does
         if not installation.endswith(".yaml"):
             installation += ".yaml"
         installation = CSPINSTALLATION_DIRECTORY / installation
-    
+
     else:
         installation = Path(installation)
 
