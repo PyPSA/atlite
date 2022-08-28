@@ -106,19 +106,16 @@ def get_cspinstallationconfig(installation):
     config : dict
         Config with details on the CSP installation.
     """
-
         
     if not Path(installation).exists():        
 
         # if isinstance(installation, str):    # not sure what this does
         if not installation.endswith(".yaml"):
             installation += ".yaml"
-
         installation = CSPINSTALLATION_DIRECTORY / installation
     
     else:
         installation = Path(installation)
-    
 
     # Load and set expected index columns
     with open(installation, "r") as f:
