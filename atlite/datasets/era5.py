@@ -235,9 +235,10 @@ def retrieval_times(coords, static=False):
     """
     Get list of retrieval cdsapi arguments for time dimension in coordinates.
 
-    If static is False, this function creates a query for each year in the
-    time axis in coords. This ensures not running into query limits of the
-    cdsapi. If static is True, the function return only one set of parameters
+    If static is False, this function creates a query for each month and year
+    in the time axis in coords. This ensures not running into size query limits
+    of the cdsapi even with very (spatially) large cutouts.
+    If static is True, the function return only one set of parameters
     for the very first time point.
 
     Parameters
@@ -258,6 +259,7 @@ def retrieval_times(coords, static=False):
             "time": time[0].strftime("%H:00"),
         }
 
+    # Prepare request for all months and years
     times = []
     for year in time.year.unique():
         t = time[time.year == year]
