@@ -15,6 +15,10 @@ Version 0.2.9
 =============
 
 * Enable rasterio >1.2.10. Allows now to use the new rasterio 1.3.0 version.
+* Feature: Cutouts from `ERA5` are now downloaded for each month rather than for each year.
+  This allows for spatially larger cutouts (worldwide) which previously exceed the maximum
+  download size from ERA5.
+* Doc: A subsection on how to reduce `cutout` sizes has been added to the documentation.
 
 Version 0.2.8
 =============
