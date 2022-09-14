@@ -112,13 +112,17 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=0):
     if tracking == 0:
         cosincidence = sin(surface_slope) * cos(sun_altitude) * cos(
             surface_azimuth - sun_azimuth
-            ) + cos(surface_slope) * sin(sun_altitude)
-    elif tracking == 1: # vertical tracking, surface azimuth = sun_azimuth
-        cosincidence = sin(surface_slope) * cos(sun_altitude) + cos(surface_slope) * sin(sun_altitude)
-    elif tracking == 2: # both vertical and horizontal tracking
+        ) + cos(surface_slope) * sin(sun_altitude)
+    elif tracking == 1:  # vertical tracking, surface azimuth = sun_azimuth
+        cosincidence = sin(surface_slope) * cos(sun_altitude) + cos(
+            surface_slope
+        ) * sin(sun_altitude)
+    elif tracking == 2:  # both vertical and horizontal tracking
         cosincidence = np.float64(1.0)
     else:
-        assert False, "Values describing tracking system must be 0 for no tracking, 1 for 1-axis vertical tracking, or 2 for 2-axis tracking"
+        assert (
+            False
+        ), "Values describing tracking system must be 0 for no tracking, 1 for 1-axis vertical tracking, or 2 for 2-axis tracking"
 
     # fixup incidence angle: if the panel is badly oriented and the sun shines
     # on the back of the panel (incidence angle > 90degree), the irradiation

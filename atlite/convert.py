@@ -530,7 +530,9 @@ def wind(cutout, turbine, smooth=False, **params):
 
 
 # solar PV
-def convert_pv(ds, panel, orientation, tracking, trigon_model="simple", clearsky_model="simple"):
+def convert_pv(
+    ds, panel, orientation, tracking, trigon_model="simple", clearsky_model="simple"
+):
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation, tracking)
     irradiation = TiltedIrradiation(
