@@ -501,7 +501,10 @@ def wind(cutout, turbine, smooth=False, **params):
         A turbineconfig dictionary with the keys 'hub_height' for the
         hub height and 'V', 'POW' defining the power curve.
         Alternatively a str refering to a local or remote turbine configuration
-        as accepted by atlite.resource.get_windturbineconfig().
+        as accepted by atlite.resource.get_windturbineconfig(). Locally stored turbine
+        configurations can also be modified with this function. E.g. to setup a different hub
+        height from the one used in the yaml file,one would write
+   		"turbine=get_windturbineconfig(“NREL_ReferenceTurbine_5MW_offshore”)|{“hub_height”:120}"
     smooth : bool or dict
         If True smooth power curve with a gaussian kernel as
         determined for the Danish wind fleet to Delta_v = 1.27 and
