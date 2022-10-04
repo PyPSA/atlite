@@ -42,24 +42,24 @@ def get_windturbineconfig(turbine):
 
     Parameters
     ----------
-    turbine : str
+    turbine : str or pathlib.Path
         Name of the local turbine file.
-        Alternatively a dict for selecting a turbine from the Open Energy
+        Alternatively, a dict for selecting a turbine from the Open Energy
         Database, in this case the key 'source' should be contained. For all
         other key arguments to retrieve the matching turbine, see
         atlite.resource.download_windturbineconfig() for details.
     """
 
+    assert isinstance(turbine, (str, Path))
+
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
         return get_oedb_windturbineconfig(turbine[len("oedb:") :])
 
     if isinstance(turbine, str):
-
-        if not Path(turbine).exists():
-            if not turbine.endswith(".yaml"):
-                turbine += ".yaml"
-
-            turbine = WINDTURBINE_DIRECTORY / turbine
+        try:
+            turbine = windturbines[turbine.replace(".yaml", "").replace(".yml", "")]
+        except KeyError:
+            pass
 
     with open(turbine, "r") as f:
         conf = yaml.safe_load(f)
@@ -75,15 +75,13 @@ def get_windturbineconfig(turbine):
 def get_solarpanelconfig(panel):
     """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
 
+    assert isinstance(panel, (str, Path))
+
     if isinstance(panel, str):
-
-        if not Path(panel).exists():
-            if not panel.endswith(".yaml"):
-                panel += ".yaml"
-            panel = SOLARPANEL_DIRECTORY / panel
-
-        else:
-            panel = Path(panel)
+        try:
+            panel = solarpanels[panel.replace(".yaml", "").replace(".yml", "")]
+        except KeyError:
+            pass
 
     with open(panel, "r") as f:
         conf = yaml.safe_load(f)
@@ -96,7 +94,7 @@ def get_cspinstallationconfig(installation):
 
     Parameters
     ----------
-    installation : str
+    installation : str or pathlib.Path
         Name of CSP installation kind. Can either correspond to name of one of the files
         in resources/cspinstallation or be a local file.
 
@@ -106,15 +104,16 @@ def get_cspinstallationconfig(installation):
         Config with details on the CSP installation.
     """
 
-    if not Path(installation).exists():
+    assert isinstance(installation, (str, Path))
 
-        # if isinstance(installation, str):    # not sure what this does
-        if not installation.endswith(".yaml"):
-            installation += ".yaml"
-        installation = CSPINSTALLATION_DIRECTORY / installation
-
-    else:
-        installation = Path(installation)
+    if isinstance(installation, str):
+        try:
+            installation = cspinstallations[
+                installation.replace(".yml", "").replace(".yaml", "")
+            ]
+            installation = CSPINSTALLATION_DIRECTORY / installation
+        except KeyError:
+            pass
 
     # Load and set expected index columns
     with open(installation, "r") as f:
