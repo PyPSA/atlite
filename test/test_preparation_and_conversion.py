@@ -29,6 +29,11 @@ import pandas as pd
 
 # %% Predefine tests for cutout
 
+TIME = "2013-01-01"
+BOUNDS = (-4, 56, 1.5, 62)
+SARAH_DIR = os.getenv("SARAH_DIR", "/home/vres/climate-data/sarah_v2")
+GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
+
 
 def all_notnull_test(cutout):
     """Test if no nan's in the prepared data occur"""
@@ -59,7 +64,7 @@ def wrong_recreation(cutout):
         Cutout(path=cutout.path, module="somethingelse")
 
 
-def pv_test(cutout):
+def pv_test(cutout, time=TIME):
     """
     Test the atlite.Cutout.pv function with different settings. Compare
     optimal orientation with flat orientation.
@@ -76,7 +81,7 @@ def pv_test(cutout):
     )
 
     assert production.notnull().all()
-    assert production.sel(time=TIME + " 00:00") == 0
+    assert production.sel(time=time + " 00:00") == 0
 
     cells = cutout.grid
     cells = cells.assign(regions=["lower"] * 200 + ["upper"] * (len(cells) - 200))
@@ -105,7 +110,7 @@ def pv_test(cutout):
         atlite.resource.solarpanels.CdTe, "latitude_optimal", layout=cap_factor_opt
     )
 
-    assert production_opt.sel(time=TIME + " 00:00") == 0
+    assert production_opt.sel(time=time + " 00:00") == 0
 
     assert production_opt.sum() > production.sum()
 
@@ -117,7 +122,7 @@ def pv_test(cutout):
         trigon_model="other",
     )
 
-    assert production_other.sel(time=TIME + " 00:00") == 0
+    assert production_other.sel(time=time + " 00:00") == 0
     # should be roughly the same
     assert (production_other.sum() / production_opt.sum()).round(0) == 1
 
@@ -128,7 +133,7 @@ def pv_test(cutout):
         layout=cap_factor_opt,
     )
 
-    assert production_other.sel(time=TIME + " 00:00") == 0
+    assert production_other.sel(time=time + " 00:00") == 0
     # should be roughly the same
     assert (production_other.sum() / production_opt.sum()).round(0) == 1
 
@@ -293,16 +298,19 @@ def coefficient_of_performance_test(cutout):
 # %% Prepare cutouts to test
 
 
-TIME = "2013-01-01"
-BOUNDS = (-4, 56, 1.5, 62)
-SARAH_DIR = os.getenv("SARAH_DIR", "/home/vres/climate-data/sarah_v2")
-GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
-
-
 @pytest.fixture(scope="session")
 def cutout_era5(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("era5")
     cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=TIME)
+    cutout.prepare()
+    return cutout
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_2days_crossing_months(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5")
+    time = slice("2013-02-28", "2013-03-01")
+    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=time)
     cutout.prepare()
     return cutout
 
@@ -489,6 +497,11 @@ class TestERA5:
     @staticmethod
     def test_pv_era5(cutout_era5):
         return pv_test(cutout_era5)
+
+    @staticmethod
+    def test_pv_era5_2days_crossing_months(cutout_era5_2days_crossing_months):
+        """See https://github.com/PyPSA/atlite/issues/256"""
+        return pv_test(cutout_era5_2days_crossing_months, time="2013-03-01")
 
     @staticmethod
     def test_wind_era5(cutout_era5):
