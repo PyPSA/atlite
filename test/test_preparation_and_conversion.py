@@ -307,6 +307,24 @@ def cutout_era5(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
+def cutout_era5_3h_sampling(tmp_path_factory):
+    tmp_path = tmp_path_factory.mktemp("era5")
+    time = [
+        f"{TIME} 00:00",
+        f"{TIME} 03:00",
+        f"{TIME} 06:00",
+        f"{TIME} 09:00",
+        f"{TIME} 12:00",
+        f"{TIME} 15:00",
+        f"{TIME} 18:00",
+        f"{TIME} 21:00",
+    ]
+    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=time)
+    cutout.prepare()
+    return cutout
+
+
+@pytest.fixture(scope="session")
 def cutout_era5_2days_crossing_months(tmp_path_factory):
     tmp_path = tmp_path_factory.mktemp("era5")
     time = slice("2013-02-28", "2013-03-01")
@@ -502,6 +520,11 @@ class TestERA5:
     def test_pv_era5_2days_crossing_months(cutout_era5_2days_crossing_months):
         """See https://github.com/PyPSA/atlite/issues/256"""
         return pv_test(cutout_era5_2days_crossing_months, time="2013-03-01")
+
+    @staticmethod
+    def test_pv_era5_3h_sampling(cutout_era5_3h_sampling):
+        assert pd.infer_freq(cutout_era5_3h_sampling.data.time) == "3H"
+        return pv_test(cutout_era5_3h_sampling)
 
     @staticmethod
     def test_wind_era5(cutout_era5):
