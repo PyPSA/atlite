@@ -11,6 +11,10 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+Version 0.2.9
+=============
+
+* Enable rasterio >1.2.10. Allows now to use the new rasterio 1.3.0 version.
 
 Version 0.2.8
 =============
