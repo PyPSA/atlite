@@ -18,15 +18,15 @@ Upcoming Release
   This is now fixed and influx data is **always** shifted by minus 30 minutes.
   See `#256 <https://github.com/PyPSA/atlite/issues/256#issuecomment-1271446531>`_ for details.
 * Bugfix: The hydro inflow calculation was relying on a wrong distance calculation in `atlite.hydro.shift_and_aggregate_runoff_for_plants`. This is now fixed. 
+* Feature: Cutouts from `ERA5` are now downloaded for each month rather than for each year.
+  This allows for spatially larger cutouts (worldwide) which previously exceed the maximum
+  download size from ERA5.
+* Doc: A subsection on how to reduce `cutout` sizes has been added to the documentation.
 
 Version 0.2.9
 =============
 
 * Enable rasterio >1.2.10. Allows now to use the new rasterio 1.3.0 version.
-* Feature: Cutouts from `ERA5` are now downloaded for each month rather than for each year.
-  This allows for spatially larger cutouts (worldwide) which previously exceed the maximum
-  download size from ERA5.
-* Doc: A subsection on how to reduce `cutout` sizes has been added to the documentation.
 
 Version 0.2.8
 =============
