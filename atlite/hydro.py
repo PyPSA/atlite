@@ -100,7 +100,7 @@ def shift_and_aggregate_runoff_for_plants(
             basins.meta.loc[ppl.upstream, "DIST_MAIN"]
             - basins.meta.at[ppl.hid, "DIST_MAIN"]
         )
-        nhours = (distances * (flowspeed * 3.6) + 0.5).astype(int)
+        nhours = (distances / (flowspeed * 3.6) + 0.5).astype(int)
 
         for b in ppl.upstream:
             inflow_plant += runoff.sel(hid=b).roll(time=nhours.at[b])
