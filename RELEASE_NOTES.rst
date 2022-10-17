@@ -11,6 +11,12 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+Version 0.2.10
+=============
+
+* Added 1-axis vertical and 2-axis tracking option for solar pv
+* Added small documentation for get_windturbineconfig
+
 Version 0.2.9
 =============
 
