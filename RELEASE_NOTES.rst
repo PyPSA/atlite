@@ -14,7 +14,7 @@ Release Notes
 Version 0.2.10
 =============
 
-* Added 1-axis vertical and 2-axis tracking option for solar pv
+* Added 1-axis vertical and 2-axis tracking option for solar pv and trigon_model = "simple"
 * Added small documentation for get_windturbineconfig
 
 Version 0.2.9
