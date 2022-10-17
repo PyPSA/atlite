@@ -56,12 +56,12 @@ def get_windturbineconfig(turbine):
         return get_oedb_windturbineconfig(turbine[len("oedb:") :])
 
     if isinstance(turbine, str):
-        try:
-            turbine = windturbines[turbine.replace(".yaml", "").replace(".yml", "")]
-        except KeyError:
-            pass
+        turbine_path = windturbines[turbine.replace(".yaml", "")]
 
-    with open(turbine, "r") as f:
+    if isinstance(turbine, Path):
+        turbine_path = turbine
+
+    with open(turbine_path, "r") as f:
         conf = yaml.safe_load(f)
 
     return dict(
@@ -78,12 +78,13 @@ def get_solarpanelconfig(panel):
     assert isinstance(panel, (str, Path))
 
     if isinstance(panel, str):
-        try:
-            panel = solarpanels[panel.replace(".yaml", "").replace(".yml", "")]
-        except KeyError:
-            pass
+        panel = panel.replace(".yaml", "")
+        panel_path = solarpanels[panel]
 
-    with open(panel, "r") as f:
+    elif isinstance(panel, Path):
+        panel_path = panel
+
+    with open(panel_path, "r") as f:
         conf = yaml.safe_load(f)
 
     return conf
@@ -107,19 +108,17 @@ def get_cspinstallationconfig(installation):
     assert isinstance(installation, (str, Path))
 
     if isinstance(installation, str):
-        try:
-            installation = cspinstallations[
-                installation.replace(".yml", "").replace(".yaml", "")
-            ]
-            installation = CSPINSTALLATION_DIRECTORY / installation
-        except KeyError:
-            pass
+        installation_path = cspinstallations[installation]
+
+    if isinstance(installation, Path):
+        installation_path = installation
 
     # Load and set expected index columns
-    with open(installation, "r") as f:
+    with open(installation_path, "r") as f:
         config = yaml.safe_load(f)
+    config["path"] = installation_path
 
-    config["path"] = installation
+    print(config)
 
     ## Convert efficiency dict to xr.DataArray and convert units to deg -> rad, % -> p.u.
     da = pd.DataFrame(config["efficiency"]).set_index(["altitude", "azimuth"])
