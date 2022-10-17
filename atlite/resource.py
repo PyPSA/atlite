@@ -118,8 +118,6 @@ def get_cspinstallationconfig(installation):
         config = yaml.safe_load(f)
     config["path"] = installation_path
 
-    print(config)
-
     ## Convert efficiency dict to xr.DataArray and convert units to deg -> rad, % -> p.u.
     da = pd.DataFrame(config["efficiency"]).set_index(["altitude", "azimuth"])
 
