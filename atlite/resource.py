@@ -34,20 +34,18 @@ CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
 
-    The configuration can be one from local storage, then 'turbine' is
-    considered part of the file base name '<turbine>.yaml' in config.windturbine_dir.
-    Alternatively, the configuration can be downloaded from the Open Energy Database (OEDB),
-    in which case 'turbine' is a dictionary used for selecting a turbine from the database.
-    Finally, turbine can also be a path to a local config file.
-
     Parameters
     ----------
     turbine : str or pathlib.Path
-        Name of the local turbine file.
-        Alternatively, a dict for selecting a turbine from the Open Energy
-        Database, in this case the key 'source' should be contained. For all
-        other key arguments to retrieve the matching turbine, see
-        atlite.resource.download_windturbineconfig() for details.
+        if str:
+            either from Open Energy Database (key "source" should then be contained)
+            or the name of a preshipped turbine from atlite.resources.windturbines
+        if Path: a local file is expected
+
+    Returns
+    ----------
+    config : dict
+        Config with details on the turbine
     """
 
     assert isinstance(turbine, (str, Path))
@@ -73,7 +71,20 @@ def get_windturbineconfig(turbine):
 
 
 def get_solarpanelconfig(panel):
-    """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
+    """Load the 'panel'.yaml file from local disk and provide a solar panel dict.
+
+    Parameters
+    ----------
+    panel : str or pathlib.Path
+        if str: expects name to match one of the preshipped panels from
+            atlite.resources.solarpanel
+        if Path: a local file is expected
+
+    Returns
+    ----------
+    config : dict
+        Config with details on the solarpanel
+    """
 
     assert isinstance(panel, (str, Path))
 
@@ -96,8 +107,9 @@ def get_cspinstallationconfig(installation):
     Parameters
     ----------
     installation : str or pathlib.Path
-        Name of CSP installation kind. Can either correspond to name of one of the files
-        in resources/cspinstallation or be a local file.
+        if str: expects name to match one of the preshipped installations from
+            atlite.resources.cspinstallation
+        if Path: a local file is expected
 
     Returns
     -------
