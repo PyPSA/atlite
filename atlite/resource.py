@@ -38,9 +38,13 @@ def get_windturbineconfig(turbine):
     ----------
     turbine : str or pathlib.Path
         if str:
-            either from Open Energy Database (key "source" should then be contained)
-            or the name of a preshipped turbine from atlite.resources.windturbines
-        if Path: a local file is expected
+            The name of a preshipped turbine from alite.resources.windturbine .
+            Alternatively, if a str starting with 'oedb:<name>' is passed the Open
+            Energy Database is searched for a turbine with the matching '<name>'
+            and if found that turbine configuration is used. See
+            `atlite.resource.get_oedb_windturbineconfig(...)`
+        if `pathlib.Path` is provided the configuration is read from this local
+            path instead
 
     Returns
     ----------
@@ -53,10 +57,10 @@ def get_windturbineconfig(turbine):
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
         return get_oedb_windturbineconfig(turbine[len("oedb:") :])
 
-    if isinstance(turbine, str):
+    elif isinstance(turbine, str):
         turbine_path = windturbines[turbine.replace(".yaml", "")]
 
-    if isinstance(turbine, Path):
+    elif isinstance(turbine, Path):
         turbine_path = turbine
 
     with open(turbine_path, "r") as f:
@@ -76,9 +80,10 @@ def get_solarpanelconfig(panel):
     Parameters
     ----------
     panel : str or pathlib.Path
-        if str: expects name to match one of the preshipped panels from
-            atlite.resources.solarpanel
-        if Path: a local file is expected
+        if str is provided the name of a preshipped panel
+            from alite.resources.solarpanel is expected.
+        if `pathlib.Path` is provided the configuration
+            is read from this local path instead
 
     Returns
     ----------
@@ -89,8 +94,7 @@ def get_solarpanelconfig(panel):
     assert isinstance(panel, (str, Path))
 
     if isinstance(panel, str):
-        panel = panel.replace(".yaml", "")
-        panel_path = solarpanels[panel]
+        panel_path = solarpanels[panel.replace(".yaml", "")]
 
     elif isinstance(panel, Path):
         panel_path = panel
@@ -107,9 +111,10 @@ def get_cspinstallationconfig(installation):
     Parameters
     ----------
     installation : str or pathlib.Path
-        if str: expects name to match one of the preshipped installations from
-            atlite.resources.cspinstallation
-        if Path: a local file is expected
+        if str is provided the name of a preshipped CSP installation
+            from alite.resources.cspinstallation is expected.
+        if `pathlib.Path` is provided the configuration
+            is read from this local path instead
 
     Returns
     -------
@@ -120,9 +125,9 @@ def get_cspinstallationconfig(installation):
     assert isinstance(installation, (str, Path))
 
     if isinstance(installation, str):
-        installation_path = cspinstallations[installation]
+        installation_path = cspinstallations[installation.replace(".yaml", "")]
 
-    if isinstance(installation, Path):
+    elif isinstance(installation, Path):
         installation_path = installation
 
     # Load and set expected index columns
