@@ -34,31 +34,36 @@ CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 def get_windturbineconfig(turbine):
     """Load the wind 'turbine' configuration.
 
-    The configuration can either be one from local storage, then 'turbine' is
-    considered part of the file base name '<turbine>.yaml' in config.windturbine_dir.
-    Alternatively the configuration can be downloaded from the Open Energy Database (OEDB),
-    in which case 'turbine' is a dictionary used for selecting a turbine from the database.
-
     Parameters
     ----------
-    turbine : str
-        Name of the local turbine file.
-        Alternatively a dict for selecting a turbine from the Open Energy
-        Database, in this case the key 'source' should be contained. For all
-        other key arguments to retrieve the matching turbine, see
-        atlite.resource.download_windturbineconfig() for details.
+    turbine : str or pathlib.Path
+        if str:
+            The name of a preshipped turbine from alite.resources.windturbine .
+            Alternatively, if a str starting with 'oedb:<name>' is passed the Open
+            Energy Database is searched for a turbine with the matching '<name>'
+            and if found that turbine configuration is used. See
+            `atlite.resource.get_oedb_windturbineconfig(...)`
+        if `pathlib.Path` is provided the configuration is read from this local
+            path instead
+
+    Returns
+    ----------
+    config : dict
+        Config with details on the turbine
     """
+
+    assert isinstance(turbine, (str, Path))
 
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
         return get_oedb_windturbineconfig(turbine[len("oedb:") :])
 
-    if isinstance(turbine, str):
-        if not turbine.endswith(".yaml"):
-            turbine += ".yaml"
+    elif isinstance(turbine, str):
+        turbine_path = windturbines[turbine.replace(".yaml", "")]
 
-        turbine = WINDTURBINE_DIRECTORY / turbine
+    elif isinstance(turbine, Path):
+        turbine_path = turbine
 
-    with open(turbine, "r") as f:
+    with open(turbine_path, "r") as f:
         conf = yaml.safe_load(f)
 
     return dict(
@@ -70,15 +75,31 @@ def get_windturbineconfig(turbine):
 
 
 def get_solarpanelconfig(panel):
-    """Load the 'panel'.yaml file from local disk and provide a solar panel dict."""
+    """Load the 'panel'.yaml file from local disk and provide a solar panel dict.
+
+    Parameters
+    ----------
+    panel : str or pathlib.Path
+        if str is provided the name of a preshipped panel
+            from alite.resources.solarpanel is expected.
+        if `pathlib.Path` is provided the configuration
+            is read from this local path instead
+
+    Returns
+    ----------
+    config : dict
+        Config with details on the solarpanel
+    """
+
+    assert isinstance(panel, (str, Path))
 
     if isinstance(panel, str):
-        if not panel.endswith(".yaml"):
-            panel += ".yaml"
+        panel_path = solarpanels[panel.replace(".yaml", "")]
 
-        panel = SOLARPANEL_DIRECTORY / panel
+    elif isinstance(panel, Path):
+        panel_path = panel
 
-    with open(panel, "r") as f:
+    with open(panel_path, "r") as f:
         conf = yaml.safe_load(f)
 
     return conf
@@ -89,9 +110,11 @@ def get_cspinstallationconfig(installation):
 
     Parameters
     ----------
-    installation : str
-        Name of CSP installation kind. Must correspond to name of one of the files
-        in resources/cspinstallation.
+    installation : str or pathlib.Path
+        if str is provided the name of a preshipped CSP installation
+            from alite.resources.cspinstallation is expected.
+        if `pathlib.Path` is provided the configuration
+            is read from this local path instead
 
     Returns
     -------
@@ -99,17 +122,18 @@ def get_cspinstallationconfig(installation):
         Config with details on the CSP installation.
     """
 
-    if isinstance(installation, str):
-        if not installation.endswith(".yaml"):
-            installation += ".yaml"
+    assert isinstance(installation, (str, Path))
 
-    installation = CSPINSTALLATION_DIRECTORY / installation
+    if isinstance(installation, str):
+        installation_path = cspinstallations[installation.replace(".yaml", "")]
+
+    elif isinstance(installation, Path):
+        installation_path = installation
 
     # Load and set expected index columns
-    with open(installation, "r") as f:
+    with open(installation_path, "r") as f:
         config = yaml.safe_load(f)
-
-    config["path"] = installation
+    config["path"] = installation_path
 
     ## Convert efficiency dict to xr.DataArray and convert units to deg -> rad, % -> p.u.
     da = pd.DataFrame(config["efficiency"]).set_index(["altitude", "azimuth"])
