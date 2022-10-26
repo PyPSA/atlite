@@ -137,6 +137,7 @@ def pv_test(cutout, time=TIME):
     # should be roughly the same
     assert (production_other.sum() / production_opt.sum()).round(0) == 1
 
+
 def pv_tracking_test(cutout):
     """
     Test the atlite.Cutout.pv function with different tracking settings and compare results
@@ -148,13 +149,13 @@ def pv_tracking_test(cutout):
         atlite.resource.solarpanels.CSi,
         orientation,
         capacity_factor=True,
-        )
+    )
     cap_factor_tracking_0axis = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
         tracking=0,
         capacity_factor=True,
-        )
+    )
 
     assert cap_factor_tracking_0axis.notnull().all()
     assert cap_factor_tracking_0axis.sum() > 0
