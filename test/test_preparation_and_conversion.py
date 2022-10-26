@@ -568,6 +568,7 @@ class TestERA5:
     def test_pv_tracking_era5(cutout_era5):
         return pv_tracking_test(cutout_era5)
 
+    @staticmethod
     def test_pv_era5_2days_crossing_months(cutout_era5_2days_crossing_months):
         """See https://github.com/PyPSA/atlite/issues/256"""
         return pv_test(cutout_era5_2days_crossing_months, time="2013-03-01")
