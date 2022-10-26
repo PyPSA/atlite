@@ -132,6 +132,53 @@ def pv_test(cutout):
     # should be roughly the same
     assert (production_other.sum() / production_opt.sum()).round(0) == 1
 
+def pv_tracking_test(cutout):
+    """
+    Test the atlite.Cutout.pv function with different tracking settings and compare results
+    """
+
+    orientation = {"slope": 0.0, "azimuth": 180.0}
+    # tracking = 0 is the default option
+    cap_factor = cutout.pv(
+        atlite.resource.solarpanels.CSi,
+        orientation,
+        capacity_factor=True,
+        )
+    cap_factor_tracking_0axis = cutout.pv(
+        atlite.resource.solarpanels.CSi,
+        orientation,
+        tracking=0,
+        capacity_factor=True,
+        )
+
+    assert cap_factor_tracking_0axis.notnull().all()
+    assert cap_factor_tracking_0axis.sum() > 0
+    assert cap_factor.mean() == cap_factor_tracking_0axis.mean()
+
+    # calculate with tracking = 1 and tracking = 2, and compare tracking option results
+
+    cap_factor_tracking_1axis = cutout.pv(
+        atlite.resource.solarpanels.CSi,
+        orientation,
+        tracking=1,
+        capacity_factor=True,
+    )
+
+    cap_factor_tracking_2axis = cutout.pv(
+        atlite.resource.solarpanels.CSi,
+        orientation,
+        tracking=2,
+        capacity_factor=True,
+    )
+
+    assert cap_factor_tracking_1axis.notnull().all()
+    assert cap_factor_tracking_1axis.sum() > 0
+    assert cap_factor_tracking_1axis.mean() >= cap_factor_tracking_0axis.mean()
+
+    assert cap_factor_tracking_2axis.notnull().all()
+    assert cap_factor_tracking_2axis.sum() > 0
+    assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis.mean()
+
 
 def csp_test(cutout):
     """
@@ -489,6 +536,10 @@ class TestERA5:
     @staticmethod
     def test_pv_era5(cutout_era5):
         return pv_test(cutout_era5)
+
+    @staticmethod
+    def test_pv_tracking_era5(cutout_era5):
+        return pv_tracking_test(cutout_era5)
 
     @staticmethod
     def test_wind_era5(cutout_era5):

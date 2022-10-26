@@ -543,6 +543,7 @@ def convert_pv(
         surface_orientation,
         trigon_model=trigon_model,
         clearsky_model=clearsky_model,
+        tracking=tracking,
     )
     solar_panel = SolarPanelModel(ds, irradiation, panel)
     return solar_panel
