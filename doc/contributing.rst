@@ -12,6 +12,11 @@ We welcome anyone interested in contributing to this project,
 be it with new ideas, suggestions, by filing bug reports or
 contributing code.
 
+A `Discord server <https://discord.gg/AnuJBk23FU>`_ hosts every tool
+in the PyPSA ecosystem. We have there public voice and text channels
+that are suitable to organise projects, ask questions,
+share news, or chat with the community.
+
 You are invited to submit pull requests / issues to our
 `Github repository <https://github.com/pypsa/atlite>`_.
 
