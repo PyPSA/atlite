@@ -33,6 +33,9 @@ Atlite: Convert weather data to energy systems data
 .. image:: https://joss.theoj.org/papers/10.21105/joss.03294/status.svg
     :target: https://doi.org/10.21105/joss.03294
 
+.. image:: https://img.shields.io/discord/911692131440148490?logo=discord
+    :target: https://discord.gg/AnuJBk23FU
+
 Atlite is a `free software
 <http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
 <http://xarray.pydata.org/en/stable/>`_-based Python library for

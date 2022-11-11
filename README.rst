@@ -6,7 +6,7 @@
 Atlite
 ======
 
-|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |GPL-3-or-later-image| |reuse| |black| |pre-commit.ci| |joss|
+|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |GPL-3-or-later-image| |reuse| |black| |pre-commit.ci| |joss| |discord|
 
 Atlite is a `free software`_, `xarray`_-based Python library for
 converting weather data (like wind speeds, solar influx) into energy systems data.
@@ -111,7 +111,11 @@ Contributing
 ============
 
 If you have any ideas, suggestions or encounter problems, feel invited
-to file issues or make pull requests.
+to file issues or make pull requests on GitHub. 
+A `Discord server <https://discord.gg/AnuJBk23FU>`_ hosts every tool
+in the PyPSA ecosystem. We have there public voice and text channels
+that are suitable to organise projects, ask questions,
+share news, or chat with the community.
 
 Authors and Copyright
 ---------------------
@@ -174,3 +178,5 @@ See the individual files for license details.
    :alt: pre-commit.ci status
 .. |joss| image:: https://joss.theoj.org/papers/10.21105/joss.03294/status.svg
    :target: https://doi.org/10.21105/joss.03294
+.. |discord| image:: https://img.shields.io/discord/911692131440148490?logo=discord
+   :target: https://discord.gg/AnuJBk23FU
