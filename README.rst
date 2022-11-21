@@ -1,4 +1,4 @@
-  .. SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
+  .. SPDX-FileCopyrightText: 2016 - 2022 The Atlite Authors
 
   .. SPDX-License-Identifier: CC-BY-4.0
 
@@ -120,7 +120,7 @@ share news, or chat with the community.
 Authors and Copyright
 ---------------------
 
-Copyright (C) 2016-2021 The Atlite Authors.
+Copyright (C) 2016 - 2022 The Atlite Authors.
 
 See the `AUTHORS`_ for details.
 
@@ -131,7 +131,7 @@ Licence
 
 This work is licensed under multiple licences:
 
--  All original source code is licensed under `GPL-3.0-or-later`_.
+-  All original source code is licensed under `MIT`_
 -  Auxiliary code from SPHINX is licensed under `BSD-2-Clause`_.
 -  The documentation is licensed under `CC-BY-4.0`_.
 -  Configuration and data files are mostly licensed under `CC0-1.0`_.
@@ -149,7 +149,7 @@ See the individual files for license details.
 
 .. _AUTHORS: AUTHORS.rst
 
-.. _GPL-3.0-or-later: LICENSES/GPL-3.0-or-later.txt
+.. _MIT: LICENSES/MIT.txt
 .. _BSD-2-Clause: LICENSES/BSD-2-Clause.txt
 .. _CC-BY-4.0: LICENSES/CC-BY-4.0.txt
 .. _CC0-1.0: LICENSES/CC0-1.0.txt
@@ -162,8 +162,8 @@ See the individual files for license details.
    :target: https://atlite.readthedocs.io/en/master/?badge=master
 .. |standard-readme compliant| image:: https://img.shields.io/badge/readme%20style-standard-brightgreen.svg?style=flat
    :target: https://github.com/RichardLitt/standard-readme
-.. |GPL-3-or-later-image| image:: https://img.shields.io/pypi/l/atlite.svg
-   :target: LICENSES/GPL-3.0-or-later.txt
+.. |MIT| image:: https://img.shields.io/pypi/l/atlite.svg
+   :target: LICENSES/MIT.txt
 .. |codecov| image:: https://codecov.io/gh/PyPSA/atlite/branch/master/graph/badge.svg?token=TEJ16CMIHJ
    :target: https://codecov.io/gh/PyPSA/atlite
 .. |ci| image:: https://github.com/PyPSA/atlite/actions/workflows/CI.yaml/badge.svg

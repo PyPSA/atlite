@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2020-2021 The Atlite Authors
+# SPDX-FileCopyrightText: 2020 - 2022 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 Module for loading gebco data

@@ -1,5 +1,5 @@
-REM SPDX-FileCopyrightText: 2017-2021 The Atlite Authors
-REM SPDX-License-Identifier: GPL-3.0-or-later
+REM SPDX-FileCopyrightText: 2017 - 2022 The Atlite Authors
+REM SPDX-License-Identifier: MIT
 
 @ECHO OFF
 
