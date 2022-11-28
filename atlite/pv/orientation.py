@@ -113,11 +113,11 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
         cosincidence = sin(surface_slope) * cos(sun_altitude) * cos(
             surface_azimuth - sun_azimuth
         ) + cos(surface_slope) * sin(sun_altitude)
-    elif tracking == 'vertical':  # vertical tracking, surface azimuth = sun_azimuth
+    elif tracking == "vertical":  # vertical tracking, surface azimuth = sun_azimuth
         cosincidence = sin(surface_slope) * cos(sun_altitude) + cos(
             surface_slope
         ) * sin(sun_altitude)
-    elif tracking == 'vh':  # both vertical and horizontal tracking
+    elif tracking == "vh":  # both vertical and horizontal tracking
         cosincidence = np.float64(1.0)
     else:
         assert (
