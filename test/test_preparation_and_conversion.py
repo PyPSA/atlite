@@ -144,7 +144,7 @@ def pv_tracking_test(cutout):
     """
 
     orientation = {"slope": 0.0, "azimuth": 180.0}
-    # tracking = 0 is the default option
+    # tracking = None is the default option
     cap_factor = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
@@ -153,7 +153,7 @@ def pv_tracking_test(cutout):
     cap_factor_tracking_0axis = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
-        tracking=0,
+        tracking=None,
         capacity_factor=True,
     )
 
@@ -161,19 +161,19 @@ def pv_tracking_test(cutout):
     assert cap_factor_tracking_0axis.sum() > 0
     assert cap_factor.mean() == cap_factor_tracking_0axis.mean()
 
-    # calculate with tracking = 1 and tracking = 2, and compare tracking option results
+    # calculate with tracking = 'vertical' and tracking = 'vh', and compare tracking option results
 
     cap_factor_tracking_1axis = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
-        tracking=1,
+        tracking='vertical',
         capacity_factor=True,
     )
 
     cap_factor_tracking_2axis = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
-        tracking=2,
+        tracking='vh',
         capacity_factor=True,
     )
 

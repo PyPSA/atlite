@@ -180,9 +180,9 @@ def TiltedIrradiation(
         )
     if trigon_model == "simple":
         k = surface_orientation["cosincidence"] / sin(solar_position["altitude"])
-        if tracking != 2:
+        if tracking != 'vh':
             cos_surface_slope = cos(surface_orientation["slope"])
-        elif tracking == 2:
+        elif tracking == 'vh':
             cos_surface_slope = sin(solar_position["altitude"])
 
         influx = direct + diffuse
