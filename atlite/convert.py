@@ -874,7 +874,9 @@ def hydro(
         tot_common_runoff = np.nansum(grouped_runoffs.runoff[common_countries])
 
         default_factor = tot_common_yearly / tot_common_runoff
-
+        if np.isnan(default_factor):
+            default_factor = 1.0
+        
         def create_scaling_factor(
             normalize_yearly, grouped_runoffs, years_overlap, c_bus, default_value=1.0
         ):
@@ -1149,3 +1151,4 @@ def line_rating(cutout, shapes, line_resistance, **params):
         res = compute(res)
 
     return xr.concat(*res, dim=df.index).assign_attrs(units="A")
+    
