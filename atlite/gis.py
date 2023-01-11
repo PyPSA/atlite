@@ -26,7 +26,7 @@ from shapely.ops import transform
 from rasterio.warp import reproject, transform_bounds
 from rasterio.mask import mask
 from rasterio.features import geometry_mask
-from scipy.ndimage.morphology import binary_dilation as dilation
+from scipy.ndimage import binary_dilation as dilation
 from numpy import isin, empty
 from shapely.strtree import STRtree
 from tqdm import tqdm
@@ -469,9 +469,6 @@ def shape_availability(geometry, excluder):
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
         exclusions = exclusions | masked
 
-    warn(
-        "Output dtype of shape_availability changed from float to boolean.", UserWarning
-    )
     return ~exclusions, transform
 
 
