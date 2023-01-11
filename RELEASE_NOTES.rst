@@ -11,8 +11,9 @@ Release Notes
 .. Upcoming Release
 .. =================
 
-Upcoming Release
-================
+ 
+Version 0.2.10
+==============
 
 * atlite now supports shapely >= v2.0. 
 * Bugfix: For certain time spans, the ERA5 influx data would be incorrectly shifted by 12 hours.
