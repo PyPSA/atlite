@@ -180,11 +180,14 @@ def compute_intersectionmatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     dest = reproject_shapes(dest, dest_crs, orig_crs)
     intersection = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=float)
     tree = STRtree(orig)
-    idx = dict((id(o), i) for i, o in enumerate(orig))
+    idx = dict((hash(o.wkt), i) for i, o in enumerate(orig))
 
     for i, d in enumerate(dest):
         for o in tree.query(d):
-            j = idx[id(o)]
+            # STRtree query returns a list of indices for shapely >= v2.0
+            if isinstance(o, (int, np.integer)):
+                o = orig[o]
+            j = idx[hash(o.wkt)]
             intersection[i, j] = o.intersects(d)
 
     return intersection
