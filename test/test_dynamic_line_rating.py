@@ -173,9 +173,9 @@ def test_angle_increase():
     Psi = np.arange(0, 370, 10)
     res = pd.Series([func(psi) for psi in Psi], index=Psi)
 
-    assert (res[:10].diff().dropna() >= 0).all()
-    assert (res[9:19].diff().dropna() <= 0).all()
+    assert (res.iloc[:10].diff().dropna() >= 0).all()
+    assert (res.iloc[9:19].diff().dropna() <= 0).all()
 
     # check point reflection
-    assert np.isclose(res[:19], res[:17:-1], atol=1e-10, rtol=1e-10).all()
-    assert np.isclose(res[:19], res[18:], atol=1e-10, rtol=1e-10).all()
+    assert np.isclose(res.iloc[:19], res.iloc[:17:-1], atol=1e-10, rtol=1e-10).all()
+    assert np.isclose(res.iloc[:19], res.iloc[18:], atol=1e-10, rtol=1e-10).all()

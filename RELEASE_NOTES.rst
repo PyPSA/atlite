@@ -14,6 +14,7 @@ Release Notes
 Upcoming Release
 ================
 
+* atlite now supports shapely >= v2.0. 
 * Bugfix: For certain time spans, the ERA5 influx data would be incorrectly shifted by 12 hours.
   This is now fixed and influx data is **always** shifted by minus 30 minutes.
   See `#256 <https://github.com/PyPSA/atlite/issues/256#issuecomment-1271446531>`_ for details.
