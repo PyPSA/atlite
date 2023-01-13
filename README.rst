@@ -1,4 +1,4 @@
-  .. SPDX-FileCopyrightText: 2016 - 2022 The Atlite Authors
+  .. SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 
   .. SPDX-License-Identifier: CC-BY-4.0
 
@@ -120,7 +120,7 @@ share news, or chat with the community.
 Authors and Copyright
 ---------------------
 
-Copyright (C) 2016 - 2022 The Atlite Authors.
+Copyright (C) 2016 - 2023 The Atlite Authors.
 
 See the `AUTHORS`_ for details.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2021 - 2022 The Atlite Authors
+# SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
 

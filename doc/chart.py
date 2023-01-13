@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2020 - 2022 The Atlite Authors
+# SPDX-FileCopyrightText: 2020 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
 

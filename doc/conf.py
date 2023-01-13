@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2017-2022 The Atlite Authors
+# SPDX-FileCopyrightText: 2017 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
 
