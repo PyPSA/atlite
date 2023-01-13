@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 Atlite helps you to convert weather data into energy systems model data.
@@ -28,4 +28,4 @@ __author__ = (
     "Markus Schlott (FIAS), "
     "David Schlachtberger (FIAS), "
 )
-__copyright__ = "Copyright 2016-2021 The Atlite Authors"
+__copyright__ = "Copyright 2016 - 2021 The Atlite Authors"
