@@ -11,6 +11,7 @@ Release Notes
 .. Upcoming Release
 .. =================
 
+* With this release, we change the license from copyleft GPLv3 to the more liberal MIT license with the consent of all major contributors `#263 <https://github.com/PyPSA/atlite/pull/263>`_.
  
 Version 0.2.10
 ==============
