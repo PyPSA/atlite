@@ -15,7 +15,7 @@ dependencies:
 - pandas>=0.25
 - xarray>=0.16.2
 - netcdf4
-- dask>=0.18.0 ,<2021.04.0
+- dask>=2021.10.0
 - toolz
 - yaml
 - requests

@@ -11,14 +11,19 @@ Release Notes
 .. Upcoming Release
 .. =================
 
-Upcoming Release
-================
+ 
+Version 0.2.10
+==============
 
+* atlite now supports shapely >= v2.0. 
 * Bugfix: For certain time spans, the ERA5 influx data would be incorrectly shifted by 12 hours.
   This is now fixed and influx data is **always** shifted by minus 30 minutes.
   See `#256 <https://github.com/PyPSA/atlite/issues/256#issuecomment-1271446531>`_ for details.
 * Bugfix: The hydro inflow calculation was relying on a wrong distance calculation in `atlite.hydro.shift_and_aggregate_runoff_for_plants`. This is now fixed.
 * Add a reference to the PyPSA ecosystem community server hosted on `Discord <https://discord.gg/AnuJBk23FU>`_
+* Bugfix: building cutouts spanning the most recent few months resulted in errors due to the
+  mixing of `ERA5` and `ERA5T` data returned from the CDSAPI.
+  See `#190 <https://github.com/PyPSA/atlite/issues/190>`_ for details.
 
 Version 0.2.9
 =============

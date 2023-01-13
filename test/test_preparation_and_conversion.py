@@ -16,6 +16,8 @@ import sys
 import pytest
 import urllib3
 import geopandas as gpd
+from datetime import date
+from dateutil.relativedelta import relativedelta
 
 urllib3.disable_warnings()
 
@@ -42,7 +44,7 @@ def all_notnull_test(cutout):
 
 def prepared_features_test(cutout):
     """
-    The prepared features series should contain all variables in cuttout.data
+    The prepared features series should contain all variables in cutout.data
     """
     assert set(cutout.prepared_features) == set(cutout.data)
 
@@ -429,7 +431,7 @@ class TestERA5:
     @staticmethod
     def test_data_module_arguments_era5(cutout_era5):
         """
-        All data variables should have an attribute to which module thay belong
+        All data variables should have an attribute to which module they belong
         """
         for v in cutout_era5.data:
             assert cutout_era5.data.attrs["module"] == "era5"
@@ -525,6 +527,41 @@ class TestERA5:
     def test_pv_era5_3h_sampling(cutout_era5_3h_sampling):
         assert pd.infer_freq(cutout_era5_3h_sampling.data.time) == "3H"
         return pv_test(cutout_era5_3h_sampling)
+
+    @staticmethod
+    def test_pv_era5_and_era5t(tmp_path_factory):
+        """
+        CDSAPI returns ERA5T data for the *previous* month, and ERA5 data for the
+        *second-previous* month. We request data spanning 2 days between the 2
+        months to test merging ERA5 data with ERA5T.
+
+        See documentation here: https://confluence.ecmwf.int/pages/viewpage.action?pageId=173385064
+
+        Note: the above page says that ERA5 data are made available with a *3* month delay,
+        but experience shows that it's with a *2* month delay. Hence the test with previous
+        vs. second-previous month.
+        """
+        today = date.today()
+        first_day_this_month = today.replace(day=1)
+        first_day_prev_month = first_day_this_month - relativedelta(months=1)
+        last_day_second_prev_month = first_day_prev_month - relativedelta(days=1)
+
+        tmp_path = tmp_path_factory.mktemp("era5_era5t")
+        cutout = Cutout(
+            path=tmp_path / "era5_era5t",
+            module="era5",
+            bounds=BOUNDS,
+            time=slice(last_day_second_prev_month, first_day_prev_month),
+        )
+        cutout.prepare()
+
+        # If ERA5 and ERA5T data are merged successfully, there should be no null values
+        # in any of the features of the cutout
+        for feature in cutout.data.values():
+            assert feature.notnull().to_numpy().all()
+
+        pv_test(cutout, time=str(last_day_second_prev_month))
+        return pv_test(cutout, time=str(first_day_prev_month))
 
     @staticmethod
     def test_wind_era5(cutout_era5):
