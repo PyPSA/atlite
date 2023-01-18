@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
+  SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 
   SPDX-License-Identifier: CC-BY-4.0
 

@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
+  SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 
   SPDX-License-Identifier: CC-BY-4.0
 
@@ -128,4 +128,4 @@ License
 =======
 
 Atlite is released and licensed under the 
-`GPLv3 <http://www.gnu.org/licenses/gpl-3.0.en.html>`_.
+`MIT license <https://github.com/PyPSA/atlite/blob/mit-license/LICENSES/MIT.txt>`_.

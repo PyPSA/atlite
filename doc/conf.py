@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2017-2021 The Atlite Authors
+# SPDX-FileCopyrightText: 2017 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
+
 #
 # Atlite documentation build configuration file, created by
 # sphinx-quickstart on Tue Jan 5 10:04:42 2016.
@@ -68,7 +69,7 @@ master_doc = "index"
 # General information about the project.
 project = "atlite"
 author = "The Atlite Authors"
-copyright = "2016-2019" + ", " + author
+copyright = "2016-2012" + ", " + author
 documentation_title = "Atlite Documentation"
 
 # The version info for the project you're documenting, acts as replacement for
