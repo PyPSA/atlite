@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 Module for downloading and curating data from ECMWFs ERA5 dataset (via CDS).
@@ -91,6 +91,14 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     ds = maybe_swap_spatial_dims(ds)
     if add_lon_lat:
         ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
+
+    # Combine ERA5 and ERA5T data into a single dimension.
+    # See https://github.com/PyPSA/atlite/issues/190
+    if "expver" in ds.dims.keys():
+        # expver=1 is ERA5 data, expver=5 is ERA5T data
+        # This combines both by filling in NaNs from ERA5 data with values from ERA5T.
+        ds = ds.sel(expver=1).combine_first(ds.sel(expver=5))
+
     return ds
 
 
