@@ -8,11 +8,15 @@ Release Notes
 #############
 
 
-.. Upcoming Release
-.. =================
+
+Upcoming Release
+================
 
 * With this release, we change the license from copyleft GPLv3 to the more liberal MIT license with the consent of all major contributors `#263 <https://github.com/PyPSA/atlite/pull/263>`_.
- 
+* Added 1-axis vertical and 2-axis tracking option for solar pv and trigon_model = "simple"
+* Added small documentation for get_windturbineconfig
+
+
 Version 0.2.10
 ==============
 
