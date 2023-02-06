@@ -159,7 +159,6 @@ def TiltedIrradiation(
     tracking=0,
     altitude_threshold=1.0,
 ):
-
     influx_toa = ds["influx_toa"]
 
     def clip(influx, influx_max):
