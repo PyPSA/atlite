@@ -156,6 +156,7 @@ def TiltedIrradiation(
     surface_orientation,
     trigon_model,
     clearsky_model,
+    tracking=0,
     altitude_threshold=1.0,
     irradiation="total",
 ):
@@ -217,7 +218,10 @@ def TiltedIrradiation(
         )
     if trigon_model == "simple":
         k = surface_orientation["cosincidence"] / sin(solar_position["altitude"])
-        cos_surface_slope = cos(surface_orientation["slope"])
+        if tracking != "vh":
+            cos_surface_slope = cos(surface_orientation["slope"])
+        elif tracking == "vh":
+            cos_surface_slope = sin(solar_position["altitude"])
 
         influx = direct + diffuse
         direct_t = k * direct
