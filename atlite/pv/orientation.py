@@ -47,7 +47,6 @@ def make_latitude_optimal():
     """
 
     def latitude_optimal(lon, lat, solar_position):
-
         slope = np.empty_like(lat.values)
 
         below_25 = np.abs(lat.values) <= deg2rad(25)
