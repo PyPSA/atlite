@@ -47,7 +47,6 @@ def make_latitude_optimal():
     """
 
     def latitude_optimal(lon, lat, solar_position):
-
         slope = np.empty_like(lat.values)
 
         below_25 = np.abs(lat.values) <= deg2rad(25)
@@ -89,7 +88,7 @@ def make_latitude(azimuth=180):
     return latitude
 
 
-def SurfaceOrientation(ds, solar_position, orientation):
+def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     """
     Compute cos(incidence) for slope and panel azimuth
 
@@ -109,9 +108,20 @@ def SurfaceOrientation(ds, solar_position, orientation):
     sun_altitude = solar_position["altitude"]
     sun_azimuth = solar_position["azimuth"]
 
-    cosincidence = sin(surface_slope) * cos(sun_altitude) * cos(
-        surface_azimuth - sun_azimuth
-    ) + cos(surface_slope) * sin(sun_altitude)
+    if tracking == None:
+        cosincidence = sin(surface_slope) * cos(sun_altitude) * cos(
+            surface_azimuth - sun_azimuth
+        ) + cos(surface_slope) * sin(sun_altitude)
+    elif tracking == "vertical":  # vertical tracking, surface azimuth = sun_azimuth
+        cosincidence = sin(surface_slope) * cos(sun_altitude) + cos(
+            surface_slope
+        ) * sin(sun_altitude)
+    elif tracking == "vh":  # both vertical and horizontal tracking
+        cosincidence = np.float64(1.0)
+    else:
+        assert (
+            False
+        ), "Values describing tracking system must be None for no tracking, 'vertical' for 1-axis vertical tracking, or 'vh' for 2-axis tracking"
 
     # fixup incidence angle: if the panel is badly oriented and the sun shines
     # on the back of the panel (incidence angle > 90degree), the irradiation
