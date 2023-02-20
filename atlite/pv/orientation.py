@@ -145,7 +145,7 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
         cosincidence = sin(surface_slope) * cos(sun_altitude) + cos(
             surface_slope
         ) * sin(sun_altitude)
-    elif tracking == "vh":  # both vertical and horizontal tracking
+    elif tracking == "dual":  # both vertical and horizontal tracking
         cosincidence = np.float64(1.0)
     else:
         assert (
@@ -153,7 +153,7 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
         ), "Values describing tracking system must be None for no tracking,"+\
             "'horizontal' for 1-axis horizontal tracking,"+\
             "tilted_horizontal' for 1-axis horizontal tracking of tilted panle,"+\
-             "vertical' for 1-axis vertical tracking, or 'vh' for 2-axis tracking"
+             "vertical' for 1-axis vertical tracking, or 'dual' for 2-axis tracking"
 
     # fixup incidence angle: if the panel is badly oriented and the sun shines
     # on the back of the panel (incidence angle > 90degree), the irradiation
