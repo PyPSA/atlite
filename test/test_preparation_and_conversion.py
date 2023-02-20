@@ -188,7 +188,7 @@ def pv_tracking_test(cutout):
     cap_factor_tracking_2axis = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
-        tracking="vh",
+        tracking="dual",
         capacity_factor=True,
     )
 
