@@ -135,14 +135,12 @@ def convert_and_aggregate(
             return maybe_progressbar(res, show_progress, **dask_kwargs)
 
     if matrix is not None:
-
         if shapes is not None:
             raise ValueError(
                 "Passing matrix and shapes is ambiguous. Pass " "only one of them."
             )
 
         if isinstance(matrix, xr.DataArray):
-
             coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
             if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
                 raise ValueError(
@@ -159,7 +157,6 @@ def convert_and_aggregate(
         matrix = csr_matrix(matrix)
 
     if shapes is not None:
-
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
         if isinstance(shapes, geoseries_like) and index is None:
             index = shapes.index
@@ -167,7 +164,6 @@ def convert_and_aggregate(
         matrix = cutout.indicatormatrix(shapes, shapes_crs)
 
     if layout is not None:
-
         assert isinstance(layout, xr.DataArray)
         layout = layout.reindex_like(cutout.data).stack(spatial=["y", "x"])
 

@@ -15,7 +15,6 @@ import pytest
 
 
 def test_oedb_windturbineconfig():
-
     # test int search
     assert get_oedb_windturbineconfig(1)
 
