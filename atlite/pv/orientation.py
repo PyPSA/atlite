@@ -96,6 +96,9 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     ----------
     [1] Sproul, A. B., Derivation of the solar geometric relationships using
     vector analysis, Renewable Energy, 32(7), 1187–1205 (2007).
+    [2] Marion, William F., and Aron P. Dobos. Rotation angle for the optimum 
+    tracking of one-axis trackers. No. NREL/TP-6A20-58891. National Renewable 
+    Energy Lab.(NREL), Golden, CO (United States), 2013.
     """
 
     lon = deg2rad(ds["lon"])
