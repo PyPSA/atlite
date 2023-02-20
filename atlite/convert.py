@@ -565,7 +565,7 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     tracking : None or str:
         None for no tracking, default
         'vertical' for 1-axis vertical tracking
-        'vh' for 2-axis tracking
+        'dual' for 2-axis tracking
     clearsky_model : str or None
         Either the 'simple' or the 'enhanced' Reindl clearsky
         model. The default choice of None will choose dependending on
