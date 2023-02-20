@@ -164,7 +164,20 @@ def pv_tracking_test(cutout):
     assert cap_factor.mean() == cap_factor_tracking_0axis.mean()
 
     # calculate with tracking = 'vertical' and tracking = 'vh', and compare tracking option results
-
+    cap_factor_tracking_1axis_h = cutout.pv(
+        atlite.resource.solarpanels.CSi,
+        orientation,
+        tracking="horizontal",
+        capacity_factor=True,
+    )
+    
+    cap_factor_tracking_1axis_th = cutout.pv(
+        atlite.resource.solarpanels.CSi,
+        orientation,
+        tracking="tilted_horizontal",
+        capacity_factor=True,
+    )
+    
     cap_factor_tracking_1axis = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
@@ -182,10 +195,20 @@ def pv_tracking_test(cutout):
     assert cap_factor_tracking_1axis.notnull().all()
     assert cap_factor_tracking_1axis.sum() > 0
     assert cap_factor_tracking_1axis.mean() >= cap_factor_tracking_0axis.mean()
+    
+    assert cap_factor_tracking_1axis_h.notnull().all()
+    assert cap_factor_tracking_1axis_h.sum() > 0
+    assert cap_factor_tracking_1axis_h.mean() >= cap_factor_tracking_0axis.mean()
+
+    assert cap_factor_tracking_1axis_th.notnull().all()
+    assert cap_factor_tracking_1axis_th.sum() > 0
+    assert cap_factor_tracking_1axis_th.mean() >= cap_factor_tracking_0axis.mean()
 
     assert cap_factor_tracking_2axis.notnull().all()
     assert cap_factor_tracking_2axis.sum() > 0
     assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis.mean()
+    assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis_h.mean()
+    assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis_th.mean()
 
 
 def csp_test(cutout):
