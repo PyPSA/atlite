@@ -112,6 +112,35 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
         cosincidence = sin(surface_slope) * cos(sun_altitude) * cos(
             surface_azimuth - sun_azimuth
         ) + cos(surface_slope) * sin(sun_altitude)
+        
+    elif tracking == "horizontal":  # horizontal tracking on north-south axis for horizontal panel
+        surface_azimuth_initial= orientation["azimuth"]
+        rotation = np.arctan((cos(sun_altitude)/sin(sun_altitude)) * sin(sun_azimuth - surface_azimuth_initial))
+        surface_slope = abs(rotation)   
+        surface_azimuth = surface_azimuth_initial+ np.arcsin (sin(rotation/sin(surface_slope)))  # the 2nd part determines if panel is facing east or west
+        cosincidence = (cos(surface_slope) * sin(sun_altitude)+
+        sin(surface_slope) * cos(sun_altitude) * cos(
+            sun_azimuth - surface_azimuth))
+        
+    elif tracking == "tilted_horizontal":  # horizontal tracking on north-south axis for tilted panel
+        surface_slope_initial= orientation["slope"]
+       
+        rotation= np.arctan((cos(sun_altitude) * sin(sun_azimuth - surface_azimuth)) /
+                      (cos(sun_altitude) * cos(sun_azimuth - surface_azimuth) * sin (surface_slope_initial)
+                       + sin (sun_altitude) * cos (surface_slope_initial) ) )
+        
+        surface_slope = np.arccos(cos(rotation)*cos(surface_slope_initial)) 
+        
+        azimuth_difference = sun_azimuth - surface_azimuth
+        azimuth_difference = np.where(azimuth_difference > pi , 2*pi -  azimuth_difference , azimuth_difference ) 
+        azimuth_difference = np.where(azimuth_difference < -pi , 2*pi + azimuth_difference , azimuth_difference ) 
+        rotation = np.where(np.logical_and(rotation < 0 , azimuth_difference > 0) , rotation + pi , rotation ) 
+        rotation = np.where(np.logical_and(rotation > 0 , azimuth_difference < 0) , rotation - pi , rotation )
+            
+        cosincidence =(cos(rotation) * (sin(surface_slope_initial) * cos(sun_altitude) * cos(
+             sun_azimuth - surface_azimuth) + cos(surface_slope_initial) * sin(sun_altitude)) + 
+             sin (rotation) * cos(sun_altitude) * sin(sun_azimuth - surface_azimuth))
+        
     elif tracking == "vertical":  # vertical tracking, surface azimuth = sun_azimuth
         cosincidence = sin(surface_slope) * cos(sun_altitude) + cos(
             surface_slope
@@ -121,7 +150,10 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     else:
         assert (
             False
-        ), "Values describing tracking system must be None for no tracking, 'vertical' for 1-axis vertical tracking, or 'vh' for 2-axis tracking"
+        ), "Values describing tracking system must be None for no tracking,"+\
+            "'horizontal' for 1-axis horizontal tracking,"+\
+            "tilted_horizontal' for 1-axis horizontal tracking of tilted panle,"+\
+             "vertical' for 1-axis vertical tracking, or 'vh' for 2-axis tracking"
 
     # fixup incidence angle: if the panel is badly oriented and the sun shines
     # on the back of the panel (incidence angle > 90degree), the irradiation
