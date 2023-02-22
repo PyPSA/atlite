@@ -386,7 +386,9 @@ class Cutout:
         return pd.Series(list(self.data), index, dtype=object)
 
     def grid_coordinates(self):
-        """Array of grid coordinates, deprecated since v0.2.1."""
+        """
+        Array of grid coordinates, deprecated since v0.2.1.
+        """
         warn(
             "The function `grid_coordinates` has been deprecated in favour of "
             "`grid`",
@@ -399,7 +401,9 @@ class Cutout:
         return self.grid[["x", "y"]].values
 
     def grid_cells(self):
-        """List of grid cells, deprecated since v0.2.1."""
+        """
+        List of grid cells, deprecated since v0.2.1.
+        """
         warn(
             "The function `grid_cells` has been deprecated in favour of `grid`",
             DeprecationWarning,

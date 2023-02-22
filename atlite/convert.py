@@ -931,7 +931,8 @@ def convert_line_rating(
 
 def line_rating(cutout, shapes, line_resistance, **params):
     """
-    Create a dynamic line rating time series based on the IEEE-738 standard
+    Create a dynamic line rating time series based on the IEEE-738 standard.
+
     [1].
 
     The steady-state capacity is derived from the balance between heat
