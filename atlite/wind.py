@@ -8,16 +8,17 @@
 Functions for use in conjunction with wind data generation.
 """
 
-import numpy as np
+import logging
 import re
 
-import logging
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 
 def extrapolate_wind_speed(ds, to_height, from_height=None):
-    """Extrapolate the wind speed from a given height above ground to another.
+    """
+    Extrapolate the wind speed from a given height above ground to another.
 
     If ds already contains a key refering to wind speeds at the desired to_height,
     no conversion is done and the wind speeds are directly returned.

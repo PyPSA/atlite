@@ -5,9 +5,10 @@
 # SPDX-License-Identifier: MIT
 
 import sys
+
 import numpy as np
 import xarray as xr
-from numpy import sin, cos, deg2rad, pi
+from numpy import cos, deg2rad, pi, sin
 
 
 def get_orientation(name, **params):
@@ -25,8 +26,8 @@ def get_orientation(name, **params):
 
 def make_latitude_optimal():
     """
-    Returns an optimal tilt angle for the given ``lat``, assuming that
-    the panel is facing towards the equator, using a simple method from [1].
+    Returns an optimal tilt angle for the given ``lat``, assuming that the
+    panel is facing towards the equator, using a simple method from [1].
 
     This method only works for latitudes between 0 and 50. For higher
     latitudes, a static 40 degree angle is returned.
@@ -90,7 +91,7 @@ def make_latitude(azimuth=180):
 
 def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     """
-    Compute cos(incidence) for slope and panel azimuth
+    Compute cos(incidence) for slope and panel azimuth.
 
     References
     ----------

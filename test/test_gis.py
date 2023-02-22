@@ -6,28 +6,34 @@
 # SPDX-License-Identifier: MIT
 
 """
-Created on Wed May  6 15:23:13 2020
+Created on Wed May  6 15:23:13 2020.
 
 @author: fabian
 """
 
 # IDEAS for tests
 
-import pytest
+import functools
+
 import geopandas as gpd
-import xarray as xr
 import numpy as np
+import pandas as pd
+import pytest
 import rasterio as rio
 import rasterio.warp
-import functools
-from atlite import Cutout
-from atlite.gis import ExclusionContainer, shape_availability, pad_extent, regrid
+import xarray as xr
+from numpy import allclose, isclose
 from shapely.geometry import box
-from atlite.gis import padded_transform_and_shape
-from numpy import isclose, allclose
 from xarray.testing import assert_allclose, assert_equal
-import pandas as pd
 
+from atlite import Cutout
+from atlite.gis import (
+    ExclusionContainer,
+    pad_extent,
+    padded_transform_and_shape,
+    regrid,
+    shape_availability,
+)
 
 TIME = "2013-01-01"
 X0 = -4.0
@@ -135,7 +141,12 @@ def raster_codes(tmp_path_factory):
 
 
 def test_open_closed_checks(ref, geometry, raster):
-    """Test atlite.ExclusionContainer(...) file open/closed checks for plausibility. C.f. GH issue #225."""
+    """
+    Test atlite.ExclusionContainer(...) file open/closed checks for
+    plausibility.
+
+    C.f. GH issue #225.
+    """
 
     res = 0.01
     excluder = ExclusionContainer(ref.crs, res=res)
@@ -183,7 +194,11 @@ def test_open_closed_checks(ref, geometry, raster):
 
 
 def test_transform():
-    """Test the affine transform. It always has to point to cell origin."""
+    """
+    Test the affine transform.
+
+    It always has to point to cell origin.
+    """
     cutout = Cutout(
         path="resolution",
         module="era5",
@@ -216,7 +231,9 @@ def test_bounds(ref):
 
 
 def test_regrid():
-    """Test the atlite.gis.regrid function with average resampling."""
+    """
+    Test the atlite.gis.regrid function with average resampling.
+    """
     # define blocks
     A = 0.25
     B = 0.5
@@ -258,7 +275,9 @@ def test_regrid():
 
 
 def test_pad_extent():
-    """Test whether padding works with arrays of dimension > 2."""
+    """
+    Test whether padding works with arrays of dimension > 2.
+    """
     src = np.ones((3, 2))
     src_trans = rio.Affine(1, 0, 0, 0, 1, 0)
     dst_trans = rio.Affine(2, 0, 0, 0, 2, 0)
@@ -297,8 +316,8 @@ def test_indicator_matrix(ref):
 
 def test_availability_matrix_flat(ref):
     """
-    Indicator matrix and availability matrix for an empty excluder must be
-    the same.
+    Indicator matrix and availability matrix for an empty excluder must be the
+    same.
     """
     shapes = gpd.GeoSeries(
         [box(X0 + 1, Y0 + 1, X1 - 1, Y1 - 1)], crs=ref.crs
@@ -312,7 +331,8 @@ def test_availability_matrix_flat(ref):
 
 def test_availability_matrix_flat_parallel(ref):
     """
-    Same as `test_availability_matrix_flat` but parallel and without progressbar.
+    Same as `test_availability_matrix_flat` but parallel and without
+    progressbar.
     """
     shapes = gpd.GeoSeries(
         [box(X0 + 1, Y0 + 1, X1 - 1, Y1 - 1)], crs=ref.crs
@@ -326,7 +346,8 @@ def test_availability_matrix_flat_parallel(ref):
 
 def test_availability_matrix_flat_parallel_anonymous_function(ref, raster_codes):
     """
-    Test availability matrix in parallel mode with a non-anonymous filter function.
+    Test availability matrix in parallel mode with a non-anonymous filter
+    function.
     """
     shapes = gpd.GeoSeries(
         [box(X0 + 1, Y0 + 1, X1 - 1, Y1 - 1)], crs=ref.crs
@@ -355,7 +376,8 @@ def test_availability_matrix_flat_wo_progressbar(ref):
 
 def test_availability_matrix_flat_parallel_wo_progressbar(ref):
     """
-    Same as `test_availability_matrix_flat` but parallel and without progressbar.
+    Same as `test_availability_matrix_flat` but parallel and without
+    progressbar.
     """
     shapes = gpd.GeoSeries(
         [box(X0 + 1, Y0 + 1, X1 - 1, Y1 - 1)], crs=ref.crs
@@ -370,7 +392,9 @@ def test_availability_matrix_flat_parallel_wo_progressbar(ref):
 
 
 def test_shape_availability_area(ref):
-    """Area of the mask and the shape must be close."""
+    """
+    Area of the mask and the shape must be close.
+    """
     shapes = gpd.GeoSeries([box(X0 + 1, Y0 + 1, X1 - 1, Y1 - 1)], crs=ref.crs)
     res = 100
     excluder = ExclusionContainer(res=res)
@@ -408,7 +432,9 @@ def test_exclusioncontainer_geometries():
 def test_shape_availability_exclude_geometry(ref):
     """
     When excluding the quarter of the geometry, the eligible area must be a
-    forth. Test the inverted case too.
+    forth.
+
+    Test the inverted case too.
     """
     shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
     exclude = gpd.GeoSeries(
@@ -430,7 +456,9 @@ def test_shape_availability_exclude_geometry(ref):
 
 
 def test_shape_availability_exclude_raster(ref, raster):
-    """When excluding the half of the geometry, the eligible area must be half."""
+    """
+    When excluding the half of the geometry, the eligible area must be half.
+    """
     shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
     res = 0.01
 
@@ -465,7 +493,9 @@ def test_shape_availability_exclude_raster(ref, raster):
 
 
 def test_shape_availability_excluder_partial_overlap(ref, raster):
-    """Test behavior, when a raster only overlaps half of the geometry."""
+    """
+    Test behavior, when a raster only overlaps half of the geometry.
+    """
     bounds = X0 - 2, Y0, X0 + 2, Y1
     area = abs((bounds[2] - bounds[0]) * (bounds[3] - bounds[1]))
     shapes = gpd.GeoSeries([box(*bounds)], crs=ref.crs)
@@ -488,7 +518,9 @@ def test_shape_availability_excluder_partial_overlap(ref, raster):
 
 
 def test_shape_availability_excluder_raster_no_overlap(ref, raster):
-    """Check if the allow_no_overlap flag works."""
+    """
+    Check if the allow_no_overlap flag works.
+    """
     bounds = X0 - 10.0, Y0 - 10.0, X0 - 2.0, Y0 - 2.0
     area = abs((bounds[2] - bounds[0]) * (bounds[3] - bounds[1]))
     shapes = gpd.GeoSeries([box(*bounds)], crs=ref.crs)
@@ -546,7 +578,9 @@ def test_availability_matrix_rastered(ref, raster):
 def test_availability_matrix_rastered_repro(ref, raster_reproject):
     """
     Availability matrix with a non-zero raster must have less available area
-    than the Indicator matrix. Test this with a raster of a different crs.
+    than the Indicator matrix.
+
+    Test this with a raster of a different crs.
     """
     shapes = gpd.GeoSeries(
         [
@@ -568,7 +602,9 @@ def test_availability_matrix_rastered_repro(ref, raster_reproject):
 
 
 def test_shape_availability_exclude_raster_codes(ref, raster_codes):
-    """Test exclusion of multiple raster codes."""
+    """
+    Test exclusion of multiple raster codes.
+    """
     shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
     res = 0.01
 

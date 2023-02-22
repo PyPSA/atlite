@@ -38,4 +38,3 @@ dependencies:
   # For travis and testing
 - pip
 - pytest
-

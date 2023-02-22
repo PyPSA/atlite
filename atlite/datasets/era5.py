@@ -11,18 +11,20 @@ For further reference see
 https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
+import logging
 import os
 import warnings
-import numpy as np
-import xarray as xr
-import pandas as pd
-from tempfile import mkstemp
 import weakref
+from tempfile import mkstemp
+
 import cdsapi
-import logging
+import numpy as np
+import pandas as pd
+import xarray as xr
 from numpy import atleast_1d
-from ..gis import maybe_swap_spatial_dims
-from ..pv.solar_position import SolarPosition
+
+from atlite.gis import maybe_swap_spatial_dims
+from atlite.pv.solar_position import SolarPosition
 
 # Null context for running a with statements wihout any context
 try:
@@ -60,13 +62,13 @@ static_features = {"height"}
 
 
 def _add_height(ds):
-    """Convert geopotential 'z' to geopotential height following [1].
+    """
+    Convert geopotential 'z' to geopotential height following [1].
 
     References
     ----------
     [1] ERA5: surface elevation and orography, retrieved: 10.02.2019
     https://confluence.ecmwf.int/display/CKB/ERA5%3A+surface+elevation+and+orography
-
     """
     g0 = 9.80665
     z = ds["z"]
@@ -78,10 +80,11 @@ def _add_height(ds):
 
 
 def _rename_and_clean_coords(ds, add_lon_lat=True):
-    """Rename 'longitude' and 'latitude' columns to 'x' and 'y' and fix roundings.
+    """
+    Rename 'longitude' and 'latitude' columns to 'x' and 'y' and fix roundings.
 
-    Optionally (add_lon_lat, default:True) preserves latitude and longitude
-    columns as 'lat' and 'lon'.
+    Optionally (add_lon_lat, default:True) preserves latitude and
+    longitude columns as 'lat' and 'lon'.
     """
     ds = ds.rename({"longitude": "x", "latitude": "y"})
     # round coords since cds coords are float32 which would lead to mismatches
@@ -103,7 +106,9 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
 
 
 def get_data_wind(retrieval_params):
-    """Get wind data for given retrieval parameters."""
+    """
+    Get wind data for given retrieval parameters.
+    """
     ds = retrieve_data(
         variable=[
             "100m_u_component_of_wind",
@@ -127,13 +132,17 @@ def get_data_wind(retrieval_params):
 
 
 def sanitize_wind(ds):
-    """Sanitize retrieved wind data."""
+    """
+    Sanitize retrieved wind data.
+    """
     ds["roughness"] = ds["roughness"].where(ds["roughness"] >= 0.0, 2e-4)
     return ds
 
 
 def get_data_influx(retrieval_params):
-    """Get influx data for given retrieval parameters."""
+    """
+    Get influx data for given retrieval parameters.
+    """
     ds = retrieve_data(
         variable=[
             "surface_net_solar_radiation",
@@ -178,14 +187,18 @@ def get_data_influx(retrieval_params):
 
 
 def sanitize_influx(ds):
-    """Sanitize retrieved influx data."""
+    """
+    Sanitize retrieved influx data.
+    """
     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
         ds[a] = ds[a].clip(min=0.0)
     return ds
 
 
 def get_data_temperature(retrieval_params):
-    """Get wind temperature for given retrieval parameters."""
+    """
+    Get wind temperature for given retrieval parameters.
+    """
     ds = retrieve_data(
         variable=["2m_temperature", "soil_temperature_level_4"], **retrieval_params
     )
@@ -197,7 +210,9 @@ def get_data_temperature(retrieval_params):
 
 
 def get_data_runoff(retrieval_params):
-    """Get runoff data for given retrieval parameters."""
+    """
+    Get runoff data for given retrieval parameters.
+    """
     ds = retrieve_data(variable=["runoff"], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
@@ -207,13 +222,17 @@ def get_data_runoff(retrieval_params):
 
 
 def sanitize_runoff(ds):
-    """Sanitize retrieved runoff data."""
+    """
+    Sanitize retrieved runoff data.
+    """
     ds["runoff"] = ds["runoff"].clip(min=0.0)
     return ds
 
 
 def get_data_height(retrieval_params):
-    """Get height data for given retrieval parameters."""
+    """
+    Get height data for given retrieval parameters.
+    """
     ds = retrieve_data(variable="geopotential", **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
@@ -245,7 +264,6 @@ def retrieval_times(coords, static=False):
     Returns
     -------
     list of dicts witht retrieval arguments
-
     """
     time = coords["time"].to_index()
     if static:
@@ -270,7 +288,9 @@ def retrieval_times(coords, static=False):
 
 
 def noisy_unlink(path):
-    """Delete file at given path."""
+    """
+    Delete file at given path.
+    """
     logger.debug(f"Deleting file {path}")
     try:
         os.unlink(path)
@@ -341,7 +361,6 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     -------
     xarray.Dataset
         Dataset of dask arrays of the retrieved variables.
-
     """
     coords = cutout.coords
 
