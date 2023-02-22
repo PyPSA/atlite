@@ -385,35 +385,6 @@ class Cutout:
         index = pd.MultiIndex.from_tuples(index, names=["module", "feature"])
         return pd.Series(list(self.data), index, dtype=object)
 
-    def grid_coordinates(self):
-        """
-        Array of grid coordinates, deprecated since v0.2.1.
-        """
-        warn(
-            "The function `grid_coordinates` has been deprecated in favour of "
-            "`grid`",
-            DeprecationWarning,
-        )
-        logger.warning(
-            "The order of elements returned by `grid_coordinates` changed. "
-            "Check the output of your workflow for correctness."
-        )
-        return self.grid[["x", "y"]].values
-
-    def grid_cells(self):
-        """
-        List of grid cells, deprecated since v0.2.1.
-        """
-        warn(
-            "The function `grid_cells` has been deprecated in favour of `grid`",
-            DeprecationWarning,
-        )
-        logger.warning(
-            "The order of elements in `grid_cells` changed. "
-            "Check the output of your workflow for correctness."
-        )
-        return self.grid.geometry.to_list()
-
     @CachedAttribute
     def grid(self):
         """
