@@ -6,17 +6,15 @@
 # SPDX-License-Identifier: MIT
 
 """
-Module for loading gebco data
-
+Module for loading gebco data.
 """
 
-from rasterio.warp import Resampling
-from pandas import to_numeric
+import logging
 
 import rasterio as rio
 import xarray as xr
-
-import logging
+from pandas import to_numeric
+from rasterio.warp import Resampling
 
 logger = logging.getLogger(__name__)
 

@@ -8,8 +8,8 @@
 Functions for aggregating results.
 """
 
-import xarray as xr
 import dask
+import xarray as xr
 
 
 def aggregate_matrix(da, matrix, index):
