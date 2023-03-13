@@ -117,10 +117,10 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
         ) + cos(surface_slope) * sin(sun_altitude)
         
     elif tracking == "horizontal":  # horizontal tracking with horizontal axis
-        surface_azimuth_initial= orientation["azimuth"]
-        rotation = np.arctan((cos(sun_altitude)/sin(sun_altitude)) * sin(sun_azimuth - surface_azimuth_initial))
+        axis_azimuth= orientation["azimuth"]
+        rotation = np.arctan((cos(sun_altitude)/sin(sun_altitude)) * sin(sun_azimuth - axis_azimuth))
         surface_slope = abs(rotation)   
-        surface_azimuth = surface_azimuth_initial+ np.arcsin (sin(rotation/sin(surface_slope)))  # the 2nd part yields +/-1 and determines if the panel is facing east or west
+        surface_azimuth = axis_azimuth+ np.arcsin (sin(rotation/sin(surface_slope)))  # the 2nd part yields +/-1 and determines if the panel is facing east or west
         cosincidence = (cos(surface_slope) * sin(sun_altitude)+
         sin(surface_slope) * cos(sun_altitude) * cos(
             sun_azimuth - surface_azimuth))
