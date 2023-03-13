@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2020-2021 The Atlite Authors
+# SPDX-FileCopyrightText: 2020 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
-Module for loading gebco data
-
+Module for loading gebco data.
 """
 
-from rasterio.warp import Resampling
-from pandas import to_numeric
+import logging
 
 import rasterio as rio
 import xarray as xr
-
-import logging
+from pandas import to_numeric
+from rasterio.warp import Resampling
 
 logger = logging.getLogger(__name__)
 

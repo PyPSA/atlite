@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
-Module containing specific operations for creating cutouts from the CORDEX dataset.
+Module containing specific operations for creating cutouts from the CORDEX
+dataset.
 
 DEPRECATED
 ----------
@@ -14,14 +15,15 @@ The cordex dataset module has not been ported to Atlite v0.2, yet. Use Atlite v0
 for the time being!
 """
 
-import pandas as pd
-import numpy as np
-import xarray as xr
-import pyproj
+import glob
+import os
 from itertools import groupby
 from operator import itemgetter
-import os
-import glob
+
+import numpy as np
+import pandas as pd
+import pyproj
+import xarray as xr
 
 # Model and CRS Settings
 model = "MPI-M-MPI-ESM-LR"

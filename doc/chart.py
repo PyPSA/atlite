@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2020-2021 The Atlite Authors
+# SPDX-FileCopyrightText: 2020 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
-Spyder Editor
+Spyder Editor.
 
 This is a temporary script file.
 """
 
-import pandas as pd
-
 import matplotlib.patches as mpatches
-from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as plt
+import pandas as pd
+from matplotlib.collections import PatchCollection
 
 fig, ax = plt.subplots(figsize=(12, 5))
 ax.axis("off")

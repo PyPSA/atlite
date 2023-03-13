@@ -1,25 +1,25 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 General utility functions for internal use.
 """
 
-from .gis import maybe_swap_spatial_dims
-import progressbar as pgb
-from pathlib import Path
-import pandas as pd
-import xarray as xr
-import textwrap
-import re
-import warnings
-
-from .datasets import modules as datamodules
-
 import logging
+import re
+import textwrap
+import warnings
+from pathlib import Path
+
+import pandas as pd
+import progressbar as pgb
+import xarray as xr
+
+from atlite.datasets import modules as datamodules
+from atlite.gis import maybe_swap_spatial_dims
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,9 @@ def make_optional_progressbar(show, prefix, max_value=None):
 
 
 def migrate_from_cutout_directory(old_cutout_dir, path):
-    """Convert an old style cutout directory to new style netcdf file"""
+    """
+    Convert an old style cutout directory to new style netcdf file.
+    """
     old_cutout_dir = Path(old_cutout_dir)
     with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:
         newname = f"{old_cutout_dir.name}.nc"
@@ -122,8 +124,8 @@ def timeindex_from_slice(timeslice):
 
 class arrowdict(dict):
     """
-    A subclass of dict, which allows you to get
-    items in the dict using the attribute syntax!
+    A subclass of dict, which allows you to get items in the dict using the
+    attribute syntax!
     """
 
     def __getattr__(self, item):
@@ -147,9 +149,10 @@ class arrowdict(dict):
 class CachedAttribute(object):
     """
     Computes attribute value and caches it in the instance.
-    From the Python Cookbook (Denis Otkidach)
-    This decorator allows you to create a property which can be
-    computed once and accessed many times. Sort of like memoization.
+
+    From the Python Cookbook (Denis Otkidach) This decorator allows you
+    to create a property which can be computed once and accessed many
+    times. Sort of like memoization.
     """
 
     # For python 3.8 >= use functoolts.cached_property instead.

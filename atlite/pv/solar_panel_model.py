@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
-
+# SPDX-License-Identifier: MIT
 
 import numpy as np
 
@@ -50,7 +49,8 @@ def _power_huld(irradiance, t_amb, pc):
 
 def _power_bofinger(irradiance, t_amb, pc):
     """
-    AC power per capacity predicted by bofinger model, based on W/m2 irradiance.
+    AC power per capacity predicted by bofinger model, based on W/m2
+    irradiance.
 
     Maximum power point tracking is assumed.
 

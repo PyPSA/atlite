@@ -1,17 +1,18 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 Functions for use in conjunction with csp data generation.
 """
 
-import numpy as np
-from .pv.solar_position import SolarPosition
-
 import logging
+
+import numpy as np
+
+from atlite.pv.solar_position import SolarPosition
 
 logger = logging.getLogger(__name__)
 

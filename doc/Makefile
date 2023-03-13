@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2007-2019 by the Sphinx team (see AUTHORS file).
+# SPDX-FileCopyrightText: 2007 - 2019 by the Sphinx team (see AUTHORS file).
 #
 # SPDX-License-Identifier: BSD-2-Clause
 
@@ -23,4 +23,3 @@ help:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-

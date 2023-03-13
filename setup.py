@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
-from setuptools import setup, find_packages
 from codecs import open
+
+from setuptools import find_packages, setup
 
 with open("README.rst", encoding="utf-8") as f:
     long_description = f.read()
@@ -18,7 +19,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/x-rst",
     url="https://github.com/PyPSA/atlite",
-    license="GPLv3",
+    license="MIT",
     packages=find_packages(exclude=["doc", "test"]),
     include_package_data=True,
     python_requires=">=3.6",
@@ -34,7 +35,7 @@ setup(
         "toolz",
         "requests",
         "pyyaml",
-        "rasterio>1.2.10",
+        "rasterio!=1.2.10",
         "shapely",
         "progressbar2",
         "tqdm",
@@ -50,7 +51,7 @@ setup(
         "Development Status :: 3 - Alpha",
         "Environment :: Console",
         "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+        "License :: OSI Approved :: MIT",
         "Natural Language :: English",
         "Operating System :: OS Independent",
     ],

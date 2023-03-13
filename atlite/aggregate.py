@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 Functions for aggregating results.
 """
 
-import xarray as xr
 import dask
+import xarray as xr
 
 
 def aggregate_matrix(da, matrix, index):

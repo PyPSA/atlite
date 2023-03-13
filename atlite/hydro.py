@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 Module involving hydro operations in Atlite.
 """
 
-import xarray as xr
-import geopandas as gpd
-import pandas as pd
-import numpy as np
-
+import logging
 from collections import namedtuple
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import xarray as xr
 from shapely.geometry import Point
 from tqdm import tqdm
-
-import logging
 
 logger = logging.getLogger(__name__)
 

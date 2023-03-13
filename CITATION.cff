@@ -10,8 +10,8 @@ doi: "10.21105/joss.03294"
 repository: "https://github.com/PyPSA/atlite"
 version: "0.2.5"
 date-released: "2021-06-24"
-license: "GPL-3.0-or-later"
-authors: 
+license: "MIT"
+authors:
   - family-names: "Hofmann"
     given-names: "Fabian"
     orcid: "https://orcid.org/0000-0002-6604-5450"

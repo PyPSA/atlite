@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
-from . import era5, sarah, gebco
+from atlite.datasets import era5, gebco, sarah
 
 modules = {"era5": era5, "sarah": sarah, "gebco": gebco}

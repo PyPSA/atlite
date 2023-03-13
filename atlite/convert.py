@@ -1,44 +1,41 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 All functions for converting weather data into energy system model data.
 """
-from collections import namedtuple
-import xarray as xr
-import numpy as np
-import pandas as pd
-import geopandas as gpd
 import datetime as dt
+import logging
+from collections import namedtuple
 from operator import itemgetter
 from pathlib import Path
-from dask import delayed, compute
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import xarray as xr
+from dask import compute, delayed
 from dask.diagnostics import ProgressBar
 from scipy.sparse import csr_matrix
 
-import logging
-
 logger = logging.getLogger(__name__)
 
-from .aggregate import aggregate_matrix
-from .gis import spdiag
-
-from .pv.solar_position import SolarPosition
-from .pv.irradiation import TiltedIrradiation
-from .pv.solar_panel_model import SolarPanelModel
-from .pv.orientation import get_orientation, SurfaceOrientation
-
-from . import hydro as hydrom
-from . import wind as windm
-from . import csp as cspm
-
-from .resource import (
+from atlite import csp as cspm
+from atlite import hydro as hydrom
+from atlite import wind as windm
+from atlite.aggregate import aggregate_matrix
+from atlite.gis import spdiag
+from atlite.pv.irradiation import TiltedIrradiation
+from atlite.pv.orientation import SurfaceOrientation, get_orientation
+from atlite.pv.solar_panel_model import SolarPanelModel
+from atlite.pv.solar_position import SolarPosition
+from atlite.resource import (
     get_cspinstallationconfig,
-    get_windturbineconfig,
     get_solarpanelconfig,
+    get_windturbineconfig,
     windturbine_smooth,
 )
 
@@ -111,7 +108,6 @@ def convert_and_aggregate(
     units : xr.DataArray (optional)
         The installed units per bus in MW corresponding to `layout`
         (only if `return_capacity` is True).
-
     """
 
     func_name = convert_func.__name__.replace("convert_", "")
@@ -135,14 +131,12 @@ def convert_and_aggregate(
             return maybe_progressbar(res, show_progress, **dask_kwargs)
 
     if matrix is not None:
-
         if shapes is not None:
             raise ValueError(
                 "Passing matrix and shapes is ambiguous. Pass " "only one of them."
             )
 
         if isinstance(matrix, xr.DataArray):
-
             coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
             if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
                 raise ValueError(
@@ -159,7 +153,6 @@ def convert_and_aggregate(
         matrix = csr_matrix(matrix)
 
     if shapes is not None:
-
         geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
         if isinstance(shapes, geoseries_like) and index is None:
             index = shapes.index
@@ -167,7 +160,6 @@ def convert_and_aggregate(
         matrix = cutout.indicatormatrix(shapes, shapes_crs)
 
     if layout is not None:
-
         assert isinstance(layout, xr.DataArray)
         layout = layout.reindex_like(cutout.data).stack(spatial=["y", "x"])
 
@@ -200,7 +192,9 @@ def convert_and_aggregate(
 
 
 def maybe_progressbar(ds, show_progress, **kwargs):
-    """Load a xr.dataset with dask arrays either with or without progressbar."""
+    """
+    Load a xr.dataset with dask arrays either with or without progressbar.
+    """
     if show_progress:
         with ProgressBar(minimum=2):
             ds.load(**kwargs)
@@ -211,7 +205,8 @@ def maybe_progressbar(ds, show_progress, **kwargs):
 
 # temperature
 def convert_temperature(ds):
-    """Return outside temperature (useful for e.g. heat pump T-dependent
+    """
+    Return outside temperature (useful for e.g. heat pump T-dependent
     coefficient of performance).
     """
 
@@ -225,8 +220,9 @@ def temperature(cutout, **params):
 
 # soil temperature
 def convert_soil_temperature(ds):
-    """Return soil temperature (useful for e.g. heat pump T-dependent
-    coefficient of performance).
+    """
+    Return soil temperature (useful for e.g. heat pump T-dependent coefficient
+    of performance).
     """
 
     # Temperature is in Kelvin
@@ -242,7 +238,6 @@ def soil_temperature(cutout, **params):
 
 
 def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
-
     assert source in ["air", "soil"], NotImplementedError(
         "'source' must be one of  ['air', 'soil']"
     )
@@ -273,10 +268,10 @@ def coefficient_of_performance(
     cutout, source="air", sink_T=55.0, c0=None, c1=None, c2=None, **params
 ):
     """
-    Convert ambient or soil temperature to coefficient of performance (COP)
-    of air- or ground-sourced heat pumps. The COP is a function of
-    temperature difference from source to sink. The defaults for either source
-    (c0, c1, c2) are based on a quadratic regression in [1].
+    Convert ambient or soil temperature to coefficient of performance (COP) of
+    air- or ground-sourced heat pumps. The COP is a function of temperature
+    difference from source to sink. The defaults for either source (c0, c1, c2)
+    are based on a quadratic regression in [1].
 
     Paramterers
     -----------
@@ -328,8 +323,8 @@ def convert_heat_demand(ds, threshold, a, constant, hour_shift):
 
 def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **params):
     """
-    Convert outside temperature into daily heat demand using the
-    degree-day approximation.
+    Convert outside temperature into daily heat demand using the degree-day
+    approximation.
 
     Since "daily average temperature" means different things in
     different time zones and since xarray coordinates do not handle
@@ -416,8 +411,8 @@ def solar_thermal(
     **params,
 ):
     """
-    Convert downward short-wave radiation flux and outside temperature
-    into time series for solar thermal collectors.
+    Convert downward short-wave radiation flux and outside temperature into
+    time series for solar thermal collectors.
 
     Mathematical model and defaults for c0, c1 based on model in [1].
 
@@ -465,7 +460,9 @@ def solar_thermal(
 
 # wind
 def convert_wind(ds, turbine):
-    """Convert wind speeds for turbine to wind energy generation."""
+    """
+    Convert wind speeds for turbine to wind energy generation.
+    """
 
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
@@ -490,7 +487,7 @@ def convert_wind(ds, turbine):
 
 def wind(cutout, turbine, smooth=False, **params):
     """
-    Generate wind generation time-series
+    Generate wind generation time-series.
 
     Extrapolates 10m wind speed with monthly surface roughness to hub
     height and evaluates the power curve.
@@ -501,7 +498,10 @@ def wind(cutout, turbine, smooth=False, **params):
         A turbineconfig dictionary with the keys 'hub_height' for the
         hub height and 'V', 'POW' defining the power curve.
         Alternatively a str refering to a local or remote turbine configuration
-        as accepted by atlite.resource.get_windturbineconfig().
+        as accepted by atlite.resource.get_windturbineconfig(). Locally stored turbine
+        configurations can also be modified with this function. E.g. to setup a different hub
+        height from the one used in the yaml file,one would write
+                "turbine=get_windturbineconfig(“NREL_ReferenceTurbine_5MW_offshore”)|{“hub_height”:120}"
     smooth : bool or dict
         If True smooth power curve with a gaussian kernel as
         determined for the Danish wind fleet to Delta_v = 1.27 and
@@ -530,24 +530,27 @@ def wind(cutout, turbine, smooth=False, **params):
 
 
 # solar PV
-def convert_pv(ds, panel, orientation, trigon_model="simple", clearsky_model="simple"):
+def convert_pv(
+    ds, panel, orientation, tracking, trigon_model="simple", clearsky_model="simple"
+):
     solar_position = SolarPosition(ds)
-    surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
+    surface_orientation = SurfaceOrientation(ds, solar_position, orientation, tracking)
     irradiation = TiltedIrradiation(
         ds,
         solar_position,
         surface_orientation,
         trigon_model=trigon_model,
         clearsky_model=clearsky_model,
+        tracking=tracking,
     )
     solar_panel = SolarPanelModel(ds, irradiation, panel)
     return solar_panel
 
 
-def pv(cutout, panel, orientation, clearsky_model=None, **params):
+def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params):
     """
-    Convert downward-shortwave, upward-shortwave radiation flux and
-    ambient temperature into a pv generation time-series.
+    Convert downward-shortwave, upward-shortwave radiation flux and ambient
+    temperature into a pv generation time-series.
 
     Parameters
     ----------
@@ -561,6 +564,10 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
         'azimuth': 0.0} or a callback function with the same signature
         as the callbacks generated by the
         'atlite.pv.orientation.make_*' functions.
+    tracking : None or str:
+        None for no tracking, default
+        'vertical' for 1-axis vertical tracking
+        'vh' for 2-axis tracking
     clearsky_model : str or None
         Either the 'simple' or the 'enhanced' Reindl clearsky
         model. The default choice of None will choose dependending on
@@ -601,6 +608,7 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
         convert_func=convert_pv,
         panel=panel,
         orientation=orientation,
+        tracking=tracking,
         clearsky_model=clearsky_model,
         **params,
     )
@@ -608,7 +616,6 @@ def pv(cutout, panel, orientation, clearsky_model=None, **params):
 
 # solar CSP
 def convert_csp(ds, installation):
-
     solar_position = SolarPosition(ds)
 
     tech = installation["technology"]
@@ -644,7 +651,8 @@ def convert_csp(ds, installation):
 
 def csp(cutout, installation, technology=None, **params):
     """
-    Convert downward shortwave direct radiation into a csp generation time-series.
+    Convert downward shortwave direct radiation into a csp generation time-
+    series.
 
     Parameters
     ----------
@@ -678,7 +686,6 @@ def csp(cutout, installation, technology=None, **params):
 
     [2] Tobias Hirsch (ed.). CSPBankability Project Report, DLR, 2017.
     URL: https://www.dlr.de/sf/en/desktopdefault.aspx/tabid-11126/19467_read-48251/
-
     """
 
     if isinstance(installation, (str, Path)):
@@ -860,7 +867,6 @@ def convert_line_rating(
     -------
     Imax
         xr.DataArray giving the maximal current capacity per timestep in Ampere.
-
     """
 
     Ta = ds["temperature"]
@@ -925,8 +931,9 @@ def convert_line_rating(
 
 def line_rating(cutout, shapes, line_resistance, **params):
     """
-    Create a dynamic line rating time series based on the IEEE-738 standard [1].
+    Create a dynamic line rating time series based on the IEEE-738 standard.
 
+    [1].
 
     The steady-state capacity is derived from the balance between heat
     losses due to radiation and convection, and heat gains due to solar influx
@@ -984,7 +991,6 @@ def line_rating(cutout, shapes, line_resistance, **params):
     >>> i = cutout.line_rating(shapes, n.lines.r/n.lines.length)
     >>> v = xr.DataArray(n.lines.v_nom, dims='name')
     >>> s = np.sqrt(3) * i * v / 1e3 # in MW
-
     """
     if not isinstance(shapes, gpd.GeoSeries):
         shapes = gpd.GeoSeries(shapes).rename_axis("dim_0")

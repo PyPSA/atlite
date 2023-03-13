@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
+
+import logging
 
 import numpy as np
 import pandas as pd
 import xarray as xr
-from numpy import sin, cos, fmin, fmax, sqrt, deg2rad
-import logging
+from numpy import cos, deg2rad, fmax, fmin, sin, sqrt
 
 logger = logging.getLogger(__name__)
 
@@ -156,9 +157,9 @@ def TiltedIrradiation(
     surface_orientation,
     trigon_model,
     clearsky_model,
+    tracking=0,
     altitude_threshold=1.0,
 ):
-
     influx_toa = ds["influx_toa"]
 
     def clip(influx, influx_max):
@@ -179,7 +180,10 @@ def TiltedIrradiation(
         )
     if trigon_model == "simple":
         k = surface_orientation["cosincidence"] / sin(solar_position["altitude"])
-        cos_surface_slope = cos(surface_orientation["slope"])
+        if tracking != "vh":
+            cos_surface_slope = cos(surface_orientation["slope"])
+        elif tracking == "vh":
+            cos_surface_slope = sin(solar_position["altitude"])
 
         influx = direct + diffuse
         direct_t = k * direct

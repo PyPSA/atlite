@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
-from numpy import pi
-import xarray as xr
-from numpy import sin, cos, arcsin, arccos, arctan2, deg2rad
-import pandas as pd
 from warnings import warn
+
+import pandas as pd
+import xarray as xr
+from numpy import arccos, arcsin, arctan2, cos, deg2rad, pi, sin
 
 
 def SolarPosition(ds, time_shift="0H"):
     """
-    Compute solar azimuth and altitude
+    Compute solar azimuth and altitude.
 
     Solar altitude errors are up to 1.5 deg during sun-rise and set, but at
     0.05-0.1 deg during daytime.
@@ -49,7 +49,6 @@ def SolarPosition(ds, time_shift="0H"):
     The unfortunately quite computationally intensive SPA algorithm [4,5] has
     been implemented using numba or plain numpy for a single location at
     https://github.com/pvlib/pvlib-python/blob/master/pvlib/spa.py.
-
     """
 
     # Act like a getter if these return variables are already in ds

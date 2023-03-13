@@ -1,38 +1,36 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2020 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 Functions for Geographic Information System.
 """
 
-import numpy as np
-import pandas as pd
-import xarray as xr
-import scipy as sp
-import scipy.sparse
-import geopandas as gpd
-import rasterio as rio
-import rasterio.warp
+import logging
 import multiprocessing as mp
-
 from collections import OrderedDict
 from pathlib import Path
-from warnings import warn, catch_warnings, simplefilter
+from warnings import catch_warnings, simplefilter, warn
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio as rio
+import rasterio.warp
+import scipy as sp
+import scipy.sparse
+import xarray as xr
+from numpy import empty, isin
 from pyproj import CRS, Transformer
-from shapely.ops import transform
-from rasterio.warp import reproject, transform_bounds
-from rasterio.mask import mask
 from rasterio.features import geometry_mask
-from scipy.ndimage.morphology import binary_dilation as dilation
-from numpy import isin, empty
+from rasterio.mask import mask
+from rasterio.warp import reproject, transform_bounds
+from scipy.ndimage import binary_dilation as dilation
+from shapely.ops import transform
 from shapely.strtree import STRtree
 from tqdm import tqdm
-
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -79,14 +77,18 @@ def get_coords(x, y, time, dx=0.25, dy=0.25, dt="h", **kwargs):
 
 
 def spdiag(v):
-    """Create a sparse diagonal matrix from a 1-dimensional array."""
+    """
+    Create a sparse diagonal matrix from a 1-dimensional array.
+    """
     N = len(v)
     inds = np.arange(N + 1, dtype=np.int32)
     return sp.sparse.csr_matrix((v, inds[:-1], inds), (N, N))
 
 
 def reproject_shapes(shapes, crs1, crs2):
-    """Project a collection of shapes from one crs to another."""
+    """
+    Project a collection of shapes from one crs to another.
+    """
     transformer = Transformer.from_crs(crs1, crs2)
 
     def _reproject_shape(shape):
@@ -141,12 +143,15 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     dest = reproject_shapes(dest, dest_crs, orig_crs)
     indicator = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=float)
     tree = STRtree(orig)
-    idx = dict((id(o), i) for i, o in enumerate(orig))
+    idx = dict((hash(o.wkt), i) for i, o in enumerate(orig))
 
     for i, d in enumerate(dest):
         for o in tree.query(d):
+            # STRtree query returns a list of indices for shapely >= v2.0
+            if isinstance(o, (int, np.integer)):
+                o = orig[o]
             if o.intersects(d):
-                j = idx[id(o)]
+                j = idx[hash(o.wkt)]
                 area = d.intersection(o).area
                 indicator[i, j] = area / o.area
 
@@ -177,21 +182,27 @@ def compute_intersectionmatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     dest = reproject_shapes(dest, dest_crs, orig_crs)
     intersection = sp.sparse.lil_matrix((len(dest), len(orig)), dtype=float)
     tree = STRtree(orig)
-    idx = dict((id(o), i) for i, o in enumerate(orig))
+    idx = dict((hash(o.wkt), i) for i, o in enumerate(orig))
 
     for i, d in enumerate(dest):
         for o in tree.query(d):
-            j = idx[id(o)]
+            # STRtree query returns a list of indices for shapely >= v2.0
+            if isinstance(o, (int, np.integer)):
+                o = orig[o]
+            j = idx[hash(o.wkt)]
             intersection[i, j] = o.intersects(d)
 
     return intersection
 
 
 class ExclusionContainer:
-    """Container for exclusion objects and meta data."""
+    """
+    Container for exclusion objects and meta data.
+    """
 
     def __init__(self, crs=3035, res=100):
-        """Initialize a container for excluded areas.
+        """
+        Initialize a container for excluded areas.
 
         Parameters
         ----------
@@ -276,7 +287,9 @@ class ExclusionContainer:
         self.geometries.append(d)
 
     def open_files(self):
-        """Open rasters and load geometries."""
+        """
+        Open rasters and load geometries.
+        """
         for d in self.rasters:
             raster = d["raster"]
             if isinstance(raster, (str, Path)):
@@ -308,14 +321,18 @@ class ExclusionContainer:
 
     @property
     def all_closed(self):
-        """Check whether all files in the raster container are closed."""
+        """
+        Check whether all files in the raster container are closed.
+        """
         return all(isinstance(d["raster"], (str, Path)) for d in self.rasters) and all(
             isinstance(d["geometry"], (str, Path)) for d in self.geometries
         )
 
     @property
     def all_open(self):
-        """Check whether all files in the raster container are open."""
+        """
+        Check whether all files in the raster container are open.
+        """
         return all(
             isinstance(d["raster"], rio.DatasetReader) for d in self.rasters
         ) and all(isinstance(d["geometry"], gpd.GeoSeries) for d in self.geometries)
@@ -343,7 +360,9 @@ def padded_transform_and_shape(bounds, res):
 def projected_mask(
     raster, geom, transform=None, shape=None, crs=None, allow_no_overlap=False, **kwargs
 ):
-    """Load a mask and optionally project it to target resolution and shape."""
+    """
+    Load a mask and optionally project it to target resolution and shape.
+    """
     nodata = kwargs.get("nodata", 255)
     kwargs.setdefault("indexes", 1)
     if geom.crs != raster.crs:
@@ -378,10 +397,10 @@ def pad_extent(src, src_transform, dst_transform, src_crs, dst_crs, **kwargs):
     """
     Pad the extent of `src` by an equivalent of one cell of the target raster.
 
-    This ensures that the array is large enough to not be treated as nodata in
-    all cells of the destination raster. If src.ndim > 2, the function expects
-    the last two dimensions to be y,x.
-    Additional keyword arguments are used in `np.pad()`.
+    This ensures that the array is large enough to not be treated as
+    nodata in all cells of the destination raster. If src.ndim > 2, the
+    function expects the last two dimensions to be y,x. Additional
+    keyword arguments are used in `np.pad()`.
     """
     if src.size == 0:
         return src, src_transform
@@ -424,7 +443,6 @@ def shape_availability(geometry, excluder):
         Mask whith eligible raster cells indicated by 1 and excluded cells by 0.
     transform : rasterion.Affine
         Affine transform of the mask.
-
     """
     if not excluder.all_open:
         excluder.open_files()
@@ -466,9 +484,6 @@ def shape_availability(geometry, excluder):
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
         exclusions = exclusions | masked
 
-    warn(
-        "Output dtype of shape_availability changed from float to boolean.", UserWarning
-    )
     return ~exclusions, transform
 
 
@@ -504,7 +519,6 @@ def shape_availability_reprojected(
         1 is fully included.
     transform : rasterio.Affine
         Affine transform of the mask.
-
     """
     masked, transform = shape_availability(geometry, excluder)
     masked, transform = pad_extent(
@@ -576,7 +590,6 @@ def compute_availabilitymatrix(
     lower left corner and going up, e.g. Affine(0.25, 0, 0, 0, 0.25, 50).
     Here we stick to the top down version which is why we use
     `cutout.transform_r` and flipping the y-axis in the end.
-
     """
     availability = []
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
@@ -619,7 +632,9 @@ def compute_availabilitymatrix(
 
 
 def maybe_swap_spatial_dims(ds, namex="x", namey="y"):
-    """Swap order of spatial dimensions according to atlite concention."""
+    """
+    Swap order of spatial dimensions according to atlite concention.
+    """
     swaps = {}
     lx, rx = ds.indexes[namex][[0, -1]]
     ly, uy = ds.indexes[namey][[0, -1]]

@@ -1,36 +1,37 @@
 # -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: MIT
 
 """
 Management of data retrieval and structure.
 """
 
+import logging
+import os
+from functools import wraps
+from shutil import rmtree
+from tempfile import mkdtemp, mkstemp
+
 import pandas as pd
 import xarray as xr
-import os
-from numpy import atleast_1d
-from tempfile import mkstemp, mkdtemp
-from shutil import rmtree
-from functools import wraps
-from dask import delayed, compute
-from dask.utils import SerializableLock
+from dask import compute, delayed
 from dask.diagnostics import ProgressBar
-import logging
+from dask.utils import SerializableLock
+from numpy import atleast_1d
 
 logger = logging.getLogger(__name__)
 
-from .datasets import modules as datamodules
+from atlite.datasets import modules as datamodules
 
 
 def get_features(cutout, module, features, tmpdir=None):
     """
     Load the feature data for a given module.
 
-    This get the data for a set of features from a module. All modules in
-    `atlite.datasets` are allowed.
+    This get the data for a set of features from a module. All modules
+    in `atlite.datasets` are allowed.
     """
     parameters = cutout.data.attrs
     lock = SerializableLock()
@@ -69,7 +70,6 @@ def available_features(module=None):
         A Series of all variables. The MultiIndex indicated which module
         provides the variable and with which feature name the variable can be
         obtained.
-
     """
     features = {name: m.features for name, m in datamodules.items()}
     features = (
@@ -85,7 +85,9 @@ def available_features(module=None):
 
 
 def non_bool_dict(d):
-    """Convert bool to int for netCDF4 storing"""
+    """
+    Convert bool to int for netCDF4 storing.
+    """
     return {k: v if not isinstance(v, bool) else int(v) for k, v in d.items()}
 
 
@@ -138,7 +140,6 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
     -------
     cutout : atlite.Cutout
         Cutout with prepared data. The variables are stored in `cutout.data`.
-
     """
     if cutout.prepared and not overwrite:
         logger.info("Cutout already prepared.")

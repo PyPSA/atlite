@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: 2016-2019 The Atlite Authors
+  SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 
   SPDX-License-Identifier: CC-BY-4.0
 
@@ -8,13 +8,13 @@ Introduction
 ############
 
 
-Atlite processes weather data and converts it into energy system 
-relevant quantities, mainly you can create data for 
+Atlite processes weather data and converts it into energy system
+relevant quantities, mainly you can create data for
 
 
 * **Wind** power generation: Using predefined or custom turbine properties
   and smoothing options for modelling more realistic results.
-  *New:* Turbines can also be imported from the 
+  *New:* Turbines can also be imported from the
   `Open Energy Database <https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library>`_.
 * **Solar (PV)** power generation: Using predefined or custom panel properties.
 * **Solar (thermal)** heat generation from solar collectors.
@@ -24,33 +24,33 @@ relevant quantities, mainly you can create data for
 How it works
 ========================
 
-Starting from a global weather dataset, *e.g.* our standard data source ECMWF's ERA5 dataset,  
+Starting from a global weather dataset, *e.g.* our standard data source ECMWF's ERA5 dataset,
 
 .. image:: img/worldmap.png
     :align: center
     :alt: alternate text
 
 
-Atlite enables you to create a **cutout**, a spatial and 
-temporal subset of the original data which includes all relevant data 
+Atlite enables you to create a **cutout**, a spatial and
+temporal subset of the original data which includes all relevant data
 such as wind velocity, influx, temperature etc.
 
 .. image:: img/cutout.png
     :align: center
     :alt: alternate text
 
-The **cutout** consists of grid cells of a certain resolution (depending on your input data, here 30 km x 30 km) 
-each having its own weather timeseries. 
-The **cutout** builds the starting point to your calculations. 
+The **cutout** consists of grid cells of a certain resolution (depending on your input data, here 30 km x 30 km)
+each having its own weather timeseries.
+The **cutout** builds the starting point to your calculations.
 
-From there, you can extract various quantities and general properties of the data, *e.g.* wind capacity factors per grid cell 
+From there, you can extract various quantities and general properties of the data, *e.g.* wind capacity factors per grid cell
 
 .. image:: img/capfactors.png
     :width: 400pt
     :align: center
     :alt: alternate text
 
-for a specific turbine type (this gives you information on the share of capacity which is in average running and producing power). 
+for a specific turbine type (this gives you information on the share of capacity which is in average running and producing power).
 
 Further, you can set power plants to specific spots and let Atlite calculate their actual power production. The **capacity layout**  specifies which grid cell contains what amount of capacity of *one* production type. Atlite comes along with a small `library of wind turbine configurations and PV panel configurations <https://github.com/PyPSA/atlite/tree/master/atlite/resources>`_  which you can directly use, *e.g.* 'Vestas_V112_3MW' wind turbines.
 
@@ -89,17 +89,17 @@ The standard data source we currently employ is ECMWF's ERA5 dataset
 (reanalysis weather data in a ca. 30 km x 30 km and hourly resolution).
 This dataset is easily available at no additional costs and requires only
 minimal setup from the user in comparison to other datasets.
-It is downloaded automatically on-demand after the 
+It is downloaded automatically on-demand after the
 `ECMWF ADS API <https://cds.climate.copernicus.eu/api-how-to>`_
 (European Centre for Medium-Range Weather Forecasts Climate Data Store
 Application Program Interface) client is properly installed. See separate,
 linked installation guide for details, especially for correctly setting up
 your CDS API key.
 
-Previously and in the future other datasets where and (hopefully) will 
+Previously and in the future other datasets where and (hopefully) will
 again be usable, including
 
-* the *NCEP Climate Forecast System* dataset 
+* the *NCEP Climate Forecast System* dataset
 * the *EURO-CORDEX Climate Change Projection* dataset
 * the *CMSAF SARAH-2* dataset
 * Satellite based radiation observations, e.g. SARAH-2.
