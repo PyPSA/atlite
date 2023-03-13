@@ -5,22 +5,24 @@
 # SPDX-License-Identifier: MIT
 
 """
-Module for providing access to external ressources, like windturbine or pv panel configurations.
+Module for providing access to external ressources, like windturbine or pv
+panel configurations.
 """
 
-from .utils import arrowdict
-import yaml
-from operator import itemgetter
-import numpy as np
-from scipy.signal import fftconvolve
-from pathlib import Path
-import requests
-import pandas as pd
 import json
-import re
-import pkg_resources
-
 import logging
+import re
+from operator import itemgetter
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pkg_resources
+import requests
+import yaml
+from scipy.signal import fftconvolve
+
+from atlite.utils import arrowdict
 
 logger = logging.getLogger(name=__name__)
 
@@ -32,7 +34,8 @@ CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 
 
 def get_windturbineconfig(turbine):
-    """Load the wind 'turbine' configuration.
+    """
+    Load the wind 'turbine' configuration.
 
     Parameters
     ----------
@@ -75,7 +78,8 @@ def get_windturbineconfig(turbine):
 
 
 def get_solarpanelconfig(panel):
-    """Load the 'panel'.yaml file from local disk and provide a solar panel dict.
+    """
+    Load the 'panel'.yaml file from local disk and provide a solar panel dict.
 
     Parameters
     ----------
@@ -106,7 +110,9 @@ def get_solarpanelconfig(panel):
 
 
 def get_cspinstallationconfig(installation):
-    """Load the 'installation'.yaml file from local disk to provide the system efficiencies.
+    """
+    Load the 'installation'.yaml file from local disk to provide the system
+    efficiencies.
 
     Parameters
     ----------
@@ -188,7 +194,7 @@ def windturbine_rated_capacity_per_unit(turbine):
 
 def windturbine_smooth(turbine, params=None):
     """
-    Smooth the powercurve in `turbine` with a gaussian kernel
+    Smooth the powercurve in `turbine` with a gaussian kernel.
 
     Parameters
     ----------
@@ -290,7 +296,6 @@ def get_oedb_windturbineconfig(search=None, **search_params):
 
     >>> get_oedb_windturbineconfig(name="E-53/800", manufacturer="Enercon")
     {'V': ..., 'POW': ..., ...}
-
     """
 
     # Parse information of different allowed 'turbine' values

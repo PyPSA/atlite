@@ -5,21 +5,23 @@
 # SPDX-License-Identifier: MIT
 
 """
-Module containing specific operations for creating cutouts from the SARAH2 dataset.
+Module containing specific operations for creating cutouts from the SARAH2
+dataset.
 """
 
-from ..gis import regrid
-from ..pv.solar_position import SolarPosition
-from rasterio.warp import Resampling
+import glob
+import logging
 import os
 import warnings
-import glob
-import pandas as pd
-import numpy as np
-import xarray as xr
 from functools import partial
 
-import logging
+import numpy as np
+import pandas as pd
+import xarray as xr
+from rasterio.warp import Resampling
+
+from atlite.gis import regrid
+from atlite.pv.solar_position import SolarPosition
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +94,11 @@ def interpolate(ds, dim="time"):
     """
     Interpolate NaNs in a dataset along a chunked dimension.
 
-    This function is similar to xr.Dataset.interpolate_na but can
-    be used for interpolating along a chunked dimensions (default 'time'').
-    As the sarah data has mulitple NaN's in the areas of dawn and nightfall
-    and the data is per default chunked along the time axis, use this function
-    to interpolate.
+    This function is similar to xr.Dataset.interpolate_na but can be
+    used for interpolating along a chunked dimensions (default 'time'').
+    As the sarah data has mulitple NaN's in the areas of dawn and
+    nightfall and the data is per default chunked along the time axis,
+    use this function to interpolate.
     """
 
     def _interpolate1d(y):
@@ -133,7 +135,9 @@ def interpolate(ds, dim="time"):
 
 
 def as_slice(bounds, pad=True):
-    """Convert coordinate bounds to slice and pad by 0.01."""
+    """
+    Convert coordinate bounds to slice and pad by 0.01.
+    """
     if not isinstance(bounds, slice):
         bounds = bounds + (-0.01, 0.01)
         bounds = slice(*bounds)
@@ -144,8 +148,8 @@ def hourly_mean(ds):
     """
     Resample time data to one hour frequency.
 
-    In contrast to the standard xarray resample function this preserves chunks
-    sizes along the time dimension.
+    In contrast to the standard xarray resample function this preserves
+    chunks sizes along the time dimension.
     """
     ds1 = ds.isel(time=slice(None, None, 2))
     ds2 = ds.isel(time=slice(1, None, 2))
@@ -184,7 +188,6 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     -------
     xarray.Dataset
         Dataset of dask arrays of the retrieved variables.
-
     """
     assert cutout.dt in ("30min", "30T", "h", "H", "1h", "1H")
 

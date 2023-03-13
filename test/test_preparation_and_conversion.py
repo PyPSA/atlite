@@ -6,28 +6,30 @@
 # SPDX-License-Identifier: MIT
 
 """
-Created on Mon May 11 11:15:41 2020
+Created on Mon May 11 11:15:41 2020.
 
 @author: fabian
 """
 
 import os
 import sys
+from datetime import date
+
+import geopandas as gpd
 import pytest
 import urllib3
-import geopandas as gpd
-from datetime import date
 from dateutil.relativedelta import relativedelta
 
 urllib3.disable_warnings()
 
-import atlite
-from atlite import Cutout
-from shapely.geometry import Point, LineString as Line
-from xarray.testing import assert_allclose, assert_equal
 import numpy as np
 import pandas as pd
+from shapely.geometry import LineString as Line
+from shapely.geometry import Point
+from xarray.testing import assert_allclose, assert_equal
 
+import atlite
+from atlite import Cutout
 
 # %% Predefine tests for cutout
 
@@ -38,19 +40,23 @@ GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 
 
 def all_notnull_test(cutout):
-    """Test if no nan's in the prepared data occur"""
+    """
+    Test if no nan's in the prepared data occur.
+    """
     assert cutout.data.notnull().all()
 
 
 def prepared_features_test(cutout):
     """
-    The prepared features series should contain all variables in cutout.data
+    The prepared features series should contain all variables in cutout.data.
     """
     assert set(cutout.prepared_features) == set(cutout.data)
 
 
 def update_feature_test(cutout, red):
-    """atlite should be able to overwrite a feature."""
+    """
+    atlite should be able to overwrite a feature.
+    """
     red.data = cutout.data.drop_vars("influx_direct")
     red.prepare("influx", overwrite=True)
     assert_equal(red.data.influx_direct, cutout.data.influx_direct)
@@ -68,8 +74,9 @@ def wrong_recreation(cutout):
 
 def pv_test(cutout, time=TIME):
     """
-    Test the atlite.Cutout.pv function with different settings. Compare
-    optimal orientation with flat orientation.
+    Test the atlite.Cutout.pv function with different settings.
+
+    Compare optimal orientation with flat orientation.
     """
 
     orientation = {"slope": 0.0, "azimuth": 0.0}
@@ -142,7 +149,8 @@ def pv_test(cutout, time=TIME):
 
 def pv_tracking_test(cutout):
     """
-    Test the atlite.Cutout.pv function with different tracking settings and compare results
+    Test the atlite.Cutout.pv function with different tracking settings and
+    compare results.
     """
 
     orientation = {"slope": 0.0, "azimuth": 180.0}
@@ -190,8 +198,8 @@ def pv_tracking_test(cutout):
 
 def csp_test(cutout):
     """
-    Test the atlite.Cutout.csp function with different for different
-    settings and technologies.
+    Test the atlite.Cutout.csp function with different for different settings
+    and technologies.
     """
 
     ## Test technology = "solar tower"
@@ -249,8 +257,10 @@ def soil_temperature_test(cutout):
 def wind_test(cutout):
     """
     Test the atlite.Cutout.wind function with two different layouts.
-    The standard layout proportional to the capacity factors must have a lower
-    production than a layout proportionally to the capacity layout squared.
+
+    The standard layout proportional to the capacity factors must have a
+    lower production than a layout proportionally to the capacity layout
+    squared.
     """
     cap_factor = cutout.wind(atlite.windturbines.Enercon_E101_3000kW)
 
@@ -283,11 +293,11 @@ def runoff_test(cutout):
     """
     Test the atlite.Cutout.runoff function.
 
-    First check if the total of all capacity factors is not null.
-    Then compare the runoff at sites which belong to the lower (altitude) half
-    of the map, with the runoff at higher sites. The runoff at the lower sites
-    (mostly at sea level) should have a smaller capacity factor total and
-    production.
+    First check if the total of all capacity factors is not null. Then
+    compare the runoff at sites which belong to the lower (altitude)
+    half of the map, with the runoff at higher sites. The runoff at the
+    lower sites (mostly at sea level) should have a smaller capacity
+    factor total and production.
     """
     cap_factor = cutout.runoff()
     assert cap_factor.notnull().all()
@@ -479,19 +489,24 @@ class TestERA5:
     @staticmethod
     def test_data_module_arguments_era5(cutout_era5):
         """
-        All data variables should have an attribute to which module they belong
+        All data variables should have an attribute to which module they
+        belong.
         """
         for v in cutout_era5.data:
             assert cutout_era5.data.attrs["module"] == "era5"
 
     @staticmethod
     def test_all_non_na_era5(cutout_era5):
-        """Every cells should have data."""
+        """
+        Every cells should have data.
+        """
         assert np.isfinite(cutout_era5.data).all()
 
     @staticmethod
     def test_all_non_na_era5_coarse(cutout_era5_coarse):
-        """Every cells should have data."""
+        """
+        Every cells should have data.
+        """
         assert np.isfinite(cutout_era5_coarse.data).all()
 
     @staticmethod
@@ -501,18 +516,24 @@ class TestERA5:
         " due to unknown reasons.",
     )
     def test_all_non_na_era5_weird_resolution(cutout_era5_weird_resolution):
-        """Every cells should have data."""
+        """
+        Every cells should have data.
+        """
         assert np.isfinite(cutout_era5_weird_resolution.data).all()
 
     @staticmethod
     def test_dx_dy_preservation_era5(cutout_era5):
-        """The coordinates should be the same after preparation."""
+        """
+        The coordinates should be the same after preparation.
+        """
         assert np.allclose(np.diff(cutout_era5.data.x), 0.25)
         assert np.allclose(np.diff(cutout_era5.data.y), 0.25)
 
     @staticmethod
     def test_dx_dy_preservation_era5_coarse(cutout_era5_coarse):
-        """The coordinates should be the same after preparation."""
+        """
+        The coordinates should be the same after preparation.
+        """
         assert np.allclose(
             np.diff(cutout_era5_coarse.data.x), cutout_era5_coarse.data.attrs["dx"]
         )
@@ -527,7 +548,9 @@ class TestERA5:
         " due to unknown reasons.",
     )
     def test_dx_dy_preservation_era5_weird_resolution(cutout_era5_weird_resolution):
-        """The coordinates should be the same after preparation."""
+        """
+        The coordinates should be the same after preparation.
+        """
         assert np.allclose(
             np.diff(cutout_era5_weird_resolution.data.x),
             cutout_era5_weird_resolution.data.attrs["dx"],
@@ -540,7 +563,8 @@ class TestERA5:
     @staticmethod
     def test_compare_with_get_data_era5(cutout_era5, tmp_path):
         """
-        The prepared data should be exactly the same as from the low level function
+        The prepared data should be exactly the same as from the low level
+        function.
         """
         influx = atlite.datasets.era5.get_data(cutout_era5, "influx", tmpdir=tmp_path)
         assert_allclose(
@@ -572,7 +596,9 @@ class TestERA5:
 
     @staticmethod
     def test_pv_era5_2days_crossing_months(cutout_era5_2days_crossing_months):
-        """See https://github.com/PyPSA/atlite/issues/256"""
+        """
+        See https://github.com/PyPSA/atlite/issues/256.
+        """
         return pv_test(cutout_era5_2days_crossing_months, time="2013-03-01")
 
     @staticmethod
@@ -583,7 +609,9 @@ class TestERA5:
     @staticmethod
     def test_pv_era5_and_era5t(tmp_path_factory):
         """
-        CDSAPI returns ERA5T data for the *previous* month, and ERA5 data for the
+        CDSAPI returns ERA5T data for the *previous* month, and ERA5 data for
+        the.
+
         *second-previous* month. We request data spanning 2 days between the 2
         months to test merging ERA5 data with ERA5T.
 
@@ -650,22 +678,30 @@ class TestERA5:
 class TestSarah:
     @staticmethod
     def test_all_non_na_sarah(cutout_sarah):
-        """Every cells should have data."""
+        """
+        Every cells should have data.
+        """
         assert np.isfinite(cutout_sarah.data).all()
 
     @staticmethod
     def test_all_non_na_sarah_fine(cutout_sarah_fine):
-        """Every cells should have data."""
+        """
+        Every cells should have data.
+        """
         assert np.isfinite(cutout_sarah_fine.data).all()
 
     @staticmethod
     def test_all_non_na_sarah_weird_resolution(cutout_sarah_weird_resolution):
-        """Every cells should have data."""
+        """
+        Every cells should have data.
+        """
         assert np.isfinite(cutout_sarah_weird_resolution.data).all()
 
     @staticmethod
     def test_dx_dy_preservation_sarah(cutout_sarah):
-        """The coordinates should be the same after preparation."""
+        """
+        The coordinates should be the same after preparation.
+        """
         assert np.allclose(np.diff(cutout_sarah.data.x), 0.25)
         assert np.allclose(np.diff(cutout_sarah.data.y), 0.25)
 
@@ -696,5 +732,7 @@ class TestSarah:
 class TestGebco:
     @staticmethod
     def test_all_non_na_gebco(cutout_gebco):
-        """Every cells should have data."""
+        """
+        Every cells should have data.
+        """
         assert np.isfinite(cutout_gebco.data).all()

@@ -5,7 +5,8 @@
 # SPDX-License-Identifier: MIT
 
 """
-Module containing specific operations for creating cutouts from the NCEP dataset.
+Module containing specific operations for creating cutouts from the NCEP
+dataset.
 
 DEPRECATED
 ----------
@@ -14,14 +15,15 @@ The ncep dataset module has not been ported to Atlite v0.2, yet. Use Atlite v0.0
 for the time being!
 """
 
-import pandas as pd
-import numpy as np
-import xarray as xr
-import os
 import glob
-import tempfile
-import subprocess
+import os
 import shutil
+import subprocess
+import tempfile
+
+import numpy as np
+import pandas as pd
+import xarray as xr
 
 engine = "pynio"
 crs = 4326
@@ -117,6 +119,7 @@ def convert_unaccumulate_ncep(ds):
 def convert_clip_lower(ds, variable, a_min, value):
     """
     Set values of `variable` that are below `a_min` to `value`.
+
     Similar to `numpy.clip`.
     """
     ds[variable] = ds[variable].where(ds[variable] > a_min).fillna(value)

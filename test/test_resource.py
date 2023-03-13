@@ -6,12 +6,13 @@
 # SPDX-License-Identifier: MIT
 
 """
-Created on Tue Jun 22 10:46:27 2021
+Created on Tue Jun 22 10:46:27 2021.
 
 @author: fabian
 """
-from atlite.resource import get_oedb_windturbineconfig
 import pytest
+
+from atlite.resource import get_oedb_windturbineconfig
 
 
 def test_oedb_windturbineconfig():

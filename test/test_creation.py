@@ -6,20 +6,20 @@
 # SPDX-License-Identifier: MIT
 
 """
-Created on Wed May  6 15:23:13 2020
+Created on Wed May  6 15:23:13 2020.
 
 @author: fabian
 """
 
 # IDEAS for tests
 
-import pytest
+import numpy as np
 import pandas as pd
+import pytest
+from xarray.testing import assert_allclose, assert_equal
+
 import atlite
 from atlite import Cutout
-from xarray.testing import assert_allclose, assert_equal
-import numpy as np
-
 
 TIME = "2013-01-01"
 X0 = -4.0
@@ -72,9 +72,11 @@ def test_time_sclice_coords(ref):
 
 def test_dx_dy_dt():
     """
-    Test the properties dx, dy, dt of atlite.Cutout. The spatial resolution
-    can be changed through the creation_params dx and dy, the time resolution
-    is hard coded (deep in the modules...) to one hour.
+    Test the properties dx, dy, dt of atlite.Cutout.
+
+    The spatial resolution can be changed through the creation_params dx
+    and dy, the time resolution is hard coded (deep in the modules...)
+    to one hour.
     """
     dx = 0.5
     dy = 1

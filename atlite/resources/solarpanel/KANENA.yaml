@@ -23,7 +23,7 @@ rated_production: 89.3
 # are calculated by using the three different values of solar
 # radiation and their peak powers at 25deg C module temperature for
 # corresponding radiations from the data sheet
-# That model comes from 
+# That model comes from
 A: 0.0659164166836276
 B: -4.44310393547042E-06
 C: 0.0122044905275824

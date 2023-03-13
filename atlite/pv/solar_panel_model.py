@@ -49,7 +49,8 @@ def _power_huld(irradiance, t_amb, pc):
 
 def _power_bofinger(irradiance, t_amb, pc):
     """
-    AC power per capacity predicted by bofinger model, based on W/m2 irradiance.
+    AC power per capacity predicted by bofinger model, based on W/m2
+    irradiance.
 
     Maximum power point tracking is assumed.
 
