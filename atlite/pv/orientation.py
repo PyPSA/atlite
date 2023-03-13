@@ -126,13 +126,13 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
             sun_azimuth - surface_azimuth))
         
     elif tracking == "tilted_horizontal":  # horizontal tracking with tilted axis'
-        surface_slope_initial= orientation["slope"]
+        axis_tilt= orientation["slope"]
        
         rotation= np.arctan((cos(sun_altitude) * sin(sun_azimuth - surface_azimuth)) /
-                      (cos(sun_altitude) * cos(sun_azimuth - surface_azimuth) * sin (surface_slope_initial)
-                       + sin (sun_altitude) * cos (surface_slope_initial) ) )
+                      (cos(sun_altitude) * cos(sun_azimuth - surface_azimuth) * sin (axis_tilt)
+                       + sin (sun_altitude) * cos (axis_tilt) ) )
         
-        surface_slope = np.arccos(cos(rotation)*cos(surface_slope_initial)) 
+        surface_slope = np.arccos(cos(rotation)*cos(axis_tilt)) 
         
         azimuth_difference = sun_azimuth - surface_azimuth
         azimuth_difference = np.where(azimuth_difference > pi , 2*pi -  azimuth_difference , azimuth_difference ) 
@@ -140,8 +140,8 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
         rotation = np.where(np.logical_and(rotation < 0 , azimuth_difference > 0) , rotation + pi , rotation ) 
         rotation = np.where(np.logical_and(rotation > 0 , azimuth_difference < 0) , rotation - pi , rotation )
             
-        cosincidence =(cos(rotation) * (sin(surface_slope_initial) * cos(sun_altitude) * cos(
-             sun_azimuth - surface_azimuth) + cos(surface_slope_initial) * sin(sun_altitude)) + 
+        cosincidence =(cos(rotation) * (sin(axis_tilt) * cos(sun_altitude) * cos(
+             sun_azimuth - surface_azimuth) + cos(axis_tilt) * sin(sun_altitude)) + 
              sin (rotation) * cos(sun_altitude) * sin(sun_azimuth - surface_azimuth))
         
     elif tracking == "vertical":  # vertical tracking, surface azimuth = sun_azimuth
