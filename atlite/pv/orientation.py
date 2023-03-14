@@ -97,6 +97,9 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     ----------
     [1] Sproul, A. B., Derivation of the solar geometric relationships using
     vector analysis, Renewable Energy, 32(7), 1187–1205 (2007).
+    [2] Marion, William F., and Aron P. Dobos. Rotation angle for the optimum 
+    tracking of one-axis trackers. No. NREL/TP-6A20-58891. National Renewable 
+    Energy Lab.(NREL), Golden, CO (United States), 2013.
     """
 
     lon = deg2rad(ds["lon"])
@@ -113,16 +116,48 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
         cosincidence = sin(surface_slope) * cos(sun_altitude) * cos(
             surface_azimuth - sun_azimuth
         ) + cos(surface_slope) * sin(sun_altitude)
+        
+    elif tracking == "horizontal":  # horizontal tracking with horizontal axis
+        axis_azimuth= orientation["azimuth"].                                         #here orientation['azimuth'] refers to the azimuth of the tracker axis.
+        rotation = np.arctan((cos(sun_altitude)/sin(sun_altitude)) * sin(sun_azimuth - axis_azimuth))
+        surface_slope = abs(rotation)   
+        surface_azimuth = axis_azimuth+ np.arcsin (sin(rotation/sin(surface_slope)))  # the 2nd part yields +/-1 and determines if the panel is facing east or west
+        cosincidence = (cos(surface_slope) * sin(sun_altitude)+
+        sin(surface_slope) * cos(sun_altitude) * cos(
+            sun_azimuth - surface_azimuth))
+        
+    elif tracking == "tilted_horizontal":  # horizontal tracking with tilted axis'
+        axis_tilt= orientation["slope"]                                             #here orientation['slope'] refers to the tilt of the tracker axis.
+       
+        rotation= np.arctan((cos(sun_altitude) * sin(sun_azimuth - surface_azimuth)) /
+                      (cos(sun_altitude) * cos(sun_azimuth - surface_azimuth) * sin (axis_tilt)
+                       + sin (sun_altitude) * cos (axis_tilt) ) )
+        
+        surface_slope = np.arccos(cos(rotation)*cos(axis_tilt)) 
+        
+        azimuth_difference = sun_azimuth - surface_azimuth
+        azimuth_difference = np.where(azimuth_difference > pi , 2*pi -  azimuth_difference , azimuth_difference ) 
+        azimuth_difference = np.where(azimuth_difference < -pi , 2*pi + azimuth_difference , azimuth_difference ) 
+        rotation = np.where(np.logical_and(rotation < 0 , azimuth_difference > 0) , rotation + pi , rotation ) 
+        rotation = np.where(np.logical_and(rotation > 0 , azimuth_difference < 0) , rotation - pi , rotation )
+            
+        cosincidence =(cos(rotation) * (sin(axis_tilt) * cos(sun_altitude) * cos(
+             sun_azimuth - surface_azimuth) + cos(axis_tilt) * sin(sun_altitude)) + 
+             sin (rotation) * cos(sun_altitude) * sin(sun_azimuth - surface_azimuth))
+        
     elif tracking == "vertical":  # vertical tracking, surface azimuth = sun_azimuth
         cosincidence = sin(surface_slope) * cos(sun_altitude) + cos(
             surface_slope
         ) * sin(sun_altitude)
-    elif tracking == "vh":  # both vertical and horizontal tracking
+    elif tracking == "dual":  # both vertical and horizontal tracking
         cosincidence = np.float64(1.0)
     else:
         assert (
             False
-        ), "Values describing tracking system must be None for no tracking, 'vertical' for 1-axis vertical tracking, or 'vh' for 2-axis tracking"
+        ), "Values describing tracking system must be None for no tracking,"+\
+            "'horizontal' for 1-axis horizontal tracking,"+\
+            "tilted_horizontal' for 1-axis horizontal tracking of tilted panle,"+\
+             "vertical' for 1-axis vertical tracking, or 'dual' for 2-axis tracking"
 
     # fixup incidence angle: if the panel is badly oriented and the sun shines
     # on the back of the panel (incidence angle > 90degree), the irradiation

@@ -566,8 +566,10 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
         'atlite.pv.orientation.make_*' functions.
     tracking : None or str:
         None for no tracking, default
+        'horizontal' for 1-axis horizontal tracking
+        'tilted_horizontal' for 1-axis horizontal tracking with tilted axis      
         'vertical' for 1-axis vertical tracking
-        'vh' for 2-axis tracking
+        'dual' for 2-axis tracking
     clearsky_model : str or None
         Either the 'simple' or the 'enhanced' Reindl clearsky
         model. The default choice of None will choose dependending on
