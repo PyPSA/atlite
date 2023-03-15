@@ -4,11 +4,12 @@
 #
 # SPDX-License-Identifier: MIT
 
+import logging
+
 import numpy as np
 import pandas as pd
 import xarray as xr
-from numpy import sin, cos, fmin, fmax, sqrt, deg2rad
-import logging
+from numpy import cos, deg2rad, fmax, fmin, sin, sqrt
 
 logger = logging.getLogger(__name__)
 

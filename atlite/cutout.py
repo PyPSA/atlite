@@ -17,46 +17,45 @@ Base class for Atlite.
 # https://github.com/pydata/xarray/issues/2535,
 # https://github.com/rasterio/rasterio-wheels/issues/12
 
-import xarray as xr
-import pandas as pd
-import numpy as np
-import dask
-import rasterio as rio
-import geopandas as gpd
-from tempfile import mktemp
-from numpy import atleast_1d, append
-from warnings import warn
-from shapely.geometry import box
+import logging
 from pathlib import Path
+from tempfile import mktemp
+from warnings import warn
+
+import dask
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import rasterio as rio
+import xarray as xr
+from numpy import append, atleast_1d
 from pyproj import CRS
+from shapely.geometry import box
 
-
-from .utils import CachedAttribute
-from .data import cutout_prepare, available_features
-from .gis import (
-    get_coords,
-    compute_indicatormatrix,
-    compute_availabilitymatrix,
-    compute_intersectionmatrix,
-)
-from .convert import (
+from atlite.convert import (
+    coefficient_of_performance,
     convert_and_aggregate,
+    csp,
     heat_demand,
     hydro,
+    irradiation,
+    line_rating,
+    pv,
+    runoff,
+    soil_temperature,
+    solar_thermal,
     temperature,
     wind,
-    irradiation,
-    pv,
-    csp,
-    runoff,
-    solar_thermal,
-    soil_temperature,
-    coefficient_of_performance,
-    line_rating,
 )
-from .datasets import modules as datamodules
-
-import logging
+from atlite.data import available_features, cutout_prepare
+from atlite.datasets import modules as datamodules
+from atlite.gis import (
+    compute_availabilitymatrix,
+    compute_indicatormatrix,
+    compute_intersectionmatrix,
+    get_coords,
+)
+from atlite.utils import CachedAttribute
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +64,8 @@ class Cutout:
     """
     Cutout base class.
 
-    This class builds the starting point for most atlite functionalities.
+    This class builds the starting point for most atlite
+    functionalities.
     """
 
     def __init__(self, path, **cutoutparams):
@@ -138,7 +138,6 @@ class Cutout:
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.
-
         """
         name = cutoutparams.get("name", None)
         cutout_dir = cutoutparams.get("cutout_dir", None)
@@ -231,27 +230,37 @@ class Cutout:
 
     @property
     def name(self):
-        """Name of the cutout."""
+        """
+        Name of the cutout.
+        """
         return self.path.stem
 
     @property
     def module(self):
-        """Data module of the cutout."""
+        """
+        Data module of the cutout.
+        """
         return self.data.attrs.get("module")
 
     @property
     def crs(self):
-        """Coordinate Reference System of the cutout."""
+        """
+        Coordinate Reference System of the cutout.
+        """
         return CRS(datamodules[atleast_1d(self.module)[0]].crs)
 
     @property
     def available_features(self):
-        """List of available weather data features for the cutout."""
+        """
+        List of available weather data features for the cutout.
+        """
         return available_features(self.module)
 
     @property
     def chunks(self):
-        """Chunking of the cutout data used by dask."""
+        """
+        Chunking of the cutout data used by dask.
+        """
         chunks = {
             k.lstrip("chunksize_"): v
             for k, v in self.data.attrs.items()
@@ -261,12 +270,18 @@ class Cutout:
 
     @property
     def coords(self):
-        """Geographic coordinates of the cutout."""
+        """
+        Geographic coordinates of the cutout.
+        """
         return self.data.coords
 
     @property
     def meta(self):
-        """Metadata of the cutout. Deprecated since v0.2."""
+        """
+        Metadata of the cutout.
+
+        Deprecated since v0.2.
+        """
         warn(
             "The `meta` attribute is deprecated in favour of direct "
             "access to `data`",
@@ -276,12 +291,16 @@ class Cutout:
 
     @property
     def shape(self):
-        """Size of spatial dimensions (y, x) of the cutout data."""
+        """
+        Size of spatial dimensions (y, x) of the cutout data.
+        """
         return len(self.coords["y"]), len(self.coords["x"])
 
     @property
     def extent(self):
-        """Total extent of the area covered by the cutout (x, X, y, Y)."""
+        """
+        Total extent of the area covered by the cutout (x, X, y, Y).
+        """
         xs, ys = self.coords["x"].values, self.coords["y"].values
         dx, dy = self.dx, self.dy
         return np.array(
@@ -290,12 +309,16 @@ class Cutout:
 
     @property
     def bounds(self):
-        """Total bounds of the area covered by the cutout (x, y, X, Y)."""
+        """
+        Total bounds of the area covered by the cutout (x, y, X, Y).
+        """
         return self.extent[[0, 2, 1, 3]]
 
     @property
     def transform(self):
-        """Get the affine transform of the cutout."""
+        """
+        Get the affine transform of the cutout.
+        """
         return rio.Affine(
             self.dx,
             0,
@@ -307,7 +330,9 @@ class Cutout:
 
     @property
     def transform_r(self):
-        """Get the affine transform of the cutout with reverse y-order."""
+        """
+        Get the affine transform of the cutout with reverse y-order.
+        """
         return rio.Affine(
             self.dx,
             0,
@@ -319,62 +344,47 @@ class Cutout:
 
     @property
     def dx(self):
-        """Spatial resolution on the x coordinates."""
+        """
+        Spatial resolution on the x coordinates.
+        """
         x = self.coords["x"]
         return round((x[-1] - x[0]).item() / (x.size - 1), 8)
 
     @property
     def dy(self):
-        """Spatial resolution on the y coordinates."""
+        """
+        Spatial resolution on the y coordinates.
+        """
         y = self.coords["y"]
         return round((y[-1] - y[0]).item() / (y.size - 1), 8)
 
     @property
     def dt(self):
-        """Time resolution of the cutout."""
+        """
+        Time resolution of the cutout.
+        """
         return pd.infer_freq(self.coords["time"].to_index())
 
     @property
     def prepared(self):
-        """Boolean indicating whether all available features are prepared."""
+        """
+        Boolean indicating whether all available features are prepared.
+        """
         return self.prepared_features.sort_index().equals(
             self.available_features.sort_index()
         )
 
     @property
     def prepared_features(self):
-        """Get the list of prepared features in the cutout."""
+        """
+        Get the list of prepared features in the cutout.
+        """
         index = [
             (self.data[v].attrs["module"], self.data[v].attrs["feature"])
             for v in self.data
         ]
         index = pd.MultiIndex.from_tuples(index, names=["module", "feature"])
         return pd.Series(list(self.data), index, dtype=object)
-
-    def grid_coordinates(self):
-        """Array of grid coordinates, deprecated since v0.2.1."""
-        warn(
-            "The function `grid_coordinates` has been deprecated in favour of "
-            "`grid`",
-            DeprecationWarning,
-        )
-        logger.warning(
-            "The order of elements returned by `grid_coordinates` changed. "
-            "Check the output of your workflow for correctness."
-        )
-        return self.grid[["x", "y"]].values
-
-    def grid_cells(self):
-        """List of grid cells, deprecated since v0.2.1."""
-        warn(
-            "The function `grid_cells` has been deprecated in favour of `grid`",
-            DeprecationWarning,
-        )
-        logger.warning(
-            "The order of elements in `grid_cells` changed. "
-            "Check the output of your workflow for correctness."
-        )
-        return self.grid.geometry.to_list()
 
     @CachedAttribute
     def grid(self):
@@ -388,7 +398,6 @@ class Cutout:
         geopandas.GeoDataFrame
             Frame with coordinate columns 'x' and 'y', and geometries of the
             corresponding grid cells.
-
         """
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
         coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
@@ -418,7 +427,6 @@ class Cutout:
         -------
         selected : Cutout
             Selected cutout.
-
         """
         if path is None:
             path = mktemp(
@@ -452,7 +460,6 @@ class Cutout:
         -------
         merged : Cutout
             Merged cutout.
-
         """
         assert isinstance(other, Cutout)
 
@@ -481,7 +488,6 @@ class Cutout:
         ----------
         fn : str | path-like
             File name where to store the cutout, defaults to `cutout.path`.
-
         """
         if fn is None:
             fn = self.path
@@ -558,7 +564,9 @@ class Cutout:
         return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
 
     def uniform_layout(self):
-        """Get a uniform capacity layout for all grid cells."""
+        """
+        Get a uniform capacity layout for all grid cells.
+        """
         return xr.DataArray(1, [self.coords["y"], self.coords["x"]])
 
     def layout_from_capacity_list(self, data, col="Capacity"):
@@ -594,7 +602,6 @@ class Cutout:
         >>> layout = cutout.layout_from_capacity_list(data)
         >>> pv = cutout.pv('CdTe', 'latitude_optimal', layout=layout)
         >>> pv.plot()
-
         """
         with dask.config.set(**{"array.slicing.split_large_chunks": False}):
             nearest = (

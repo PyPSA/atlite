@@ -5,7 +5,7 @@
 [run]
 branch = True
 source = atlite
-omit =  
+omit =
     test/*
     setup.py
     atlite/datasets/ncep*

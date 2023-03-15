@@ -6,19 +6,21 @@
 # SPDX-License-Identifier: MIT
 
 """
-Created on Mon Oct 18 15:11:42 2021
+Created on Mon Oct 18 15:11:42 2021.
 
 @author: fabian
 """
 
-from atlite.convert import convert_line_rating
 import numpy as np
 import pandas as pd
+
+from atlite.convert import convert_line_rating
 
 
 def test_ieee_sample_case():
     """
-    Test the implementation against the documented results from IEEE standard (chapter 4.6).
+    Test the implementation against the documented results from IEEE standard
+    (chapter 4.6).
     """
     ds = {
         "temperature": 313,
@@ -45,9 +47,9 @@ def test_ieee_sample_case():
 
 def test_oeding_and_oswald_sample_case():
     """
-    Test the implementation against the documented line parameters documented at
-    https://link.springer.com/content/pdf/10.1007%2F978-3-642-19246-3.pdf
-    table 9.2, Al 240/40
+    Test the implementation against the documented line parameters documented
+    at https://link.springer.com/content/pdf/10.1007%2F978-3-642-19246-3.pdf
+    table 9.2, Al 240/40.
 
     This is the same as the DIN 48204-4/84.
 
@@ -77,10 +79,10 @@ def test_oeding_and_oswald_sample_case():
 
 def test_suedkabel_sample_case():
     """
-    Test the implementation against the documented line parameters documented at
-    https://www.yumpu.com/de/document/read/30614281/kabeldatenblatt-typ-2xsfl2y-1x2500-rms-250-220-380-kv
-    assume ambient temperature of 20°C, no wind, no sun and max allowed line
-    temperature of 90°C.
+    Test the implementation against the documented line parameters documented
+    at https://www.yumpu.com/de/document/read/30614281/kabeldatenblatt-
+    typ-2xsfl2y-1x2500-rms-250-220-380-kv assume ambient temperature of 20°C,
+    no wind, no sun and max allowed line temperature of 90°C.
     """
 
     ds = {
@@ -151,7 +153,7 @@ def test_right_angle_in_different_configuration():
 
 def test_angle_increase():
     """
-    Test an increasing angle which should lead to an increasing capacity
+    Test an increasing angle which should lead to an increasing capacity.
     """
     ds = {
         "temperature": 313,

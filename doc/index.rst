@@ -127,5 +127,5 @@ If you would like to cite the Atlite software, please refer to `this paper <http
 License
 =======
 
-Atlite is released and licensed under the 
+Atlite is released and licensed under the
 `MIT license <https://github.com/PyPSA/atlite/blob/mit-license/LICENSES/MIT.txt>`_.

@@ -8,16 +8,15 @@
 Module involving hydro operations in Atlite.
 """
 
-import xarray as xr
-import geopandas as gpd
-import pandas as pd
-import numpy as np
-
+import logging
 from collections import namedtuple
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import xarray as xr
 from shapely.geometry import Point
 from tqdm import tqdm
-
-import logging
 
 logger = logging.getLogger(__name__)
 

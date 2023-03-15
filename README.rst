@@ -14,7 +14,7 @@ It is designed to be lightweight, keeping computing resource requirements (CPU, 
 It is therefore well suited to be used with big weather datasets.
 
 .. Atlite is designed to be modular, so that it can work with any weather
-.. datasets. It currently has modules for the following datasets: 
+.. datasets. It currently has modules for the following datasets:
 
 .. * `NCEP Climate Forecast System <http://rda.ucar.edu/datasets/ds094.1/>`_ hourly
 ..   historical reanalysis weather data available on a 0.2 x 0.2 degree global grid
@@ -38,7 +38,7 @@ Atlite can process the following weather data fields and can convert them into f
 .. * Temperature
 .. * Downward short-wave radiation
 .. * Upward short-wave radiation
-.. * Wind 
+.. * Wind
 .. * Runoff
 .. * Surface roughness
 .. * Height maps
@@ -95,7 +95,7 @@ Documentation
 .. * Install atlite from conda-forge or pypi.
 .. * Download one of the weather datasets listed above (ERA5 is downloaded
 ..   automatically on-demand after the ECMWF
-..   `cdsapi<https://cds.climate.copernicus.eu/api-how-to>` client is 
+..   `cdsapi<https://cds.climate.copernicus.eu/api-how-to>` client is
 ..   properly installed)
 .. * Create a cutout, i.e. a geographical rectangle and a selection of
 ..   times, e.g. all hours in 2011 and 2012, to narrow down the scope -
@@ -111,7 +111,7 @@ Contributing
 ============
 
 If you have any ideas, suggestions or encounter problems, feel invited
-to file issues or make pull requests on GitHub. 
+to file issues or make pull requests on GitHub.
 A `Discord server <https://discord.gg/AnuJBk23FU>`_ hosts every tool
 in the PyPSA ecosystem. We have there public voice and text channels
 that are suitable to organise projects, ask questions,

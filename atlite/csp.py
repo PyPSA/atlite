@@ -8,10 +8,11 @@
 Functions for use in conjunction with csp data generation.
 """
 
-import numpy as np
-from .pv.solar_position import SolarPosition
-
 import logging
+
+import numpy as np
+
+from atlite.pv.solar_position import SolarPosition
 
 logger = logging.getLogger(__name__)
 
