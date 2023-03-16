@@ -178,14 +178,14 @@ def pv_tracking_test(cutout):
         tracking="horizontal",
         capacity_factor=True,
     )
-    
+
     cap_factor_tracking_1axis_th = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
         tracking="tilted_horizontal",
         capacity_factor=True,
     )
-    
+
     cap_factor_tracking_1axis_v = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
@@ -203,7 +203,7 @@ def pv_tracking_test(cutout):
     assert cap_factor_tracking_1axis_v.notnull().all()
     assert cap_factor_tracking_1axis_v.sum() > 0
     assert cap_factor_tracking_1axis_v.mean() >= cap_factor_tracking_0axis.mean()
-    
+
     assert cap_factor_tracking_1axis_h.notnull().all()
     assert cap_factor_tracking_1axis_h.sum() > 0
     assert cap_factor_tracking_1axis_h.mean() >= cap_factor_tracking_0axis.mean()
