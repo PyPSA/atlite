@@ -111,7 +111,9 @@ def maybe_remove_tmpdir(func):
 
 
 @maybe_remove_tmpdir
-def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False, compression=False):
+def cutout_prepare(
+    cutout, features=None, tmpdir=None, overwrite=False, compression=False
+):
     """
     Prepare all or a selection of features in a cutout.
 
