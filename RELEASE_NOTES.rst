@@ -16,6 +16,10 @@ Upcoming Release
 * Added 1-axis vertical and 2-axis tracking option for solar pv and trigon_model = "simple"
 * Added small documentation for get_windturbineconfig
 * The deprecated functions `grid_cells` and `grid_coordinates` were removed.
+* Feature: Cutouts are now compressed during the `.prepare(...)` stepusing the native compression feature of netCDF files.
+    Existing cutouts are not affected. To also compress existing cutouts, load and save them using `xarray` with
+    compression specified, see `the xarray documentation <https://docs.xarray.dev/en/stable/generated/xarray.Dataset.to_netcdf.html>`_
+    for details.
 
 Version 0.2.10
 ==============
