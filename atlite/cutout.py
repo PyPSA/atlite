@@ -54,7 +54,7 @@ from atlite.gis import (
     compute_intersectionmatrix,
     get_coords,
 )
-from atlite.utils import CachedAttribute
+from atlite.utils import CachedAttribute, compress
 
 logger = logging.getLogger(__name__)
 
@@ -479,7 +479,7 @@ class Cutout:
 
         return Cutout(path, data=data)
 
-    def to_file(self, fn=None):
+    def to_file(self, fn=None, compression=True):
         """
         Save cutout to a netcdf file.
 
@@ -487,10 +487,15 @@ class Cutout:
         ----------
         fn : str | path-like
             File name where to store the cutout, defaults to `cutout.path`.
+        compression : boolean | int
+            Whether to compress the file. Integer specifies zlib complevel.
         """
         if fn is None:
             fn = self.path
-        self.data.to_netcdf(fn)
+        encoding = {}
+        if compression:
+            encoding.update(compress(compression))
+        self.data.to_netcdf(fn, encoding=encoding)
 
     def __repr__(self):
         start = np.datetime_as_string(self.coords["time"].values[0], unit="D")

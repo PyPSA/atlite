@@ -14,6 +14,7 @@ import textwrap
 import warnings
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import progressbar as pgb
 import xarray as xr
@@ -174,3 +175,25 @@ class CachedAttribute(object):
         # again
         setattr(inst, self.name, result)
         return result
+
+
+def compress(ds, compression):
+    """
+    Compresses an xarray dataset using zlib.
+
+    Parameters
+    ----------
+    compression : boolean | int
+        Whether to compress the file. Integer specifies zlib complevel.
+
+    Returns
+    -------
+    encoding : dict
+        Encoding for compression.
+    """
+    for var in ds.data_vars:
+        if ds[var].dtype == np.float64:
+            ds[var] = ds[var].astype(np.float32)
+    complevel = compression if isinstance(compression, int) else 4
+    comp = dict(zlib=True, complevel=complevel)
+    return {var: comp for var in ds.data_vars}

@@ -24,6 +24,7 @@ from numpy import atleast_1d
 logger = logging.getLogger(__name__)
 
 from atlite.datasets import modules as datamodules
+from atlite.utils import compress
 
 
 def get_features(cutout, module, features, tmpdir=None):
@@ -110,7 +111,7 @@ def maybe_remove_tmpdir(func):
 
 
 @maybe_remove_tmpdir
-def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
+def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False, compression=False):
     """
     Prepare all or a selection of features in a cutout.
 
@@ -135,6 +136,8 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
     overwrite : bool, optional
         Whether to overwrite variables which are already included in the
         cutout. The default is False.
+    compression : boolean | int
+        Whether to compress the file. Integer specifies zlib complevel.
 
     Returns
     -------
@@ -176,8 +179,12 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
         fd, tmp = mkstemp(suffix=filename, dir=directory)
         os.close(fd)
 
+        encoding = {}
+        if compression:
+            encoding.update(compress(compression))
+
         with ProgressBar():
-            ds.to_netcdf(tmp)
+            ds.to_netcdf(tmp, encoding=encoding)
 
         if cutout.path.exists():
             cutout.data.close()
