@@ -344,7 +344,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     # Fixes issue by keeping "float32" encoded as "float32" instead of internally saving as "short int", see:
     # https://stackoverflow.com/questions/75755441/why-does-saving-to-netcdf-without-encoding-change-some-values-to-nan
     for v in ds.data_vars:
-        ds[v].encoding = {}
+        ds[v].encoding.clear()
 
     return ds
 
