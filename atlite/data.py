@@ -115,7 +115,7 @@ def cutout_prepare(
     features=None,
     tmpdir=None,
     overwrite=False,
-    compression={"zlib": True, "complevel": 4},
+    compression={"zlib": True, "complevel": 9, "shuffle": True},
 ):
     """
     Prepare all or a selection of features in a cutout.
@@ -144,9 +144,10 @@ def cutout_prepare(
     compression : None/dict, optional
         Compression level to use for all features which are being prepared.
         The compression is handled via xarray.Dataset.to_netcdf(...), for details see:
-        https://docs.xarray.dev/en/stable/generated/xarray.Dataset.to_netcdf.html
-        To disable compression, set to None. As a trade-off between speed and
-        compression, the default is {'zlib': True, 'complevel': 4}.
+        https://docs.xarray.dev/en/stable/generated/xarray.Dataset.to_netcdf.html .
+        To efficiently reduce cutout sizes, specify the number of 'least_significant_digits': n here.
+        To disable compression, set "complevel" to None.
+        Default is {'zlib': True, 'complevel': 9, 'shuffle': True}.
 
     Returns
     -------
