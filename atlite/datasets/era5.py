@@ -252,9 +252,10 @@ def retrieval_times(coords, static=False):
     """
     Get list of retrieval cdsapi arguments for time dimension in coordinates.
 
-    If static is False, this function creates a query for each year in the
-    time axis in coords. This ensures not running into query limits of the
-    cdsapi. If static is True, the function return only one set of parameters
+    If static is False, this function creates a query for each month and year
+    in the time axis in coords. This ensures not running into size query limits
+    of the cdsapi even with very (spatially) large cutouts.
+    If static is True, the function return only one set of parameters
     for the very first time point.
 
     Parameters
@@ -274,16 +275,18 @@ def retrieval_times(coords, static=False):
             "time": time[0].strftime("%H:00"),
         }
 
+    # Prepare request for all months and years
     times = []
     for year in time.year.unique():
         t = time[time.year == year]
-        query = {
-            "year": str(year),
-            "month": list(t.month.unique()),
-            "day": list(t.day.unique()),
-            "time": ["%02d:00" % h for h in t.hour.unique()],
-        }
-        times.append(query)
+        for month in t.month.unique():
+            query = {
+                "year": str(year),
+                "month": str(month),
+                "day": list(t[t.month == month].day.unique()),
+                "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
+            }
+            times.append(query)
     return times
 
 
@@ -324,16 +327,26 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         fd, target = mkstemp(suffix=".nc", dir=tmpdir)
         os.close(fd)
 
-        yearstr = ", ".join(atleast_1d(request["year"]))
+        # Inform user about data being downloaded as "* variable (year-month)"
+        timestr = f"{request['year']}-{request['month']}"
         variables = atleast_1d(request["variable"])
-        varstr = "".join(["\t * " + v + f" ({yearstr})\n" for v in variables])
-        logger.info(f"CDS: Downloading variables\n{varstr}")
+        varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
+        logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
         result.download(target)
 
     ds = xr.open_dataset(target, chunks=chunks or {})
     if tmpdir is None:
         logger.debug(f"Adding finalizer for {target}")
         weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
+
+    # Remove default encoding we get from CDSAPI, which can lead to NaN values after loading with subsequent
+    # saving due to how xarray handles netcdf compression (only float encoded as short int seem affected)
+    # Fixes issue by keeping "float32" encoded as "float32" instead of internally saving as "short int", see:
+    # https://stackoverflow.com/questions/75755441/why-does-saving-to-netcdf-without-encoding-change-some-values-to-nan
+    # and hopefully fixed soon (could then remove), see https://github.com/pydata/xarray/issues/7691
+    for v in ds.data_vars:
+        if ds[v].encoding["dtype"] == "int16":
+            ds[v].encoding.clear()
 
     return ds
 
