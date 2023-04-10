@@ -18,10 +18,9 @@ def _power_huld(irradiance, t_amb, pc):
     Maximum power point tracking is assumed.
 
     [1] Huld, T. et al., 2010. Mapping the performance of PV modules,
-        effects of module type and data averaging. Solar Energy, 84(2),
-        p.324-338. DOI: 10.1016/j.solener.2009.12.002
+    effects of module type and data averaging. Solar Energy, 84(2),
+    p.324-338. DOI: 10.1016/j.solener.2009.12.002
     """
-
     # normalized module temperature
     T_ = (pc["c_temp_amb"] * t_amb + pc["c_temp_irrad"] * irradiance) - pc["r_tmod"]
 
@@ -54,11 +53,10 @@ def _power_bofinger(irradiance, t_amb, pc):
 
     Maximum power point tracking is assumed.
 
-    [2] Hans Beyer, Gerd Heilscher and Stefan Bofinger, 2004. A robust model
-    for the MPP performance of different types of PV-modules applied for the
-    performance check of grid connected systems.
+    [2] Hans Beyer, Gerd Heilscher and Stefan Bofinger, 2004. A robust
+    model for the MPP performance of different types of PV-modules
+    applied for the performance check of grid connected systems.
     """
-
     fraction = (pc["NOCT"] - pc["Tamb"]) / pc["Intc"]
 
     eta_ref = (
