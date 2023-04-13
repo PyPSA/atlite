@@ -209,7 +209,6 @@ def convert_temperature(ds):
     Return outside temperature (useful for e.g. heat pump T-dependent
     coefficient of performance).
     """
-
     # Temperature is in Kelvin
     return ds["temperature"] - 273.15
 
@@ -224,7 +223,6 @@ def convert_soil_temperature(ds):
     Return soil temperature (useful for e.g. heat pump T-dependent coefficient
     of performance).
     """
-
     # Temperature is in Kelvin
 
     # There are nans where there is sea; by setting them
@@ -363,7 +361,6 @@ def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **p
     You can also specify all of the general conversion arguments
     documented in the `convert_and_aggregate` function.
     """
-
     return cutout.convert_and_aggregate(
         convert_func=convert_heat_demand,
         threshold=threshold,
@@ -463,7 +460,6 @@ def convert_wind(ds, turbine):
     """
     Convert wind speeds for turbine to wind energy generation.
     """
-
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
     wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
@@ -517,7 +513,6 @@ def wind(cutout, turbine, smooth=False, **params):
     [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
     1074 – 1088. doi:10.1016/j.energy.2015.09.071
     """
-
     if isinstance(turbine, (str, Path)):
         turbine = get_windturbineconfig(turbine)
 
@@ -598,7 +593,6 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     the Performance Check of Grid Connected Systems, Freiburg, June 2004.
     Eurosun (ISES Europe Solar Congress).
     """
-
     if isinstance(panel, (str, Path)):
         panel = get_solarpanelconfig(panel)
     if not callable(orientation):
@@ -687,7 +681,6 @@ def csp(cutout, installation, technology=None, **params):
     [2] Tobias Hirsch (ed.). CSPBankability Project Report, DLR, 2017.
     URL: https://www.dlr.de/sf/en/desktopdefault.aspx/tabid-11126/19467_read-48251/
     """
-
     if isinstance(installation, (str, Path)):
         installation = get_cspinstallationconfig(installation)
 
