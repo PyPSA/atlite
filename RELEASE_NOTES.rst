@@ -16,6 +16,8 @@ Upcoming Release
 * Added 1-axis vertical and 2-axis tracking option for solar pv and trigon_model = "simple"
 * Added small documentation for get_windturbineconfig
 * The deprecated functions `grid_cells` and `grid_coordinates` were removed.
+* The exclusions calculation for geometries not overlapping with the raster was fixed.
+* The ExclusionContainer has new functions `compute_shape_availability` and `plot_shape_availability`. These functions ease the inspection of excluded areas within single and multiple geometries.
 
 Version 0.2.10
 ==============
