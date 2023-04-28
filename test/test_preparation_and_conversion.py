@@ -78,7 +78,6 @@ def pv_test(cutout, time=TIME):
 
     Compare optimal orientation with flat orientation.
     """
-
     orientation = {"slope": 0.0, "azimuth": 0.0}
     cap_factor = cutout.pv(atlite.resource.solarpanels.CdTe, orientation)
 
@@ -152,7 +151,6 @@ def pv_tracking_test(cutout):
     Test the atlite.Cutout.pv function with different tracking settings and
     compare results.
     """
-
     orientation = {"slope": 0.0, "azimuth": 180.0}
     # tracking = None is the default option
     cap_factor = cutout.pv(
@@ -201,7 +199,6 @@ def csp_test(cutout):
     Test the atlite.Cutout.csp function with different for different settings
     and technologies.
     """
-
     ## Test technology = "solar tower"
     st = cutout.csp(atlite.cspinstallations.SAM_solar_tower, capacity_factor=True)
 

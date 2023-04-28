@@ -110,7 +110,13 @@ def maybe_remove_tmpdir(func):
 
 
 @maybe_remove_tmpdir
-def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
+def cutout_prepare(
+    cutout,
+    features=None,
+    tmpdir=None,
+    overwrite=False,
+    compression={"zlib": True, "complevel": 9, "shuffle": True},
+):
     """
     Prepare all or a selection of features in a cutout.
 
@@ -135,6 +141,13 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
     overwrite : bool, optional
         Whether to overwrite variables which are already included in the
         cutout. The default is False.
+    compression : None/dict, optional
+        Compression level to use for all features which are being prepared.
+        The compression is handled via xarray.Dataset.to_netcdf(...), for details see:
+        https://docs.xarray.dev/en/stable/generated/xarray.Dataset.to_netcdf.html .
+        To efficiently reduce cutout sizes, specify the number of 'least_significant_digits': n here.
+        To disable compression, set "complevel" to None.
+        Default is {'zlib': True, 'complevel': 9, 'shuffle': True}.
 
     Returns
     -------
@@ -168,6 +181,12 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
         cutout.data.attrs.update(dict(prepared_features=list(prepared)))
         attrs = non_bool_dict(cutout.data.attrs)
         attrs.update(ds.attrs)
+
+        # Add optional compression to the newly prepared features
+        if compression:
+            for v in missing_vars:
+                ds[v].encoding.update(compression)
+
         ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
 
         # write data to tmp file, copy it to original data, this is much safer
@@ -176,9 +195,12 @@ def cutout_prepare(cutout, features=None, tmpdir=None, overwrite=False):
         fd, tmp = mkstemp(suffix=filename, dir=directory)
         os.close(fd)
 
+        logger.debug("Writing cutout to file...")
+        # Delayed writing for large cutout
+        # cf. https://stackoverflow.com/questions/69810367/python-how-to-write-large-netcdf-with-xarray
+        write_job = ds.to_netcdf(tmp, compute=False)
         with ProgressBar():
-            ds.to_netcdf(tmp)
-
+            write_job.compute()
         if cutout.path.exists():
             cutout.data.close()
             cutout.path.unlink()

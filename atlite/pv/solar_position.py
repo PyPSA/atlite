@@ -50,7 +50,6 @@ def SolarPosition(ds, time_shift="0H"):
     been implemented using numba or plain numpy for a single location at
     https://github.com/pvlib/pvlib-python/blob/master/pvlib/spa.py.
     """
-
     # Act like a getter if these return variables are already in ds
     rvs = {
         "solar_azimuth",

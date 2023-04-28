@@ -98,7 +98,6 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     [1] Sproul, A. B., Derivation of the solar geometric relationships using
     vector analysis, Renewable Energy, 32(7), 1187–1205 (2007).
     """
-
     lon = deg2rad(ds["lon"])
     lat = deg2rad(ds["lat"])
 

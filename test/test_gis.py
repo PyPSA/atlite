@@ -147,7 +147,6 @@ def test_open_closed_checks(ref, geometry, raster):
 
     C.f. GH issue #225.
     """
-
     res = 0.01
     excluder = ExclusionContainer(ref.crs, res=res)
 
