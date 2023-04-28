@@ -141,6 +141,14 @@ def raster_codes(tmp_path_factory):
     return path
 
 
+def test_exclusioncontainer_repr(ref):
+    """
+    Test ExclusionContainer.__repr__.
+    """
+    excluder = ExclusionContainer(ref.crs, res=0.01)
+    assert "Exclusion Container" in repr(excluder)
+
+
 def test_open_closed_checks(ref, geometry, raster):
     """
     Test atlite.ExclusionContainer(...) file open/closed checks for
@@ -407,6 +415,10 @@ def test_shape_availability_area(ref):
     assert np.isclose(shapes.area, masked.sum() * res**2)
 
     masked2, transform2 = excluder.compute_shape_availability(shapes)
+    assert (masked == masked2).all()
+    assert transform == transform2
+
+    masked3, transform3 = excluder.compute_shape_availability(shapes.to_frame())
     assert (masked == masked2).all()
     assert transform == transform2
 
