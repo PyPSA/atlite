@@ -4,7 +4,6 @@
 # SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
-
 """
 Created on Mon May 11 11:15:41 2020.
 

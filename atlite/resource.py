@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
-
 """
 Module for providing access to external ressources, like windturbine or pv
 panel configurations.
