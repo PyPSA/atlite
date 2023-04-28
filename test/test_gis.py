@@ -14,6 +14,7 @@ Created on Wed May  6 15:23:13 2020.
 # IDEAS for tests
 
 import functools
+import warnings
 
 import geopandas as gpd
 import numpy as np
@@ -405,6 +406,10 @@ def test_shape_availability_area(ref):
     masked, transform = shape_availability(shapes, excluder)
     assert np.isclose(shapes.area, masked.sum() * res**2)
 
+    masked2, transform2 = excluder.compute_shape_availability(shapes)
+    assert (masked == masked2).all()
+    assert transform == transform2
+
 
 def test_exclusioncontainer_geometries():
     crs = 3035
@@ -624,3 +629,18 @@ def test_shape_availability_exclude_raster_codes(ref, raster_codes):
     excluder.add_raster(raster_codes, codes=lambda x: x < 20, invert=True)
     masked, transform = shape_availability(shapes, excluder)
     assert ratio == masked.sum() / masked.size
+
+
+def test_plot_shape_availability(ref, raster):
+    """
+    Test plotting of shape availability.
+    """
+    shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
+    res = 0.01
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster)
+    # disable UserWarning
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        excluder.plot_shape_availability(shapes)
