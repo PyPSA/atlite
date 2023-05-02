@@ -111,6 +111,8 @@ If you would like to cite the Atlite software, please refer to `this paper <http
    examples/using_gebco_heightmap.ipynb
    examples/plotting_with_atlite.ipynb
    examples/logfiles_and_messages.ipynb
+   examples/solarpv_tracking_options.ipynb
+   examples/working-with-csp.ipynb
    examples/more_examples.rst
 
 .. toctree::
