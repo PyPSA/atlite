@@ -10,6 +10,7 @@ Functions for Geographic Information System.
 import logging
 import multiprocessing as mp
 from collections import OrderedDict
+from functools import wraps
 from pathlib import Path
 from warnings import catch_warnings, simplefilter, warn
 
@@ -25,6 +26,7 @@ from numpy import empty, isin
 from pyproj import CRS, Transformer
 from rasterio.features import geometry_mask
 from rasterio.mask import mask
+from rasterio.plot import show
 from rasterio.warp import reproject, transform_bounds
 from scipy.ndimage import binary_dilation as dilation
 from shapely.ops import transform
@@ -194,157 +196,6 @@ def compute_intersectionmatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     return intersection
 
 
-class ExclusionContainer:
-    """
-    Container for exclusion objects and meta data.
-    """
-
-    def __init__(self, crs=3035, res=100):
-        """
-        Initialize a container for excluded areas.
-
-        Parameters
-        ----------
-        crs : rasterio.CRS/proj.CRS/EPSG, optional
-            Base crs of the raster collection. All rasters and geometries
-            diverging from this crs will be converted to it.
-            The default is 3035.
-        res : float, optional
-            Resolution of the base raster. All diverging rasters will be
-            resampled using the gdal Resampling method 'nearest'.
-            The default is 100.
-        """
-        self.rasters = []
-        self.geometries = []
-        self.crs = crs
-        self.res = res
-
-    def add_raster(
-        self,
-        raster,
-        codes=None,
-        buffer=0,
-        invert=False,
-        nodata=255,
-        allow_no_overlap=False,
-        crs=None,
-    ):
-        """
-        Register a raster to the ExclusionContainer.
-
-        Parameters
-        ----------
-        raster : str/rasterio.DatasetReader
-            Raster or path to raster which to exclude.
-        codes : int/list/function, optional
-            Codes in the raster which to exclude. Can be a callable function
-            which takes the mask (np.array) as argument and performs a
-            elementwise condition (must not change the shape). The function may
-            not be an anonymous (lambda) function.
-            The default is 1.
-        buffer : int, optional
-            Buffer around the excluded areas in units of ExclusionContainer.crs.
-            Use this to create a buffer around the excluded/included area.
-            The default is 0.
-        invert : bool, optional
-            Whether to exclude (False) or include (True) the specified areas
-            of the raster. The default is False.
-        allow_no_overlap:
-            Allow that a raster and a shape (for which the raster will be used as
-            a mask) do not overlap. In this case an array with only `nodata` is
-            returned.
-        crs : rasterio.CRS/EPSG
-            CRS of the raster. Specify this if the raster has invalid crs.
-        """
-        d = dict(
-            raster=raster,
-            codes=codes,
-            buffer=buffer,
-            invert=invert,
-            nodata=nodata,
-            allow_no_overlap=allow_no_overlap,
-            crs=crs,
-        )
-        self.rasters.append(d)
-
-    def add_geometry(self, geometry, buffer=0, invert=False):
-        """
-        Register a collection of geometries to the ExclusionContainer.
-
-        Parameters
-        ----------
-        geometry : str/path/geopandas.GeoDataFrame
-            Path to geometries or geometries which to exclude.
-        buffer : float, optional
-            Buffer around the excluded areas in units of ExclusionContainer.crs.
-            The default is 0.
-        invert : bool, optional
-            Whether to exclude (False) or include (True) the specified areas
-            of the geometries. The default is False.
-        """
-        d = dict(geometry=geometry, buffer=buffer, invert=invert)
-        self.geometries.append(d)
-
-    def open_files(self):
-        """
-        Open rasters and load geometries.
-        """
-        for d in self.rasters:
-            raster = d["raster"]
-            if isinstance(raster, (str, Path)):
-                raster = rio.open(raster)
-            else:
-                assert isinstance(raster, rio.DatasetReader)
-            if not raster.crs.is_valid if raster.crs is not None else True:
-                if d["crs"]:
-                    raster._crs = CRS(d["crs"])
-                else:
-                    raise ValueError(
-                        f"CRS of {raster} is invalid, please " "provide it."
-                    )
-            d["raster"] = raster
-
-        for d in self.geometries:
-            geometry = d["geometry"]
-            if isinstance(geometry, (str, Path)):
-                geometry = gpd.read_file(geometry)
-            if isinstance(geometry, gpd.GeoDataFrame):
-                geometry = geometry.geometry
-            assert isinstance(geometry, gpd.GeoSeries)
-            assert geometry.crs is not None
-            geometry = geometry.to_crs(self.crs)
-            if d.get("buffer", 0) and not d.get("_buffered", False):
-                geometry = geometry.buffer(d["buffer"])
-                d["_buffered"] = True
-            d["geometry"] = geometry
-
-    @property
-    def all_closed(self):
-        """
-        Check whether all files in the raster container are closed.
-        """
-        return all(isinstance(d["raster"], (str, Path)) for d in self.rasters) and all(
-            isinstance(d["geometry"], (str, Path)) for d in self.geometries
-        )
-
-    @property
-    def all_open(self):
-        """
-        Check whether all files in the raster container are open.
-        """
-        return all(
-            isinstance(d["raster"], rio.DatasetReader) for d in self.rasters
-        ) and all(isinstance(d["geometry"], gpd.GeoSeries) for d in self.geometries)
-
-    def __repr__(self):
-        return (
-            f"Exclusion Container"
-            f"\n registered rasters: {len(self.rasters)} "
-            f"\n registered geometry collections: {len(self.geometries)}"
-            f"\n CRS: {self.crs} - Resolution: {self.res}"
-        )
-
-
 def padded_transform_and_shape(bounds, res):
     """
     Get the (transform, shape) tuple of a raster with resolution `res` and
@@ -372,12 +223,12 @@ def projected_mask(
             masked, transform_ = mask(raster, geom, crop=True, **kwargs)
         except ValueError:
             res = raster.res[0]
-            transform_, shape = padded_transform_and_shape(geom.total_bounds, res)
-            masked = np.full(shape, nodata)
+            transform_, shape_ = padded_transform_and_shape(geom.total_bounds, res)
+            masked = np.full(shape_, nodata)
     else:
         masked, transform_ = mask(raster, geom, crop=True, **kwargs)
 
-    if transform is None or (transform_ == transform and shape == masked.shape):
+    if transform is None or (transform_ == transform and masked.shape == shape):
         return masked, transform_
 
     assert shape is not None and crs is not None
@@ -532,6 +383,281 @@ def shape_availability_reprojected(
         src_crs=excluder.crs,
         dst_crs=dst_crs,
     )
+
+
+class ExclusionContainer:
+    """
+    Container for exclusion objects and meta data.
+    """
+
+    def __init__(self, crs=3035, res=100):
+        """
+        Initialize a container for excluded areas.
+
+        Parameters
+        ----------
+        crs : rasterio.CRS/proj.CRS/EPSG, optional
+            Base crs of the raster collection. All rasters and geometries
+            diverging from this crs will be converted to it.
+            The default is 3035.
+        res : float, optional
+            Resolution of the base raster. All diverging rasters will be
+            resampled using the gdal Resampling method 'nearest'.
+            The default is 100.
+        """
+        self.rasters = []
+        self.geometries = []
+        self.crs = crs
+        self.res = res
+
+    def add_raster(
+        self,
+        raster,
+        codes=None,
+        buffer=0,
+        invert=False,
+        nodata=255,
+        allow_no_overlap=False,
+        crs=None,
+    ):
+        """
+        Register a raster to the ExclusionContainer.
+
+        Parameters
+        ----------
+        raster : str/rasterio.DatasetReader
+            Raster or path to raster which to exclude.
+        codes : int/list/function, optional
+            Codes in the raster which to exclude. Can be a callable function
+            which takes the mask (np.array) as argument and performs a
+            elementwise condition (must not change the shape). The function may
+            not be an anonymous (lambda) function.
+            The default is 1.
+        buffer : int, optional
+            Buffer around the excluded areas in units of ExclusionContainer.crs.
+            Use this to create a buffer around the excluded/included area.
+            The default is 0.
+        invert : bool, optional
+            Whether to exclude (False) or include (True) the specified areas
+            of the raster. The default is False.
+        allow_no_overlap:
+            Allow that a raster and a shape (for which the raster will be used as
+            a mask) do not overlap. In this case an array with only `nodata` is
+            returned.
+        crs : rasterio.CRS/EPSG
+            CRS of the raster. Specify this if the raster has invalid crs.
+        """
+        d = dict(
+            raster=raster,
+            codes=codes,
+            buffer=buffer,
+            invert=invert,
+            nodata=nodata,
+            allow_no_overlap=allow_no_overlap,
+            crs=crs,
+        )
+        self.rasters.append(d)
+
+    def add_geometry(self, geometry, buffer=0, invert=False):
+        """
+        Register a collection of geometries to the ExclusionContainer.
+
+        Parameters
+        ----------
+        geometry : str/path/geopandas.GeoDataFrame
+            Path to geometries or geometries which to exclude.
+        buffer : float, optional
+            Buffer around the excluded areas in units of ExclusionContainer.crs.
+            The default is 0.
+        invert : bool, optional
+            Whether to exclude (False) or include (True) the specified areas
+            of the geometries. The default is False.
+        """
+        d = dict(geometry=geometry, buffer=buffer, invert=invert)
+        self.geometries.append(d)
+
+    def open_files(self):
+        """
+        Open rasters and load geometries.
+        """
+        for d in self.rasters:
+            raster = d["raster"]
+            if isinstance(raster, (str, Path)):
+                raster = rio.open(raster)
+            else:
+                assert isinstance(raster, rio.DatasetReader)
+            if not raster.crs.is_valid if raster.crs is not None else True:
+                if d["crs"]:
+                    raster._crs = CRS(d["crs"])
+                else:
+                    raise ValueError(
+                        f"CRS of {raster} is invalid, please " "provide it."
+                    )
+            d["raster"] = raster
+
+        for d in self.geometries:
+            geometry = d["geometry"]
+            if isinstance(geometry, (str, Path)):
+                geometry = gpd.read_file(geometry)
+            if isinstance(geometry, gpd.GeoDataFrame):
+                geometry = geometry.geometry
+            assert isinstance(geometry, gpd.GeoSeries)
+            assert geometry.crs is not None
+            geometry = geometry.to_crs(self.crs)
+            if d.get("buffer", 0) and not d.get("_buffered", False):
+                geometry = geometry.buffer(d["buffer"])
+                d["_buffered"] = True
+            d["geometry"] = geometry
+
+    @property
+    def all_closed(self):
+        """
+        Check whether all files in the raster container are closed.
+        """
+        return all(isinstance(d["raster"], (str, Path)) for d in self.rasters) and all(
+            isinstance(d["geometry"], (str, Path)) for d in self.geometries
+        )
+
+    @property
+    def all_open(self):
+        """
+        Check whether all files in the raster container are open.
+        """
+        return all(
+            isinstance(d["raster"], rio.DatasetReader) for d in self.rasters
+        ) and all(isinstance(d["geometry"], gpd.GeoSeries) for d in self.geometries)
+
+    def __repr__(self):
+        return (
+            f"Exclusion Container"
+            f"\n registered rasters: {len(self.rasters)} "
+            f"\n registered geometry collections: {len(self.geometries)}"
+            f"\n CRS: {self.crs} - Resolution: {self.res}"
+        )
+
+    def compute_shape_availability(
+        self, geometry, dst_transform=None, dst_crs=None, dst_shape=None
+    ):
+        """
+        Compute the eligible area in one or more geometries and optionally
+        reproject.
+
+        Parameters
+        ----------
+        geometry : geopandas.Series
+            Geometry of which the eligible area is computed. If the series contains
+            more than one geometry, the eligble area of the combined geometries is
+            computed.
+        dst_transform : rasterio.Affine
+            Transform of the target raster. Define if the availability
+            should be reprojected. Defaults to None.
+        dst_crs : rasterio.CRS/proj.CRS
+            CRS of the target raster. Define if the availability
+            should be reprojected. Defaults to None.
+        dst_shape : tuple
+            Shape of the target raster. Define if the availability
+            should be reprojected. Defaults to None.
+
+        Returns
+        -------
+        masked : np.array
+            Mask whith eligible raster cells indicated by 1 and excluded cells by 0.
+        transform : rasterion.Affine
+            Affine transform of the mask.
+        """
+        if isinstance(geometry, gpd.GeoDataFrame):
+            geometry = geometry.geometry
+        geometry = geometry.to_crs(self.crs)
+
+        dst_args_not_none = [
+            arg is not None for arg in [dst_transform, dst_crs, dst_shape]
+        ]
+        if any(dst_args_not_none):
+            # if any is not None, require that all are not None
+            if not all(dst_args_not_none):
+                raise ValueError(
+                    "Arguments dst_transform, dst_crs, dst_shape "
+                    "should be all None or all defined."
+                )
+            return shape_availability_reprojected(
+                geometry, self, dst_transform, dst_crs, dst_shape
+            )
+        else:
+            return shape_availability(geometry, self)
+
+    def plot_shape_availability(
+        self,
+        geometry,
+        ax=None,
+        set_title=True,
+        dst_transform=None,
+        dst_crs=None,
+        dst_shape=None,
+        show_kwargs={},
+        plot_kwargs={},
+    ):
+        """
+        Plot the eligible area for one or more geometries and optionally
+        reproject.
+
+        This function uses its own default values for ``rasterio.plot.show`` and
+        ``geopandas.GeoSeries.plot``. Therefore eligible land is drawn in green
+        Note that this funtion will likely fail if another CRS than the one of the
+        ExclusionContainer is used in the axis (e.g. cartopy projections).
+
+        Parameters
+        ----------
+        geometry : geopandas.Series
+            Geometry of which the eligible area is computed. If the series contains
+            more than one geometry, the eligble area of the combined geometries is
+            computed.
+        ax : matplotlib Axis, optional
+        set_title: boolean, optional
+            Whether to set the title with additional information on the share of
+            eligible land.
+        dst_transform : rasterio.Affine
+            Transform of the target raster. Define if the availability
+            should be reprojected. Defaults to None.
+        dst_crs : rasterio.CRS/proj.CRS
+            CRS of the target raster. Define if the availability
+            should be reprojected. Defaults to None.
+        dst_shape : tuple
+            Shape of the target raster. Define if the availability
+            should be reprojected. Defaults to None.
+        show_kwargs : dict, optional
+            Keyword arguments passed to ``rasterio.plot.show``, by default {}
+        plot_kwargs: dict, optional
+            Keyword arguments passed to ``geopandas.GeoSeries.plot``, by default {}
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
+        import matplotlib.pyplot as plt
+
+        if isinstance(geometry, gpd.GeoDataFrame):
+            geometry = geometry.geometry
+        geometry = geometry.to_crs(self.crs)
+
+        masked, transform = self.compute_shape_availability(
+            geometry, dst_transform, dst_crs, dst_shape
+        )
+
+        if ax is None:
+            ax = plt.gca()
+
+        show_kwargs.setdefault("cmap", "Greens")
+        ax = show(masked, transform=transform, ax=ax, **show_kwargs)
+        plot_kwargs.setdefault("edgecolor", "k")
+        plot_kwargs.setdefault("color", "None")
+        geometry.plot(ax=ax, **plot_kwargs)
+
+        if set_title:
+            eligible_share = masked.sum() * self.res**2 / geometry.area.sum()
+            ax.set_title(f"Eligible area (green) {eligible_share:.2%}")
+
+        return ax
 
 
 def _init_process(shapes_, excluder_, dst_transform_, dst_crs_, dst_shapes_):

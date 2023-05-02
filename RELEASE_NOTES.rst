@@ -29,6 +29,8 @@ Upcoming Release
     A workaround is implemented in `atlite` which reduces the performance when building cutouts, especially for ERA5 cutouts.
     The `nan` values in `cutouts` which are affected by the bug can not be recoevered and the `cutout` needs to be downloaded again.
     For more details on the bug, see the `xarray issue tracker <https://github.com/pydata/xarray/issues/7691>`_.
+* The exclusions calculation for geometries not overlapping with the raster was fixed.
+* The ExclusionContainer has new functions `compute_shape_availability` and `plot_shape_availability`. These functions ease the inspection of excluded areas within single and multiple geometries.
 * Support for newly released ERA5 back extension to 1940.
 
 Version 0.2.10
