@@ -9,8 +9,12 @@ Release Notes
 
 
 
-Upcoming Release
-================
+.. Upcoming Release
+.. ================
+
+Version 0.2.11
+==============
+
 
 * With this release, we change the license from copyleft GPLv3 to the more liberal MIT license with the consent of all major contributors `#263 <https://github.com/PyPSA/atlite/pull/263>`_.
 * Added 1-axis horizontal, 1-axis tilted horizontal, 1-axis vertical, and 2-axis tracking options for solar PV; e.g. ``cutout.pv(tracking='horizontal')``.
