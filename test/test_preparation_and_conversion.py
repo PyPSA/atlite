@@ -4,7 +4,6 @@
 # SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
-
 """
 Created on Mon May 11 11:15:41 2020.
 
@@ -55,7 +54,7 @@ def prepared_features_test(cutout):
 
 def update_feature_test(cutout, red):
     """
-    atlite should be able to overwrite a feature.
+    Atlite should be able to overwrite a feature.
     """
     red.data = cutout.data.drop_vars("influx_direct")
     red.prepare("influx", overwrite=True)
