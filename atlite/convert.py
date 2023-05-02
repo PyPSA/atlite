@@ -799,7 +799,10 @@ def hydro(
 
     matrix = cutout.indicatormatrix(basins.shapes)
     # compute the average surface runoff in each basin
-    matrix_normalized = matrix / matrix.sum(axis=1)
+    # Fix NaN and Inf values to 0.0 to avoid numerical issues
+    matrix_normalized = np.nan_to_num(
+        matrix / matrix.sum(axis=1), nan=0.0, posinf=0.0, neginf=0.0
+    )
     runoff = cutout.runoff(
         matrix=matrix_normalized,
         index=basins.shapes.index,
