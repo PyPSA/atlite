@@ -6,7 +6,7 @@
 Atlite
 ======
 
-|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |MIT-image| |reuse| |black| |pre-commit.ci| |joss| |discord|
+|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |MIT-image| |reuse| |black| |pre-commit.ci| |joss| |discord| |stackoverflow|
 
 Atlite is a `free software`_, `xarray`_-based Python library for
 converting weather data (like wind speeds, solar influx) into energy systems data.
@@ -180,3 +180,6 @@ See the individual files for license details.
    :target: https://doi.org/10.21105/joss.03294
 .. |discord| image:: https://img.shields.io/discord/911692131440148490?logo=discord
    :target: https://discord.gg/AnuJBk23FU
+.. |stackoverflow| image:: https://img.shields.io/stackexchange/stackoverflow/t/pypsa
+   :target: https://stackoverflow.com/questions/tagged/pypsa
+   :alt: Stackoverflow
