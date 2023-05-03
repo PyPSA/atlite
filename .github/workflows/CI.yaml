@@ -19,11 +19,11 @@ jobs:
         # - windows-latest outcommented due to difficult rasterio installation
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v1
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
       with:
-        python-version: 3.8
+        python-version: 3.11
     - name: Install dependencies
       run: |
         echo -ne "url: https://cds.climate.copernicus.eu/api/v2 \nkey: ${{secrets.CDSAPI_TOKEN}}\n" > ~/.cdsapirc

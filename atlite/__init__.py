@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
-
 """
 Atlite helps you to convert weather data into energy systems model data.
 

@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
-
 """
 Functions for use in conjunction with csp data generation.
 """
@@ -39,7 +38,6 @@ def calculate_dni(ds, solar_position=None, altitude_threshold=3.75):
         the solar altitude traversed by the sun within about 15 minutes in a location with
         maximum solar altitude of 60 deg and 10h day time.
     """
-
     if solar_position is None:
         solar_position = SolarPosition(ds)
 

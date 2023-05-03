@@ -4,7 +4,6 @@
 # SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
-
 """
 Created on Mon Oct 18 15:11:42 2021.
 
@@ -53,8 +52,8 @@ def test_oeding_and_oswald_sample_case():
 
     This is the same as the DIN 48204-4/84.
 
-    We do not exactly know at what ambient temperature the DIN is calculated.
-    30 degree is a good guess that fits.
+    We do not exactly know at what ambient temperature the DIN is
+    calculated. 30 degree is a good guess that fits.
     """
     ds = {
         "temperature": 30 + 273,
@@ -84,7 +83,6 @@ def test_suedkabel_sample_case():
     typ-2xsfl2y-1x2500-rms-250-220-380-kv assume ambient temperature of 20°C,
     no wind, no sun and max allowed line temperature of 90°C.
     """
-
     ds = {
         "temperature": 293,
         "wnd100m": 0,

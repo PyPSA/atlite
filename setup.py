@@ -45,13 +45,13 @@ setup(
     ],
     extras_require={
         "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme", "nbsphinx", "nbsphinx-link"],
-        "dev": ["pre-commit", "pytest", "pytest-cov"],
+        "dev": ["pre-commit", "pytest", "pytest-cov", "matplotlib"],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Environment :: Console",
         "Intended Audience :: Science/Research",
-        "License :: OSI Approved :: MIT",
+        "License :: OSI Approved :: MIT License",
         "Natural Language :: English",
         "Operating System :: OS Independent",
     ],

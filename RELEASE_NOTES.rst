@@ -9,13 +9,33 @@ Release Notes
 
 
 
-Upcoming Release
-================
+.. Upcoming Release
+.. ================
+
+Version 0.2.11
+==============
+
 
 * With this release, we change the license from copyleft GPLv3 to the more liberal MIT license with the consent of all major contributors `#263 <https://github.com/PyPSA/atlite/pull/263>`_.
-* Added 1-axis vertical and 2-axis tracking option for solar pv and trigon_model = "simple"
+* Added 1-axis horizontal, 1-axis tilted horizontal, 1-axis vertical, and 2-axis tracking options for solar PV; e.g. ``cutout.pv(tracking='horizontal')``.
 * Added small documentation for get_windturbineconfig
 * The deprecated functions `grid_cells` and `grid_coordinates` were removed.
+* Feature: Cutouts are now compressed differently during the `.prepare(...)` step using the native compression feature of netCDF files.
+    This increases time to build a cutout but should reduce cutout file sizes.
+    Existing cutouts are not affected. To also compress existing cutouts, load and save them using `xarray` with
+    compression specified, see `the xarray documentation <https://docs.xarray.dev/en/stable/generated/xarray.Dataset.to_netcdf.html>`_
+    for details.
+* Feature: Cutouts from `ERA5` are now downloaded for each month rather than for each year.
+  This allows for spatially larger cutouts (worldwide) which previously exceed the maximum
+  download size from ERA5.
+* Doc: A subsection on how to reduce `cutout` sizes has been added to the documentation.
+* Bug notice: An bug in one of `atlite` package dependencies (`xarray`) can lead to `nan` values when using `atlite`.
+    A workaround is implemented in `atlite` which reduces the performance when building cutouts, especially for ERA5 cutouts.
+    The `nan` values in `cutouts` which are affected by the bug can not be recoevered and the `cutout` needs to be downloaded again.
+    For more details on the bug, see the `xarray issue tracker <https://github.com/pydata/xarray/issues/7691>`_.
+* The exclusions calculation for geometries not overlapping with the raster was fixed.
+* The ExclusionContainer has new functions `compute_shape_availability` and `plot_shape_availability`. These functions ease the inspection of excluded areas within single and multiple geometries.
+* Support for newly released ERA5 back extension to 1940.
 
 Version 0.2.10
 ==============

@@ -4,7 +4,6 @@
 # SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
-
 """
 Created on Mon May 11 11:15:41 2020.
 
@@ -55,7 +54,7 @@ def prepared_features_test(cutout):
 
 def update_feature_test(cutout, red):
     """
-    atlite should be able to overwrite a feature.
+    Atlite should be able to overwrite a feature.
     """
     red.data = cutout.data.drop_vars("influx_direct")
     red.prepare("influx", overwrite=True)
@@ -78,7 +77,6 @@ def pv_test(cutout, time=TIME):
 
     Compare optimal orientation with flat orientation.
     """
-
     orientation = {"slope": 0.0, "azimuth": 0.0}
     cap_factor = cutout.pv(atlite.resource.solarpanels.CdTe, orientation)
 
@@ -152,7 +150,6 @@ def pv_tracking_test(cutout):
     Test the atlite.Cutout.pv function with different tracking settings and
     compare results.
     """
-
     orientation = {"slope": 0.0, "azimuth": 180.0}
     # tracking = None is the default option
     cap_factor = cutout.pv(
@@ -171,9 +168,22 @@ def pv_tracking_test(cutout):
     assert cap_factor_tracking_0axis.sum() > 0
     assert cap_factor.mean() == cap_factor_tracking_0axis.mean()
 
-    # calculate with tracking = 'vertical' and tracking = 'vh', and compare tracking option results
+    # calculate with tracking = 'horizontal', 'tilted_horizontal', 'vertical' and 'dual', and compare tracking option results
+    cap_factor_tracking_1axis_h = cutout.pv(
+        atlite.resource.solarpanels.CSi,
+        orientation,
+        tracking="horizontal",
+        capacity_factor=True,
+    )
 
-    cap_factor_tracking_1axis = cutout.pv(
+    cap_factor_tracking_1axis_th = cutout.pv(
+        atlite.resource.solarpanels.CSi,
+        orientation,
+        tracking="tilted_horizontal",
+        capacity_factor=True,
+    )
+
+    cap_factor_tracking_1axis_v = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
         tracking="vertical",
@@ -183,17 +193,27 @@ def pv_tracking_test(cutout):
     cap_factor_tracking_2axis = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
-        tracking="vh",
+        tracking="dual",
         capacity_factor=True,
     )
 
-    assert cap_factor_tracking_1axis.notnull().all()
-    assert cap_factor_tracking_1axis.sum() > 0
-    assert cap_factor_tracking_1axis.mean() >= cap_factor_tracking_0axis.mean()
+    assert cap_factor_tracking_1axis_v.notnull().all()
+    assert cap_factor_tracking_1axis_v.sum() > 0
+    assert cap_factor_tracking_1axis_v.mean() >= cap_factor_tracking_0axis.mean()
+
+    assert cap_factor_tracking_1axis_h.notnull().all()
+    assert cap_factor_tracking_1axis_h.sum() > 0
+    assert cap_factor_tracking_1axis_h.mean() >= cap_factor_tracking_0axis.mean()
+
+    assert cap_factor_tracking_1axis_th.notnull().all()
+    assert cap_factor_tracking_1axis_th.sum() > 0
+    assert cap_factor_tracking_1axis_th.mean() >= cap_factor_tracking_0axis.mean()
 
     assert cap_factor_tracking_2axis.notnull().all()
     assert cap_factor_tracking_2axis.sum() > 0
-    assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis.mean()
+    assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis_v.mean()
+    assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis_h.mean()
+    assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis_th.mean()
 
 
 def csp_test(cutout):
@@ -201,7 +221,6 @@ def csp_test(cutout):
     Test the atlite.Cutout.csp function with different for different settings
     and technologies.
     """
-
     ## Test technology = "solar tower"
     st = cutout.csp(atlite.cspinstallations.SAM_solar_tower, capacity_factor=True)
 

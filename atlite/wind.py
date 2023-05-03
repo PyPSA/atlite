@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
-
 """
 Functions for use in conjunction with wind data generation.
 """
@@ -53,7 +52,6 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
     [2] https://en.wikipedia.org/w/index.php?title=Roughness_length&oldid=862127433,
     Retrieved 2019-02-15.
     """
-
     # Fast lane
     to_name = "wnd{h:0d}m".format(h=int(to_height))
     if to_name in ds:

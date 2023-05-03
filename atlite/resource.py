@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
-
 """
 Module for providing access to external ressources, like windturbine or pv
 panel configurations.
@@ -54,7 +53,6 @@ def get_windturbineconfig(turbine):
     config : dict
         Config with details on the turbine
     """
-
     assert isinstance(turbine, (str, Path))
 
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
@@ -94,7 +92,6 @@ def get_solarpanelconfig(panel):
     config : dict
         Config with details on the solarpanel
     """
-
     assert isinstance(panel, (str, Path))
 
     if isinstance(panel, str):
@@ -127,7 +124,6 @@ def get_cspinstallationconfig(installation):
     config : dict
         Config with details on the CSP installation.
     """
-
     assert isinstance(installation, (str, Path))
 
     if isinstance(installation, str):
@@ -216,7 +212,6 @@ def windturbine_smooth(turbine, params=None):
     Danish wind time series from a new global renewable energy atlas
     for energy system analysis, Energy 93, Part 1 (2015) 1074–1088.
     """
-
     if params is None or params == True:
         params = {}
 
@@ -297,7 +292,6 @@ def get_oedb_windturbineconfig(search=None, **search_params):
     >>> get_oedb_windturbineconfig(name="E-53/800", manufacturer="Enercon")
     {'V': ..., 'POW': ..., ...}
     """
-
     # Parse information of different allowed 'turbine' values
     if isinstance(search, int):
         search_params.setdefault("id", search)
