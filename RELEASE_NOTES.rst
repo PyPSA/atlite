@@ -36,6 +36,8 @@ Version 0.2.11
 * The exclusions calculation for geometries not overlapping with the raster was fixed.
 * The ExclusionContainer has new functions `compute_shape_availability` and `plot_shape_availability`. These functions ease the inspection of excluded areas within single and multiple geometries.
 * Support for newly released ERA5 back extension to 1940.
+* Feature: Added the `irradiation` method to `cutout` to access raw irradiation data, as well as the `irradiation=total` keyword to the `TiltedIrradiation` method for a way of accessing `direct`, `diffuse`, and `ground` reflected irradiation quantities separately when needed.
+    A new example jupyter notebook `building_stock_weather_aggregation.ipynb` has also been added to demonstrate a use case for the added functionality.
 
 Version 0.2.10
 ==============
