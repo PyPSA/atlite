@@ -109,7 +109,7 @@ Please check the `documentation <https://atlite.readthedocs.io/en/latest>`_.
 
 
 Support & Contributing
-============
+======================
 * In case of code-related **questions**, please post on `stack overflow <https://stackoverflow.com/questions/tagged/pypsa>`_.
 * For non-programming related and more general questions please refer to the `pypsa mailing list <https://groups.google.com/group/pypsa>`_.
 * To **discuss** with other PyPSA and atlite users, organise projects, share news, and get in touch with the community you can use the `discord server <https://discord.gg/JTdvaEBb>`_.
