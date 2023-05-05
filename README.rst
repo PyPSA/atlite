@@ -6,7 +6,7 @@
 Atlite
 ======
 
-|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |MIT-image| |reuse| |black| |pre-commit.ci| |joss| |discord|
+|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |MIT-image| |reuse| |black| |pre-commit.ci| |joss| |discord| |stackoverflow|
 
 Atlite is a `free software`_, `xarray`_-based Python library for
 converting weather data (like wind speeds, solar influx) into energy systems data.
@@ -107,15 +107,14 @@ Documentation
 
 Please check the `documentation <https://atlite.readthedocs.io/en/latest>`_.
 
-Contributing
-============
 
-If you have any ideas, suggestions or encounter problems, feel invited
-to file issues or make pull requests on GitHub.
-A `Discord server <https://discord.gg/AnuJBk23FU>`_ hosts every tool
-in the PyPSA ecosystem. We have there public voice and text channels
-that are suitable to organise projects, ask questions,
-share news, or chat with the community.
+Support & Contributing
+======================
+* In case of code-related **questions**, please post on `stack overflow <https://stackoverflow.com/questions/tagged/pypsa>`_.
+* For non-programming related and more general questions please refer to the `pypsa mailing list <https://groups.google.com/group/pypsa>`_.
+* To **discuss** with other PyPSA and atlite users, organise projects, share news, and get in touch with the community you can use the `discord server <https://discord.gg/JTdvaEBb>`_.
+* For **bugs and feature requests**, please use the `issue tracker <https://github.com/PyPSA/atlite/issues>`_.
+* We strongly welcome anyone interested in providing **contributions** to this project. If you have any ideas, suggestions or encounter problems, feel invited to file issues or make pull requests on `Github <https://github.com/PyPSA/atlite>`_.
 
 Authors and Copyright
 ---------------------
@@ -180,3 +179,6 @@ See the individual files for license details.
    :target: https://doi.org/10.21105/joss.03294
 .. |discord| image:: https://img.shields.io/discord/911692131440148490?logo=discord
    :target: https://discord.gg/AnuJBk23FU
+.. |stackoverflow| image:: https://img.shields.io/stackexchange/stackoverflow/t/pypsa
+   :target: https://stackoverflow.com/questions/tagged/pypsa
+   :alt: Stackoverflow

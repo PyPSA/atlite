@@ -36,6 +36,10 @@ Atlite: Convert weather data to energy systems data
 .. image:: https://img.shields.io/discord/911692131440148490?logo=discord
     :target: https://discord.gg/AnuJBk23FU
 
+.. image:: https://img.shields.io/stackexchange/stackoverflow/t/pypsa
+   :target: https://stackoverflow.com/questions/tagged/pypsa
+   :alt: Stackoverflow
+
 Atlite is a `free software
 <http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
 <http://xarray.pydata.org/en/stable/>`_-based Python library for
@@ -123,6 +127,7 @@ If you would like to cite the Atlite software, please refer to `this paper <http
    ref_api
    release_notes
    contributing
+   support
    license
 
 License
