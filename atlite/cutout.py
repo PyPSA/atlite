@@ -37,6 +37,7 @@ from atlite.convert import (
     csp,
     heat_demand,
     hydro,
+    irradiation,
     line_rating,
     pv,
     runoff,
@@ -636,6 +637,8 @@ class Cutout:
     solar_thermal = solar_thermal
 
     wind = wind
+
+    irradiation = irradiation
 
     pv = pv
 
