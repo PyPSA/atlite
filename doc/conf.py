@@ -70,7 +70,7 @@ master_doc = "index"
 # General information about the project.
 project = "atlite"
 author = "The Atlite Authors"
-copyright = "2016-2012" + ", " + author
+copyright = "2016-2023" + ", " + author
 documentation_title = "Atlite Documentation"
 
 # The version info for the project you're documenting, acts as replacement for
@@ -145,24 +145,23 @@ nbsphinx_prolog = """
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "sphinx_rtd_theme"
+html_theme = "sphinx_book_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
-    "display_version": True,
-    "sticky_navigation": True,
-    # 'style_nav_header_background': '#009682',
+    "repository_url": "https://github.com/pypsa/atlite",
+    "use_repository_button": True,
+    "show_navbar_depth": 1,
 }
 
-
 # These folders are copied to the documentation's HTML output
-html_static_path = ["_static"]
+# html_static_path = ["_static"]
 
 # These paths are either relative to html_static_path
 # or fully qualified paths (eg. https://...)
-html_css_files = ["theme_overrides.css"]
+# html_css_files = ["theme_overrides.css"]
 
 
 # The name for this set of Sphinx documents.  If None, it defaults to
