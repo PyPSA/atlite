@@ -44,7 +44,13 @@ setup(
         "cdsapi",
     ],
     extras_require={
-        "docs": ["numpydoc", "sphinx", "sphinx_rtd_theme", "nbsphinx", "nbsphinx-link"],
+        "docs": [
+            "numpydoc",
+            "sphinx",
+            "sphinx-book-theme",
+            "nbsphinx",
+            "nbsphinx-link",
+        ],
         "dev": ["pre-commit", "pytest", "pytest-cov", "matplotlib"],
     },
     classifiers=[
