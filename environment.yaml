@@ -35,6 +35,6 @@ dependencies:
 - bottleneck
 - numexpr
 
-  # For travis and testing
+  # For testing
 - pip
 - pytest
