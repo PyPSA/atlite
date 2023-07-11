@@ -531,8 +531,7 @@ class TestERA5:
     @staticmethod
     @pytest.mark.skipif(
         os.name == "nt",
-        reason="This test breaks on windows machine on travis"
-        " due to unknown reasons.",
+        reason="This test breaks on windows machine on CI" " due to unknown reasons.",
     )
     def test_all_non_na_era5_weird_resolution(cutout_era5_weird_resolution):
         """
@@ -563,8 +562,7 @@ class TestERA5:
     @staticmethod
     @pytest.mark.skipif(
         os.name == "nt",
-        reason="This test breaks on windows machine on travis"
-        " due to unknown reasons.",
+        reason="This test breaks on windows machine on CI" " due to unknown reasons.",
     )
     def test_dx_dy_preservation_era5_weird_resolution(cutout_era5_weird_resolution):
         """
