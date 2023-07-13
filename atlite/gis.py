@@ -8,14 +8,13 @@ Functions for Geographic Information System.
 """
 
 import logging
-import os
-import validators
 import multiprocessing as mp
+import os
 from collections import OrderedDict
 from functools import wraps
 from pathlib import Path
-from warnings import catch_warnings, simplefilter, warn
 from urllib.request import urlretrieve
+from warnings import catch_warnings, simplefilter, warn
 
 import geopandas as gpd
 import numpy as np
@@ -24,6 +23,7 @@ import rasterio as rio
 import rasterio.warp
 import scipy as sp
 import scipy.sparse
+import validators
 import xarray as xr
 from numpy import empty, isin
 from pyproj import CRS, Transformer

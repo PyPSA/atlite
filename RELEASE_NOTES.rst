@@ -12,7 +12,7 @@ Release Notes
 Upcoming Release
 ================
 
-* The functions ``add_raster()`` and ``add_geometry()`` of the ``ExclusionContainer`` can now directly read from URL. 
+* The functions ``add_raster()`` and ``add_geometry()`` of the ``ExclusionContainer`` can now directly read from URL.
 
 
 Version 0.2.11
