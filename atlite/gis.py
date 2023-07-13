@@ -8,11 +8,14 @@ Functions for Geographic Information System.
 """
 
 import logging
+import os
+import validators
 import multiprocessing as mp
 from collections import OrderedDict
 from functools import wraps
 from pathlib import Path
 from warnings import catch_warnings, simplefilter, warn
+from urllib.request import urlretrieve
 
 import geopandas as gpd
 import numpy as np
@@ -34,6 +37,26 @@ from shapely.strtree import STRtree
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
+
+# for the writable data directory follow the XDG guidelines
+# https://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html
+_writable_dir = os.path.join(os.path.expanduser("~"), ".local", "share")
+_data_dir = os.path.join(
+    os.environ.get("XDG_DATA_HOME", os.environ.get("APPDATA", _writable_dir)),
+    "atlite-excluders",
+)
+_data_dir = Path(_data_dir)
+try:
+    _data_dir.mkdir(exist_ok=True)
+except FileNotFoundError:
+    os.makedirs(_data_dir)
+
+
+def _retrieve_from_url(path):
+    local_path = _data_dir / os.path.basename(path)
+    logger.info(f"Retrieving network data from {path}")
+    urlretrieve(path, local_path)
+    return str(local_path)
 
 
 def get_coords(x, y, time, dx=0.25, dy=0.25, dt="h", **kwargs):
@@ -426,7 +449,7 @@ class ExclusionContainer:
         Parameters
         ----------
         raster : str/rasterio.DatasetReader
-            Raster or path to raster which to exclude.
+            Raster, path or URL to raster which to exclude.
         codes : int/list/function, optional
             Codes in the raster which to exclude. Can be a callable function
             which takes the mask (np.array) as argument and performs a
@@ -465,7 +488,7 @@ class ExclusionContainer:
         Parameters
         ----------
         geometry : str/path/geopandas.GeoDataFrame
-            Path to geometries or geometries which to exclude.
+            Path or URL to geometries or geometries which to exclude.
         buffer : float, optional
             Buffer around the excluded areas in units of ExclusionContainer.crs.
             The default is 0.
@@ -483,6 +506,8 @@ class ExclusionContainer:
         for d in self.rasters:
             raster = d["raster"]
             if isinstance(raster, (str, Path)):
+                if validators.url(str(raster)):
+                    raster = _retrieve_from_url(raster)
                 raster = rio.open(raster)
             else:
                 assert isinstance(raster, rio.DatasetReader)

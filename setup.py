@@ -42,6 +42,7 @@ setup(
         "pyproj>=2",
         "geopandas",
         "cdsapi",
+        "validators",
     ],
     extras_require={
         "docs": [
