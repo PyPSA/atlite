@@ -39,15 +39,15 @@ dy = 0.0545
 dt = "1h"
 features = {
     "wind": [
-        "wnd10m",
-        "wnd40m",
-        "wnd60m",
-        "wnd80m",
-        "wnd100m",
+        # "wnd10m",
+        # "wnd40m",
+        # "wnd60m",
+        # "wnd80m",
+        # "wnd100m",
         "wnd125m",
-        "wnd150m",
+        # "wnd150m",
         "wnd175m",
-        "wnd200m",
+        # "wnd200m",
         "roughness",
     ],
 }
@@ -539,13 +539,6 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_params):
             * 'cosmo_rea6_dir': str of Path
             Directory of the stored COMSO REA6 data.
         Possible arguments are:
-            * 'cosmo_rea6_height_levels' : list[int]
-                If this argument is given, only selected height levels will be loaded.
-                Has to be a list of ints. Possible height levels are 10, 40, 60, 80,
-                100, 125, 150, 175, and 200 m.
-                .. warning::
-                    Currently it is not possible to reload initially unselected height
-                    levels once the Cutout is prepared.
             * 'parallel', bool.
                 Whether to load stored files in parallel mode. Default is False.
             * 'try_download' : bool
@@ -563,14 +556,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_params):
     creation_params.setdefault("parallel", False)
     creation_params.setdefault("try_download", True)
 
-    if "cosmo_rea6_height_levels" in creation_params.keys():
-        levels = [
-            _height_to_subfeature(x)
-            for x in creation_params["cosmo_rea6_height_levels"]
-        ]
-        logging.info(f"only using height levels {levels}")
-    else:
-        levels = features["wind"]
+    levels = features["wind"]
 
     ds = get_data_wind(
         cutout,
