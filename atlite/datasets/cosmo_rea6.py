@@ -10,8 +10,11 @@ from __future__ import annotations
 
 import bz2
 import logging
+import os
+import shutil
 import warnings
 from pathlib import Path
+from tempfile import mkstemp
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
@@ -132,12 +135,15 @@ def download_file(
     show_progress : bool, optional
         Whether to show a progressbar, by default True
     """
+    filepath = Path(filepath)
     try:
+        fd, tmp = mkstemp(suffix=filepath.name, dir=filepath.parent)
+        os.close(fd)
         with requests.get(download_url, stream=True) as r:
             r.raise_for_status()
             if show_progress:
                 with tqdm.wrapattr(
-                    open(filepath, "wb"),
+                    open(tmp, "wb"),
                     "write",
                     miniters=1,
                     desc=download_url.split("/")[-1],
@@ -146,21 +152,27 @@ def download_file(
                     for chunk in r.iter_content(chunk_size=4096):
                         f.write(chunk)
             else:
-                with open(filepath, "wb") as f:
+                with open(tmp, "wb") as f:
                     for chunk in r.iter_content(chunk_size=8192):
                         # If you have chunk encoded response uncomment if
                         # and set chunk_size parameter to None.
                         # if chunk:
                         f.write(chunk)
-
+        shutil.move(tmp, filepath)
         logger.info(f"download complete, file saved to\n{filepath}")
-    except KeyboardInterrupt:
-        # open and close again to free the incompletely downloaded file:
-        with open(filepath, "rb") as f:
-            pass
-        # delete the incompletely downloaded file
-        filepath.unlink()
-        raise KeyboardInterrupt
+    except (KeyboardInterrupt, Exception) as e:
+        if filepath.exists():
+            with open(filepath, "rb") as f:
+                pass
+            # delete the incompletely moved file
+            os.remove(filepath)
+        else:
+            # open and close again to free the incompletely downloaded file:
+            with open(tmp, "rb") as f:
+                pass
+            # delete the incompletely downloaded file
+            os.remove(tmp)
+        raise e
 
 
 def maybe_download_file(
