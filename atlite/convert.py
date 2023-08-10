@@ -461,6 +461,15 @@ def convert_wind(ds, turbine):
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
+    if POW[-1] != 0:
+        logger.warning(
+            (
+                "The power curve does not have a cutoff speed i.e. the last value is "
+                "not zero.\nYou can either change the power curve manually or set "
+                "'add_cutoff=True' in the Cutout.wind conversion method."
+            )
+        )
+
     wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
 
     def _interpolate(da):
@@ -480,7 +489,7 @@ def convert_wind(ds, turbine):
     return da
 
 
-def wind(cutout, turbine, smooth=False, **params):
+def wind(cutout, turbine, smooth=False, add_cutoff=False, **params):
     """
     Generate wind generation time-series.
 
@@ -501,6 +510,9 @@ def wind(cutout, turbine, smooth=False, **params):
         If True smooth power curve with a gaussian kernel as
         determined for the Danish wind fleet to Delta_v = 1.27 and
         sigma = 2.29. A dict allows to tune these values.
+    add_cutoff : bool
+        If True, will add a zero power output at the highest wind speed in the power
+        curve in case the power curve does ot end with a zero.
 
     Note
     ----
@@ -517,6 +529,16 @@ def wind(cutout, turbine, smooth=False, **params):
 
     if smooth:
         turbine = windturbine_smooth(turbine, params=smooth)
+
+    if add_cutoff and turbine["POW"][-1] != 0:
+        turbine["V"] = np.pad(turbine["V"], (0, 1), "edge")
+        turbine["POW"] = np.pad(turbine["POW"], (0, 1), "constant", constant_values=0)
+        logger.info(
+            (
+                "adding a cutoff wind speed to the turbine power curve at"
+                f"V={turbine['V'][-1]} m/s."
+            )
+        )
 
     return cutout.convert_and_aggregate(
         convert_func=convert_wind, turbine=turbine, **params
