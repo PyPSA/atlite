@@ -158,6 +158,9 @@ def download_file(
                         # and set chunk_size parameter to None.
                         # if chunk:
                         f.write(chunk)
+
+        with open(tmp, "rb") as f:  # sometimes tmp is still open and can't be moved
+            pass
         shutil.move(tmp, filepath)
         logger.info(f"download complete, file saved to\n{filepath}")
     except (KeyboardInterrupt, Exception) as e:
