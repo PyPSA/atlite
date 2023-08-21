@@ -11,6 +11,7 @@ panel configurations.
 import json
 import logging
 import re
+import warnings
 from operator import itemgetter
 from pathlib import Path
 
@@ -32,13 +33,13 @@ SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 
 
-def get_windturbineconfig(turbine):
+def get_windturbineconfig(turbine, add_cutoff=False):
     """
     Load the wind 'turbine' configuration.
 
     Parameters
     ----------
-    turbine : str or pathlib.Path
+    turbine : str or pathlib.Path or dict
         if str:
             The name of a preshipped turbine from alite.resources.windturbine .
             Alternatively, if a str starting with 'oedb:<name>' is passed the Open
@@ -47,32 +48,52 @@ def get_windturbineconfig(turbine):
             `atlite.resource.get_oedb_windturbineconfig(...)`
         if `pathlib.Path` is provided the configuration is read from this local
             path instead
+        if dict:
+            a user provided config dict. Needs to have the keys "POW", "V", "P", and
+            "hub_height". Values for "POW" and "V" need to be list or np.ndarray with
+            equal length.
+    add_cutoff : bool
+        If True and in case the power curve does not end with a zero, will add zero power
+        output at the highest wind speed in the power curve. If False, a warning will be
+        raised if the power curve does not have a cutoff wind speed.
 
     Returns
     ----------
     config : dict
         Config with details on the turbine
     """
-    assert isinstance(turbine, (str, Path))
+    assert isinstance(turbine, (str, Path, dict))
+
+    if add_cutoff is False:
+        msg = (
+            "'add_cutoff' for wind turbine\npower curves will default to True in a "
+            "future version of atlite."
+        )
+        warnings.warn(msg, FutureWarning)
 
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
-        return get_oedb_windturbineconfig(turbine[len("oedb:") :])
+        conf = get_oedb_windturbineconfig(turbine[len("oedb:") :])
 
-    elif isinstance(turbine, str):
-        turbine_path = windturbines[turbine.replace(".yaml", "")]
+    elif isinstance(turbine, (str, Path)):
+        if isinstance(turbine, str):
+            turbine_path = windturbines[turbine.replace(".yaml", "")]
 
-    elif isinstance(turbine, Path):
-        turbine_path = turbine
+        elif isinstance(turbine, Path):
+            turbine_path = turbine
 
-    with open(turbine_path, "r") as f:
-        conf = yaml.safe_load(f)
+        with open(turbine_path, "r") as f:
+            conf = yaml.safe_load(f)
+            conf = dict(
+                V=np.array(conf["V"]),
+                POW=np.array(conf["POW"]),
+                hub_height=conf["HUB_HEIGHT"],
+                P=np.max(conf["POW"]),
+            )
 
-    return dict(
-        V=np.array(conf["V"]),
-        POW=np.array(conf["POW"]),
-        hub_height=conf["HUB_HEIGHT"],
-        P=np.max(conf["POW"]),
-    )
+    elif isinstance(turbine, dict):
+        conf = turbine
+
+    return _validate_turbine_config_dict(conf, add_cutoff)
 
 
 def get_solarpanelconfig(panel):
@@ -257,6 +278,71 @@ def windturbine_smooth(turbine, params=None):
             sigma,
         )
 
+    return turbine
+
+
+def _max_v_is_zero_pow(turbine):
+    return np.any((turbine["POW"][turbine["V"] == turbine["V"].max()] == 0))
+
+
+def _validate_turbine_config_dict(turbine: dict, add_cutoff: bool):
+    """
+    Checks the turbine config dict format and power curve.
+
+    Parameters
+    ----------
+    turbine : dict
+        turbine configuration dict. Needs the keys "POW", "V", "P", and "hub_height".
+        Values for "V" and "POW" need to be list or np.ndarray.
+    add_cutoff : bool
+        If True and in case the power curve does not end with a zero, will add zero power
+        output at the highest wind speed in the power curve. If False, a warning will be
+        raised if the power curve does not have a cutoff wind speed.
+
+    Returns
+    -------
+    dict
+        validated and potentially modified turbine config dict
+    """
+    if not all(key in turbine for key in ("POW", "V", "P", "hub_height")):
+        err_msg = (
+            "turbine config dict needs at least the following keys: ['POW', 'V', 'P', "
+            f"'hub_height']\nbut are currently: {list(turbine.keys())}"
+        )
+        raise ValueError(err_msg)
+
+    if not all(isinstance(turbine[p], (np.ndarray, list)) for p in ("POW", "V")):
+        raise ValueError("turbine entries 'POW' and 'V' must be np.ndarray or list")
+
+    # convert lists from user provided turbine dicts to numpy arrays
+    if any(isinstance(turbine[p], list) for p in ("POW", "V")):
+        turbine["V"] = np.array(turbine["V"])
+        turbine["POW"] = np.array(turbine["POW"])
+
+    if len(turbine["POW"]) != len(turbine["V"]):
+        raise ValueError(
+            "turbine wind speed and power arrays do not have equal length."
+        )
+
+    if add_cutoff is True and not _max_v_is_zero_pow(turbine):
+        turbine["V"] = np.pad(turbine["V"], (0, 1), "maximum")
+        turbine["POW"] = np.pad(turbine["POW"], (0, 1), "constant", constant_values=0)
+        logger.info(
+            (
+                "adding a cutoff wind speed to the turbine power curve at "
+                f"V={turbine['V'][-1]} m/s."
+            )
+        )
+
+    if not _max_v_is_zero_pow(turbine):
+        logger.warning(
+            (
+                "The power curve does not have a cutoff speed, i.e. the power output "
+                "corresponding to the\nhighest wind speed is not zero. You can either "
+                "change the power curve manually or set\n'add_cutoff=True' in the "
+                "Cutout.wind conversion method."
+            )
+        )
     return turbine
 
 
