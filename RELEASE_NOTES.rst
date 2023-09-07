@@ -14,12 +14,12 @@ Release Notes
 
 * Bug fix: Some wind turbine models did not include a cut-out wind speed, potentially causing overestimated power generation in windy conditions. Cut-out wind speeds were added to the following affected wind turbine models (`#316 <https://github.com/PyPSA/atlite/issues/314>`_):
     * NREL_ReferenceTurbine_2016CACost_10MW_offshore
-    * NREL_ReferenceTurbine_2016CACost_6MW_offshore 
-    * NREL_ReferenceTurbine_2016CACost_8MW_offshore 
+    * NREL_ReferenceTurbine_2016CACost_6MW_offshore
+    * NREL_ReferenceTurbine_2016CACost_8MW_offshore
     * NREL_ReferenceTurbine_2019ORCost_12MW_offshore
     * NREL_ReferenceTurbine_2019ORCost_15MW_offshore
-    * NREL_ReferenceTurbine_2020ATB_12MW_offshore   
-    * NREL_ReferenceTurbine_2020ATB_15MW_offshore   
+    * NREL_ReferenceTurbine_2020ATB_12MW_offshore
+    * NREL_ReferenceTurbine_2020ATB_15MW_offshore
     * NREL_ReferenceTurbine_2020ATB_18MW_offshore
 
 
