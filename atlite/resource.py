@@ -312,7 +312,8 @@ def _validate_turbine_config_dict(turbine: dict, add_cutoff: bool):
         raise ValueError(err_msg)
 
     if not all(isinstance(turbine[p], (np.ndarray, list)) for p in ("POW", "V")):
-        raise ValueError("turbine entries 'POW' and 'V' must be np.ndarray or list")
+        err_msg = "turbine entries 'POW' and 'V' must be np.ndarray or list"
+        raise ValueError(err_msg)
 
     # convert lists from user provided turbine dicts to numpy arrays
     if any(isinstance(turbine[p], list) for p in ("POW", "V")):
@@ -320,9 +321,19 @@ def _validate_turbine_config_dict(turbine: dict, add_cutoff: bool):
         turbine["POW"] = np.array(turbine["POW"])
 
     if len(turbine["POW"]) != len(turbine["V"]):
-        raise ValueError(
-            "turbine wind speed and power arrays do not have equal length."
+        err_msg = "turbine wind speed and power arrays do not have equal length."
+        raise ValueError(err_msg)
+
+    if not np.all(np.diff(turbine["V"]) >= 0):
+        # This check is not strict as it uses `>=` instead of `>` and thus allows equal
+        # wind speeds in the array. However, many power curves have two entries for the
+        # same wind speed at the cut-in and cut-out speeds which would make them fail if
+        # using `>` only.
+        err_msg = (
+            "wind speed 'V' in the turbine config dict is expected to be increasing, "
+            f"but is currently not in ascending order:\n{turbine['V']}"
         )
+        raise ValueError(err_msg)
 
     if add_cutoff is True and not _max_v_is_zero_pow(turbine):
         turbine["V"] = np.pad(turbine["V"], (0, 1), "maximum")
