@@ -12,6 +12,11 @@ Release Notes
 .. Upcoming Release
 .. ================
 
+.. * Fix: the wind turbine power curve is checked for a missing cut-out wind speed and an option to add a
+..   cut-out wind speed at the end of the power curve is introduced. From the next release v0.2.13, adding
+..   a cut-out wind speed will be the default behavior (`GH #316 <https://github.com/PyPSA/atlite/pull/316>`_)
+
+
 Version 0.2.11
 ==============
 
