@@ -33,7 +33,7 @@ SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 
 
-def get_windturbineconfig(turbine, add_cutoff=False):
+def get_windturbineconfig(turbine, add_cutout_windspeed=False):
     """
     Load the wind 'turbine' configuration.
 
@@ -52,10 +52,10 @@ def get_windturbineconfig(turbine, add_cutoff=False):
             a user provided config dict. Needs to have the keys "POW", "V", "P", and
             "hub_height". Values for "POW" and "V" need to be list or np.ndarray with
             equal length.
-    add_cutoff : bool
+    add_cutout_windspeed : bool
         If True and in case the power curve does not end with a zero, will add zero power
         output at the highest wind speed in the power curve. If False, a warning will be
-        raised if the power curve does not have a cutoff wind speed.
+        raised if the power curve does not have a cut-out wind speed.
 
     Returns
     ----------
@@ -64,9 +64,9 @@ def get_windturbineconfig(turbine, add_cutoff=False):
     """
     assert isinstance(turbine, (str, Path, dict))
 
-    if add_cutoff is False:
+    if add_cutout_windspeed is False:
         msg = (
-            "'add_cutoff' for wind turbine\npower curves will default to True in a "
+            "'add_cutout_windspeed' for wind turbine\npower curves will default to True in a "
             "future version of atlite."
         )
         warnings.warn(msg, FutureWarning)
@@ -93,7 +93,7 @@ def get_windturbineconfig(turbine, add_cutoff=False):
     elif isinstance(turbine, dict):
         conf = turbine
 
-    return _validate_turbine_config_dict(conf, add_cutoff)
+    return _validate_turbine_config_dict(conf, add_cutout_windspeed)
 
 
 def get_solarpanelconfig(panel):
@@ -285,7 +285,7 @@ def _max_v_is_zero_pow(turbine):
     return np.any((turbine["POW"][turbine["V"] == turbine["V"].max()] == 0))
 
 
-def _validate_turbine_config_dict(turbine: dict, add_cutoff: bool):
+def _validate_turbine_config_dict(turbine: dict, add_cutout_windspeed: bool):
     """
     Checks the turbine config dict format and power curve.
 
@@ -294,10 +294,10 @@ def _validate_turbine_config_dict(turbine: dict, add_cutoff: bool):
     turbine : dict
         turbine configuration dict. Needs the keys "POW", "V", "P", and "hub_height".
         Values for "V" and "POW" need to be list or np.ndarray.
-    add_cutoff : bool
+    add_cutout_windspeed : bool
         If True and in case the power curve does not end with a zero, will add zero power
         output at the highest wind speed in the power curve. If False, a warning will be
-        raised if the power curve does not have a cutoff wind speed.
+        raised if the power curve does not have a cut-out wind speed.
 
     Returns
     -------
@@ -335,12 +335,12 @@ def _validate_turbine_config_dict(turbine: dict, add_cutoff: bool):
         )
         raise ValueError(err_msg)
 
-    if add_cutoff is True and not _max_v_is_zero_pow(turbine):
+    if add_cutout_windspeed is True and not _max_v_is_zero_pow(turbine):
         turbine["V"] = np.pad(turbine["V"], (0, 1), "maximum")
         turbine["POW"] = np.pad(turbine["POW"], (0, 1), "constant", constant_values=0)
         logger.info(
             (
-                "adding a cutoff wind speed to the turbine power curve at "
+                "adding a cut-out wind speed to the turbine power curve at "
                 f"V={turbine['V'][-1]} m/s."
             )
         )
@@ -348,10 +348,10 @@ def _validate_turbine_config_dict(turbine: dict, add_cutoff: bool):
     if not _max_v_is_zero_pow(turbine):
         logger.warning(
             (
-                "The power curve does not have a cutoff speed, i.e. the power output "
-                "corresponding to the\nhighest wind speed is not zero. You can either "
-                "change the power curve manually or set\n'add_cutoff=True' in the "
-                "Cutout.wind conversion method."
+                "The power curve does not have a cut-out wind speed, i.e. the power"
+                " output corresponding to the\nhighest wind speed is not zero. You can"
+                " either change the power curve manually or set\n"
+                "'add_cutout_windspeed=True' in the Cutout.wind conversion method."
             )
         )
     return turbine
