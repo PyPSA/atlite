@@ -66,8 +66,8 @@ def get_windturbineconfig(turbine, add_cutout_windspeed=False):
 
     if add_cutout_windspeed is False:
         msg = (
-            "'add_cutout_windspeed' for wind turbine\npower curves will default to True in a "
-            "future version of atlite."
+            "'add_cutout_windspeed' for wind turbine\npower curves will default to "
+            "True in atlite relase v0.2.13."
         )
         warnings.warn(msg, FutureWarning)
 
