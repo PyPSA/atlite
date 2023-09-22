@@ -45,21 +45,7 @@ crs = 4326
 features = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_azimuth", "roughness"],
-    "influx": [
-        "influx_toa",
-        "influx_direct",
-        "influx_diffuse",
-        "albedo",
-        "solar_altitude",
-        "solar_azimuth",
-    ],
-    "temperature": ["temperature", "soil temperature"],
-    "runoff": ["runoff"],
-    # "wave_height" : ["wave_height"]
-    # "wave_period" : ["wave_period"]
 }
-
-static_features = {"height"}
 
 
 def _add_height(ds):
@@ -71,12 +57,14 @@ def _add_height(ds):
     [1] ERA5: surface elevation and orography, retrieved: 10.02.2019
     https://confluence.ecmwf.int/display/CKB/ERA5%3A+surface+elevation+and+orography
     """
-    g0 = 9.80665
-    z = ds["z"]
-    if "time" in z.coords:
-        z = z.isel(time=0, drop=True)
-    ds["height"] = z / g0
-    ds = ds.drop_vars("z")
+    # g0 = 9.80665
+    # z = ds["z"]
+    # if "time" in z.coords:
+    #     z = z.isel(time=0, drop=True)
+    # ds["height"] = z / g0
+
+    ds["height"] = ds["heightAboveGround"]
+    ds = ds.drop_vars("heightAboveGround")
     return ds
 
 
@@ -112,22 +100,25 @@ def get_data_wind(retrieval_params):
     """
     ds = retrieve_data(
         variable=[
-            "100m_u_component_of_wind",
-            "100m_v_component_of_wind",
-            "forecast_surface_roughness",
+            # "100m_u_component_of_wind",
+            # "100m_v_component_of_wind",
+            # "forecast_surface_roughness",
+            "wdir10"            
+            "si10"       
+            "sr"
         ],
         **retrieval_params,
     )
     ds = _rename_and_clean_coords(ds)
 
-    ds["wnd100m"] = np.sqrt(ds["u100"] ** 2 + ds["v100"] ** 2).assign_attrs(
-        units=ds["u100"].attrs["units"], long_name="100 metre wind speed"
+    ds["wnd100m"] = (ds["si10"] * (100/10) ** (1/7) ).assign_attrs(
+        units=ds["si10"].attrs["units"], long_name="100 metre wind speed"
     )
     # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
-    azimuth = np.arctan2(ds["u100"], ds["v100"])
+    azimuth = ds["wdir10"]
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
-    ds = ds.drop_vars(["u100", "v100"])
-    ds = ds.rename({"fsr": "roughness"})
+    ds = ds.drop_vars(["wdir10" , "si10"])
+    ds = ds.rename({"sr": "roughness"})
 
     return ds
 
@@ -140,94 +131,94 @@ def sanitize_wind(ds):
     return ds
 
 
-def get_data_influx(retrieval_params):
-    """
-    Get influx data for given retrieval parameters.
-    """
-    ds = retrieve_data(
-        variable=[
-            "surface_net_solar_radiation",
-            "surface_solar_radiation_downwards",
-            "toa_incident_solar_radiation",
-            "total_sky_direct_solar_radiation_at_surface",
-        ],
-        **retrieval_params,
-    )
+# def get_data_influx(retrieval_params):
+#     """
+#     Get influx data for given retrieval parameters.
+#     """
+#     ds = retrieve_data(
+#         variable=[
+#             "surface_net_solar_radiation",
+#             "surface_solar_radiation_downwards",
+#             "toa_incident_solar_radiation",
+#             "total_sky_direct_solar_radiation_at_surface",
+#         ],
+#         **retrieval_params,
+#     )
 
-    ds = _rename_and_clean_coords(ds)
+#     ds = _rename_and_clean_coords(ds)
 
-    ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
-    ds["albedo"] = (
-        ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
-        .fillna(0.0)
-        .assign_attrs(units="(0 - 1)", long_name="Albedo")
-    )
-    ds["influx_diffuse"] = (ds["ssrd"] - ds["influx_direct"]).assign_attrs(
-        units="J m**-2", long_name="Surface diffuse solar radiation downwards"
-    )
-    ds = ds.drop_vars(["ssrd", "ssr"])
+#     ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
+#     ds["albedo"] = (
+#         ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
+#         .fillna(0.0)
+#         .assign_attrs(units="(0 - 1)", long_name="Albedo")
+#     )
+#     ds["influx_diffuse"] = (ds["ssrd"] - ds["influx_direct"]).assign_attrs(
+#         units="J m**-2", long_name="Surface diffuse solar radiation downwards"
+#     )
+#     ds = ds.drop_vars(["ssrd", "ssr"])
 
-    # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
-    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
-        ds[a] = ds[a] / (60.0 * 60.0)
-        ds[a].attrs["units"] = "W m**-2"
+#     # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
+#     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
+#         ds[a] = ds[a] / (60.0 * 60.0)
+#         ds[a].attrs["units"] = "W m**-2"
 
-    # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00 are labelled as "14:00"
-    # account by calculating the SolarPosition for the center of the interval for aggregation happens
-    # see https://github.com/PyPSA/atlite/issues/158
-    # Do not show DeprecationWarning from new SolarPosition calculation (#199)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        time_shift = pd.to_timedelta("-30 minutes")
-        sp = SolarPosition(ds, time_shift=time_shift)
-    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
+#     # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00 are labelled as "14:00"
+#     # account by calculating the SolarPosition for the center of the interval for aggregation happens
+#     # see https://github.com/PyPSA/atlite/issues/158
+#     # Do not show DeprecationWarning from new SolarPosition calculation (#199)
+#     with warnings.catch_warnings():
+#         warnings.simplefilter("ignore", DeprecationWarning)
+#         time_shift = pd.to_timedelta("-30 minutes")
+#         sp = SolarPosition(ds, time_shift=time_shift)
+#     sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
-    ds = xr.merge([ds, sp])
+#     ds = xr.merge([ds, sp])
 
-    return ds
-
-
-def sanitize_influx(ds):
-    """
-    Sanitize retrieved influx data.
-    """
-    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
-        ds[a] = ds[a].clip(min=0.0)
-    return ds
+#     return ds
 
 
-def get_data_temperature(retrieval_params):
-    """
-    Get wind temperature for given retrieval parameters.
-    """
-    ds = retrieve_data(
-        variable=["2m_temperature", "soil_temperature_level_4"], **retrieval_params
-    )
-
-    ds = _rename_and_clean_coords(ds)
-    ds = ds.rename({"t2m": "temperature", "stl4": "soil temperature"})
-
-    return ds
+# def sanitize_influx(ds):
+#     """
+#     Sanitize retrieved influx data.
+#     """
+#     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
+#         ds[a] = ds[a].clip(min=0.0)
+#     return ds
 
 
-def get_data_runoff(retrieval_params):
-    """
-    Get runoff data for given retrieval parameters.
-    """
-    ds = retrieve_data(variable=["runoff"], **retrieval_params)
+# def get_data_temperature(retrieval_params):
+#     """
+#     Get wind temperature for given retrieval parameters.
+#     """
+#     ds = retrieve_data(
+#         variable=["2m_temperature", "soil_temperature_level_4"], **retrieval_params
+#     )
 
-    ds = _rename_and_clean_coords(ds)
-    ds = ds.rename({"ro": "runoff"})
+#     ds = _rename_and_clean_coords(ds)
+#     ds = ds.rename({"t2m": "temperature", "stl4": "soil temperature"})
 
-    return ds
+#     return ds
 
 
-def sanitize_runoff(ds):
-    """
-    Sanitize retrieved runoff data.
-    """
-    ds["runoff"] = ds["runoff"].clip(min=0.0)
-    return ds
+# def get_data_runoff(retrieval_params):
+#     """
+#     Get runoff data for given retrieval parameters.
+#     """
+#     ds = retrieve_data(variable=["runoff"], **retrieval_params)
+
+#     ds = _rename_and_clean_coords(ds)
+#     ds = ds.rename({"ro": "runoff"})
+
+#     return ds
+
+
+# def sanitize_runoff(ds):
+#     """
+#     Sanitize retrieved runoff data.
+#     """
+#     ds["runoff"] = ds["runoff"].clip(min=0.0)
+#     return ds
 
 # def get_data_wave_height(retrieval_params):
 #     """
@@ -256,8 +247,11 @@ def sanitize_runoff(ds):
 #     Get wave period data for given retrieval parameters.
 #     """
 #     ds = retrieve_data(
-#         variable=["peak_wave_period"],**retrieval_params,)
-    
+#         variable=[
+#             "peak_wave_period",
+#         ],
+#         **retrieval_params,
+#     )
 #     ds = _rename_and_clean_coords(ds)
 #     ds = ds.rename({"pp1d": "wave_period"})
 
@@ -274,7 +268,7 @@ def get_data_height(retrieval_params):
     """
     Get height data for given retrieval parameters.
     """
-    ds = retrieve_data(variable="geopotential", **retrieval_params)
+    ds = retrieve_data(variable="heightAboveGround", **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
     ds = _add_height(ds)

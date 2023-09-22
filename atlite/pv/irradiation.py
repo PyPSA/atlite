@@ -159,46 +159,7 @@ def TiltedIrradiation(
     clearsky_model,
     tracking=0,
     altitude_threshold=1.0,
-    irradiation="total",
 ):
-    """
-    Calculate the irradiation on a tilted surface.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Cutout data used for calculating the irradiation on a tilted surface.
-    solar_position : xarray.Dataset
-        Solar position calculated using atlite.pv.SolarPosition,
-        containing a solar 'altitude' (in rad, 0 to pi/2) for the 'ds' dataset.
-    surface_orientation : xarray.Dataset
-        Surface orientation calculated using atlite.orientation.SurfaceOrientation.
-    trigon_model : str
-        Type of trigonometry model. Defaults to 'simple'if used via `convert_irradiation`.
-    clearsky_model : str or None
-        Either the 'simple' or the 'enhanced' Reindl clearsky
-        model. The default choice of None will choose dependending on
-        data availability, since the 'enhanced' model also
-        incorporates ambient air temperature and relative humidity.
-        NOTE: this option is only used if the used climate dataset
-        doesn't provide direct and diffuse irradiation separately!
-    altitude_threshold : float
-        Threshold for solar altitude in degrees. Values in range (0, altitude_threshold]
-        will be set to zero. Default value equals 1.0 degrees.
-    irradiation : str
-        The irradiation quantity to be returned. Defaults to "total" for total
-        combined irradiation. Other options include "direct" for direct irradiation,
-        "diffuse" for diffuse irradation, and "ground" for irradiation reflected
-        by the ground via albedo. NOTE: "ground" irradiation is not calculated
-        by all `trigon_model` options in the `convert_irradiation` method,
-        so use with caution!
-
-    Returns
-    -------
-    result : xarray.DataArray
-        The desired irradiation quantity on the tilted surface.
-    """
-
     influx_toa = ds["influx_toa"]
 
     def clip(influx, influx_max):
@@ -226,10 +187,11 @@ def TiltedIrradiation(
 
         influx = direct + diffuse
         direct_t = k * direct
-        diffuse_t = (1.0 + cos_surface_slope) / 2.0 * diffuse
-        ground_t = _albedo(ds, influx) * influx * ((1.0 - cos_surface_slope) / 2.0)
+        diffuse_t = (1.0 + cos_surface_slope) / 2.0 * diffuse + _albedo(
+            ds, influx
+        ) * influx * ((1.0 - cos_surface_slope) / 2.0)
 
-        total_t = direct_t.fillna(0.0) + diffuse_t.fillna(0.0) + ground_t.fillna(0.0)
+        total_t = direct_t.fillna(0.0) + diffuse_t.fillna(0.0)
     else:
         diffuse_t = TiltedDiffuseIrrad(
             ds, solar_position, surface_orientation, direct, diffuse
@@ -239,23 +201,13 @@ def TiltedIrradiation(
             ds, solar_position, surface_orientation, direct + diffuse
         )
 
-        total_t = direct_t + diffuse_t + ground_t
-
-    if irradiation == "total":
-        result = total_t.rename("total tilted")
-    elif irradiation == "direct":
-        result = direct_t.rename("direct tilted")
-    elif irradiation == "diffuse":
-        result = diffuse_t.rename("diffuse tilted")
-    elif irradiation == "ground":
-        result = ground_t.rename("ground tilted")
+        total_t = (direct_t + diffuse_t + ground_t).rename("total tilted")
 
     # The solar_position algorithms have a high error for small solar altitude
     # values, leading to big overall errors from the 1/sinaltitude factor.
     # => Suppress irradiation below solar altitudes of 1 deg.
 
     cap_alt = solar_position["altitude"] < deg2rad(altitude_threshold)
-    result = result.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
-    result.attrs["units"] = "W m**-2"
+    total_t = total_t.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
 
-    return result
+    return total_t

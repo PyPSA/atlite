@@ -36,6 +36,7 @@ from atlite.resource import (
     get_solarpanelconfig,
     get_windturbineconfig,
     windturbine_smooth,
+    # get_wecgeneratorconfig
 )
 
 
@@ -521,6 +522,70 @@ def wind(cutout, turbine, smooth=False, **params):
     return cutout.convert_and_aggregate(
         convert_func=convert_wind, turbine=turbine, **params
     )
+
+# #wave
+# def convert_wave(ds, generator):
+#     # Get power matrix
+#     power_matrix = pd.DataFrame.from_dict(generator['Power_Matrix'])
+#     # max power and max possible output
+#     max_pow = power_matrix.to_numpy().max()
+#     # round up values to closes 0.5 of Hs creating new dataarrays in order to search along the Power_Matrix
+#     Hs = np.ceil(ds['wave_height']*2)/2
+#     # round up Tp either to next higher 0.5 or integer depending on the type of WEC generator
+#     if generator['name'] == ('Farshore')
+#         Tp = np.ceil(ds['wave_period']*2)/2
+#     else:
+#         Tp = np.ceil(ds['wave_period'])
+#     # flatten and create list of arrays
+#     Hs_list = Hs.to_numpy().flatten().tolist()
+#     Tp_list = Tp.to_numpy().flatten().tolist()
+#     # empty list for result
+#     power_list = []
+#     cases = len(Hs_list)
+#     count = 0
+
+#     # for loop to loop through Hs and Tp pairs and get the power output and capacity factor
+#     for Hs_ind, Tp_ind in zip(Hs_list, Tp_list):
+#         if count % 1000000 == 0:
+#             pirnt('Case {} of {}: {} %'.format(count, cases, count/cases *100))
+
+#         if np.isnan(Hs_ind) or np.isnan(Tp_ind):
+#             power_list.append(0)
+#         elif Hs_ind > 10 or Tp_ind > 18:
+#             power_list.append(0)
+#         else:
+#             generated_power = power_matrix.loc[Hs_ind, Tp_ind]
+#             power_list.append(generated_power/max_pow)
+#         count += 1
+
+#     # results list to numpy array
+#     power_list_np = np.array(power_list)
+#     # reshape array into same shape as input Hs and Tp
+#     power_list_np = power_list_np.reshape(Hs.shape)
+#     # create Dataarray with same coordinates and dimentions as Hs and Tp
+#     da = xr.DataArray(power_list_np,
+#                       coords = Hs.coords,
+#                       dims = Hs.dims,
+#                       name = 'Power generated')
+#     da.attrs["units"] = "kWh/kWp"
+#     da = da.rename("specific generation")
+#     da = da.fillna(0)
+
+#     return da
+
+# def wave(cutout, generator, **params):
+#     """
+#     Generate wave generation time series
+
+#     evaluates the significant wave height (Hs) and wave peak period (Tp)
+#     and assesses the power output with the chosen power matrix for each time step and grid cell
+#     """
+#     if isinstance(generator, (str, Path)):
+#         generator = get_wecgeneratorconfig(generator)
+
+#     return cutout.convert_and_agregate(
+#         convert_func = convert_wave, generator = generator , **params
+#     )
 
 
 # irradiation

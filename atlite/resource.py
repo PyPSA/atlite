@@ -30,7 +30,7 @@ RESOURCE_DIRECTORY = Path(pkg_resources.resource_filename(__name__, "resources")
 WINDTURBINE_DIRECTORY = RESOURCE_DIRECTORY / "windturbine"
 SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
-
+# WECGENERATOR_DIRECTORY = RESOURCE_DIRECTORY / "wecgenerator"
 
 def get_windturbineconfig(turbine):
     """
@@ -73,6 +73,24 @@ def get_windturbineconfig(turbine):
         hub_height=conf["HUB_HEIGHT"],
         P=np.max(conf["POW"]),
     )
+
+# def get_wecgeneratorconfig(generator):
+#     """Load the wec generator power matrix
+
+#     the configuration can either be one from local storage then 'turbine' is
+#     considered part of the file base name '<turbine>.yaml'
+#     """
+
+#     if isinstance(generator, str):
+#         if not generator.endswith(".yaml"): 
+#             generator += ".yaml"
+    
+#         generator = WECGENERATOR_DIRECTORY / generator
+
+#     with open(generator, "r") as f:
+#         conf = yaml.safe_load(f)
+
+#     return conf
 
 
 def get_solarpanelconfig(panel):
