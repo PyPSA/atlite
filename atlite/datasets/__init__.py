@@ -4,6 +4,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-from atlite.datasets import era5, cerra, gebco, sarah # cerra new ela re
+from atlite.datasets import cerra, era5, gebco, sarah  # cerra new ela re
 
 modules = {"era5": era5, "cerra": cerra, "sarah": sarah, "gebco": gebco}

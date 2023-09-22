@@ -103,21 +103,21 @@ def get_data_wind(retrieval_params):
             # "100m_u_component_of_wind",
             # "100m_v_component_of_wind",
             # "forecast_surface_roughness",
-            "wdir10"            
-            "si10"       
+            "wdir10"
+            "si10"
             "sr"
         ],
         **retrieval_params,
     )
     ds = _rename_and_clean_coords(ds)
 
-    ds["wnd100m"] = (ds["si10"] * (100/10) ** (1/7) ).assign_attrs(
+    ds["wnd100m"] = (ds["si10"] * (100 / 10) ** (1 / 7)).assign_attrs(
         units=ds["si10"].attrs["units"], long_name="100 metre wind speed"
     )
     # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
     azimuth = ds["wdir10"]
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
-    ds = ds.drop_vars(["wdir10" , "si10"])
+    ds = ds.drop_vars(["wdir10", "si10"])
     ds = ds.rename({"sr": "roughness"})
 
     return ds
@@ -219,6 +219,7 @@ def sanitize_wind(ds):
 #     """
 #     ds["runoff"] = ds["runoff"].clip(min=0.0)
 #     return ds
+
 
 def get_data_height(retrieval_params):
     """
