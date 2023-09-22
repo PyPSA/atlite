@@ -17,5 +17,3 @@ Regarding PyPSA, the new CERRA raw data were manually downloaded from [CERRA sub
 for time saving. Here is the [documentation](https://confluence.ecmwf.int/display/CKB/Copernicus+European+Regional+ReAnalysis+%28CERRA%29%3A+product+user+guide) 
 of CERRA. The raw data named ***"europe-03-2018-cerra.nc"*** is stored at the 'cutout' folder of pypsa-eur repository.
 
-> [!NOTE]
-> Ignore all of the code lines referring to _wave technology_. They are irrelevant to the current task.
