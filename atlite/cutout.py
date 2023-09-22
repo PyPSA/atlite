@@ -45,7 +45,6 @@ from atlite.convert import (
     solar_thermal,
     temperature,
     wind,
-    # wave
 )
 from atlite.data import available_features, cutout_prepare
 from atlite.datasets import modules as datamodules
@@ -650,5 +649,3 @@ class Cutout:
     hydro = hydro
 
     line_rating = line_rating
-
-    # wave = wave

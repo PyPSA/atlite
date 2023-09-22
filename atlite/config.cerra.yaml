@@ -109,24 +109,6 @@ renewable:
     potential: simple # or conservative
     clip_p_max_pu: 1.e-2
 
-  # offwindfl-ac: #Floating offshore wind
-  #   cutout: europe-2018-era5
-  #   resource:
-  #     method: wind
-  #     turbine: NREL_ReferenceTurbine_5MW_offshore
-  #   capacity_per_sqkm: 7
-  #   correction_factor: 0.8855
-  #   # proxy for wake losses
-  #   # from 10.1016/j.energy.2018.08.153
-  #   # until done more rigorously in #153
-  #   corine: [44, 255]
-  #   natura: true
-  #   max_depth: 250
-  #   min_depth: 50
-  #   max_shore_distance: 50000
-  #   potential: simple # or conservative
-  #   clip_p_max_pu: 1.e-2
-
   offwind-dc:
     cutout: europe-03-2019-cerra
     resource:
@@ -168,47 +150,6 @@ renewable:
     flatten_dispatch_buffer: 0.2
     clip_min_inflow: 1.0
 
-  # wavefarshore:
-  #   cutout: europe-2018-era5
-  #   resource:
-  #     method: wave
-  #     generator: Farshore_750kW
-  #   capacity_per_sqkm: 20 #for the packing density the safe assumption is 10-20 MW/Km2, but with good assessment this is 20-40 MW/Km2
-  #   correction_factor: 1
-  #   corine: [44, 255]
-  #   natura: true
-  #   max_depth: 150
-  #   min_depth: 50
-  #   potential: simple # or conservative
-  #   clip_p_max_pu: 1.e-2
-
-  # wavenearshore:
-  #   cutout: europe-2018-era5
-  #   resource:
-  #     method: wave
-  #     generator: Nearshore_1000kW
-  #   capacity_per_sqkm: 20 #for the packing density the safe assumption is 10-20 MW/Km2, but with good assessment this is 20-40 MW/Km2
-  #   correction_factor: 1
-  #   corine: [44, 255]
-  #   natura: true
-  #   max_depth: 80
-  #   min_depth: 20 
-  #   potential: simple # or conservative
-  #   clip_p_max_pu: 1.e-2
-
-  # waveshallow:
-  #   cutout: europe-2018-era5
-  #   resource:
-  #     method: wave
-  #     generator: Shallow_600kW
-  #   capacity_per_sqkm: 20 #for the packing density the safe assumption is 10-20 MW/Km2, but with good assessment this is 20-40 MW/Km2
-  #   correction_factor: 1
-  #   corine: [44, 255]
-  #   natura: true
-  #   max_depth: 20
-  #   potential: simple # or conservative
-  #   clip_p_max_pu: 1.e-2
-
 lines:
   types:
     220.: "Al/St 240/40 2-bundle 220.0"
@@ -236,24 +177,6 @@ load:
   time_shift_for_large_gaps: 1w # data gaps up until this size are copied by copying from 
   manual_adjustments: true # false
   scaling_factor: 1.0
-
-costs:
-  year: 2030
-  discountrate: 0.07 # From a Lion Hirth paper, also reflects average of Noothout et al 2016
-  USD2013_to_EUR2013: 0.8961 #2019 [EUR/USD] ECB: https://www.ecb.europa.eu/stats/exchange/eurofxref/html/eurofxref-graph-usd.en.html
-  # marginal_cost: # EUR/MWh
-  #   solar: 0.01
-  #   onwind: 0.015
-  #   offwind: 0.015
-  #   wave: 0.
-  #   hydro: 0.
-  #   H2: 0.
-  #   electrolysis: 0.
-  #   fuel cell: 0.
-  #   battery: 0.
-  #   battery inverter: 0.
-  emission_prices: # in currency per tonne emission, only used with the option Ep
-    co2: 0.
 
 solving:
   solver:
