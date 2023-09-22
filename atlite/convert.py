@@ -31,12 +31,11 @@ from atlite.pv.irradiation import TiltedIrradiation
 from atlite.pv.orientation import SurfaceOrientation, get_orientation
 from atlite.pv.solar_panel_model import SolarPanelModel
 from atlite.pv.solar_position import SolarPosition
-from atlite.resource import (
+from atlite.resource import (  # get_wecgeneratorconfig
     get_cspinstallationconfig,
     get_solarpanelconfig,
     get_windturbineconfig,
     windturbine_smooth,
-    # get_wecgeneratorconfig
 )
 
 
@@ -522,6 +521,7 @@ def wind(cutout, turbine, smooth=False, **params):
     return cutout.convert_and_aggregate(
         convert_func=convert_wind, turbine=turbine, **params
     )
+
 
 # #wave
 # def convert_wave(ds, generator):

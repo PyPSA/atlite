@@ -229,6 +229,7 @@ def sanitize_runoff(ds):
     ds["runoff"] = ds["runoff"].clip(min=0.0)
     return ds
 
+
 # def get_data_wave_height(retrieval_params):
 #     """
 #     Get wave height data for given retrieval parameters.
@@ -257,7 +258,7 @@ def sanitize_runoff(ds):
 #     """
 #     ds = retrieve_data(
 #         variable=["peak_wave_period"],**retrieval_params,)
-    
+
 #     ds = _rename_and_clean_coords(ds)
 #     ds = ds.rename({"pp1d": "wave_period"})
 
@@ -269,6 +270,7 @@ def sanitize_runoff(ds):
 #     """
 #     ds["wave_period"] = ds["wave_period"].clip(min=0.0)
 #     return ds
+
 
 def get_data_height(retrieval_params):
     """

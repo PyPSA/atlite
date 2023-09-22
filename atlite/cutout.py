@@ -31,7 +31,7 @@ from numpy import append, atleast_1d
 from pyproj import CRS
 from shapely.geometry import box
 
-from atlite.convert import (
+from atlite.convert import (  # wave
     coefficient_of_performance,
     convert_and_aggregate,
     csp,
@@ -45,7 +45,6 @@ from atlite.convert import (
     solar_thermal,
     temperature,
     wind,
-    # wave
 )
 from atlite.data import available_features, cutout_prepare
 from atlite.datasets import modules as datamodules

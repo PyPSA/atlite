@@ -32,6 +32,7 @@ SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 # WECGENERATOR_DIRECTORY = RESOURCE_DIRECTORY / "wecgenerator"
 
+
 def get_windturbineconfig(turbine):
     """
     Load the wind 'turbine' configuration.
@@ -74,6 +75,7 @@ def get_windturbineconfig(turbine):
         P=np.max(conf["POW"]),
     )
 
+
 # def get_wecgeneratorconfig(generator):
 #     """Load the wec generator power matrix
 
@@ -82,9 +84,9 @@ def get_windturbineconfig(turbine):
 #     """
 
 #     if isinstance(generator, str):
-#         if not generator.endswith(".yaml"): 
+#         if not generator.endswith(".yaml"):
 #             generator += ".yaml"
-    
+
 #         generator = WECGENERATOR_DIRECTORY / generator
 
 #     with open(generator, "r") as f:
