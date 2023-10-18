@@ -480,7 +480,7 @@ def convert_wind(ds, turbine):
     return da
 
 
-def wind(cutout, turbine, smooth=False, **params):
+def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
     """
     Generate wind generation time-series.
 
@@ -501,6 +501,11 @@ def wind(cutout, turbine, smooth=False, **params):
         If True smooth power curve with a gaussian kernel as
         determined for the Danish wind fleet to Delta_v = 1.27 and
         sigma = 2.29. A dict allows to tune these values.
+    add_cutout_windspeed : bool
+        If True and in case the power curve does not end with a zero, will add zero power
+        output at the highest wind speed in the power curve. If False, a warning will be
+        raised if the power curve does not have a cut-out wind speed. The default is
+        False.
 
     Note
     ----
@@ -512,8 +517,10 @@ def wind(cutout, turbine, smooth=False, **params):
     [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
     1074 – 1088. doi:10.1016/j.energy.2015.09.071
     """
-    if isinstance(turbine, (str, Path)):
-        turbine = get_windturbineconfig(turbine)
+    if isinstance(turbine, (str, Path, dict)):
+        turbine = get_windturbineconfig(
+            turbine, add_cutout_windspeed=add_cutout_windspeed
+        )
 
     if smooth:
         turbine = windturbine_smooth(turbine, params=smooth)
