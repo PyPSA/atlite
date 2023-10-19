@@ -180,7 +180,8 @@ class Cutout:
         # Three cases. First, cutout exists -> take the data.
         # Second, data is given -> take it. Third, else -> build a new cutout
         if path.is_file():
-            data = xr.open_dataset(str(path), chunks=chunks)
+            data = xr.open_dataset(str(path))
+            data = data.chunk(chunks)
             data.attrs.update(storable_chunks)
             if cutoutparams:
                 warn(
@@ -403,7 +404,8 @@ class Cutout:
         span = (coords[self.shape[1] + 1] - coords[0]) / 2
         cells = [box(*c) for c in np.hstack((coords - span, coords + span))]
         return gpd.GeoDataFrame(
-            {"x": coords[:, 0], "y": coords[:, 1], "geometry": cells}, crs=self.crs
+            {"x": coords[:, 0], "y": coords[:, 1], "geometry": cells},
+            crs=self.crs,
         )
 
     def sel(self, path=None, bounds=None, buffer=0, **kwargs):
