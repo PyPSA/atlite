@@ -16,6 +16,7 @@ def aggregate_matrix(da, matrix, index):
         index = index.rename("dim_0")
     if isinstance(da.data, dask.array.core.Array):
         da = da.stack(spatial=("y", "x"))
+        da = da.chunk(dict(spatial=-1))
         return xr.apply_ufunc(
             lambda da: da * matrix.T,
             da,
