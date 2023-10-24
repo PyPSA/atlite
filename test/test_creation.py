@@ -69,6 +69,18 @@ def test_time_sclice_coords(ref):
     assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
 
 
+def test_auto_chunking(ref):
+    cutout = Cutout(
+        path="auto_chunking",
+        module="era5",
+        time=slice("2013-01-01", "2013-01-01"),
+        x=slice(X0, X1),
+        y=slice(Y0, Y1),
+        chunks="auto",
+    )
+    assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
+
+
 def test_dx_dy_dt():
     """
     Test the properties dx, dy, dt of atlite.Cutout.
