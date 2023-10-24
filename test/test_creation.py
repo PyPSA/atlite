@@ -134,4 +134,4 @@ def test_layout_from_area_density(ref):
     layout = ref.uniform_density_layout(density, crs=crs)
     assert layout.dims == ("y", "x")
     assert layout.shape == (ref.data.y.size, ref.data.x.size)
-    assert ref.area(crs=crs).sum() * density == layout.sum()
+    assert np.isclose(ref.area(crs=crs).sum() * density, layout.sum())
