@@ -200,6 +200,19 @@ def test_open_closed_checks(ref, geometry, raster):
     assert not excluder.all_closed and excluder.all_open
 
 
+def test_area(ref):
+    """
+    Test the area of the cutout.
+    """
+    area = ref.area(crs=3035)
+    assert isinstance(area, xr.DataArray)
+    assert area.dims == ("y", "x")
+
+    # now test with a different crs
+    with pytest.warns(UserWarning):
+        assert ref.area().sum().item() == (X1 - X0 + ref.dx) * (Y1 - Y0 + ref.dy)
+
+
 def test_transform():
     """
     Test the affine transform.

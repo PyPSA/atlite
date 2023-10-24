@@ -28,7 +28,9 @@ Upcoming Release
 * Fix: the wind turbine power curve is checked for a missing cut-out wind speed and an option to add a
   cut-out wind speed at the end of the power curve is introduced. From the next release v0.2.13, adding
   a cut-out wind speed will be the default behavior (`GH #316 <https://github.com/PyPSA/atlite/pull/316>`_)
-
+* A cutout can now be loaded with setting chunks to ``auto``.
+* The Cutout class has a new function ``area`` which return a DataArray with dimensions (x,y) with the area of each grid cell.
+* The Cutout class has a new function ``layout_from_area_density`` which returns a capacity layout with the capacity per grid cell based on the area density.
 
 Version 0.2.11
 ==============

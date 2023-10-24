@@ -69,6 +69,18 @@ def test_time_sclice_coords(ref):
     assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
 
 
+def test_auto_chunking(ref):
+    cutout = Cutout(
+        path="auto_chunking",
+        module="era5",
+        time=slice("2013-01-01", "2013-01-01"),
+        x=slice(X0, X1),
+        y=slice(Y0, Y1),
+        chunks="auto",
+    )
+    assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
+
+
 def test_dx_dy_dt():
     """
     Test the properties dx, dy, dt of atlite.Cutout.
@@ -114,3 +126,12 @@ def test_sel(ref):
     cutout = ref.sel(x=slice(X0 + 2, X1 - 1), y=slice(Y0 + 1, Y1 - 2))
     assert cutout.coords["x"][0] - ref.coords["x"][0] == 2
     assert cutout.coords["y"][-1] - ref.coords["y"][-1] == -2
+
+
+def test_layout_from_area_density(ref):
+    density = 0.01  # MW / m^2
+    crs = 3035  # in meter
+    layout = ref.uniform_density_layout(density, crs=crs)
+    assert layout.dims == ("y", "x")
+    assert layout.shape == (ref.data.y.size, ref.data.x.size)
+    assert np.isclose(ref.area(crs=crs).sum() * density, layout.sum())

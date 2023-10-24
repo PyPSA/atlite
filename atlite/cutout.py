@@ -150,7 +150,10 @@ class Cutout:
 
         path = Path(path).with_suffix(".nc")
         chunks = cutoutparams.pop("chunks", {"time": 100})
-        storable_chunks = {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
+        if isinstance(chunks, dict):
+            storable_chunks = {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
+        else:
+            storable_chunks = {}
 
         # Backward compatibility for xs, ys, months and years
         if {"xs", "ys"}.intersection(cutoutparams):
@@ -564,11 +567,55 @@ class Cutout:
         """
         return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
 
+    def area(self, crs=None):
+        """
+        Get the area per grid cell as a DataArray with coords (x,y).
+
+        Parameters
+        ----------
+        crs : int, optional
+            The coordinate reference system (CRS) to use for the calculation.
+            Defaults to the crs of the cutout.
+
+        Returns
+        -------
+        xr.DataArray
+            A DataArray containing the area per grid cell with coordinates (x,y).
+        """
+        if crs is None:
+            crs = self.crs
+
+        area = self.grid.to_crs(crs).area
+        return xr.DataArray(
+            area.values.reshape(self.shape),
+            [self.coords["y"], self.coords["x"]],
+        )
+
     def uniform_layout(self):
         """
         Get a uniform capacity layout for all grid cells.
         """
         return xr.DataArray(1, [self.coords["y"], self.coords["x"]])
+
+    def uniform_density_layout(self, capacity_density, crs=None):
+        """
+        Get a capacity layout from a uniform capacity density.
+
+        Parameters
+        ----------
+        capacity_density : float
+            Capacity density in capacity/projection unit squared.
+        crs : int, optional
+            CRS to calculate the total area of grid cells.
+            Passed to `Cutout.area()`.
+
+        Returns
+        -------
+        xr.DataArray
+            Capacity layout with dimensions 'x' and 'y' indicating the total
+            capacity placed within one grid cell.
+        """
+        return capacity_density * self.area(crs)
 
     def layout_from_capacity_list(self, data, col="Capacity"):
         """
