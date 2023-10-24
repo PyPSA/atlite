@@ -575,7 +575,7 @@ class Cutout:
         ----------
         crs : int, optional
             The coordinate reference system (CRS) to use for the calculation.
-            The default value is 3035, which is a suitable projection for Europe and returns the area in square meters.
+            Defaults to the crs of the cutout.
 
         Returns
         -------
@@ -607,7 +607,7 @@ class Cutout:
             Capacity density in capacity/projection unit squared.
         crs : int, optional
             CRS to calculate the total area of grid cells.
-            Defaults to the crs of the cutout.
+            Passed to `Cutout.area()`.
 
         Returns
         -------
