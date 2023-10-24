@@ -204,15 +204,13 @@ def test_area(ref):
     """
     Test the area of the cutout.
     """
-    area = ref.area()
+    area = ref.area(crs=3035)
     assert isinstance(area, xr.DataArray)
     assert area.dims == ("y", "x")
 
     # now test with a different crs
     with pytest.warns(UserWarning):
-        assert ref.area(crs=ref.crs).sum().item() == (X1 - X0 + ref.dx) * (
-            Y1 - Y0 + ref.dy
-        )
+        assert ref.area().sum().item() == (X1 - X0 + ref.dx) * (Y1 - Y0 + ref.dy)
 
 
 def test_transform():

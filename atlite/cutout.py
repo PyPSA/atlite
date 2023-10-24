@@ -567,7 +567,7 @@ class Cutout:
         """
         return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
 
-    def area(self, crs=3035):
+    def area(self, crs=None):
         """
         Get the area per grid cell as a DataArray with coords (x,y).
 
@@ -582,6 +582,9 @@ class Cutout:
         xr.DataArray
             A DataArray containing the area per grid cell with coordinates (x,y).
         """
+        if crs is None:
+            crs = self.crs
+
         area = self.grid.to_crs(crs).area
         return xr.DataArray(
             area.values.reshape(self.shape),
@@ -593,6 +596,26 @@ class Cutout:
         Get a uniform capacity layout for all grid cells.
         """
         return xr.DataArray(1, [self.coords["y"], self.coords["x"]])
+
+    def uniform_density_layout(self, capacity_density, crs=None):
+        """
+        Get a capacity layout from a uniform capacity density.
+
+        Parameters
+        ----------
+        capacity_density : float
+            Capacity density in capacity/projection unit squared.
+        crs : int, optional
+            CRS to calculate the total area of grid cells.
+            Defaults to the crs of the cutout.
+
+        Returns
+        -------
+        xr.DataArray
+            Capacity layout with dimensions 'x' and 'y' indicating the total
+            capacity placed within one grid cell.
+        """
+        return capacity_density * self.area(crs)
 
     def layout_from_capacity_list(self, data, col="Capacity"):
         """
@@ -641,27 +664,6 @@ class Cutout:
             .sum()
         )
         return data.to_xarray().reindex_like(self.data).fillna(0)
-
-    def layout_from_area_density(self, capacity_density, crs=3035):
-        """
-        Get a capacity layout from a uniform capacity density.
-
-        Parameters
-        ----------
-        capacity_density : float
-            Capacity density in capacity/km^2
-        crs : int, optional
-            CRS to calculate the total area of grid cells in m^2.
-            The default is 3035 which is suitable for the European area.
-
-        Returns
-        -------
-        xr.DataArray
-            Capacity layout with dimensions 'x' and 'y' indicating the total
-            capacity placed within one grid cell.
-        """
-
-        return capacity_density * self.area(crs) / 1e6
 
     availabilitymatrix = compute_availabilitymatrix
 

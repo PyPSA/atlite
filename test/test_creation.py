@@ -129,8 +129,9 @@ def test_sel(ref):
 
 
 def test_layout_from_area_density(ref):
-    density = 0.1
-    layout = ref.layout_from_area_density(density)
+    density = 0.01  # MW / m^2
+    crs = 3035  # in meter
+    layout = ref.uniform_density_layout(density, crs=crs)
     assert layout.dims == ("y", "x")
     assert layout.shape == (ref.data.y.size, ref.data.x.size)
-    assert ref.area().sum() * density / 1e6 == layout.sum()
+    assert ref.area(crs=crs).sum() * density == layout.sum()
