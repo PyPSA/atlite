@@ -574,14 +574,15 @@ class Cutout:
         Parameters
         ----------
         crs : int, optional
-            CRS to calculate the total area of grid cells in m^2.
-            The default is 3035 which is suitable for the European area.
+            The coordinate reference system (CRS) to use for the calculation.
+            The default value is 3035, which is a suitable projection for Europe and returns the area in square meters.
 
         Returns
         -------
-        None.
+        xr.DataArray
+            A DataArray containing the area per grid cell with coordinates (x,y).
         """
-        area = self.grid.to_crs(crs).area.div(1e6)
+        area = self.grid.to_crs(crs).area
         return xr.DataArray(
             area.values.reshape(self.shape),
             [self.coords["y"], self.coords["x"]],
@@ -660,7 +661,7 @@ class Cutout:
             capacity placed within one grid cell.
         """
 
-        return capacity_density * self.area(crs)
+        return capacity_density * self.area(crs) / 1e6
 
     availabilitymatrix = compute_availabilitymatrix
 

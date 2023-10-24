@@ -114,3 +114,11 @@ def test_sel(ref):
     cutout = ref.sel(x=slice(X0 + 2, X1 - 1), y=slice(Y0 + 1, Y1 - 2))
     assert cutout.coords["x"][0] - ref.coords["x"][0] == 2
     assert cutout.coords["y"][-1] - ref.coords["y"][-1] == -2
+
+
+def test_layout_from_area_density(ref):
+    density = 0.1
+    layout = ref.layout_from_area_density(density)
+    assert layout.dims == ("y", "x")
+    assert layout.shape == (ref.data.y.size, ref.data.x.size)
+    assert ref.area().sum() * density / 1e6 == layout.sum()
