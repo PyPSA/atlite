@@ -120,9 +120,7 @@ Version 0.2.6
 * Enabled the GitHub feature "Cite this repository" to generate a BibTeX file (Added a `CITATION.cff` file to the repository).
 
 **Bug fixes**
-* The solar position for ERA5 cutouts is now calculated for half a time step earlier (time-shift by `cutout.dt/2`) to account for the aggregated nature of
-  ERA5 variables (see https://github.com/PyPSA/atlite/issues/158). The fix is only applied to newly created cutouts. Previously created cutouts do not profit
-  from this fix and need to be recreated `cutout.prepare(overwrite=True)`.
+* The solar position for ERA5 cutouts is now calculated for half a time step earlier (time-shift by `cutout.dt/2`) to account for the aggregated nature of ERA5 variables (see https://github.com/PyPSA/atlite/issues/158). The fix is only applied to newly created cutouts. Previously created cutouts do not profit from this fix and need to be recreated `cutout.prepare(overwrite=True)`.
 * The functions `make_latitude` and `make_latitude_optimal` were not converting degrees to radian correctly. This resulted in a wrong calculation of the power output when using the orientation `latitude_optimal` or `latitude` in the `pv` conversion function. We are sorry for inconveniences.
 
 

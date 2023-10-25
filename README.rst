@@ -83,7 +83,7 @@ with ``pip`` from `pypi`_
 
        pip install atlite
 
-to install the most recent upstream version from `GitHub`_
+to install the most recent upstream version from GitHub
 
 .. code:: shell
 
@@ -114,7 +114,7 @@ Support & Contributing
 * For non-programming related and more general questions please refer to the `pypsa mailing list <https://groups.google.com/group/pypsa>`_.
 * To **discuss** with other PyPSA and atlite users, organise projects, share news, and get in touch with the community you can use the `discord server <https://discord.gg/JTdvaEBb>`_.
 * For **bugs and feature requests**, please use the `issue tracker <https://github.com/PyPSA/atlite/issues>`_.
-* We strongly welcome anyone interested in providing **contributions** to this project. If you have any ideas, suggestions or encounter problems, feel invited to file issues or make pull requests on `Github <https://github.com/PyPSA/atlite>`_.
+* We strongly welcome anyone interested in providing **contributions** to this project. If you have any ideas, suggestions or encounter problems, feel invited to file issues or make pull requests on the `Github repository <https://github.com/PyPSA/atlite>`_.
 
 Authors and Copyright
 ---------------------
