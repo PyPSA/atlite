@@ -20,7 +20,7 @@ Version 0.2.12
   cut-out wind speed at the end of the power curve is introduced. From the next release v0.2.13, adding
   a cut-out wind speed will be the default behavior (`GH #316 <https://github.com/PyPSA/atlite/pull/316>`_)
 * Compatibility with xarray >= 2023.09.: The chunked spatial dimension in `aggregate` was raising an error with the new xarray version. This is fixed now.
-* Bug fix: Some wind turbine models did not include a cut-out wind speed, potentially causing overestimated power generation in windy conditions. Cut-out wind speeds were added to the following affected wind turbine models (`#316 <https://github.com/PyPSA/atlite/issues/314>`_):
+* Bug fix: Some wind turbine models did not include a cut-out wind speed, potentially causing overestimated power generation in windy conditions. Cut-out wind speeds were added to the following affected wind turbine models (`GH #314 <https://github.com/PyPSA/atlite/issues/314>`_):
     * NREL_ReferenceTurbine_2016CACost_10MW_offshore
     * NREL_ReferenceTurbine_2016CACost_6MW_offshore
     * NREL_ReferenceTurbine_2016CACost_8MW_offshore
@@ -31,7 +31,7 @@ Version 0.2.12
     * NREL_ReferenceTurbine_2020ATB_18MW_offshore
 * Fix: the wind turbine power curve is checked for a missing cut-out wind speed and an option to add a
   cut-out wind speed at the end of the power curve is introduced. From the next release v0.2.13, adding
-  a cut-out wind speed will be the default behavior (`GH #316 <https://github.com/PyPSA/atlite/pull/316>`_)
+  a cut-out wind speed will be the default behavior.
 * A cutout can now be loaded with setting chunks to ``auto``.
 * The Cutout class has a new function ``area`` which return a DataArray with dimensions (x,y) with the area of each grid cell.
 * The Cutout class has a new function ``layout_from_area_density`` which returns a capacity layout with the capacity per grid cell based on the area density.
