@@ -9,8 +9,12 @@ Release Notes
 
 
 
-Upcoming Release
-================
+.. Upcoming Release
+.. ================
+
+
+Version 0.2.12
+==============
 
 * Fix: the wind turbine power curve is checked for a missing cut-out wind speed and an option to add a
   cut-out wind speed at the end of the power curve is introduced. From the next release v0.2.13, adding
