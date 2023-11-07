@@ -10,4 +10,4 @@
   it instead of one of the predefined ones.
 
 * The option ``capacity_factor_timeseries`` can be selected when creating capacity factors to obtain
- the capacity factor of the selected resource per grid cell. 
+ the capacity factor of the selected resource per grid cell.
