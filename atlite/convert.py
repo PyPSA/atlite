@@ -50,6 +50,7 @@ def convert_and_aggregate(
     per_unit=False,
     return_capacity=False,
     capacity_factor=False,
+    capacity_factor_timeseries=False,
     show_progress=True,
     dask_kwargs={},
     **convert_kwds,
@@ -87,6 +88,9 @@ def convert_and_aggregate(
     capacity_factor : boolean
         If True, the static capacity factor of the chosen resource for each
         grid cell is computed.
+    capacity_factor_timeseries : boolean
+        If True, the capacity factor time series of the chosen resource for
+        each grid cell is computed.
     show_progress : boolean, default True
         Whether to show a progress bar.
     dask_kwargs : dict, default {}
@@ -121,8 +125,11 @@ def convert_and_aggregate(
                 "One of `matrix`, `shapes` and `layout` must be "
                 "given for `per_unit` or `return_capacity`"
             )
-        if capacity_factor:
-            res = da.mean("time").rename("capacity factor")
+        if capacity_factor or capacity_factor_timeseries:
+            if capacity_factor_timeseries:
+                res = da.rename("capacity factor")
+            else:
+                res = da.mean("time").rename("capacity factor")
             res.attrs["units"] = "p.u."
             return maybe_progressbar(res, show_progress, **dask_kwargs)
         else:
