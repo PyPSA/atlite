@@ -125,7 +125,7 @@ def convert_and_aggregate(
                 "One of `matrix`, `shapes` and `layout` must be "
                 "given for `per_unit` or `return_capacity`"
             )
-        if capacity_factor:
+        if capacity_factor or capacity_factor_timeseries:
             if capacity_factor_timeseries:
                 res = da.rename("capacity factor")
             else:
