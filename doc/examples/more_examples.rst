@@ -8,7 +8,7 @@ More Examples
 #############
 
 All examples are available as Jupyter notebooks in our
-`Atlite GitHub repository <https://github.com/pypsa/atlite/docs/examples>`_.
+`Atlite GitHub repository <https://github.com/PyPSA/atlite/tree/master/examples>`_.
 
 
 If you are missing an example for a certain
