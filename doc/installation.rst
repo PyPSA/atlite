@@ -28,7 +28,7 @@ Requirements
 Conda environment
 -----------------
 
-We provide a `conda environment file <https://github.com/PyPSA/atlite/blob/documentation/environment.yaml>`_
+We provide a `conda environment file <https://github.com/PyPSA/atlite/blob/master/environment.yaml>`_
 for conveniently setting up all required and optional packages.
 For information on setting up conda environments from file,
 `click here <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file>`_.
