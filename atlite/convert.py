@@ -539,7 +539,12 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
 
 # irradiation
 def convert_irradiation(
-    ds, orientation, tracking, irradiation="total", trigon_model="simple", clearsky_model="simple"
+    ds,
+    orientation,
+    tracking,
+    irradiation="total",
+    trigon_model="simple",
+    clearsky_model="simple",
 ):
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation, tracking)
@@ -556,7 +561,12 @@ def convert_irradiation(
 
 
 def irradiation(
-    cutout, orientation, irradiation="total", tracking=None, clearsky_model=None, **params
+    cutout,
+    orientation,
+    irradiation="total",
+    tracking=None,
+    clearsky_model=None,
+    **params,
 ):
     """
     Calculate the total, direct, diffuse, or ground irradiation on a tilted
