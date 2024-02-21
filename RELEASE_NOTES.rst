@@ -8,9 +8,10 @@ Release Notes
 #############
 
 
+Upcoming Release
+================
 
-.. Upcoming Release
-.. ================
+* Added solar tracking support for irradiation; e.g. ``cutout.irradiation(tracking='horizontal')``.
 
 
 Version 0.2.12
