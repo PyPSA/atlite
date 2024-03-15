@@ -247,11 +247,7 @@ def convert_dewpoint_temperature(ds):
     Return dewpoint temperature.
     """
     # Temperature is in Kelvin
-
-    # There are nans where there is sea; by setting them
-    # to zero we guarantee they do not contribute when multiplied
-    # by matrix in atlite/aggregate.py
-    return (ds["dewpoint temperature"] - 273.15).fillna(0.0)
+    return ds["dewpoint temperature"] - 273.15
 
 
 def dewpoint_temperature(cutout, **params):
