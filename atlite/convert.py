@@ -241,6 +241,25 @@ def soil_temperature(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
 
 
+# dewpoint temperature
+def convert_dewpoint_temperature(ds):
+    """
+    Return dewpoint temperature.
+    """
+    # Temperature is in Kelvin
+
+    # There are nans where there is sea; by setting them
+    # to zero we guarantee they do not contribute when multiplied
+    # by matrix in atlite/aggregate.py
+    return (ds["dewpoint temperature"] - 273.15).fillna(0.0)
+
+
+def dewpoint_temperature(cutout, **params):
+    return cutout.convert_and_aggregate(
+        convert_func=convert_dewpoint_temperature, **params
+    )
+
+
 def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
     assert source in ["air", "soil"], NotImplementedError(
         "'source' must be one of  ['air', 'soil']"
