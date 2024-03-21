@@ -18,6 +18,7 @@ from tempfile import mkstemp
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
+import pandas as pd
 import requests
 import xarray as xr
 from rasterio.warp import Resampling
@@ -334,13 +335,21 @@ def get_filenames(
     """
     coords = cutout.coords
     included_year_months = (
-        coords["time"].dt.year.to_series().astype(str)
-        + "_"
-        + coords["time"].dt.month.to_series().astype(str).str.zfill(2)
-    ).unique()
+        (
+            coords["time"].dt.year.to_series().astype(str)
+            + "_"
+            + coords["time"].dt.month.to_series().astype(str).str.zfill(2)
+        )
+        .unique()
+        .tolist()
+    )
+    # Cosmo Rea6 begins an hourly month file the first day of the month at 01:00 a.m.
+    # In order to get the value at 00:00, we also need to download the month before.
+    first_hour = coords["time"].min() - pd.Timedelta(1, "h")
+    included_year_months.append(f"{int(first_hour.dt.year)}_{int(first_hour.dt.month)}")
 
     files = []
-    for ym in included_year_months:
+    for ym in sorted(set(included_year_months)):
         if try_download:
             files.append(
                 download_wind_from_opendata_dwd(
@@ -473,9 +482,27 @@ def regrid_to_rectilinear(
     return ds_regridded
 
 
+def trim_comso_data_to_cutout_extent(ds, cutout):
+    """
+    Reduce the cosmo data to the extent of the cutout.
+
+    This is called before the regridding and makes things faster.
+    """
+    x1, x2, y1, y2 = cutout.extent
+    ds = ds.compute()  # .where() does not work with dask boolean indexing
+    ds = ds.where(
+        ((x1 < ds.RLON) & (ds.RLON < x2) & (y1 < ds.RLAT) & (ds.RLAT < y2)), drop=True
+    )
+    return ds
+
+
 def get_roughness_subfeature(cutout: Cutout, cosmo_rea6_dir: str | Path) -> xr.Dataset:
     file = maybe_download_COSMO_constant(cosmo_rea6_dir)
     ds = xr.open_dataset(file)
+    # need to set RLON and RLAT as coords in order to avoid nan indices during
+    # regridding after .where() call
+    ds = ds.assign_coords({"RLON": ds["RLON"], "RLAT": ds["RLAT"]})
+    ds = trim_comso_data_to_cutout_extent(ds, cutout)
     ds = regrid_to_rectilinear(ds, cutout, "Z0")
     ds = ds.rename({"Z0": "roughness"})
     return ds
@@ -497,6 +524,7 @@ def get_wind_heightlevel_subfeature(
 
     open_kwargs = dict(chunks=cutout.chunks, parallel=parallel)
     ds = xr.open_mfdataset(files, combine="by_coords", **open_kwargs)
+    ds = trim_comso_data_to_cutout_extent(ds, cutout)
     ds = regrid_to_rectilinear(ds, cutout, "wind_speed")
     ds = ds.rename({"wind_speed": subfeature})
     return ds
