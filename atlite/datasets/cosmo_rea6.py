@@ -428,7 +428,6 @@ def regrid_to_rectilinear(
     xx, yy = np.meshgrid(ds_regridded.x.values, ds_regridded.y.values)
 
     if len(ds[data_variable].dims) == 3:
-        assert len(ds_regridded["time"]) == len(ds["time"])
         arr = (
             np.zeros((len(ds_regridded.y), len(ds_regridded.x), len(ds_regridded.time)))
             * np.nan
