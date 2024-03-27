@@ -53,7 +53,7 @@ features = {
         "solar_altitude",
         "solar_azimuth",
     ],
-    "temperature": ["temperature", "soil temperature"],
+    "temperature": ["temperature", "soil temperature", "dewpoint temperature"],
     "runoff": ["runoff"],
 }
 
@@ -199,11 +199,22 @@ def get_data_temperature(retrieval_params):
     Get wind temperature for given retrieval parameters.
     """
     ds = retrieve_data(
-        variable=["2m_temperature", "soil_temperature_level_4"], **retrieval_params
+        variable=[
+            "2m_temperature",
+            "soil_temperature_level_4",
+            "2m_dewpoint_temperature",
+        ],
+        **retrieval_params,
     )
 
     ds = _rename_and_clean_coords(ds)
-    ds = ds.rename({"t2m": "temperature", "stl4": "soil temperature"})
+    ds = ds.rename(
+        {
+            "t2m": "temperature",
+            "stl4": "soil temperature",
+            "d2m": "dewpoint temperature",
+        }
+    )
 
     return ds
 
