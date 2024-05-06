@@ -35,6 +35,7 @@ from atlite.convert import (
     coefficient_of_performance,
     convert_and_aggregate,
     csp,
+    dewpoint_temperature,
     heat_demand,
     hydro,
     irradiation,
@@ -680,6 +681,8 @@ class Cutout:
     temperature = temperature
 
     soil_temperature = soil_temperature
+
+    dewpoint_temperature = dewpoint_temperature
 
     coefficient_of_performance = coefficient_of_performance
 

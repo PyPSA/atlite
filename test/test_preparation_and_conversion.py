@@ -273,6 +273,16 @@ def soil_temperature_test(cutout):
     assert demand.sum() > 0
 
 
+def dewpoint_temperature_test(cutout):
+    """
+    Test the atlite.Cutout.dewpoint_temperature function with different
+    settings.
+    """
+    demand = cutout.dewpoint_temperature()
+    assert demand.notnull().all()
+    assert demand.sum() > 0
+
+
 def wind_test(cutout):
     """
     Test the atlite.Cutout.wind function with two different layouts.
@@ -683,6 +693,10 @@ class TestERA5:
     @staticmethod
     def test_soil_temperature_era5(cutout_era5):
         return soil_temperature_test(cutout_era5)
+
+    @staticmethod
+    def test_dewpoint_temperature_era5(cutout_era5):
+        return dewpoint_temperature_test(cutout_era5)
 
     @staticmethod
     def test_line_rating_era5(cutout_era5):
