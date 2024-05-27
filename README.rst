@@ -43,6 +43,7 @@ Atlite can process the following weather data fields and can convert them into f
 .. * Surface roughness
 .. * Height maps
 .. * Soil temperature
+.. * Dewpoint temperature
 
 
 .. * Wind power generation for a given turbine type
