@@ -556,7 +556,7 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
 def convert_irradiation(
     ds,
     orientation,
-    tracking,
+    tracking=None,
     irradiation="total",
     trigon_model="simple",
     clearsky_model="simple",
