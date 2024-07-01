@@ -630,7 +630,7 @@ class TestERA5:
 
     @staticmethod
     def test_pv_era5_3h_sampling(cutout_era5_3h_sampling):
-        assert pd.infer_freq(cutout_era5_3h_sampling.data.time) == "3H"
+        assert pd.infer_freq(cutout_era5_3h_sampling.data.time) == "3h"
         return pv_test(cutout_era5_3h_sampling)
 
     @staticmethod
