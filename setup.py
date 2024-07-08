@@ -50,6 +50,7 @@ setup(
             "sphinx-book-theme",
             "nbsphinx",
             "nbsphinx-link",
+            "docutils==0.20",  # Just temporarily until sphinx-docutils is updated (see https://github.com/sphinx-doc/sphinx/issues/12340)
         ],
         "dev": ["pre-commit", "pytest", "pytest-cov", "matplotlib"],
     },
