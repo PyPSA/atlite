@@ -199,8 +199,8 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     files = get_filenames(sarah_dir, coords)
     open_kwargs = dict(chunks=chunks, parallel=creation_parameters["parallel"])
-    ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)
-    ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)
+    ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)[["SIS"]]
+    ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)[["SID"]]
     ds = xr.merge([ds_sis, ds_sid])
     ds = ds.sel(lon=as_slice(cutout.extent[:2]), lat=as_slice(cutout.extent[2:]))
     # fix float (im)precission

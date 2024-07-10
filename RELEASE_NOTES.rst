@@ -12,7 +12,7 @@ Upcoming Release
 ================
 
 * Added solar tracking support for irradiation; e.g. ``cutout.irradiation(tracking='horizontal')``.
-
+* Added SARAH-3 compatibility (SARAH-2 can still be used).
 
 Version 0.2.12
 ==============
