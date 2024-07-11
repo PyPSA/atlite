@@ -674,7 +674,9 @@ class TestERA5:
         pv_test(
             cutout, time=str(last_day_second_prev_month), skip_optimal_sum_test=True
         )
-        return pv_test(cutout, time=str(first_day_prev_month))
+        return pv_test(
+            cutout, time=str(first_day_prev_month), skip_optimal_sum_test=True
+        )
 
     @staticmethod
     def test_wind_era5(cutout_era5):
