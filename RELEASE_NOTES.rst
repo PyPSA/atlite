@@ -8,11 +8,19 @@ Release Notes
 #############
 
 
-Upcoming Release
-================
+.. Upcoming Release
+.. ================
 
-* Added solar tracking support for irradiation; e.g. ``cutout.irradiation(tracking='horizontal')``.
-* Added SARAH-3 compatibility (SARAH-2 can still be used).
+Version 0.2.13
+==============
+
+* Added solar tracking support for irradiation; e.g. ``cutout.irradiation(tracking='horizontal')``. (https://github.com/PyPSA/atlite/pull/340)
+* Added SARAH-3 compatibility (SARAH-2 can still be used). (https://github.com/PyPSA/atlite/pull/352)
+* Fixed passing of `disable_progressbar` argument to ``compute_availabilitymatrix()`` to disable the progress bar. (https://github.com/PyPSA/atlite/pull/356)
+* Added dewpoint temperature to the list of features fetched from ERA5. (https://github.com/PyPSA/atlite/pull/342)
+* Added option to compute capacity factor time series per grid cell. (https://github.com/PyPSA/atlite/pull/330)
+* Fixed pandas deprecations.
+* Fixed build of documentation.
 
 Version 0.2.12
 ==============
