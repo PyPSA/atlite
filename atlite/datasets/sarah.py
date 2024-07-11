@@ -188,7 +188,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     xarray.Dataset
         Dataset of dask arrays of the retrieved variables.
     """
-    assert cutout.dt in ("30min", "30T", "h", "H", "1h", "1H")
+    assert cutout.dt in ("30min", "30T", "h", "1h")
 
     coords = cutout.coords
     chunks = cutout.chunks
