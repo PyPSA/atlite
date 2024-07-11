@@ -61,7 +61,6 @@ def make_latitude_optimal():
 
         # South orientation for panels on northern hemisphere and vice versa
         azimuth = np.where(lat.values < 0, 0, pi)
-
         return dict(
             slope=xr.DataArray(slope, coords=lat.coords),
             azimuth=xr.DataArray(azimuth, coords=lat.coords),

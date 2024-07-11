@@ -102,7 +102,7 @@ def test_dx_dy_dt():
     )
     assert dx == cutout.dx
     assert dy == cutout.dy
-    assert "H" == cutout.dt
+    assert "h" == cutout.dt
 
 
 def test_available_features(ref):
