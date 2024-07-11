@@ -729,22 +729,10 @@ def compute_availabilitymatrix(
     )
 
     if nprocesses is None:
-        logger.info(
-            "You can disable the progress bar by setting 'disable_progressbar=True'."
-        )
-
         if not disable_progressbar:
-            tqdm_kwargs = dict(
-                ascii=False,
-                unit=" gridcells",
-                total=len(shapes),
-                desc="Compute availability matrix",
-            )
             iterator = tqdm(shapes.index, **tqdm_kwargs)
         else:
-            logger.info("Progress bar is disabled.")
             iterator = shapes.index
-
         with catch_warnings():
             simplefilter("ignore")
             for i in iterator:
