@@ -107,7 +107,8 @@ def convert_and_aggregate(
     resource : xr.DataArray
         Time-series of renewable generation aggregated to buses, if
         `matrix` or equivalents are provided else the total sum of
-        generated energy.
+        generated energy. If capacity_factor flag is set the capacity
+        factor for each grid cell is returned instead.
     units : xr.DataArray (optional)
         The installed units per bus in MW corresponding to `layout`
         (only if `return_capacity` is True).
@@ -119,22 +120,24 @@ def convert_and_aggregate(
 
     no_args = all(v is None for v in [layout, shapes, matrix])
 
+    results = None    
+
     if no_args:
         if per_unit or return_capacity:
             raise ValueError(
                 "One of `matrix`, `shapes` and `layout` must be "
                 "given for `per_unit` or `return_capacity`"
             )
-        if capacity_factor or capacity_factor_timeseries:
-            if capacity_factor_timeseries:
-                res = da.rename("capacity factor")
-            else:
-                res = da.mean("time").rename("capacity factor")
-            res.attrs["units"] = "p.u."
-            return maybe_progressbar(res, show_progress, **dask_kwargs)
+            
+    if capacity_factor or capacity_factor_timeseries:
+        if capacity_factor_timeseries:
+            results = da.rename("capacity factor")
         else:
-            res = da.sum("time", keep_attrs=True)
-            return maybe_progressbar(res, show_progress, **dask_kwargs)
+            results = da.mean("time").rename("capacity factor")
+        results.attrs["units"] = "p.u."
+
+    else:
+        results = da.sum("time", keep_attrs=True)
 
     if matrix is not None:
         if shapes is not None:
@@ -178,7 +181,8 @@ def convert_and_aggregate(
     if index is None:
         index = pd.RangeIndex(matrix.shape[0])
 
-    results = aggregate_matrix(da, matrix=matrix, index=index)
+    if results is None:
+        results = aggregate_matrix(da, matrix=matrix, index=index)
 
     if per_unit or return_capacity:
         caps = matrix.sum(-1)
@@ -186,8 +190,9 @@ def convert_and_aggregate(
         capacity.attrs["units"] = "MW"
 
     if per_unit:
-        results = (results / capacity.where(capacity != 0)).fillna(0.0)
-        results.attrs["units"] = "p.u."
+        if not (capacity_factor or capacity_factor_timeseries):
+            results = (results / capacity.where(capacity != 0)).fillna(0.0)
+            results.attrs["units"] = "p.u."
     else:
         results.attrs["units"] = "MW"
 
