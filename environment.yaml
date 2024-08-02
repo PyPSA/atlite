@@ -10,7 +10,7 @@ channels:
 - defaults
 dependencies:
 - python>=3.6
-- numpy
+- numpy<2
 - scipy
 - pandas>=0.25
 - xarray>=0.16.2

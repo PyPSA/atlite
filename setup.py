@@ -24,7 +24,7 @@ setup(
     include_package_data=True,
     python_requires=">=3.6",
     install_requires=[
-        "numpy",
+        "numpy<2",
         "scipy",
         "pandas>=0.25",
         "bottleneck",
