@@ -99,7 +99,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     # Combine ERA5 and ERA5T data into a single dimension.
     # See https://github.com/PyPSA/atlite/issues/190
     if "expver" in ds.coords:
-        unique_expver = np.unique(ds['expver'].values)
+        unique_expver = np.unique(ds["expver"].values)
         if len(unique_expver) > 1:
             expver_dim = xr.DataArray(
                 unique_expver, dims=["expver"], coords={"expver": unique_expver}
@@ -115,7 +115,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
             # expver=1 is ERA5 data, expver=5 is ERA5T data This combines both
             # by filling in NaNs from ERA5 data with values from ERA5T.
             ds = ds.sel(expver="0001").combine_first(ds.sel(expver="0005"))
-    ds = ds.drop_vars(["expver", "number"], errors='ignore')
+    ds = ds.drop_vars(["expver", "number"], errors="ignore")
 
     return ds
 
