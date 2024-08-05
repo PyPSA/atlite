@@ -1046,7 +1046,9 @@ def convert_line_rating(
     return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
 
 
-def line_rating(cutout, shapes, line_resistance, **params):
+def line_rating(
+    cutout, shapes, line_resistance, show_progress=True, dask_kwargs={}, **params
+):
     """
     Create a dynamic line rating time series based on the IEEE-738 standard.
 
@@ -1071,6 +1073,10 @@ def line_rating(cutout, shapes, line_resistance, **params):
     line_resistance : float/series
         Resistance of the lines in Ohm/meter. Alternatively in p.u. system in
         Ohm/1000km (see example below).
+    show_progress : boolean, default True
+        Whether to show a progress bar.
+    dask_kwargs : dict, default {}
+        Dict with keyword arguments passed to `dask.compute`.
     params : keyword arguments as float/series
         Arguments to tweak/modify the line rating calculations based on [1].
         Defaults are:
@@ -1145,7 +1151,10 @@ def line_rating(cutout, shapes, line_resistance, **params):
             res.append(delayed(convert_line_rating)(ds, *df.iloc[i].values))
         else:
             res.append(dummy)
-    with ProgressBar():
-        res = compute(res)
+    if show_progress:
+        with ProgressBar(minimum=2):
+            res = compute(res, **dask_kwargs)
+    else:
+       res = compute(res, **dask_kwargs)
 
     return xr.concat(*res, dim=df.index).assign_attrs(units="A")
