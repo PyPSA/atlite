@@ -8,8 +8,12 @@ Release Notes
 #############
 
 
-.. Upcoming Release
-.. ================
+Upcoming Release
+================
+
+- Improved parallelization of ``atlite.convert.build_line_rating`` by adding
+  keyword arguments for ``dask.compute`` (``dask_kwargs={}``) and an option to
+  disable the progressbar (``show_progressbar=True``).
 
 Version 0.2.13
 ==============
