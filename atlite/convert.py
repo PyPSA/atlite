@@ -1155,6 +1155,6 @@ def line_rating(
         with ProgressBar(minimum=2):
             res = compute(res, **dask_kwargs)
     else:
-       res = compute(res, **dask_kwargs)
+        res = compute(res, **dask_kwargs)
 
     return xr.concat(*res, dim=df.index).assign_attrs(units="A")
