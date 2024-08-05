@@ -16,10 +16,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
-from numpy import pi
 from dask import compute, delayed
+from dask.array import absolute, arccos, cos, maximum, mod, radians, sin, sqrt
 from dask.diagnostics import ProgressBar
-from dask.array import radians, absolute, mod, cos, sin, maximum, sqrt, arccos
+from numpy import pi
 from scipy.sparse import csr_matrix
 
 logger = logging.getLogger(__name__)
@@ -1038,8 +1038,7 @@ def convert_line_rating(
     else:
         solar_position = SolarPosition(ds)
     Phi_s = arccos(
-        cos(solar_position.altitude)
-        * cos((solar_position.azimuth) - radians(psi))
+        cos(solar_position.altitude) * cos((solar_position.azimuth) - radians(psi))
     )
 
     qs = alpha * Q * A * sin(Phi_s)

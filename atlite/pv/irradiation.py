@@ -7,7 +7,7 @@
 import logging
 
 import numpy as np
-from dask.array import cos, radians, fmax, fmin, sin, sqrt
+from dask.array import cos, fmax, fmin, radians, sin, sqrt
 
 logger = logging.getLogger(__name__)
 

@@ -20,8 +20,8 @@ import pandas as pd
 import pkg_resources
 import requests
 import yaml
-from scipy.signal import fftconvolve
 from dask.array import radians
+from scipy.signal import fftconvolve
 
 from atlite.utils import arrowdict
 

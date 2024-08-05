@@ -58,9 +58,7 @@ def SolarPosition(ds, time_shift="0H"):
     }
 
     if rvs.issubset(set(ds.data_vars)):
-        return ds[rvs].rename(
-            {v: v.replace("solar_", "") for v in rvs}
-        )
+        return ds[rvs].rename({v: v.replace("solar_", "") for v in rvs})
 
     warn(
         """The calculation method and handling of solar position variables will change.

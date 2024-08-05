@@ -8,7 +8,7 @@ import sys
 
 import numpy as np
 import xarray as xr
-from dask.array import cos, radians, sin, arctan, arcsin, arccos, logical_and
+from dask.array import arccos, arcsin, arctan, cos, logical_and, radians, sin
 from numpy import pi
 
 
