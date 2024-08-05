@@ -16,8 +16,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
+from numpy import pi
 from dask import compute, delayed
 from dask.diagnostics import ProgressBar
+from dask.array import radians, absolute, mod, cos, sin, maximum, sqrt, arccos
 from scipy.sparse import csr_matrix
 
 logger = logging.getLogger(__name__)
@@ -1005,23 +1007,23 @@ def convert_line_rating(
     k = (
         2.424e-2 + 7.477e-5 * (Tfilm - T0) - 4.407e-9 * (Tfilm - T0) ** 2
     )  # thermal conductivity
-    anglediff = ds["wnd_azimuth"] - np.deg2rad(psi)
-    Phi = np.abs(np.mod(anglediff + np.pi / 2, np.pi) - np.pi / 2)
+    anglediff = ds["wnd_azimuth"] - radians(psi)
+    Phi = absolute(mod(anglediff + pi / 2, pi) - pi / 2)
     K = (
-        1.194 - np.cos(Phi) + 0.194 * np.cos(2 * Phi) + 0.368 * np.sin(2 * Phi)
+        1.194 - cos(Phi) + 0.194 * cos(2 * Phi) + 0.368 * sin(2 * Phi)
     )  # wind direction factor
 
     Tdiff = Ts - Ta
     qcf1 = K * (1.01 + 1.347 * reynold**0.52) * k * Tdiff  # (3a) in [1]
     qcf2 = K * 0.754 * reynold**0.6 * k * Tdiff  # (3b) in [1]
 
-    qcf = np.maximum(qcf1, qcf2)
+    qcf = maximum(qcf1, qcf2)
 
     #  natural convection
-    qcn = 3.645 * np.sqrt(rho) * D**0.75 * Tdiff**1.25
+    qcn = 3.645 * sqrt(rho) * D**0.75 * Tdiff**1.25
 
     # convection loss is the max between forced and natural
-    qc = np.maximum(qcf, qcn)
+    qc = maximum(qcf, qcn)
 
     # 2. Radiated Loss
     qr = 17.8 * D * epsilon * ((Ts / 100) ** 4 - (Ta / 100) ** 4)
@@ -1035,14 +1037,14 @@ def convert_line_rating(
         solar_position = Position(ds["solar_altitude"], ds["solar_azimuth"])
     else:
         solar_position = SolarPosition(ds)
-    Phi_s = np.arccos(
-        np.cos(solar_position.altitude)
-        * np.cos((solar_position.azimuth) - np.deg2rad(psi))
+    Phi_s = arccos(
+        cos(solar_position.altitude)
+        * cos((solar_position.azimuth) - radians(psi))
     )
 
-    qs = alpha * Q * A * np.sin(Phi_s)
+    qs = alpha * Q * A * sin(Phi_s)
 
-    Imax = np.sqrt((qc + qr - qs) / R)
+    Imax = sqrt((qc + qr - qs) / R)
     return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
 
 

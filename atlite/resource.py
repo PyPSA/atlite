@@ -21,6 +21,7 @@ import pkg_resources
 import requests
 import yaml
 from scipy.signal import fftconvolve
+from dask.array import radians
 
 from atlite.utils import arrowdict
 
@@ -170,8 +171,8 @@ def get_cspinstallationconfig(installation):
     da = da.rename({"azimuth": "azimuth [deg]", "altitude": "altitude [deg]"})
     da = da.assign_coords(
         {
-            "altitude": np.deg2rad(da["altitude [deg]"]),
-            "azimuth": np.deg2rad(da["azimuth [deg]"]),
+            "altitude": radians(da["altitude [deg]"]),
+            "azimuth": radians(da["azimuth [deg]"]),
         }
     )
     da = da.swap_dims({"altitude [deg]": "altitude", "azimuth [deg]": "azimuth"})

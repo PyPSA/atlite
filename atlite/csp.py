@@ -10,6 +10,7 @@ Functions for use in conjunction with csp data generation.
 import logging
 
 import numpy as np
+from dask.array import radians, sin
 
 from atlite.pv.solar_position import SolarPosition
 
@@ -42,7 +43,7 @@ def calculate_dni(ds, solar_position=None, altitude_threshold=3.75):
         solar_position = SolarPosition(ds)
 
     # solar altitude expected in rad, convert degrees (easier to specifcy) to match
-    altitude_threshold = np.deg2rad(altitude_threshold)
+    altitude_threshold = radians(altitude_threshold)
 
     # Sanitation of altitude values:
     # Prevent high calculated DNI values during low solar altitudes (sunset / dawn)
@@ -53,6 +54,6 @@ def calculate_dni(ds, solar_position=None, altitude_threshold=3.75):
 
     # Calculate DNI and remove NaNs introduced during altitude sanitation
     # DNI is determined either by dividing by cos(azimuth) or sin(altitude)
-    dni = ds["influx_direct"] / np.sin(altitude)
+    dni = ds["influx_direct"] / sin(altitude)
 
     return dni

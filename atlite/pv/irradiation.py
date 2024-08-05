@@ -7,9 +7,7 @@
 import logging
 
 import numpy as np
-import pandas as pd
-import xarray as xr
-from numpy import cos, deg2rad, fmax, fmin, sin, sqrt
+from dask.array import cos, radians, fmax, fmin, sin, sqrt
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +71,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
         )
 
     # Set diffuse fraction to one when the sun isn't up
-    # fraction = fraction.where(sinaltitude >= sin(deg2rad(threshold))).fillna(1.0)
+    # fraction = fraction.where(sinaltitude >= sin(radians(threshold))).fillna(1.0)
     # fraction = fraction.rename('fraction index')
 
     return (influx * fraction).rename("diffuse horizontal")
@@ -110,7 +108,7 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
     # fixup: clip all negative values (unclear why it gets negative)
     # note: REatlas does not do the fixup
     if logger.isEnabledFor(logging.WARNING):
-        if ((diffuse_t < 0.0) & (sinaltitude > sin(deg2rad(1.0)))).any():
+        if ((diffuse_t < 0.0) & (sinaltitude > sin(radians(1.0)))).any():
             logger.warning(
                 "diffuse_t exhibits negative values above altitude threshold."
             )
@@ -254,7 +252,7 @@ def TiltedIrradiation(
     # values, leading to big overall errors from the 1/sinaltitude factor.
     # => Suppress irradiation below solar altitudes of 1 deg.
 
-    cap_alt = solar_position["altitude"] < deg2rad(altitude_threshold)
+    cap_alt = solar_position["altitude"] < radians(altitude_threshold)
     result = result.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
     result.attrs["units"] = "W m**-2"
 

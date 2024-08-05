@@ -8,8 +8,10 @@ Release Notes
 #############
 
 
-.. Upcoming Release
-.. ================
+Upcoming Release
+================
+
+* Use ``dask.array`` functions in favour of ``numpy`` functions.
 
 Version 0.2.13
 ==============
