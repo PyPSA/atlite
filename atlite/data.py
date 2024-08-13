@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 from atlite.datasets import modules as datamodules
 
 
-def get_features(cutout, module, features, tmpdir=None):
+def get_features(cutout, module, features, tmpdir=None, monthly_requests=False):
     """
     Load the feature data for a given module.
 
@@ -39,7 +39,12 @@ def get_features(cutout, module, features, tmpdir=None):
 
     for feature in features:
         feature_data = delayed(get_data)(
-            cutout, feature, tmpdir=tmpdir, lock=lock, **parameters
+            cutout,
+            feature,
+            tmpdir=tmpdir,
+            lock=lock,
+            monthly_requests=monthly_requests,
+            **parameters,
         )
         datasets.append(feature_data)
 
@@ -115,6 +120,7 @@ def cutout_prepare(
     tmpdir=None,
     overwrite=False,
     compression={"zlib": True, "complevel": 9, "shuffle": True},
+    monthly_requests=False,
 ):
     """
     Prepare all or a selection of features in a cutout.
@@ -147,6 +153,10 @@ def cutout_prepare(
         To efficiently reduce cutout sizes, specify the number of 'least_significant_digits': n here.
         To disable compression, set "complevel" to None.
         Default is {'zlib': True, 'complevel': 9, 'shuffle': True}.
+    monthly_requests : bool, optional
+        If True, the data is requested on a monthly basis in ERA5. This is useful for
+        large cutouts, where the data is requested in smaller chunks. The
+        default is False
 
     Returns
     -------
@@ -174,7 +184,13 @@ def cutout_prepare(
             continue
         logger.info(f"Calculating and writing with module {module}:")
         missing_features = missing_vars.index.unique("feature")
-        ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
+        ds = get_features(
+            cutout,
+            module,
+            missing_features,
+            tmpdir=tmpdir,
+            monthly_requests=monthly_requests,
+        )
         prepared |= set(missing_features)
 
         cutout.data.attrs.update(dict(prepared_features=list(prepared)))

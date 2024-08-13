@@ -160,7 +160,7 @@ def hourly_mean(ds):
     return ds
 
 
-def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
+def get_data(cutout, feature, tmpdir, lock=None, monthly_requests=False, **creation_parameters):
     """
     Load stored SARAH data and reformat to matching the given cutout.
 
@@ -173,6 +173,8 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     feature : str
         Name of the feature data to retrieve. Must be in
         `atlite.datasets.sarah.features`
+    monthly_requests : bool
+        Takes no effect, only here for consistency with other dataset modules.
     **creation_parameters :
         Mandatory arguments are:
             * 'sarah_dir', str. Directory of the stored SARAH data.
