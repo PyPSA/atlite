@@ -391,7 +391,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     return ds
 
 
-def get_data(cutout, feature, tmpdir, lock=None, monthly_requests=False, **creation_parameters):
+def get_data(
+    cutout, feature, tmpdir, lock=None, monthly_requests=False, **creation_parameters
+):
     """
     Retrieve data from ECMWFs ERA5 dataset (via CDS).
 
