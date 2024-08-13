@@ -446,10 +446,10 @@ def get_data(
         return ds
 
     if feature in static_features:
-        return retrieve_once(
-            retrieval_times(coords, static=True)
-        ).squeeze()
+        return retrieve_once(retrieval_times(coords, static=True)).squeeze()
 
-    datasets = map(retrieve_once, retrieval_times(coords, monthly_requests=monthly_requests))
+    datasets = map(
+        retrieve_once, retrieval_times(coords, monthly_requests=monthly_requests)
+    )
 
     return xr.concat(datasets, dim="time").sel(time=coords["time"])
