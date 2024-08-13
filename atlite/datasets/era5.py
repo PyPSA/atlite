@@ -447,9 +447,9 @@ def get_data(
 
     if feature in static_features:
         return retrieve_once(
-            retrieval_times(coords, static=True, monthly_requests=monthly_requests)
+            retrieval_times(coords, static=True)
         ).squeeze()
 
-    datasets = map(retrieve_once, retrieval_times(coords))
+    datasets = map(retrieve_once, retrieval_times(coords, monthly_requests=monthly_requests))
 
     return xr.concat(datasets, dim="time").sel(time=coords["time"])
