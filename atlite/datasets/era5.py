@@ -20,8 +20,8 @@ import cdsapi
 import numpy as np
 import pandas as pd
 import xarray as xr
+from dask import compute, delayed
 from numpy import atleast_1d
-from dask import delayed, compute
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
