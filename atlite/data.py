@@ -25,7 +25,14 @@ logger = logging.getLogger(__name__)
 from atlite.datasets import modules as datamodules
 
 
-def get_features(cutout, module, features, tmpdir=None, monthly_requests=False):
+def get_features(
+    cutout,
+    module,
+    features,
+    tmpdir=None,
+    monthly_requests=False,
+    concurrent_requests=False,
+):
     """
     Load the feature data for a given module.
 
@@ -44,6 +51,7 @@ def get_features(cutout, module, features, tmpdir=None, monthly_requests=False):
             tmpdir=tmpdir,
             lock=lock,
             monthly_requests=monthly_requests,
+            concurrent_requests=concurrent_requests,
             **parameters,
         )
         datasets.append(feature_data)
@@ -121,6 +129,7 @@ def cutout_prepare(
     overwrite=False,
     compression={"zlib": True, "complevel": 9, "shuffle": True},
     monthly_requests=False,
+    concurrent_requests=False,
 ):
     """
     Prepare all or a selection of features in a cutout.
@@ -157,6 +166,9 @@ def cutout_prepare(
         If True, the data is requested on a monthly basis in ERA5. This is useful for
         large cutouts, where the data is requested in smaller chunks. The
         default is False
+    concurrent_requests : bool, optional
+        If True, the monthly data requests are posted concurrently.
+        Only has an effect if `monthly_requests` is True. The default is False.
 
     Returns
     -------
@@ -190,6 +202,7 @@ def cutout_prepare(
             missing_features,
             tmpdir=tmpdir,
             monthly_requests=monthly_requests,
+            concurrent_requests=concurrent_requests,
         )
         prepared |= set(missing_features)
 

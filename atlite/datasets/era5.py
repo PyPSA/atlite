@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from numpy import atleast_1d
+from dask import delayed, compute
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
@@ -392,7 +393,13 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
 
 
 def get_data(
-    cutout, feature, tmpdir, lock=None, monthly_requests=False, **creation_parameters
+    cutout,
+    feature,
+    tmpdir,
+    lock=None,
+    monthly_requests=False,
+    concurrent_requests=False,
+    **creation_parameters,
 ):
     """
     Retrieve data from ECMWFs ERA5 dataset (via CDS).
@@ -412,6 +419,9 @@ def get_data(
         If True, the data is requested on a monthly basis in ERA5. This is useful for
         large cutouts, where the data is requested in smaller chunks. The
         default is False
+    concurrent_requests : bool, optional
+        If True, the monthly data requests are posted concurrently.
+        Only has an effect if `monthly_requests` is True.
     **creation_parameters :
         Additional keyword arguments. The only effective argument is 'sanitize'
         (default True) which sets sanitization of the data on or off.
@@ -448,8 +458,11 @@ def get_data(
     if feature in static_features:
         return retrieve_once(retrieval_times(coords, static=True)).squeeze()
 
-    datasets = map(
-        retrieve_once, retrieval_times(coords, monthly_requests=monthly_requests)
-    )
+    time_chunks = retrieval_times(coords, monthly_requests=monthly_requests)
+    if concurrent_requests:
+        delayed_datasets = [delayed(retrieve_once)(chunk) for chunk in time_chunks]
+        datasets = compute(*delayed_datasets)
+    else:
+        datasets = map(retrieve_once, time_chunks)
 
     return xr.concat(datasets, dim="time").sel(time=coords["time"])

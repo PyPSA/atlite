@@ -177,6 +177,8 @@ def get_data(
         `atlite.datasets.sarah.features`
     monthly_requests : bool
         Takes no effect, only here for consistency with other dataset modules.
+    concurrent_requests : bool
+        Takes no effect, only here for consistency with other dataset modules.
     **creation_parameters :
         Mandatory arguments are:
             * 'sarah_dir', str. Directory of the stored SARAH data.

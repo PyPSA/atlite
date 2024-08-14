@@ -45,7 +45,7 @@ def get_data_gebco_height(xs, ys, gebco_path):
     )
 
 
-def get_data(cutout, feature, tmpdir, monthly_requests=False, **creation_parameters):
+def get_data(cutout, feature, tmpdir, monthly_requests=False, concurrent_requests=False, **creation_parameters):
     """
     Get the gebco height data.
 
@@ -57,6 +57,8 @@ def get_data(cutout, feature, tmpdir, monthly_requests=False, **creation_paramet
     tmpdir : str
         Takes no effect, only here for consistency with other dataset modules.
     monthly_requests : bool
+        Takes no effect, only here for consistency with other dataset modules.
+    concurrent_requests : bool
         Takes no effect, only here for consistency with other dataset modules.
     **creation_parameters :
         Must include `gebco_path`.
