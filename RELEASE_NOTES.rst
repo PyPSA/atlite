@@ -13,7 +13,9 @@ Upcoming Release
 
 - Adds option to toggle whether ERA5 downloads are requested in monthly or
   annual chunks with keyword argument ``cutout.prepare(monthly_requests=True)``.
-  The default is now annual requests.
+  The default is now annual requests. The monthly requests can also be posted
+  concurrently using ``cutout.prepare(monthly_requests=True,
+  concurrent_requests=True)``.
 
 - Improved parallelization of ``atlite.convert.build_line_rating`` by adding
   keyword arguments for ``dask.compute`` (``dask_kwargs={}``) and an option to
