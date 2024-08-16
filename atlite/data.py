@@ -128,6 +128,8 @@ def cutout_prepare(
     tmpdir=None,
     overwrite=False,
     compression={"zlib": True, "complevel": 9, "shuffle": True},
+    show_progress=False,
+    dask_kwargs=None,
     monthly_requests=False,
     concurrent_requests=False,
 ):
@@ -162,6 +164,10 @@ def cutout_prepare(
         To efficiently reduce cutout sizes, specify the number of 'least_significant_digits': n here.
         To disable compression, set "complevel" to None.
         Default is {'zlib': True, 'complevel': 9, 'shuffle': True}.
+    show_progress : bool, optional
+        If True, a progress bar is shown. The default is False.
+    dask_kwargs : dict, default {}
+        Dict with keyword arguments passed to `dask.compute`.
     monthly_requests : bool, optional
         If True, the data is requested on a monthly basis in ERA5. This is useful for
         large cutouts, where the data is requested in smaller chunks. The
@@ -175,6 +181,9 @@ def cutout_prepare(
     cutout : atlite.Cutout
         Cutout with prepared data. The variables are stored in `cutout.data`.
     """
+    if dask_kwargs is None:
+        dask_kwargs = {}
+
     if cutout.prepared and not overwrite:
         logger.info("Cutout already prepared.")
         return cutout
@@ -227,8 +236,11 @@ def cutout_prepare(
         # Delayed writing for large cutout
         # cf. https://stackoverflow.com/questions/69810367/python-how-to-write-large-netcdf-with-xarray
         write_job = ds.to_netcdf(tmp, compute=False)
-        with ProgressBar():
-            write_job.compute()
+        if show_progress:
+            with ProgressBar(minimum=2):
+                write_job.compute(**dask_kwargs)
+        else:
+            write_job.compute(**dask_kwargs)
         if cutout.path.exists():
             cutout.data.close()
             cutout.path.unlink()
