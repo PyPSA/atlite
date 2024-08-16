@@ -41,7 +41,7 @@ def find_upstream_basins(meta, hid):
     return hids
 
 
-def determine_basins(plants, hydrobasins, show_progress=True):
+def determine_basins(plants, hydrobasins, show_progress=False):
     if isinstance(hydrobasins, str):
         hydrobasins = gpd.read_file(hydrobasins)
 
@@ -81,7 +81,7 @@ def determine_basins(plants, hydrobasins, show_progress=True):
 
 
 def shift_and_aggregate_runoff_for_plants(
-    basins, runoff, flowspeed=1, show_progress=True
+    basins, runoff, flowspeed=1, show_progress=False
 ):
     inflow = xr.DataArray(
         np.zeros((len(basins.plants), runoff.indexes["time"].size)),

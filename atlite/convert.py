@@ -51,7 +51,7 @@ def convert_and_aggregate(
     return_capacity=False,
     capacity_factor=False,
     capacity_factor_timeseries=False,
-    show_progress=True,
+    show_progress=False,
     dask_kwargs={},
     **convert_kwds,
 ):
@@ -91,7 +91,7 @@ def convert_and_aggregate(
     capacity_factor_timeseries : boolean
         If True, the capacity factor time series of the chosen resource for
         each grid cell is computed.
-    show_progress : boolean, default True
+    show_progress : boolean, default False
         Whether to show a progress bar.
     dask_kwargs : dict, default {}
         Dict with keyword arguments passed to `dask.compute`.
@@ -882,7 +882,7 @@ def hydro(
     hydrobasins,
     flowspeed=1,
     weight_with_height=False,
-    show_progress=True,
+    show_progress=False,
     **kwargs,
 ):
     """
@@ -1047,7 +1047,7 @@ def convert_line_rating(
 
 
 def line_rating(
-    cutout, shapes, line_resistance, show_progress=True, dask_kwargs={}, **params
+    cutout, shapes, line_resistance, show_progress=False, dask_kwargs={}, **params
 ):
     """
     Create a dynamic line rating time series based on the IEEE-738 standard.
@@ -1073,7 +1073,7 @@ def line_rating(
     line_resistance : float/series
         Resistance of the lines in Ohm/meter. Alternatively in p.u. system in
         Ohm/1000km (see example below).
-    show_progress : boolean, default True
+    show_progress : boolean, default False
         Whether to show a progress bar.
     dask_kwargs : dict, default {}
         Dict with keyword arguments passed to `dask.compute`.
