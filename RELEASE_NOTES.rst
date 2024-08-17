@@ -15,6 +15,8 @@ Upcoming Release
   keyword arguments for ``dask.compute`` (``dask_kwargs={}``) and an option to
   disable the progressbar (``show_progressbar=True``).
 
+- Remove long deprecated functions and cutout arguments / attributes.
+
 Version 0.2.13
 ==============
 
