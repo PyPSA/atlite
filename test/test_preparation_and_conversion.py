@@ -677,7 +677,7 @@ class TestERA5:
         return pv_test(
             cutout, time=str(first_day_prev_month), skip_optimal_sum_test=True
         )
-    
+
     @staticmethod
     @pytest.mark.parametrize("concurrent_requests", [True, False])
     def test_era5_monthly_requests(tmp_path_factory, concurrent_requests):
