@@ -677,6 +677,13 @@ class TestERA5:
         return pv_test(
             cutout, time=str(first_day_prev_month), skip_optimal_sum_test=True
         )
+    
+    @staticmethod
+    @pytest.mark.parametrize("concurrent_requests", [True, False])
+    def test_era5_monthly_requests(tmp_path_factory, concurrent_requests):
+        tmp_path = tmp_path_factory.mktemp("era5_mon")
+        cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=TIME)
+        cutout.prepare(monthly_requests=True, concurrent_requests=concurrent_requests)
 
     @staticmethod
     def test_wind_era5(cutout_era5):
