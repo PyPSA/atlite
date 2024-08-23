@@ -8,20 +8,31 @@ Release Notes
 #############
 
 
-Upcoming Release
-================
+.. Upcoming Release
+.. ================
 
-- Adds option to toggle whether ERA5 downloads are requested in monthly or
+Version 0.2.14
+==============
+
+* Compatibility with new CDS infrastructure for ERA5 cutouts. Update your API
+  key at https://cds-beta.climate.copernicus.eu/how-to-api and use the new API
+  endpoint ``https://cds-beta.climate.copernicus.eu/api`` in your
+  ``~/.cdsapirc`` file. The old CDS infrastructure can still be accessed when
+  the ``~/.cdsapirc`` uses the old endpoint.
+
+* Adds option to toggle whether ERA5 downloads are requested in monthly or
   annual chunks with keyword argument ``cutout.prepare(monthly_requests=True)``.
   The default is now annual requests. The monthly requests can also be posted
   concurrently using ``cutout.prepare(monthly_requests=True,
   concurrent_requests=True)``.
 
-- Improved parallelization of ``atlite.convert.build_line_rating`` by adding
+* Improved parallelization of ``atlite.convert.build_line_rating`` by adding
   keyword arguments for ``dask.compute`` (``dask_kwargs={}``) and an option to
   disable the progressbar (``show_progress=False``).
 
-- Default to ``show_progress=False`` for performance reasons.
+* Default to ``show_progress=False`` for performance reasons.
+
+* Numpy version temporarily limited to <2.
 
 Version 0.2.13
 ==============
