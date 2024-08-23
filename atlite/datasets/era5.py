@@ -20,6 +20,7 @@ import cdsapi
 import numpy as np
 import pandas as pd
 import xarray as xr
+from dask import compute, delayed
 from numpy import atleast_1d
 
 from atlite.gis import maybe_swap_spatial_dims
@@ -274,7 +275,7 @@ def _area(coords):
     return [y1, x0, y0, x1]
 
 
-def retrieval_times(coords, static=False):
+def retrieval_times(coords, static=False, monthly_requests=False):
     """
     Get list of retrieval cdsapi arguments for time dimension in coordinates.
 
@@ -287,6 +288,11 @@ def retrieval_times(coords, static=False):
     Parameters
     ----------
     coords : atlite.Cutout.coords
+    static : bool, optional
+    monthly_requests : bool, optional
+        If True, the data is requested on a monthly basis. This is useful for
+        large cutouts, where the data is requested in smaller chunks. The
+        default is False
 
     Returns
     -------
@@ -305,12 +311,21 @@ def retrieval_times(coords, static=False):
     times = []
     for year in time.year.unique():
         t = time[time.year == year]
-        for month in t.month.unique():
+        if monthly_requests:
+            for month in t.month.unique():
+                query = {
+                    "year": str(year),
+                    "month": str(month),
+                    "day": list(t[t.month == month].day.unique()),
+                    "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
+                }
+                times.append(query)
+        else:
             query = {
                 "year": str(year),
-                "month": str(month),
-                "day": list(t[t.month == month].day.unique()),
-                "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
+                "month": list(t.month.unique()),
+                "day": list(t.day.unique()),
+                "time": ["%02d:00" % h for h in t.hour.unique()],
             }
             times.append(query)
     return times
@@ -377,7 +392,15 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     return ds
 
 
-def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
+def get_data(
+    cutout,
+    feature,
+    tmpdir,
+    lock=None,
+    monthly_requests=False,
+    concurrent_requests=False,
+    **creation_parameters,
+):
     """
     Retrieve data from ECMWFs ERA5 dataset (via CDS).
 
@@ -392,6 +415,13 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
         `atlite.datasets.era5.features`
     tmpdir : str/Path
         Directory where the temporary netcdf files are stored.
+    monthly_requests : bool, optional
+        If True, the data is requested on a monthly basis in ERA5. This is useful for
+        large cutouts, where the data is requested in smaller chunks. The
+        default is False
+    concurrent_requests : bool, optional
+        If True, the monthly data requests are posted concurrently.
+        Only has an effect if `monthly_requests` is True.
     **creation_parameters :
         Additional keyword arguments. The only effective argument is 'sanitize'
         (default True) which sets sanitization of the data on or off.
@@ -428,6 +458,11 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     if feature in static_features:
         return retrieve_once(retrieval_times(coords, static=True)).squeeze()
 
-    datasets = map(retrieve_once, retrieval_times(coords))
+    time_chunks = retrieval_times(coords, monthly_requests=monthly_requests)
+    if concurrent_requests:
+        delayed_datasets = [delayed(retrieve_once)(chunk) for chunk in time_chunks]
+        datasets = compute(*delayed_datasets)
+    else:
+        datasets = map(retrieve_once, time_chunks)
 
     return xr.concat(datasets, dim="time").sel(time=coords["time"])

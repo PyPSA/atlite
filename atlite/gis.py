@@ -674,7 +674,7 @@ def _process_func(i):
 
 
 def compute_availabilitymatrix(
-    cutout, shapes, excluder, nprocesses=None, disable_progressbar=False
+    cutout, shapes, excluder, nprocesses=None, disable_progressbar=True
 ):
     """
     Compute the eligible share within cutout cells in the overlap with shapes.
