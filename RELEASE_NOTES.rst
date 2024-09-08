@@ -34,6 +34,8 @@ Version 0.2.14
 
 * Numpy version temporarily limited to <2.
 
+- Remove long deprecated functions and cutout arguments / attributes.
+
 Version 0.2.13
 ==============
 
