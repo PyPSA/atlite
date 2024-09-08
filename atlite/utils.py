@@ -23,39 +23,6 @@ from atlite.gis import maybe_swap_spatial_dims
 logger = logging.getLogger(__name__)
 
 
-def make_optional_progressbar(show, prefix, max_value=None):
-    warnings.warn(
-        "make_optional_progressbar() is deprecated and will be removed "
-        "in the next version.",
-        warnings.DeprecationWarning,
-    )
-    if show:
-        widgets = [
-            pgb.widgets.Percentage(),
-            " ",
-            pgb.widgets.SimpleProgress(
-                format="(%s)" % pgb.widgets.SimpleProgress.DEFAULT_FORMAT
-            ),
-            " ",
-            pgb.widgets.Bar(),
-            " ",
-            pgb.widgets.Timer(),
-            " ",
-            pgb.widgets.ETA(),
-        ]
-        if not prefix.endswith(": "):
-            prefix = prefix.strip() + ": "
-        maybe_progressbar = pgb.ProgressBar(
-            prefix=prefix, widgets=widgets, max_value=max_value
-        )
-    else:
-
-        def maybe_progressbar(x):
-            return x
-
-    return maybe_progressbar
-
-
 def migrate_from_cutout_directory(old_cutout_dir, path):
     """
     Convert an old style cutout directory to new style netcdf file.

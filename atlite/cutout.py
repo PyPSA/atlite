@@ -139,15 +139,6 @@ class Cutout:
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.
         """
-        name = cutoutparams.get("name", None)
-        cutout_dir = cutoutparams.get("cutout_dir", None)
-        if cutout_dir or name or Path(path).is_dir():
-            raise ValueError(
-                "Old style format not supported. You can migrate the old "
-                "cutout directory using the function "
-                "`atlite.utils.migrate_from_cutout_directory()`. The argument "
-                "`cutout_dir` and `name` have been deprecated in favour of `path`."
-            )
 
         path = Path(path).with_suffix(".nc")
         chunks = cutoutparams.pop("chunks", {"time": 100})
@@ -155,31 +146,6 @@ class Cutout:
             storable_chunks = {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
         else:
             storable_chunks = {}
-
-        # Backward compatibility for xs, ys, months and years
-        if {"xs", "ys"}.intersection(cutoutparams):
-            warn(
-                "The arguments `xs` and `ys` have been deprecated in favour of "
-                "`x` and `y`",
-                DeprecationWarning,
-            )
-            if "xs" in cutoutparams:
-                cutoutparams["x"] = cutoutparams.pop("xs")
-            if "ys" in cutoutparams:
-                cutoutparams["y"] = cutoutparams.pop("ys")
-
-        if {"years", "months"}.intersection(cutoutparams):
-            warn(
-                "The arguments `years` and `months` have been deprecated in "
-                "favour of `time`",
-                DeprecationWarning,
-            )
-            assert "years" in cutoutparams
-            months = cutoutparams.pop("months", slice(1, 12))
-            years = cutoutparams.pop("years")
-            cutoutparams["time"] = slice(
-                f"{years.start}-{months.start}", f"{years.stop}-{months.stop}"
-            )
 
         # Three cases. First, cutout exists -> take the data.
         # Second, data is given -> take it. Third, else -> build a new cutout
@@ -278,20 +244,6 @@ class Cutout:
         Geographic coordinates of the cutout.
         """
         return self.data.coords
-
-    @property
-    def meta(self):
-        """
-        Metadata of the cutout.
-
-        Deprecated since v0.2.
-        """
-        warn(
-            "The `meta` attribute is deprecated in favour of direct "
-            "access to `data`",
-            DeprecationWarning,
-        )
-        return xr.Dataset(self.coords, attrs=self.data.attrs)
 
     @property
     def shape(self):

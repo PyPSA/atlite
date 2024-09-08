@@ -103,19 +103,6 @@ def reproject_shapes(shapes, crs1, crs2):
         return list(map(_reproject_shape, shapes))
 
 
-def reproject(shapes, p1, p2):
-    """
-    Project a collection of shapes from one crs to another.
-
-    Deprecated since version 0.2.
-    """
-    warn("reproject has been renamed to reproject_shapes", DeprecationWarning)
-    return reproject_shapes(shapes, p1, p2)
-
-
-reproject.__doc__ = reproject_shapes.__doc__
-
-
 def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     """
     Compute the indicatormatrix.
@@ -674,7 +661,7 @@ def _process_func(i):
 
 
 def compute_availabilitymatrix(
-    cutout, shapes, excluder, nprocesses=None, disable_progressbar=False
+    cutout, shapes, excluder, nprocesses=None, disable_progressbar=True
 ):
     """
     Compute the eligible share within cutout cells in the overlap with shapes.
