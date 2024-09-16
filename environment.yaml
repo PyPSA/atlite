@@ -20,7 +20,7 @@ dependencies:
 - yaml
 - requests
 - geopandas
-- cdsapi
+- cdsapi>=0.7,<0.7.3
 - pyproj>=2.0
 - rasterio!=1.2.10
 - shapely
