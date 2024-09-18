@@ -41,7 +41,7 @@ setup(
         "tqdm",
         "pyproj>=2",
         "geopandas",
-        "cdsapi",
+        "cdsapi>=0.7,<0.7.3",
     ],
     extras_require={
         "docs": [

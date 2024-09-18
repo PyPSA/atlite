@@ -20,8 +20,8 @@ import cdsapi
 import numpy as np
 import pandas as pd
 import xarray as xr
-from dask.array import arctan2, sqrt
 from dask import compute, delayed
+from dask.array import arctan2, sqrt
 from numpy import atleast_1d
 
 from atlite.gis import maybe_swap_spatial_dims
