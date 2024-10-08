@@ -26,6 +26,10 @@ from numpy import atleast_1d
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
+import time
+import requests
+
+download_status = {}
 
 # Null context for running a with statements wihout any context
 try:
@@ -342,6 +346,71 @@ def noisy_unlink(path):
     except PermissionError:
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
+def custom_download(url, size, target, lock, filename):
+    """
+    An optimized download function that keeps the original downloading speed and updates a single-line progress bar.
+    """
+    if target is None:
+        target = url.split("/")[-1]
+
+    logging.info(f"Downloading {filename} to {target} ({size} bytes)")
+    start = time.time()
+
+    mode = "wb"
+    total = 0
+    sleep = 10
+    tries = 0
+    headers = None
+
+    while tries < 5:
+        r = requests.get(url, stream=True, headers=headers)
+        try:
+            r.raise_for_status()
+
+            with open(target, mode) as f:
+                for chunk in r.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        f.write(chunk)
+                        total += len(chunk)
+                        with lock:
+                            download_status[filename] = total / size * 100
+                            update_progress_bar()
+
+        except requests.exceptions.ConnectionError as e:
+            logging.error(f"Download interrupted: {e}")
+            break
+        finally:
+            r.close()
+
+        if total >= size:
+            break
+
+        logging.error(f"Download incomplete, downloaded {total} bytes out of {size}")
+        logging.warning(f"Sleeping {sleep} seconds")
+        time.sleep(sleep)
+        mode = "ab"
+        total = os.path.getsize(target)
+        sleep *= 1.5
+        headers = {"Range": f"bytes={total}-"}
+        tries += 1
+
+    if total != size:
+        raise Exception(f"Download failed: downloaded {total} bytes out of {size}")
+
+    elapsed = time.time() - start
+    if elapsed:
+        logging.info(f"Download rate {total / elapsed:.2f} bytes/s")
+
+    return target
+
+
+def update_progress_bar():
+    """
+    Update a simple progress bar that shows the percentage of all files being downloaded.
+    Each file gets its own percentage in the same line.
+    """
+    progress = " | ".join([f"{file}: {int(progress)}%" for file, progress in download_status.items()])
+    print(f"\r{progress}", end="")
 
 def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     """
@@ -369,12 +438,13 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         fd, target = mkstemp(suffix=".nc", dir=tmpdir)
         os.close(fd)
 
-        # Inform user about data being downloaded as "* variable (year-month)"
-        timestr = f"{request['year']}-{request['month']}"
-        variables = atleast_1d(request["variable"])
-        varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
-        logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
-        result.download(target)
+    # Inform user about data being downloaded as "* variable (year-month)"
+    timestr = f"{request['year']}-{request['month']}"
+    variables = atleast_1d(request["variable"])
+    varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
+    filename = f"{variables[0]}_{timestr}.nc"
+    logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
+    custom_download(result.location, result.content_length, target, lock, filename)
 
     ds = xr.open_dataset(target, chunks=chunks or {})
     if tmpdir is None:
