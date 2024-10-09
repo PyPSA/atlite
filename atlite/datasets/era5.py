@@ -10,8 +10,10 @@ For further reference see
 https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
+import hashlib
 import logging
 import os
+import time
 import warnings
 import weakref
 from tempfile import mkstemp
@@ -19,6 +21,7 @@ from tempfile import mkstemp
 import cdsapi
 import numpy as np
 import pandas as pd
+import requests
 import xarray as xr
 from dask import compute, delayed
 from dask.array import arctan2, sqrt
@@ -26,9 +29,6 @@ from numpy import atleast_1d
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
-import time
-import requests
-import hashlib
 
 download_status = {}
 file_aliases = {}
@@ -349,21 +349,26 @@ def noisy_unlink(path):
     except PermissionError:
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
+
 def get_cache_filename(request, cache_dir):
     """
     Generate a unique cache filename based on the request parameters.
     """
     # Serialize the request dictionary into a sorted string to ensure consistency
-    request_str = "_".join(f"{key}-{sorted(value) if isinstance(value, list) else value}" 
-                           for key, value in sorted(request.items()))
+    request_str = "_".join(
+        f"{key}-{sorted(value) if isinstance(value, list) else value}"
+        for key, value in sorted(request.items())
+    )
     # Generate a hash of the request string
-    request_hash = hashlib.md5(request_str.encode('utf-8')).hexdigest()
+    request_hash = hashlib.md5(request_str.encode("utf-8")).hexdigest()
     # Use the first 8 characters of the hash for brevity
     return f"{request_hash}.nc"
 
+
 def custom_download(url, size, target, lock, filename):
     """
-    Optimized download function that uses a simple progress bar and removes completed files from the display.
+    Optimized download function that uses a simple progress bar and removes
+    completed files from the display.
     """
     if target is None:
         target = url.split("/")[-1]
@@ -422,12 +427,18 @@ def custom_download(url, size, target, lock, filename):
 
     return target
 
+
 def update_progress_bar():
     """
-    Update a progress bar that shows the percentage of all files being downloaded.
-    Files that have reached 100% are removed from the display. Only short aliases are displayed.
+    Update a progress bar that shows the percentage of all files being
+    downloaded.
+
+    Files that have reached 100% are removed from the display. Only
+    short aliases are displayed.
     """
-    completed_files = [file for file, progress in download_status.items() if progress >= 100]
+    completed_files = [
+        file for file, progress in download_status.items() if progress >= 100
+    ]
 
     # Remove completed files from the progress dictionary
     for file in completed_files:
@@ -443,7 +454,12 @@ def update_progress_bar():
     displayed_files = list(download_status.items())[:MAX_DISPLAY_FILES]
 
     # Create progress string using the short aliases
-    progress = " | ".join([f"{file_aliases[file]}: {int(progress)}%" for file, progress in displayed_files])
+    progress = " | ".join(
+        [
+            f"{file_aliases[file]}: {int(progress)}%"
+            for file, progress in displayed_files
+        ]
+    )
 
     # If there are more files, show a summary
     if len(download_status) > MAX_DISPLAY_FILES:
@@ -451,6 +467,7 @@ def update_progress_bar():
 
     # Use \r to overwrite the same line
     print(f"\r{progress}", end="")
+
 
 def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     """
@@ -518,6 +535,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
             ds[v].encoding.clear()
 
     return ds
+
 
 def get_data(
     cutout,
