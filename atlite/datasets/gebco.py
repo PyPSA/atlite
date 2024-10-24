@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 # SPDX-FileCopyrightText: 2020 - 2023 The Atlite Authors
 #
@@ -51,7 +50,7 @@ def get_data(
     tmpdir,
     monthly_requests=False,
     concurrent_requests=False,
-    **creation_parameters
+    **creation_parameters,
 ):
     """
     Get the gebco height data.
@@ -73,6 +72,7 @@ def get_data(
     Returns
     -------
     xr.Dataset
+
     """
     if "gebco_path" not in creation_parameters:
         logger.error('Argument "gebco_path" not defined')

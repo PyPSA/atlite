@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -70,6 +68,7 @@ def _add_height(ds):
     ----------
     [1] ERA5: surface elevation and orography, retrieved: 10.02.2019
     https://confluence.ecmwf.int/display/CKB/ERA5%3A+surface+elevation+and+orography
+
     """
     g0 = 9.80665
     z = ds["z"]
@@ -298,6 +297,7 @@ def retrieval_times(coords, static=False, monthly_requests=False):
     Returns
     -------
     list of dicts witht retrieval arguments
+
     """
     time = coords["time"].to_index()
     if static:
@@ -431,6 +431,7 @@ def get_data(
     -------
     xarray.Dataset
         Dataset of dask arrays of the retrieved variables.
+
     """
     coords = cutout.coords
 

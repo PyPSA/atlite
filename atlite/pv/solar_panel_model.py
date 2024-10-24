@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -84,4 +82,4 @@ def SolarPanelModel(ds, irradiance, pc):
     elif model == "bofinger":
         return _power_bofinger(irradiance, ds["temperature"], pc)
     else:
-        AssertionError("Unknown panel model: {}".format(model))
+        AssertionError(f"Unknown panel model: {model}")

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -20,9 +18,9 @@ from dask.diagnostics import ProgressBar
 from dask.utils import SerializableLock
 from numpy import atleast_1d
 
-logger = logging.getLogger(__name__)
-
 from atlite.datasets import modules as datamodules
+
+logger = logging.getLogger(__name__)
 
 
 def get_features(
@@ -82,6 +80,7 @@ def available_features(module=None):
         A Series of all variables. The MultiIndex indicated which module
         provides the variable and with which feature name the variable can be
         obtained.
+
     """
     features = {name: m.features for name, m in datamodules.items()}
     features = (
@@ -104,7 +103,7 @@ def non_bool_dict(d):
 
 
 def maybe_remove_tmpdir(func):
-    "Use this wrapper to make tempfile deletion compatible with windows machines."
+    """Use this wrapper to make tempfile deletion compatible with windows machines."""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -180,6 +179,7 @@ def cutout_prepare(
     -------
     cutout : atlite.Cutout
         Cutout with prepared data. The variables are stored in `cutout.data`.
+
     """
     if dask_kwargs is None:
         dask_kwargs = {}

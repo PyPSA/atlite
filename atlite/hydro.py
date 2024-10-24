@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -47,7 +45,7 @@ def determine_basins(plants, hydrobasins, show_progress=False):
 
     assert isinstance(hydrobasins, gpd.GeoDataFrame), (
         "hydrobasins should be passed as a filename or a GeoDataFrame, "
-        "but received `type(hydrobasins) = {}`".format(type(hydrobasins))
+        f"but received `type(hydrobasins) = {type(hydrobasins)}`"
     )
 
     missing_columns = pd.Index(

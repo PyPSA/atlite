@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -57,6 +55,7 @@ def get_filenames(sarah_dir, coords):
     -------
     pd.DataFrame with two columns `sis` and `sid` for and timeindex for all
     relevant files.
+
     """
 
     def _filenames_starting_with(name):
@@ -193,6 +192,7 @@ def get_data(
     -------
     xarray.Dataset
         Dataset of dask arrays of the retrieved variables.
+
     """
     assert cutout.dt in ("30min", "30T", "h", "1h")
 

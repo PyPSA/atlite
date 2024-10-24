@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 # SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
 #
@@ -9,6 +8,7 @@ Created on Tue Jun 22 10:46:27 2021.
 
 @author: fabian
 """
+
 import pytest
 
 from atlite.resource import get_oedb_windturbineconfig, get_windturbineconfig

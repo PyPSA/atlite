@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -51,9 +49,10 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
     [2] https://en.wikipedia.org/w/index.php?title=Roughness_length&oldid=862127433,
     Retrieved 2019-02-15.
+
     """
     # Fast lane
-    to_name = "wnd{h:0d}m".format(h=int(to_height))
+    to_name = f"wnd{int(to_height):0d}m"
     if to_name in ds:
         return ds[to_name]
 
@@ -66,7 +65,7 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
         from_height = heights[np.argmin(np.abs(heights - to_height))]
 
-    from_name = "wnd{h:0d}m".format(h=int(from_height))
+    from_name = f"wnd{int(from_height):0d}m"
 
     # Wind speed extrapolation
     wnd_spd = ds[from_name] * (
@@ -75,9 +74,8 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
     wnd_spd.attrs.update(
         {
-            "long name": "extrapolated {ht} m wind speed using logarithmic "
-            "method with roughness and {hf} m wind speed"
-            "".format(ht=to_height, hf=from_height),
+            "long name": f"extrapolated {to_height} m wind speed using logarithmic "
+            f"method with roughness and {from_height} m wind speed",
             "units": "m s**-1",
         }
     )

@@ -1,5 +1,4 @@
 #!/vsr/bin/env python3
-# -*- coding: utf-8 -*-
 
 # SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
 #
@@ -169,7 +168,9 @@ def test_angle_increase():
 
     R = 9.39e-5  # resistance at 100°C
 
-    func = lambda psi: convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha)
+    def func(psi):
+        return convert_line_rating(ds, psi, R, D, Ts, epsilon, alpha)
+
     Psi = np.arange(0, 370, 10)
     res = pd.Series([func(psi) for psi in Psi], index=Psi)
 

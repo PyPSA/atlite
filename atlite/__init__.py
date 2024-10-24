@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -27,3 +25,14 @@ __author__ = (
     "David Schlachtberger (FIAS), "
 )
 __copyright__ = "Copyright 2016 - 2021 The Atlite Authors"
+
+__all__ = [
+    Cutout,
+    ExclusionContainer,
+    compute_indicatormatrix,
+    regrid,
+    cspinstallations,
+    solarpanels,
+    windturbines,
+    __version__,
+]
