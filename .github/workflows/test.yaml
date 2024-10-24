@@ -60,9 +60,7 @@ jobs:
 
     - name: Setup CDS API
       run: |
-        echo -ne "url: https://cds-beta.climate.copernicus.eu/api \nkey: ${{secrets.CDSAPI_TOKEN_BETA}}\n" > ~/.cdsapirc
-        python -m pip install --upgrade pip
-        pip install -e .[dev]
+        echo -ne "url: https://cds.climate.copernicus.eu/api \nkey: ${{secrets.CDSAPI_TOKEN}}\n" > ~/.cdsapirc
 
     - name: Download package
       uses: actions/download-artifact@v4
