@@ -639,9 +639,7 @@ class TestERA5:
     def test_pv_era5_and_era5t(tmp_path_factory):
         """
         CDSAPI returns ERA5T data for the *previous* month, and ERA5 data for
-        the.
-
-        *second-previous* month. We request data spanning 2 days between the 2
+        the *second-previous* month. We request data spanning 2 days between the 2
         months to test merging ERA5 data with ERA5T.
 
         See documentation here: https://confluence.ecmwf.int/pages/viewpage.action?pageId=173385064

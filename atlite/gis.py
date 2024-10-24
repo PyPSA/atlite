@@ -703,7 +703,6 @@ def compute_availabilitymatrix(
     Here we stick to the top down version which is why we use
     `cutout.transform_r` and flipping the y-axis in the end.
     """
-    availability = []
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
     shapes = shapes.to_crs(excluder.crs)
 
@@ -722,6 +721,7 @@ def compute_availabilitymatrix(
             iterator = shapes.index
         with catch_warnings():
             simplefilter("ignore")
+            availability = []
             for i in iterator:
                 _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
                 availability.append(_)
@@ -744,6 +744,8 @@ def compute_availabilitymatrix(
                 )
 
     availability = np.stack(availability)[:, ::-1]  # flip axis, see Notes
+    if availability.ndim == 4:
+        availability = availability.squeeze(axis=1)
     coords = [(shapes.index), ("y", cutout.data.y.data), ("x", cutout.data.x.data)]
     return xr.DataArray(availability, coords=coords)
 
@@ -820,7 +822,13 @@ def regrid(ds, dimx, dimy, **kwargs):
             mode="edge",
         )
 
-        return rio.warp.reproject(src, empty(shape), src_transform=trans, **kwargs)[0]
+        reprojected = rio.warp.reproject(
+            src, empty(shape), src_transform=trans, **kwargs
+        )[0]
+
+        if reprojected.ndim != src.ndim:
+            reprojected = reprojected.squeeze(axis=0)
+        return reprojected
 
     data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
     dtypes = {da.dtype for da in data_vars}
