@@ -55,6 +55,10 @@ setup(
         "dev": ["pre-commit", "pytest", "pytest-cov", "matplotlib"],
     },
     classifiers=[
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Development Status :: 3 - Alpha",
         "Environment :: Console",
         "Intended Audience :: Science/Research",
