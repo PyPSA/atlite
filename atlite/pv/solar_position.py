@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -50,6 +48,7 @@ def SolarPosition(ds, time_shift="0H"):
     The unfortunately quite computationally intensive SPA algorithm [4,5] has
     been implemented using numba or plain numpy for a single location at
     https://github.com/pvlib/pvlib-python/blob/master/pvlib/spa.py.
+
     """
     # Act like a getter if these return variables are already in ds
     rvs = {

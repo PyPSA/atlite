@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -195,8 +193,8 @@ def TiltedIrradiation(
     -------
     result : xarray.DataArray
         The desired irradiation quantity on the tilted surface.
-    """
 
+    """
     influx_toa = ds["influx_toa"]
 
     def clip(influx, influx_max):

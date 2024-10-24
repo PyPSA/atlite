@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 # SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
 #
@@ -437,7 +436,6 @@ def test_shape_availability_area(ref):
 
 def test_exclusioncontainer_geometries():
     crs = 3035
-    shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=crs)
     exclude = gpd.GeoSeries([box(X0 / 2 + X1 / 2, Y0 / 2 + Y1 / 2, X1, Y1)], crs=crs)
     res = 0.01
 

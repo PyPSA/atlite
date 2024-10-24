@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # SPDX-FileCopyrightText: 2017 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -16,9 +15,6 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import os
-import shlex
-import sys
 
 import pkg_resources  # part of setuptools
 
