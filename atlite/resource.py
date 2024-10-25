@@ -17,7 +17,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pkg_resources
 import requests
 import yaml
 from dask.array import radians
@@ -28,7 +27,7 @@ from atlite.utils import arrowdict
 logger = logging.getLogger(name=__name__)
 
 
-RESOURCE_DIRECTORY = Path(pkg_resources.resource_filename(__name__, "resources"))
+RESOURCE_DIRECTORY = Path(__file__).parent / "resources"
 WINDTURBINE_DIRECTORY = RESOURCE_DIRECTORY / "windturbine"
 SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
