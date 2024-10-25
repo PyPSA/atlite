@@ -386,136 +386,6 @@ def coefficient_of_performance_test(cutout):
     assert cap_factor.sum() > 0
 
 
-# %% Prepare cutouts to test
-
-
-@pytest.fixture(scope="session")
-def cutout_era5(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("era5")
-    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=TIME)
-    cutout.prepare()
-    return cutout
-
-
-@pytest.fixture(scope="session")
-def cutout_era5_3h_sampling(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("era5")
-    time = [
-        f"{TIME} 00:00",
-        f"{TIME} 03:00",
-        f"{TIME} 06:00",
-        f"{TIME} 09:00",
-        f"{TIME} 12:00",
-        f"{TIME} 15:00",
-        f"{TIME} 18:00",
-        f"{TIME} 21:00",
-    ]
-    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=time)
-    cutout.prepare()
-    return cutout
-
-
-@pytest.fixture(scope="session")
-def cutout_era5_2days_crossing_months(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("era5")
-    time = slice("2013-02-28", "2013-03-01")
-    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=time)
-    cutout.prepare()
-    return cutout
-
-
-@pytest.fixture(scope="session")
-def cutout_era5_coarse(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("era5_coarse")
-    cutout = Cutout(
-        path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=TIME, dx=0.5, dy=0.7
-    )
-    cutout.prepare()
-    return cutout
-
-
-@pytest.fixture(scope="session")
-def cutout_era5_weird_resolution(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("era5_weird_resolution")
-    cutout = Cutout(
-        path=tmp_path / "era5",
-        module="era5",
-        bounds=BOUNDS,
-        time=TIME,
-        dx=0.132,
-        dy=0.32,
-    )
-    cutout.prepare()
-    return cutout
-
-
-@pytest.fixture(scope="session")
-def cutout_era5_reduced(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("era5_red")
-    cutout = Cutout(path=tmp_path / "era5", module="era5", bounds=BOUNDS, time=TIME)
-    return cutout
-
-
-@pytest.fixture(scope="session")
-def cutout_sarah(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("sarah")
-    cutout = Cutout(
-        path=tmp_path / "sarah",
-        module=["sarah", "era5"],
-        bounds=BOUNDS,
-        time=TIME,
-        sarah_dir=SARAH_DIR,
-    )
-    cutout.prepare()
-    return cutout
-
-
-@pytest.fixture(scope="session")
-def cutout_sarah_fine(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("sarah_coarse")
-    cutout = Cutout(
-        path=tmp_path / "sarah",
-        module="sarah",
-        bounds=BOUNDS,
-        time=TIME,
-        dx=0.05,
-        dy=0.05,
-        sarah_dir=SARAH_DIR,
-    )
-    cutout.prepare()
-    return cutout
-
-
-@pytest.fixture(scope="session")
-def cutout_sarah_weird_resolution(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("sarah_weird_resolution")
-    cutout = Cutout(
-        path=tmp_path / "sarah",
-        module="sarah",
-        bounds=BOUNDS,
-        time=TIME,
-        dx=0.132,
-        dy=0.32,
-        sarah_dir=SARAH_DIR,
-    )
-    cutout.prepare()
-    return cutout
-
-
-@pytest.fixture(scope="session")
-def cutout_gebco(tmp_path_factory):
-    tmp_path = tmp_path_factory.mktemp("gebco")
-    cutout = Cutout(
-        path=tmp_path / "gebco",
-        module="gebco",
-        bounds=BOUNDS,
-        time=TIME,
-        gebco_path=GEBCO_PATH,
-    )
-    cutout.prepare()
-    return cutout
-
-
 class TestERA5:
     @staticmethod
     def test_data_module_arguments_era5(cutout_era5):
@@ -639,9 +509,7 @@ class TestERA5:
     def test_pv_era5_and_era5t(tmp_path_factory):
         """
         CDSAPI returns ERA5T data for the *previous* month, and ERA5 data for
-        the.
-
-        *second-previous* month. We request data spanning 2 days between the 2
+        the *second-previous* month. We request data spanning 2 days between the 2
         months to test merging ERA5 data with ERA5T.
 
         See documentation here: https://confluence.ecmwf.int/pages/viewpage.action?pageId=173385064
