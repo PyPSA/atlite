@@ -43,9 +43,27 @@ jobs:
         - windows-latest
     env:
       MPLBACKEND: Agg  # https://github.com/orgs/community/discussions/26434
-      ATLITE_CACHE_PATH: ${{ github.workspace }}/.atlite_cache
 
     steps:
+    - name: Setup cache and secrets (Linux & MacOS)
+      if: runner.os != 'Windows'
+      run: |
+        echo "CACHE_PATH=$HOME/.atlite_cache" >> $GITHUB_ENV
+        echo "today=$(date +'%Y-%m-%d')"  >> $GITHUB_ENV
+        echo -ne "url: ${{ vars.CDSAPI_URL }}\nkey: ${{  secrets.CDSAPI_TOKEN  }}\n" > ~/.cdsapirc
+      shell: bash
+
+    - name: Setup cache and secrets (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo CACHE_PATH=%USERPROFILE%\.atlite_cache >> %GITHUB_ENV%
+        echo url: ${{ vars.CDSAPI_URL }} > %USERPROFILE%\.cdsapirc
+        echo key: ${{ secrets.CDSAPI_TOKEN }} >> %USERPROFILE%\.cdsapirc
+        for /f "tokens=2 delims==" %%a in ('"wmic os get localdatetime /value"') do set "today=%%a"
+        set mydate=%today:~0,4%-%today:~4,2%-%today:~6,2%
+        echo today=%mydate% >> %GITHUB_ENV%
+      shell: cmd
+
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0 # Needed for setuptools_scm
@@ -54,16 +72,11 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-    
-    - name: Setup secrets & cache dates
-      run: |
-        echo -ne "url: ${{ vars.CDSAPI_URL }}\nkey: ${{  secrets.CDSAPI_TOKEN  }}\n" > ~/.cdsapirc
-        echo "today=$(date +'%Y-%m-%d')"  >> $GITHUB_ENV
 
     - name: Cache retrieved cutouts
       uses: actions/cache@v4
       with:
-        path: ${{ env.ATLITE_CACHE_PATH }}
+        path: ${{ env.CACHE_PATH }}
         key: retrieved-cutouts-${{ env.today }}
         enableCrossOsArchive: true
       id: cache-env
@@ -78,10 +91,9 @@ jobs:
       run: |
         python -m pip install uv
         uv pip install --compile --system "$(ls dist/*.whl)[dev]"
-
     - name: Test with pytest
       run: |
-        coverage run -m pytest . --cache-path ${{ env.ATLITE_CACHE_PATH }}
+        coverage run -m pytest . --cache-path=${{ env.CACHE_PATH }} --verbose
         coverage xml
 
     - name: Upload code coverage report

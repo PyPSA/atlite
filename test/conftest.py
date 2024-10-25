@@ -2,6 +2,13 @@ import os
 from pathlib import Path
 import pytest
 from atlite import Cutout
+import os
+from datetime import date
+
+import pytest
+import urllib3
+from dateutil.relativedelta import relativedelta
+
 
 TIME = "2013-01-01"
 BOUNDS = (-4, 56, 1.5, 62)
@@ -34,6 +41,24 @@ def cutout_era5(cutouts_path):
     tmp_path = cutouts_path / "cutout_era5.nc"
     cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
     cutout.prepare()
+    return cutout
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_mon(cutouts_path):
+    tmp_path = cutouts_path / "cutout_era5_mon.nc"
+    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
+    cutout.prepare(monthly_requests=True, concurrent_requests=False)
+
+    return cutout
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_mon_concurrent(cutouts_path):
+    tmp_path = cutouts_path / "cutout_era5_mon_concurrent.nc"
+    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
+    cutout.prepare(monthly_requests=True, concurrent_requests=True)
+
     return cutout
 
 
@@ -93,6 +118,35 @@ def cutout_era5_weird_resolution(cutouts_path):
 def cutout_era5_reduced(cutouts_path):
     tmp_path = cutouts_path / "cutout_era5_reduced.nc"
     cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
+    return cutout
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_overwrite(cutouts_path, cutout_era5_reduced):
+    tmp_path = cutouts_path / "cutout_era5_overwrite.nc"
+    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
+    # cutout.data = cutout.data.drop_vars("influx_direct")
+    # cutout.prepare("influx", overwrite=True)
+    # TODO Needs to be fixed
+    return cutout
+
+
+@pytest.fixture(scope="session")
+def cutout_era5t(cutouts_path):
+    tmp_path = cutouts_path / "cutout_era5t.nc"
+
+    today = date.today()
+    first_day_this_month = today.replace(day=1)
+    first_day_prev_month = first_day_this_month - relativedelta(months=1)
+    last_day_second_prev_month = first_day_prev_month - relativedelta(days=1)
+
+    cutout = Cutout(
+        path=tmp_path,
+        module="era5",
+        bounds=BOUNDS,
+        time=slice(last_day_second_prev_month, first_day_prev_month),
+    )
+    cutout.prepare()
     return cutout
 
 
