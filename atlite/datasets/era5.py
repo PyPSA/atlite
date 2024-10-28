@@ -10,6 +10,7 @@ https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 
 import logging
 import os
+import time
 import warnings
 import weakref
 from tempfile import mkstemp
@@ -17,6 +18,7 @@ from tempfile import mkstemp
 import cdsapi
 import numpy as np
 import pandas as pd
+import requests
 import xarray as xr
 from dask import compute, delayed
 from dask.array import arctan2, sqrt
@@ -24,8 +26,6 @@ from numpy import atleast_1d
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
-import time
-import requests
 
 download_status = {}
 
@@ -390,7 +390,9 @@ def update_progress_bar():
     Update a simple progress bar that shows the percentage of all files being downloaded.
     Each file gets its own percentage in the same line.
     """
-    progress = " | ".join([f"{file}: {int(progress)}%" for file, progress in download_status.items()])
+    progress = " | ".join(
+        [f"{file}: {int(progress)}%" for file, progress in download_status.items()]
+    )
     print(f"\r{progress}", end="")
 
 
