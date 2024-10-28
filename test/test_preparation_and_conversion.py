@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
 # SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
 #
@@ -15,20 +14,18 @@ import sys
 from datetime import date
 
 import geopandas as gpd
+import numpy as np
+import pandas as pd
 import pytest
 import urllib3
 from dateutil.relativedelta import relativedelta
-
-urllib3.disable_warnings()
-
-import numpy as np
-import pandas as pd
 from shapely.geometry import LineString as Line
 from shapely.geometry import Point
-from xarray.testing import assert_allclose, assert_equal
 
 import atlite
 from atlite import Cutout
+
+urllib3.disable_warnings()
 
 # %% Predefine tests for cutout
 
@@ -456,7 +453,7 @@ class TestERA5:
         The prepared data should be exactly the same as from the low level
         function.
         """
-        #TODO Needs fix
+        # TODO Needs fix
         pass
         # influx = atlite.datasets.era5.get_data(cutout_era5, "influx", tmpdir=tmp_path)
         # assert_allclose(

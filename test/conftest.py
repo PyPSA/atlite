@@ -1,14 +1,15 @@
-import os
-from pathlib import Path
-import pytest
-from atlite import Cutout
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+#
+# SPDX-License-Identifier: MIT
+
 import os
 from datetime import date
+from pathlib import Path
 
 import pytest
-import urllib3
 from dateutil.relativedelta import relativedelta
 
+from atlite import Cutout
 
 TIME = "2013-01-01"
 BOUNDS = (-4, 56, 1.5, 62)

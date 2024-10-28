@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -15,14 +13,14 @@ from numpy import pi
 def get_orientation(name, **params):
     """
     Definitions:
-        -`slope` is the angle between ground and panel.
-        -`azimuth` is the clockwise angle from North.
-            i.e. azimuth = 180 faces exactly South
+    -`slope` is the angle between ground and panel.
+    -`azimuth` is the clockwise angle from North.
+        i.e. azimuth = 180 faces exactly South
     """
     if isinstance(name, dict):
         params = name
         name = params.pop("name", "constant")
-    return getattr(sys.modules[__name__], "make_{}".format(name))(**params)
+    return getattr(sys.modules[__name__], f"make_{name}")(**params)
 
 
 def make_latitude_optimal():
@@ -46,6 +44,7 @@ def make_latitude_optimal():
     ----------
     lat : float
         Latitude in degrees.
+
     """
 
     def latitude_optimal(lon, lat, solar_position):
@@ -100,6 +99,7 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     [2] Marion, William F., and Aron P. Dobos. Rotation angle for the optimum
     tracking of one-axis trackers. No. NREL/TP-6A20-58891. National Renewable
     Energy Lab.(NREL), Golden, CO (United States), 2013.
+
     """
     lon = radians(ds["lon"])
     lat = radians(ds["lat"])
@@ -111,7 +111,7 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     sun_altitude = solar_position["altitude"]
     sun_azimuth = solar_position["azimuth"]
 
-    if tracking == None:
+    if tracking is None:
         cosincidence = sin(surface_slope) * cos(sun_altitude) * cos(
             surface_azimuth - sun_azimuth
         ) + cos(surface_slope) * sin(sun_altitude)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -138,8 +136,8 @@ class Cutout:
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.
-        """
 
+        """
         path = Path(path).with_suffix(".nc")
         chunks = cutoutparams.pop("chunks", {"time": 100})
         if isinstance(chunks, dict):
@@ -354,6 +352,7 @@ class Cutout:
         geopandas.GeoDataFrame
             Frame with coordinate columns 'x' and 'y', and geometries of the
             corresponding grid cells.
+
         """
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
         coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
@@ -384,6 +383,7 @@ class Cutout:
         -------
         selected : Cutout
             Selected cutout.
+
         """
         if path is None:
             path = mktemp(
@@ -417,6 +417,7 @@ class Cutout:
         -------
         merged : Cutout
             Merged cutout.
+
         """
         assert isinstance(other, Cutout)
 
@@ -445,6 +446,7 @@ class Cutout:
         ----------
         fn : str | path-like
             File name where to store the cutout, defaults to `cutout.path`.
+
         """
         if fn is None:
             fn = self.path
@@ -496,6 +498,7 @@ class Cutout:
         -------
         I : sp.sparse.lil_matrix
           Indicatormatrix
+
         """
         return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
 
@@ -517,6 +520,7 @@ class Cutout:
         -------
         I : sp.sparse.lil_matrix
           Intersectionmatrix
+
         """
         return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
 
@@ -534,6 +538,7 @@ class Cutout:
         -------
         xr.DataArray
             A DataArray containing the area per grid cell with coordinates (x,y).
+
         """
         if crs is None:
             crs = self.crs
@@ -567,6 +572,7 @@ class Cutout:
         xr.DataArray
             Capacity layout with dimensions 'x' and 'y' indicating the total
             capacity placed within one grid cell.
+
         """
         return capacity_density * self.area(crs)
 
@@ -603,6 +609,7 @@ class Cutout:
         >>> layout = cutout.layout_from_capacity_list(data)
         >>> pv = cutout.pv('CdTe', 'latitude_optimal', layout=layout)
         >>> pv.plot()
+
         """
         with dask.config.set(**{"array.slicing.split_large_chunks": False}):
             nearest = (

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -10,11 +8,9 @@ General utility functions for internal use.
 import logging
 import re
 import textwrap
-import warnings
 from pathlib import Path
 
 import pandas as pd
-import progressbar as pgb
 import xarray as xr
 
 from atlite.datasets import modules as datamodules
@@ -112,7 +108,7 @@ class arrowdict(dict):
         return dict_keys
 
 
-class CachedAttribute(object):
+class CachedAttribute:
     """
     Computes attribute value and caches it in the instance.
 

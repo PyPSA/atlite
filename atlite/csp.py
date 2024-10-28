@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -38,6 +36,7 @@ def calculate_dni(ds, solar_position=None, altitude_threshold=3.75):
         The default values '3.75 deg' corresponds to
         the solar altitude traversed by the sun within about 15 minutes in a location with
         maximum solar altitude of 60 deg and 10h day time.
+
     """
     if solar_position is None:
         solar_position = SolarPosition(ds)

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -12,13 +10,6 @@ to by lightweight and work with big weather datasets while keeping the
 resource requirements especially on CPU and RAM resources low.
 """
 
-from importlib.metadata import version
-import re
-
-from atlite.cutout import Cutout
-from atlite.gis import ExclusionContainer, compute_indicatormatrix, regrid
-from atlite.resource import cspinstallations, solarpanels, windturbines
-
 __author__ = (
     "The Atlite Authors: Gorm Andresen (Aarhus University), "
     "Jonas Hoersch (FIAS/KIT/RLI), "
@@ -28,7 +19,15 @@ __author__ = (
     "Markus Schlott (FIAS), "
     "David Schlachtberger (FIAS), "
 )
+
 __copyright__ = "Copyright 2016 - 2021 The Atlite Authors"
+
+import re
+from importlib.metadata import version
+
+from atlite.cutout import Cutout
+from atlite.gis import ExclusionContainer, compute_indicatormatrix, regrid
+from atlite.resource import cspinstallations, solarpanels, windturbines
 
 # e.g. "0.17.1" or "0.17.1.dev4+ga3890dc0" (if installed from git)
 __version__ = version("atlite")
@@ -37,3 +36,14 @@ match = re.match(r"(\d+\.\d+(\.\d+)?)", __version__)
 assert match, f"Could not determine release_version of pypsa: {__version__}"
 release_version = match.group(0)
 assert not __version__.startswith("0.0"), "Could not determine version of atlite."
+
+__all__ = [
+    Cutout,
+    ExclusionContainer,
+    compute_indicatormatrix,
+    regrid,
+    cspinstallations,
+    solarpanels,
+    windturbines,
+    __version__,
+]
