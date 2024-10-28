@@ -35,13 +35,13 @@ setup(
         "toolz",
         "requests",
         "pyyaml",
-        "rasterio!=1.2.10",
+        "rasterio",
         "shapely",
         "progressbar2",
         "tqdm",
         "pyproj>=2",
         "geopandas",
-        "cdsapi>=0.7,<0.7.3",
+        "cdsapi>=0.7.4",
     ],
     extras_require={
         "docs": [
@@ -55,6 +55,10 @@ setup(
         "dev": ["pre-commit", "pytest", "pytest-cov", "matplotlib"],
     },
     classifiers=[
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Development Status :: 3 - Alpha",
         "Environment :: Console",
         "Intended Audience :: Science/Research",

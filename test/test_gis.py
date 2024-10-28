@@ -43,11 +43,10 @@ Y1 = 61.0
 raster_clip = 0.25  # this rastio is excluded (True) in the raster
 
 
-@pytest.fixture
-def ref():
-    return Cutout(
-        path="creation_ref", module="era5", bounds=(X0, Y0, X1, Y1), time=TIME
-    )
+@pytest.fixture(scope="session")
+def ref(cutouts_path):
+    tmp_path = cutouts_path / "creation_ref.nc"
+    return Cutout(path=tmp_path, module="era5", bounds=(X0, Y0, X1, Y1), time=TIME)
 
 
 @pytest.fixture(scope="session")
