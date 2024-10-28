@@ -332,7 +332,7 @@ def custom_download(url, size, target, lock, filename):
     An optimized download function that keeps the original downloading speed and updates a single-line progress bar.
     """
     if target is None:
-        target = url.rstrip('/').split('/')[-1] if url else ""
+        target = url.rstrip("/").split("/")[-1] if url else ""
 
     logging.info(f"Downloading {filename} to {target} ({size} bytes)")
     start = time.time()
