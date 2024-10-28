@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
 """
 All functions for converting weather data into energy system model data.
 """
+
 import datetime as dt
 import logging
 from collections import namedtuple
@@ -22,8 +21,6 @@ from dask.diagnostics import ProgressBar
 from numpy import pi
 from scipy.sparse import csr_matrix
 
-logger = logging.getLogger(__name__)
-
 from atlite import csp as cspm
 from atlite import hydro as hydrom
 from atlite import wind as windm
@@ -39,6 +36,8 @@ from atlite.resource import (
     get_windturbineconfig,
     windturbine_smooth,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def convert_and_aggregate(
@@ -66,7 +65,7 @@ def convert_and_aggregate(
     available from these.
 
     Parameters
-    -----------
+    ----------
     matrix : N x S - xr.DataArray or sp.sparse.csr_matrix or None
         If given, it is used to aggregate the grid cells to buses.
         N is the number of buses, S the number of spatial coordinates, in the
@@ -99,7 +98,7 @@ def convert_and_aggregate(
         Dict with keyword arguments passed to `dask.compute`.
 
     Other Parameters
-    -----------------
+    ----------------
     convert_func : Function
         Callback like convert_wind, convert_pv
 
@@ -113,8 +112,8 @@ def convert_and_aggregate(
     units : xr.DataArray (optional)
         The installed units per bus in MW corresponding to `layout`
         (only if `return_capacity` is True).
-    """
 
+    """
     func_name = convert_func.__name__.replace("convert_", "")
     logger.info(f"Convert and aggregate '{func_name}'.")
     da = convert_func(cutout.data, **convert_kwds)
@@ -313,7 +312,6 @@ def coefficient_of_performance(
     Energy & Environmental Science (2012), 5, 9291-9306,
     https://doi.org/10.1039/C2EE22653G.
     """
-
     return cutout.convert_and_aggregate(
         convert_func=convert_coefficient_of_performance,
         source=source,
@@ -383,6 +381,7 @@ def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **p
     ----
     You can also specify all of the general conversion arguments
     documented in the `convert_and_aggregate` function.
+
     """
     return cutout.convert_and_aggregate(
         convert_func=convert_heat_demand,
@@ -461,8 +460,8 @@ def solar_thermal(
     ----------
     [1] Henning and Palzer, Renewable and Sustainable Energy Reviews 30
     (2014) 1003-1018
-    """
 
+    """
     if not callable(orientation):
         orientation = get_orientation(orientation)
 
@@ -540,6 +539,7 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
     ----------
     [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
     1074 – 1088. doi:10.1016/j.energy.2015.09.071
+
     """
     if isinstance(turbine, (str, Path, dict)):
         turbine = get_windturbineconfig(
@@ -631,6 +631,7 @@ def irradiation(
     ----------
     [1] D.T. Reindl, W.A. Beckman, and J.A. Duffie. Diffuse fraction correla-
     tions. Solar Energy, 45(1):1 – 7, 1990.
+
     """
     if not callable(orientation):
         orientation = get_orientation(orientation)
@@ -715,6 +716,7 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     for the MPP Performance of Different Types of PV-Modules Applied for
     the Performance Check of Grid Connected Systems, Freiburg, June 2004.
     Eurosun (ISES Europe Solar Congress).
+
     """
     if isinstance(panel, (str, Path)):
         panel = get_solarpanelconfig(panel)
@@ -803,6 +805,7 @@ def csp(cutout, installation, technology=None, **params):
 
     [2] Tobias Hirsch (ed.). CSPBankability Project Report, DLR, 2017.
     URL: https://www.dlr.de/sf/en/desktopdefault.aspx/tabid-11126/19467_read-48251/
+
     """
     if isinstance(installation, (str, Path)):
         installation = get_cspinstallationconfig(installation)
@@ -916,6 +919,7 @@ def hydro(
     routing: baseline data and new approaches to study the world’s large river
     systems. Hydrological Processes, 27(15): 2171–2186. Data is available at
     www.hydrosheds.org.
+
     """
     basins = hydrom.determine_basins(plants, hydrobasins, show_progress=show_progress)
 
@@ -986,8 +990,8 @@ def convert_line_rating(
     -------
     Imax
         xr.DataArray giving the maximal current capacity per timestep in Ampere.
-    """
 
+    """
     Ta = ds["temperature"]
     Tfilm = (Ta + Ts) / 2
     T0 = 273.15
@@ -1115,6 +1119,7 @@ def line_rating(
     >>> i = cutout.line_rating(shapes, n.lines.r/n.lines.length)
     >>> v = xr.DataArray(n.lines.v_nom, dims='name')
     >>> s = np.sqrt(3) * i * v / 1e3 # in MW
+
     """
     if not isinstance(shapes, gpd.GeoSeries):
         shapes = gpd.GeoSeries(shapes).rename_axis("dim_0")
