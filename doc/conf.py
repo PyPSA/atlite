@@ -16,7 +16,10 @@
 # serve to show the default.
 
 
-import pkg_resources  # part of setuptools
+import os
+import sys
+from importlib.metadata import version as get_version
+
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -74,7 +77,8 @@ documentation_title = "Atlite Documentation"
 # built documents.
 #
 # The short X.Y version.
-version = pkg_resources.get_distribution("atlite").version
+release: str = get_version("pypsa")
+version: str = ".".join(release.split(".")[:2])
 # The full version, including alpha/beta/rc tags.
 release = version
 

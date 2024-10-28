@@ -33,13 +33,13 @@ setup(
         "toolz",
         "requests",
         "pyyaml",
-        "rasterio!=1.2.10",
+        "rasterio",
         "shapely",
         "progressbar2",
         "tqdm",
         "pyproj>=2",
         "geopandas",
-        "cdsapi>=0.7,<0.7.3",
+        "cdsapi>=0.7.4",
     ],
     extras_require={
         "docs": [
