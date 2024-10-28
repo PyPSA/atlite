@@ -21,7 +21,6 @@ import urllib3
 from dateutil.relativedelta import relativedelta
 from shapely.geometry import LineString as Line
 from shapely.geometry import Point
-from xarray.testing import assert_allclose, assert_equal
 
 import atlite
 from atlite import Cutout
@@ -454,7 +453,7 @@ class TestERA5:
         The prepared data should be exactly the same as from the low level
         function.
         """
-        #TODO Needs fix
+        # TODO Needs fix
         pass
         # influx = atlite.datasets.era5.get_data(cutout_era5, "influx", tmpdir=tmp_path)
         # assert_allclose(

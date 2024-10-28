@@ -22,8 +22,8 @@ __author__ = (
 
 __copyright__ = "Copyright 2016 - 2021 The Atlite Authors"
 
-from importlib.metadata import version
 import re
+from importlib.metadata import version
 
 from atlite.cutout import Cutout
 from atlite.gis import ExclusionContainer, compute_indicatormatrix, regrid
@@ -47,4 +47,3 @@ __all__ = [
     windturbines,
     __version__,
 ]
-
