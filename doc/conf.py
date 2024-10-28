@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # SPDX-FileCopyrightText: 2017 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -16,10 +15,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import os
-import sys
-from importlib.metadata import version as get_version
 
+from importlib.metadata import version as get_version
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the

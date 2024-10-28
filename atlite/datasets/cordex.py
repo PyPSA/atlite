@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
@@ -19,9 +17,7 @@ import os
 from itertools import groupby
 from operator import itemgetter
 
-import numpy as np
 import pandas as pd
-import pyproj
 import xarray as xr
 
 # Model and CRS Settings
@@ -61,7 +57,7 @@ def prepare_data_cordex(fn, year, months, oldname, newname, xs, ys):
             ds = ds.reindex(method="bfill", time=(t - pd.Timedelta(hours=3.0)).union(t))
 
         for m in months:
-            yield (year, m), ds.sel(time="{}-{}".format(year, m))
+            yield (year, m), ds.sel(time=f"{year}-{m}")
 
 
 def prepare_static_data_cordex(fn, year, months, oldname, newname, xs, ys):
@@ -78,7 +74,7 @@ def prepare_weather_types_cordex(fn, year, months, oldname, newname, xs, ys):
     with xr.open_dataset(fn) as ds:
         ds = ds.rename({oldname: newname})
         for m in months:
-            yield (year, m), ds.sel(time="{}-{}".format(year, m))
+            yield (year, m), ds.sel(time=f"{year}-{m}")
 
 
 def prepare_meta_cordex(
@@ -88,7 +84,7 @@ def prepare_meta_cordex(
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.coords.to_dataset()
-        meta = ds.sel(time="{}-{}".format(year, month), x=xs, y=ys).load()
+        meta = ds.sel(time=f"{year}-{month}", x=xs, y=ys).load()
 
     xs = ds["x"].values
     ys = ds["y"].values
@@ -140,7 +136,10 @@ weather_data_config = {
         oldname="rsds",
         newname="influx",
         template=os.path.join(
-            config.cordex_dir, "{model}", "influx", "rsds_*_{year}*.nc"
+            config.cordex_dir,  # noqa: F821
+            "{model}",
+            "influx",
+            "rsds_*_{year}*.nc",
         ),
     ),
     "outflux": dict(
@@ -149,7 +148,10 @@ weather_data_config = {
         oldname="rsus",
         newname="outflux",
         template=os.path.join(
-            config.cordex_dir, "{model}", "outflux", "rsus_*_{year}*.nc"
+            config.cordex_dir,  # noqa: F821
+            "{model}",
+            "outflux",
+            "rsus_*_{year}*.nc",
         ),
     ),
     "temperature": dict(
@@ -158,7 +160,10 @@ weather_data_config = {
         oldname="tas",
         newname="temperature",
         template=os.path.join(
-            config.cordex_dir, "{model}", "temperature", "tas_*_{year}*.nc"
+            config.cordex_dir,  # noqa: F821
+            "{model}",
+            "temperature",
+            "tas_*_{year}*.nc",
         ),
     ),
     "humidity": dict(
@@ -167,7 +172,10 @@ weather_data_config = {
         oldname="hurs",
         newname="humidity",
         template=os.path.join(
-            config.cordex_dir, "{model}", "humidity", "hurs_*_{year}*.nc"
+            config.cordex_dir,  # noqa: F821
+            "{model}",
+            "humidity",
+            "hurs_*_{year}*.nc",
         ),
     ),
     "wnd10m": dict(
@@ -176,7 +184,10 @@ weather_data_config = {
         oldname="sfcWind",
         newname="wnd10m",
         template=os.path.join(
-            config.cordex_dir, "{model}", "wind", "sfcWind_*_{year}*.nc"
+            config.cordex_dir,  # noqa: F821
+            "{model}",
+            "wind",
+            "sfcWind_*_{year}*.nc",
         ),
     ),
     "roughness": dict(
@@ -184,7 +195,12 @@ weather_data_config = {
         prepare_func=prepare_static_data_cordex,
         oldname="rlst",
         newname="roughness",
-        template=os.path.join(config.cordex_dir, "{model}", "roughness", "rlst_*.nc"),
+        template=os.path.join(
+            config.cordex_dir,  # noqa: F821
+            "{model}",
+            "roughness",
+            "rlst_*.nc",
+        ),
     ),
     "runoff": dict(
         tasks_func=tasks_yearly_cordex,
@@ -192,7 +208,10 @@ weather_data_config = {
         oldname="mrro",
         newname="runoff",
         template=os.path.join(
-            config.cordex_dir, "{model}", "runoff", "mrro_*_{year}*.nc"
+            config.cordex_dir,  # noqa: F821
+            "{model}",
+            "runoff",
+            "mrro_*_{year}*.nc",
         ),
     ),
     "height": dict(
@@ -200,7 +219,12 @@ weather_data_config = {
         prepare_func=prepare_static_data_cordex,
         oldname="orog",
         newname="height",
-        template=os.path.join(config.cordex_dir, "{model}", "altitude", "orog_*.nc"),
+        template=os.path.join(
+            config.cordex_dir,  # noqa: F821
+            "{model}",
+            "altitude",
+            "orog_*.nc",
+        ),
     ),
     "CWT": dict(
         tasks_func=tasks_yearly_cordex,
@@ -208,7 +232,10 @@ weather_data_config = {
         oldname="CWT",
         newname="CWT",
         template=os.path.join(
-            config.cordex_dir, "{model}", "weather_types", "CWT_*_{year}*.nc"
+            config.cordex_dir,  # noqa: F821
+            "{model}",
+            "weather_types",
+            "CWT_*_{year}*.nc",
         ),
     ),
 }
@@ -216,7 +243,10 @@ weather_data_config = {
 meta_data_config = dict(
     prepare_func=prepare_meta_cordex,
     template=os.path.join(
-        config.cordex_dir, "{model}", "temperature", "tas_*_{year}*.nc"
+        config.cordex_dir,  # noqa: F821
+        "{model}",
+        "temperature",
+        "tas_*_{year}*.nc",
     ),
     height_config=weather_data_config["height"],
 )
