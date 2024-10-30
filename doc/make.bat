@@ -1,4 +1,4 @@
-REM SPDX-FileCopyrightText: 2017 - 2023 The Atlite Authors
+REM SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
 REM SPDX-License-Identifier: MIT
 
 @ECHO OFF

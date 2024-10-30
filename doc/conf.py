@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2017 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 
@@ -65,8 +65,8 @@ master_doc = "index"
 
 # General information about the project.
 project = "atlite"
-author = "The Atlite Authors"
-copyright = "2016-2023" + ", " + author
+author = "Contributors to Atlite"
+copyright = "2016 - 2024" + ", " + author
 documentation_title = "Atlite Documentation"
 
 # The version info for the project you're documenting, acts as replacement for

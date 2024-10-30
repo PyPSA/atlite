@@ -1,4 +1,4 @@
-  .. SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+  .. SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
 
   .. SPDX-License-Identifier: CC-BY-4.0
 
@@ -120,7 +120,7 @@ Support & Contributing
 Authors and Copyright
 ---------------------
 
-Copyright (C) 2016 - 2023 The Atlite Authors.
+Copyright (C) 2016 - 2024 Contributors to Atlite <https://github.com/pypsa/atlite>
 
 See the `AUTHORS`_ for details.
 
@@ -166,8 +166,8 @@ See the individual files for license details.
    :target: LICENSES/MIT.txt
 .. |codecov| image:: https://codecov.io/gh/PyPSA/atlite/branch/master/graph/badge.svg?token=TEJ16CMIHJ
    :target: https://codecov.io/gh/PyPSA/atlite
-.. |ci| image:: https://github.com/PyPSA/atlite/actions/workflows/CI.yaml/badge.svg
-   :target: https://github.com/PyPSA/atlite/actions/workflows/CI.yaml
+.. |ci| image:: https://github.com/PyPSA/atlite/actions/workflows/test.yaml/badge.svg
+   :target: https://github.com/PyPSA/atlite/actions/workflows/test.yaml
 .. |reuse| image:: https://api.reuse.software/badge/github.com/pypsa/atlite
    :target: https://api.reuse.software/info/github.com/pypsa/atlite
 .. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg

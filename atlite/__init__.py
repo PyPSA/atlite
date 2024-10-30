@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -11,7 +11,7 @@ resource requirements especially on CPU and RAM resources low.
 """
 
 __author__ = (
-    "The Atlite Authors: Gorm Andresen (Aarhus University), "
+    "Gorm Andresen (Aarhus University), "
     "Jonas Hoersch (FIAS/KIT/RLI), "
     "Johannes Hampp (JLUG),"
     "Fabian Hofmann (FIAS)"
@@ -20,7 +20,7 @@ __author__ = (
     "David Schlachtberger (FIAS), "
 )
 
-__copyright__ = "Copyright 2016 - 2021 The Atlite Authors"
+__copyright__ = "Copyright 2016 - 2024 Contributors to Atlite"
 
 import re
 from importlib.metadata import version

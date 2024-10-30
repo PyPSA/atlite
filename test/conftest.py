@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2016 - 2024 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 

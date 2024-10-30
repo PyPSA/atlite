@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+  SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
 
   SPDX-License-Identifier: CC-BY-4.0
 
@@ -90,7 +90,7 @@ The standard data source we currently employ is ECMWF's ERA5 dataset
 This dataset is easily available at no additional costs and requires only
 minimal setup from the user in comparison to other datasets.
 It is downloaded automatically on-demand after the
-`ECMWF ADS API <https://cds.climate.copernicus.eu/api-how-to>`_
+`ECMWF ADS API <https://cds.climate.copernicus.eu/how-to-api>`_
 (European Centre for Medium-Range Weather Forecasts Climate Data Store
 Application Program Interface) client is properly installed. See separate,
 linked installation guide for details, especially for correctly setting up
