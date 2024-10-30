@@ -31,6 +31,21 @@ def ref():
     )
 
 
+def test_name(ref):
+    """
+    Asserts the variable
+    """
+    assert ref.name() == "creation_ref"
+
+
+def test_module(ref):
+    assert ref.module == "era5"
+
+
+def test_crs(ref):
+    assert ref.crs == "EPSG:4326"
+
+
 def test_odd_bounds_coords(ref):
     cutout = Cutout(
         path="odd_bounds",
