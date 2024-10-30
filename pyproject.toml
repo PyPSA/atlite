@@ -3,10 +3,78 @@
 # SPDX-License-Identifier: MIT
 
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+requires = ["setuptools>=64", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atlite"
+dynamic = ["version"]
+description = "Library for fetching and converting weather data to power systems data"
+readme = "README.rst"
+authors=[{name = "The Atlite Authors", email = "jonas.hoersch@posteo.de"}]
+license = { file = "LICENSE" }
+classifiers=[
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+
+]
+requires-python = ">=3.9"
+dependencies = [
+       "numpy",
+        "scipy",
+        "pandas>=0.25",
+        "bottleneck",
+        "numexpr",
+        "xarray>=0.20",
+        "netcdf4",
+        "dask>=2021.10.0",
+        "toolz",
+        "requests",
+        "pyyaml",
+        "rasterio",
+        "shapely",
+        "progressbar2",
+        "tqdm",
+        "pyproj>=2",
+        "geopandas",
+        "cdsapi>=0.7.4",
+]
+
+[project.urls]
+Homepage = "https://github.com/PyPSA/atlite"
+Source = "https://github.com/PyPSA/atlite"
+Documentation = "https://atlite.readthedocs.io/en/latest/"
+
+[project.optional-dependencies]
+
+dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff"]
+
+docs = [
+            "numpydoc==1.8.0",
+            "sphinx==8.0.2",
+            "sphinx-book-theme==1.1.3",
+            "nbsphinx==0.9.5",
+            "nbsphinx-link==1.3.0",
+            "docutils==0.20",  # Just temporarily until sphinx-docutils is updated (see https://github.com/sphinx-doc/sphinx/issues/12340)
+        ]
+
+# Setuptools_scm settings
 
 [tool.setuptools_scm]
-write_to = "atlite/version.py"
+version_scheme = "no-guess-dev"
+
+[tool.setuptools.packages.find]
+include = ["atlite"]
+
+# Formatter and linter settings
 
 [tool.ruff]
 extend-include = ['*.ipynb']
