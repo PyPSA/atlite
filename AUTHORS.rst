@@ -22,13 +22,13 @@ Major contributions until now from:
 |               |                      | * KIT Karlsruhe         |
 |               |                      | * RLI Berlin            |
 +---------------+----------------------+-------------------------+
-| 2019 - 2023   | Fabian Hofmann       | * FIAS Frankfurt        |
+| 2019 - 2024   | Fabian Hofmann       | * FIAS Frankfurt        |
 |               |                      | * TU Berlin             |
 +---------------+----------------------+-------------------------+
-| 2020 - 2023   | Fabian Neumann       | * KIT Karlsruhe         |
+| 2020 - 2024   | Fabian Neumann       | * KIT Karlsruhe         |
 |               |                      | * TU Berlin             |
 +---------------+----------------------+-------------------------+
-| 2019 - 2023   | Johannes Hampp       | University Giessen      |
+| 2019 - 2024   | Johannes Hampp       | University Giessen      |
 +---------------+----------------------+-------------------------+
 | 2022          | Lukas Franken        | University of Edinburgh |
 +---------------+----------------------+-------------------------+
