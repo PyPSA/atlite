@@ -478,19 +478,21 @@ def solar_thermal(
 
 
 # wind
-def convert_wind(ds, turbine):
+def convert_wind(ds, turbine, interpolation_method):
     """
     Convert wind speeds for turbine to wind energy generation.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
-    wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
+    wnd_hub = windm.extrapolate_wind_speed(
+        ds, to_height=hub_height, method=interpolation_method
+    )
 
-    def _interpolate(da):
+    def apply_power_curve(da):
         return np.interp(da, V, POW / P)
 
     da = xr.apply_ufunc(
-        _interpolate,
+        apply_power_curve,
         wnd_hub,
         input_core_dims=[[]],
         output_core_dims=[[]],
@@ -503,7 +505,14 @@ def convert_wind(ds, turbine):
     return da
 
 
-def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
+def wind(
+    cutout,
+    turbine,
+    smooth=False,
+    add_cutout_windspeed=False,
+    interpolation_method="logarithmic",
+    **params,
+):
     """
     Generate wind generation time-series.
 
@@ -529,6 +538,9 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
         output at the highest wind speed in the power curve. If False, a warning will be
         raised if the power curve does not have a cut-out wind speed. The default is
         False.
+    interpolation_method : {"logarithmic", "power"}
+        Law to interpolate wind speed to turbine hub height. Refer to docstring of
+        atlite.wind.extrapolate_wind_speed .
 
     Note
     ----
@@ -550,7 +562,10 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
         turbine = windturbine_smooth(turbine, params=smooth)
 
     return cutout.convert_and_aggregate(
-        convert_func=convert_wind, turbine=turbine, **params
+        convert_func=convert_wind,
+        turbine=turbine,
+        interpolation_method=interpolation_method,
+        **params,
     )
 
 

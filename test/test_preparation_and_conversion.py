@@ -307,6 +307,13 @@ def wind_test(cutout):
     assert production.notnull().all()
     assert production.sum() > 0
 
+    # test with different power law interpolation method
+    production = cutout.wind(
+        atlite.windturbines.Enercon_E101_3000kW,
+        layout=cap_factor,
+        interpolation_method="power",
+    )
+
 
 def runoff_test(cutout):
     """

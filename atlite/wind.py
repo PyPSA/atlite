@@ -13,14 +13,18 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def extrapolate_wind_speed(ds, to_height, from_height=None):
+def extrapolate_wind_speed(
+    ds, to_height, from_height=None, method: str = "logarithmic"
+):
     """
     Extrapolate the wind speed from a given height above ground to another.
 
     If ds already contains a key refering to wind speeds at the desired to_height,
     no conversion is done and the wind speeds are directly returned.
 
-    Extrapolation of the wind speed follows the logarithmic law as desribed in [1].
+    Extrapolation of the wind speed can either use the "logarithmic" law as
+    described in [1] or the "power" law as described in [2]. See also discussion
+    in GH issue: https://github.com/PyPSA/atlite/issues/231 .
 
     Parameters
     ----------
@@ -34,6 +38,8 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
         If not provided, the closest height to 'to_height' is selected.
     to_height : int|float
         Height (m) to which the wind speeds are extrapolated to.
+    method : {"logarithmic", "power"}
+        Method to use for extra/interpolating wind speeds
 
     Returns
     -------
@@ -47,9 +53,9 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
     time series from a new global renewable energy atlas for energy system
     analysis'.
 
-    [2] https://en.wikipedia.org/w/index.php?title=Roughness_length&oldid=862127433,
-    Retrieved 2019-02-15.
-
+    [2] Gualtieri, G. (2021): 'Reliability of ERA5 Reanalysis Data for Wind
+    Resource Assessment: A Comparison against Tall Towers'
+    https://doi.org/10.3390/en14144169 .
     """
     # Fast lane
     to_name = f"wnd{int(to_height):0d}m"
@@ -67,15 +73,26 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
     from_name = f"wnd{int(from_height):0d}m"
 
-    # Wind speed extrapolation
-    wnd_spd = ds[from_name] * (
-        np.log(to_height / ds["roughness"]) / np.log(from_height / ds["roughness"])
-    )
+    if method == "logarithmic":
+        wnd_spd = ds[from_name] * (
+            np.log(to_height / ds["roughness"]) / np.log(from_height / ds["roughness"])
+        )
+        method_desc = "logarithmic method with roughness"
+    elif method == "power":
+        wnd_spd = ds[from_name] * (to_height / from_height) ** ds["wnd_shear_exp"]
+        method_desc = "power method with wind shear exponent"
+    else:
+        raise ValueError(
+            f"Interpolation method must be 'logarithmic' or 'power', "
+            f" but is: {method}"
+        )
 
     wnd_spd.attrs.update(
         {
-            "long name": f"extrapolated {to_height} m wind speed using logarithmic "
-            f"method with roughness and {from_height} m wind speed",
+            "long name": (
+                f"extrapolated {to_height} m wind speed using {method_desc} "
+                f" and {from_height} m wind speed"
+            ),
             "units": "m s**-1",
         }
     )

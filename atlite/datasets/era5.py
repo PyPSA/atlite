@@ -44,7 +44,7 @@ crs = 4326
 
 features = {
     "height": ["height"],
-    "wind": ["wnd100m", "wnd_azimuth", "roughness"],
+    "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -107,6 +107,8 @@ def get_data_wind(retrieval_params):
     """
     ds = retrieve_data(
         variable=[
+            "10m_u_component_of_wind",
+            "10m_v_component_of_wind",
             "100m_u_component_of_wind",
             "100m_v_component_of_wind",
             "forecast_surface_roughness",
@@ -115,13 +117,19 @@ def get_data_wind(retrieval_params):
     )
     ds = _rename_and_clean_coords(ds)
 
-    ds["wnd100m"] = sqrt(ds["u100"] ** 2 + ds["v100"] ** 2).assign_attrs(
-        units=ds["u100"].attrs["units"], long_name="100 metre wind speed"
-    )
+    for h in [10, 100]:
+        ds[f"wnd{h}m"] = sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
+            units=ds[f"u{h}"].attrs["units"], long_name=f"{h} metre wind speed"
+        )
+    ds["wnd_shear_exp"] = (
+        np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
+    ).assign_attrs(units="", long_name="wind shear exponent")
+
     # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
     azimuth = arctan2(ds["u100"], ds["v100"])
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
-    ds = ds.drop_vars(["u100", "v100"])
+
+    ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
     ds = ds.rename({"fsr": "roughness"})
 
     return ds
