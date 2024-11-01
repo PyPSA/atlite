@@ -8,6 +8,7 @@ For further reference see
 https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
+import datetime
 import logging
 import os
 import warnings
@@ -45,6 +46,7 @@ crs = 4326
 features = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_azimuth", "roughness"],
+    "wind_lra": ["wnd100m_lra"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -58,6 +60,7 @@ features = {
 }
 
 static_features = {"height"}
+longrunaverage_features = {"wind_lra"}
 
 
 def _add_height(ds):
@@ -97,6 +100,32 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     if add_lon_lat:
         ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
     ds = ds.drop_vars(["expver", "number"], errors="ignore")
+
+    return ds
+
+
+def get_data_wind_lra(retrieval_params):
+    """
+    Get long run average wind data for given retrieval parameters.
+    """
+    ds = retrieve_data(
+        variable=[
+            "100m_u_component_of_wind",
+            "100m_v_component_of_wind",
+        ],
+        **retrieval_params,
+    )
+    ds = _rename_and_clean_coords(ds)
+
+    ds["wnd100m_lra"] = (
+        sqrt(ds["u100"] ** 2 + ds["v100"] ** 2)
+        .mean("date")
+        .assign_attrs(
+            units=ds["u100"].attrs["units"],
+            long_name="100 metre wind speed as long run average",
+        )
+    )
+    ds = ds.drop_vars(["u100", "v100"])
 
     return ds
 
@@ -255,7 +284,7 @@ def _area(coords):
     return [y1, x0, y0, x1]
 
 
-def retrieval_times(coords, static=False, monthly_requests=False):
+def retrieval_times(coords, static=False, monthly_requests=False, longrunaverage=False):
     """
     Get list of retrieval cdsapi arguments for time dimension in coordinates.
 
@@ -286,6 +315,12 @@ def retrieval_times(coords, static=False, monthly_requests=False):
             "month": str(time[0].month),
             "day": str(time[0].day),
             "time": time[0].strftime("%H:00"),
+        }
+    elif longrunaverage:
+        return {
+            "year": [str(y) for y in range(1980, datetime.date.today().year)],
+            "month": [f"{m:02}" for m in range(1, 12 + 1)],
+            "time": ["00:00"],
         }
 
     # Prepare request for all months and years
@@ -323,7 +358,7 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
-def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
+def retrieve_data(dataset, chunks=None, tmpdir=None, lock=None, **updates):
     """
     Download data like ERA5 from the Climate Data Store (CDS).
 
@@ -340,7 +375,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     client = cdsapi.Client(
         info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
     )
-    result = client.retrieve(product, request)
+    result = client.retrieve(dataset, request)
 
     if lock is None:
         lock = nullcontext()
@@ -418,7 +453,8 @@ def get_data(
     sanitize = creation_parameters.get("sanitize", True)
 
     retrieval_params = {
-        "product": "reanalysis-era5-single-levels",
+        "dataset": "reanalysis-era5-single-levels",
+        "product_type": "reanalysis",
         "area": _area(coords),
         "chunks": cutout.chunks,
         "grid": [cutout.dx, cutout.dy],
@@ -431,7 +467,7 @@ def get_data(
 
     logger.info(f"Requesting data for feature {feature}...")
 
-    def retrieve_once(time):
+    def retrieve_once(time, longrunaverage=False):
         ds = func({**retrieval_params, **time})
         if sanitize and sanitize_func is not None:
             ds = sanitize_func(ds)
@@ -439,6 +475,10 @@ def get_data(
 
     if feature in static_features:
         return retrieve_once(retrieval_times(coords, static=True)).squeeze()
+    elif feature in longrunaverage_features:
+        retrieval_params["dataset"] += "-monthly-means"
+        retrieval_params["product_type"] = "monthly_averaged_reanalysis"
+        return retrieve_once(retrieval_times(coords, longrunaverage=True))
 
     time_chunks = retrieval_times(coords, monthly_requests=monthly_requests)
     if concurrent_requests:

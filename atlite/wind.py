@@ -7,8 +7,13 @@ Functions for use in conjunction with wind data generation.
 
 import logging
 import re
+from pathlib import Path
 
 import numpy as np
+import rasterio as rio
+import xarray as xr
+
+from .gis import _as_transform
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +56,11 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
     Retrieved 2019-02-15.
 
     """
-    # Fast lane
-    to_name = f"wnd{int(to_height):0d}m"
-    if to_name in ds:
-        return ds[to_name]
-
     if from_height is None:
         # Determine closest height to to_name
-        heights = np.asarray([int(s[3:-1]) for s in ds if re.match(r"wnd\d+m", s)])
+        heights = np.asarray(
+            [int(m.group(1)) for s in ds if (m := re.match(r"wnd(\d+)m", s))]
+        )
 
         if len(heights) == 0:
             raise AssertionError("Wind speed is not in dataset")
@@ -67,17 +69,46 @@ def extrapolate_wind_speed(ds, to_height, from_height=None):
 
     from_name = f"wnd{int(from_height):0d}m"
 
+    # Fast lane
+    if from_height == to_height:
+        return ds[from_name]
+
     # Wind speed extrapolation
     wnd_spd = ds[from_name] * (
         np.log(to_height / ds["roughness"]) / np.log(from_height / ds["roughness"])
     )
 
-    wnd_spd.attrs.update(
+    return wnd_spd.assign_attrs(
         {
             "long name": f"extrapolated {to_height} m wind speed using logarithmic "
             f"method with roughness and {from_height} m wind speed",
             "units": "m s**-1",
         }
-    )
+    ).rename(f"wnd{to_height}m")
 
-    return wnd_spd.rename(to_name)
+
+def calculate_windspeed_bias_correction(ds, real_lra, lra_height, crs):
+    data_lra = ds[f"wnd{lra_height}m_lra"]
+
+    if isinstance(real_lra, (str, Path)):
+        real_lra = rio.open(real_lra)
+
+    if isinstance(real_lra, rio.DatasetReader):
+        real_lra = rio.band(real_lra, 1)
+
+    if isinstance(real_lra, rio.Band):
+        real_lra, transform = rio.warp.reproject(
+            real_lra,
+            np.empty(data_lra.shape),
+            dst_crs=crs,
+            dst_transform=_as_transform(
+                x=data_lra.indexes["x"], y=data_lra.indexes["y"]
+            ),
+            resampling=rio.enums.Resampling.average,
+        )
+
+        real_lra = xr.DataArray(
+            real_lra, [data_lra.indexes["y"], data_lra.indexes["x"]]
+        )
+
+    return real_lra / data_lra
