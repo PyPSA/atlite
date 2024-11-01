@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+import rasterio as rio
 import xarray as xr
+
+from . import datasets
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +47,9 @@ def extrapolate_wind_speed(
         Dataset containing the wind speed time-series at 'from_height' with key
         'wnd{height:d}m' and the surface orography with key 'roughness' at the
         geographic locations of the wind speeds.
+    from_height : int, optional
+        Height (m) from which the wind speeds are interpolated to 'to_height'.
+        If not provided, the closest height to 'to_height' is selected.
     to_height : int|float
         Height (m) to which the wind speeds are extrapolated to.
     from_height : int, optional
@@ -72,14 +79,11 @@ def extrapolate_wind_speed(
        Wind Resource Assessment: A Comparison against Tall Towers'
        https://doi.org/10.3390/en14144169 .
     """
-    # Fast lane
-    to_name = f"wnd{int(to_height):0d}m"
-    if to_name in ds:
-        return ds[to_name]
-
     if from_height is None:
         # Determine closest height to to_name
-        heights = np.asarray([int(s[3:-1]) for s in ds if re.match(r"wnd\d+m", s)])
+        heights = np.asarray(
+            [int(m.group(1)) for s in ds if (m := re.match(r"wnd(\d+)m", s))]
+        )
 
         if len(heights) == 0:
             raise AssertionError("Wind speed is not in dataset")
@@ -87,6 +91,10 @@ def extrapolate_wind_speed(
         from_height = heights[np.argmin(np.abs(heights - to_height))]
 
     from_name = f"wnd{int(from_height):0d}m"
+
+    # Fast lane
+    if from_height == to_height:
+        return ds[from_name]
 
     if method == "logarithmic":
         try:
@@ -115,7 +123,7 @@ def extrapolate_wind_speed(
             f"Interpolation method must be 'logarithmic' or 'power',  but is: {method}"
         )
 
-    wnd_spd.attrs.update(
+    return wnd_spd.assign_attrs(
         {
             "long name": (
                 f"extrapolated {to_height} m wind speed using {method_desc} "
@@ -123,6 +131,66 @@ def extrapolate_wind_speed(
             ),
             "units": "m s**-1",
         }
-    )
+    ).rename(f"wnd{to_height}m")
 
-    return wnd_spd.rename(to_name)
+
+def calculate_windspeed_bias_correction(
+    cutout, real_average: str | rio.DatasetReader, height: int = 100
+):
+    """
+    Derive a bias correction factor for windspeed at lra_height
+
+    Regrids the raster dataset in real_average to cutout grid, retrieves the average
+    windspeed from the first dataset that offers
+    :py:func:`retrieve_longrunaverage_windspeed` (only ERA5, currently).
+
+    Parameters
+    ----------
+    cutout : Cutout
+        Atlite cutout
+    real_average : Path or rasterio.Dataset
+        Raster dataset with wind speeds to bias correct average wind speeds
+    height : int
+        Height in meters at which average windspeeds are provided
+
+    Returns
+    -------
+    DataArray
+        Ratio between windspeeds in `real_average` to those of average windspeeds in
+        dataset.
+    """
+    if isinstance(real_average, str | Path):
+        real_average = rio.open(real_average)
+
+    if isinstance(real_average, rio.DatasetReader):
+        real_average = rio.band(real_average, 1)
+
+    if isinstance(real_average, rio.Band):
+        real_average, transform = rio.warp.reproject(
+            real_average,
+            np.empty(cutout.shape),
+            dst_crs=cutout.crs,
+            dst_transform=cutout.transform,
+            dst_nodata=np.nan,
+            resampling=rio.enums.Resampling.average,
+        )
+
+        real_average = xr.DataArray(
+            real_average, [cutout.coords["y"], cutout.coords["x"]]
+        )
+
+    for module in np.atleast_1d(cutout.module):
+        retrieve_windspeed_average = getattr(
+            getattr(datasets, module), "retrieve_windspeed_average"
+        )
+        if retrieve_windspeed_average is not None:
+            break
+    else:
+        raise AssertionError(
+            "None of the datasets modules define retrieve_windspeed_average"
+        )
+
+    logger.info("Retrieving average windspeeds at %d from module %s", height, module)
+    data_average = retrieve_windspeed_average(cutout, height)
+
+    return real_average / data_average
