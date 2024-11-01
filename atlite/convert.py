@@ -516,8 +516,8 @@ def wind(
     """
     Generate wind generation time-series.
 
-    Extrapolates 10m wind speed with monthly surface roughness to hub
-    height and evaluates the power curve.
+    Extrapolates wind speed to hub height (using logarithmic or power law) and
+    evaluates the power curve.
 
     Parameters
     ----------
