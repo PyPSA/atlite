@@ -12,6 +12,7 @@ import logging
 import os
 import warnings
 import weakref
+from importlib.metadata import version
 from tempfile import mkstemp
 
 import cdsapi
@@ -21,6 +22,7 @@ import xarray as xr
 from dask import compute, delayed
 from dask.array import arctan2, sqrt
 from numpy import atleast_1d
+from packaging.version import parse
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
@@ -365,10 +367,12 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     # saving due to how xarray handles netcdf compression (only float encoded as short int seem affected)
     # Fixes issue by keeping "float32" encoded as "float32" instead of internally saving as "short int", see:
     # https://stackoverflow.com/questions/75755441/why-does-saving-to-netcdf-without-encoding-change-some-values-to-nan
-    # and hopefully fixed soon (could then remove), see https://github.com/pydata/xarray/issues/7691
-    for v in ds.data_vars:
-        if ds[v].encoding["dtype"] == "int16":
-            ds[v].encoding.clear()
+    # see https://github.com/pydata/xarray/issues/7691 and https://github.com/pydata/xarray/pull/8713
+    # Fix was included in v2024.03.0
+    if parse(version("xarray")) < parse("2024.03.0"):
+        for v in ds.data_vars:
+            if ds[v].encoding["dtype"] == "int16":
+                ds[v].encoding.clear()
 
     return ds
 
