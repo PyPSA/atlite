@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
   SPDX-License-Identifier: CC-BY-4.0
 
@@ -56,9 +56,9 @@ and can run in the background without clogging our computers.
 
 With regards to
 
-* CPU: While Atlite does some number crunching, it does not require
+* CPU: While atlite does some number crunching, it does not require
   special or large multicore CPUs
-* Memory: For the ERA5 dataset you should be fine running Atlite with
+* Memory: For the ERA5 dataset you should be fine running atlite with
   even 2-4 GiB.
   Other datasets can require more memory, as they sometimes need to be
   loaded fully or partially into memory for creating a cutout.

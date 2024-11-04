@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
-Atlite helps you to convert weather data into energy systems model data.
+atlite helps you to convert weather data into energy systems model data.
 
-Atlite is a free software, xarray-based Python library for converting
+atlite is a free software, xarray-based Python library for converting
 weather data (like wind speeds) into energy systems data. It is designed
 to by lightweight and work with big weather datasets while keeping the
 resource requirements especially on CPU and RAM resources low.
@@ -20,7 +20,7 @@ __author__ = (
     "David Schlachtberger (FIAS), "
 )
 
-__copyright__ = "Copyright 2016 - 2024 Contributors to Atlite"
+__copyright__ = "Copyright 2016 - 2024 Contributors to atlite"
 
 import re
 from importlib.metadata import version

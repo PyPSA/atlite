@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -8,7 +8,7 @@ dataset.
 DEPRECATED
 ----------
 
-The cordex dataset module has not been ported to Atlite v0.2, yet. Use Atlite v0.0.2 to use it,
+The cordex dataset module has not been ported to atlite v0.2, yet. Use atlite v0.0.2 to use it,
 for the time being!
 """
 

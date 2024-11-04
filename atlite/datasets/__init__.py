@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 
 """
-Atlite datasets.
+atlite datasets.
 """
 
 from atlite.datasets import era5, gebco, sarah

@@ -1,19 +1,19 @@
-  .. SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+  .. SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
   .. SPDX-License-Identifier: CC-BY-4.0
 
 ======
-Atlite
+atlite
 ======
 
 |PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |MIT-image| |reuse| |black| |pre-commit.ci| |joss| |discord| |stackoverflow|
 
-Atlite is a `free software`_, `xarray`_-based Python library for
+atlite is a `free software`_, `xarray`_-based Python library for
 converting weather data (like wind speeds, solar influx) into energy systems data.
 It is designed to be lightweight, keeping computing resource requirements (CPU, RAM) usage low.
 It is therefore well suited to be used with big weather datasets.
 
-.. Atlite is designed to be modular, so that it can work with any weather
+.. atlite is designed to be modular, so that it can work with any weather
 .. datasets. It currently has modules for the following datasets:
 
 .. * `NCEP Climate Forecast System <http://rda.ucar.edu/datasets/ds094.1/>`_ hourly
@@ -31,7 +31,7 @@ It is therefore well suited to be used with big weather datasets.
 ..   combined with ERA5 temperature).
 
 
-Atlite can process the following weather data fields and can convert them into following power-system relevant time series for any subsets of a full weather database.
+atlite can process the following weather data fields and can convert them into following power-system relevant time series for any subsets of a full weather database.
 
 .. image:: doc/workflow_chart.png
 
@@ -53,7 +53,7 @@ Atlite can process the following weather data fields and can convert them into f
 .. * Heating demand (based on the degree-day approximation)
 
 
-Atlite was initially developed by the `Renewable Energy Group
+atlite was initially developed by the `Renewable Energy Group
 <https://fias.uni-frankfurt.de/physics/schramm/renewable-energy-system-and-network-analysis/>`_
 at `FIAS <https://fias.uni-frankfurt.de/>`_ to carry out simulations
 for the `CoNDyNet project <http://condynet.de/>`_, financed by the
@@ -120,7 +120,7 @@ Support & Contributing
 Authors and Copyright
 ---------------------
 
-Copyright (C) 2016 - 2024 Contributors to Atlite <https://github.com/pypsa/atlite>
+Copyright (C) 2016 - 2024 Contributors to atlite <https://github.com/pypsa/atlite>
 
 See the `AUTHORS`_ for details.
 

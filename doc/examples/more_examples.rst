@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
   SPDX-License-Identifier: CC-BY-4.0
 
@@ -8,7 +8,7 @@ More Examples
 #############
 
 All examples are available as Jupyter notebooks in our
-`Atlite GitHub repository <https://github.com/PyPSA/atlite/tree/master/examples>`_.
+`atlite GitHub repository <https://github.com/PyPSA/atlite/tree/master/examples>`_.
 
 
 If you are missing an example for a certain

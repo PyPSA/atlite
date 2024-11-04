@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
   SPDX-License-Identifier: CC-BY-4.0
 
@@ -126,7 +126,7 @@ Version 0.2.8
 * Bugfix: When only adding geometries to an `atlite.ExclusionContainer` the geometries were previously
   not opened and an error was thrown. The error did not occur if one or more shapes were included.
   Error is corrected and geometry-only exclusions can now be calculated. (GH Issue #225)
-* Atlite now includes the reference turbines from the NREL turbine archive (see: https://nrel.github.io/turbine-models/). Available turbines can be consulted using `atlite.windturbines` and can be passed as string argument, e.g. `coutout.wind(turbine)`.
+* atlite now includes the reference turbines from the NREL turbine archive (see: https://nrel.github.io/turbine-models/). Available turbines can be consulted using `atlite.windturbines` and can be passed as string argument, e.g. `coutout.wind(turbine)`.
 * Bugfix: Downsampling the availability matrix (high resolution to low resolution) failed. Only rasters with 0 or 1
   were produced. Expected are also floats between 0 and 1 (GH Issue #238). Changing the rasterio version solved this.
   See solution (https://github.com/PyPSA/atlite/pull/240).
@@ -143,16 +143,16 @@ Version 0.2.7
 Version 0.2.6
 ==============
 
-* Atlite now supports calculating dynamic line ratings based on the IEEE-738 standard (https://github.com/PyPSA/atlite/pull/189).
+* atlite now supports calculating dynamic line ratings based on the IEEE-738 standard (https://github.com/PyPSA/atlite/pull/189).
 * The wind feature provided by ERA5 now also calculates the wind angle `wnd_azimuth` in range [0 - 2π) spanning the cirlce from north in clock-wise direction (0 is north, π/2 is east, -π is south, 3π/2 is west).
 * A new intersection matrix function was added, which works similarly to incidence matrix but has boolean values.
-* Atlite now supports two CSP (concentrated solar power) technologies, solar tower and parabolic trough. See (https://atlite.readthedocs.io/en/latest/examples/working-with-csp.html) for details.
+* atlite now supports two CSP (concentrated solar power) technologies, solar tower and parabolic trough. See (https://atlite.readthedocs.io/en/latest/examples/working-with-csp.html) for details.
 * The solar position (azimuth and altitude) are now part of the cutout feature `influx`. Cutouts created with earlier versions will become incompatible with the next major.
 * Automated upload of code coverage reports via Codecov.
 * DataArrays returned by `.pv(...)` and `.wind(...)` now have a clearer name and 'units' attribute.
 * If the `matrix` argument in conversion functions (`.pv(...)`, `.wind(...)` etc.) is a `DataArray`, the alignment of the coordinate axis with the cutout grid is double-checked.
 * Due to ambiguity, conversion functions (`.pv(...)`, `.wind(...)` etc.) now raise an `ValueError` if shapes and matrix are given.
-* Atlite now supports calculating of heat pump coefficients of performance (https://github.com/PyPSA/atlite/pull/145).
+* atlite now supports calculating of heat pump coefficients of performance (https://github.com/PyPSA/atlite/pull/145).
 * Enabled the GitHub feature "Cite this repository" to generate a BibTeX file (Added a `CITATION.cff` file to the repository).
 
 **Bug fixes**
@@ -214,8 +214,8 @@ Version 0.2
 **Major changes**
 
 
-* Atlite now **requires Python 3.6 or higher**.
-* We changed the Atlite backend for storing cutout data.
+* atlite now **requires Python 3.6 or higher**.
+* We changed the atlite backend for storing cutout data.
   Existing cutouts either need to be migrated with the
   appropriate functions or (what we recommended) recreated.
 * The backend change also includes some changes to the API.
@@ -242,7 +242,7 @@ Version 0.2
   `Open Energy Database <https://openenergy-platform.org/dataedit/view/supply/turbine_library>`_
   using the string prefix `"oedb:"` when specifying a turbine,
   e.g. `"oedb:Enercon_E-141/4200"`.
-* Atlite now has and uses a new configuration system.
+* atlite now has and uses a new configuration system.
   See the new section on `configuration <https://atlite.readthedocs.io/en/latest/configuration.html>`_
   for details.
 * It is possible to merge two cutouts together, using `Cutout.merge`

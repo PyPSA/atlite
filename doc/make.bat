@@ -1,4 +1,4 @@
-REM SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+REM SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 REM SPDX-License-Identifier: MIT
 
 @ECHO OFF

@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
   SPDX-License-Identifier: CC-BY-4.0
 
@@ -7,7 +7,7 @@
 Conventions
 ############
 
-Atlite uses the following conventions which are applied for processing geo-spatial and temporal data.
+atlite uses the following conventions which are applied for processing geo-spatial and temporal data.
 
 Grid coordinates
 ================

@@ -1,9 +1,9 @@
-# SPDX-FileCopyrightText: Contributors to Atlite <https://github.com/pypsa/atlite>
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 
 #
-# Atlite documentation build configuration file, created by
+# atlite documentation build configuration file, created by
 # sphinx-quickstart on Tue Jan 5 10:04:42 2016.
 #
 # This file is execfile()d with the current directory set to its
@@ -65,9 +65,9 @@ master_doc = "index"
 
 # General information about the project.
 project = "atlite"
-author = "Contributors to Atlite"
+author = "Contributors to atlite"
 copyright = "2016 - 2024" + ", " + author
-documentation_title = "Atlite Documentation"
+documentation_title = "atlite Documentation"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
