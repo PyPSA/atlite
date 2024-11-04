@@ -12,13 +12,13 @@ Getting Python
 ==============
 
 If it is your first time with Python, we recommend `conda
-<https://docs.conda.io/en/latest/miniconda.html>`_, `mamba
-<https://github.com/mamba-org/mamba>`_ or `pip
+<https://docs.conda.io/en/latest/miniconda.html>`_ or `pip
 <https://pip.pypa.io/en/stable/>`_ as easy-to-use package managers. They are
 available for Windows, Mac OS X and GNU/Linux.
 
-It is always helpful to use dedicated `conda/mamba environments <https://mamba.readthedocs.io/en/latest/user_guide/mamba.html>`_ or `virtual environments
-<https://pypi.python.org/pypi/virtualenv>`_.
+It is always helpful to use dedicated `conda environments 
+<https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html>`_ 
+or `virtual environments <https://pypi.python.org/pypi/virtualenv>`_.
 
 
 Installation with conda
@@ -27,8 +27,6 @@ Installation with conda
 If you are using ``conda`` you can install PyPSA with::
 
     conda install -c conda-forge atlite
-
-Replace ``conda`` with ``mamba`` if you use this alternative.
 
 
 Installing with pip

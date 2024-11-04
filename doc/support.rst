@@ -1,6 +1,6 @@
 
 ..
-  SPDX-FileCopyrightText: 2019 - 2024 The PyPSA-Eur Authors
+  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
   SPDX-License-Identifier: CC-BY-4.0
 
 #######################

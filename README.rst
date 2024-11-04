@@ -120,7 +120,7 @@ Support & Contributing
 Authors and Copyright
 ---------------------
 
-Copyright (C) 2016 - 2024 Contributors to atlite <https://github.com/pypsa/atlite>
+Copyright (C) Contributors to atlite <https://github.com/pypsa/atlite>
 
 See the `AUTHORS`_ for details.
 

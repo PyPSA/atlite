@@ -11,7 +11,7 @@ resource requirements especially on CPU and RAM resources low.
 """
 
 __author__ = (
-    "Gorm Andresen (Aarhus University), "
+    "Gorm Andresen, "
     "Jonas Hoersch (FIAS/KIT/RLI), "
     "Johannes Hampp (JLUG),"
     "Fabian Hofmann (FIAS)"
@@ -20,7 +20,7 @@ __author__ = (
     "David Schlachtberger (FIAS), "
 )
 
-__copyright__ = "Copyright 2016 - 2024 Contributors to atlite"
+__copyright__ = "Copyright Contributors to atlite"
 
 import re
 from importlib.metadata import version

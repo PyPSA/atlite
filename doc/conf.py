@@ -66,7 +66,7 @@ master_doc = "index"
 # General information about the project.
 project = "atlite"
 author = "Contributors to atlite"
-copyright = "2016 - 2024" + ", " + author
+copyright = author
 documentation_title = "atlite Documentation"
 
 # The version info for the project you're documenting, acts as replacement for
