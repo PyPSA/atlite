@@ -74,7 +74,7 @@ documentation_title = "Atlite Documentation"
 # built documents.
 #
 # The short X.Y version.
-release: str = get_version("pypsa")
+release: str = get_version("atlite")
 version: str = ".".join(release.split(".")[:2])
 # The full version, including alpha/beta/rc tags.
 release = version
