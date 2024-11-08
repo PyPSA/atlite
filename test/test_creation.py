@@ -35,7 +35,7 @@ def test_name(ref):
     """
     Asserts the variable
     """
-    assert ref.name() == "creation_ref"
+    assert ref.name == "creation_ref"
 
 
 def test_module(ref):
