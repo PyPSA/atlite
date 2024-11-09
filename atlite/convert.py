@@ -539,8 +539,8 @@ def wind(
         raised if the power curve does not have a cut-out wind speed. The default is
         False.
     interpolation_method : {"logarithmic", "power"}
-        Law to interpolate wind speed to turbine hub height. Refer to docstring of
-        atlite.wind.extrapolate_wind_speed .
+        Law to interpolate wind speed to turbine hub height. Refer to 
+        :py:func:`atlite.wind.extrapolate_wind_speed`.
 
     Note
     ----
