@@ -5,11 +5,14 @@
 All functions for converting weather data into energy system model data.
 """
 
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from collections import namedtuple
 from operator import itemgetter
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import geopandas as gpd
 import numpy as np
@@ -38,6 +41,11 @@ from atlite.resource import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from typing import Literal
+
+    from atlite.resource import TurbineConfig
 
 
 def convert_and_aggregate(
@@ -478,7 +486,11 @@ def solar_thermal(
 
 
 # wind
-def convert_wind(ds, turbine, interpolation_method):
+def convert_wind(
+    ds: xr.Dataset,
+    turbine: TurbineConfig,
+    interpolation_method: Literal["logarithmic", "power"],
+) -> xr.DataArray:
     """
     Convert wind speeds for turbine to wind energy generation.
     """
@@ -507,12 +519,12 @@ def convert_wind(ds, turbine, interpolation_method):
 
 def wind(
     cutout,
-    turbine,
-    smooth=False,
-    add_cutout_windspeed=False,
-    interpolation_method="logarithmic",
+    turbine: str | Path | dict,
+    smooth: bool | dict = False,
+    add_cutout_windspeed: bool = False,
+    interpolation_method: Literal["logarithmic", "power"] = "logarithmic",
     **params,
-):
+) -> xr.DataArray:
     """
     Generate wind generation time-series.
 
@@ -549,14 +561,11 @@ def wind(
 
     References
     ----------
-    [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
-    1074 – 1088. doi:10.1016/j.energy.2015.09.071
+    .. [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
+       1074 – 1088. doi:10.1016/j.energy.2015.09.071
 
     """
-    if isinstance(turbine, (str, Path, dict)):
-        turbine = get_windturbineconfig(
-            turbine, add_cutout_windspeed=add_cutout_windspeed
-        )
+    turbine = get_windturbineconfig(turbine, add_cutout_windspeed=add_cutout_windspeed)
 
     if smooth:
         turbine = windturbine_smooth(turbine, params=smooth)
