@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2020 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 
@@ -11,7 +11,7 @@ name = "atlite"
 dynamic = ["version"]
 description = "Library for fetching and converting weather data to power systems data"
 readme = "README.rst"
-authors=[{name = "The Atlite Authors", email = "jonas.hoersch@posteo.de"}]
+authors=[{name = "Contributors to atlite", email = "jonas.hoersch@posteo.de"}]
 license = { file = "LICENSE" }
 classifiers=[
     "Programming Language :: Python :: 3.9",

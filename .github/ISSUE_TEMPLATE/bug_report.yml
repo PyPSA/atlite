@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2021 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: CC0-1.0
 name: Bug Report
@@ -20,10 +20,10 @@ body:
     options:
     - label: >
         I have confirmed this bug exists on the lastest
-        [release](https://github.com/pypsa/atlite/releases) of Atlite.
+        [release](https://github.com/pypsa/atlite/releases) of atlite.
     - label: >
         I have confirmed this bug exists on the current
-        [`master`](https://github.com/pypsa/atlite/tree/master) branch of Atlite.
+        [`master`](https://github.com/pypsa/atlite/tree/master) branch of atlite.
 
 - type: textarea
   id: problem

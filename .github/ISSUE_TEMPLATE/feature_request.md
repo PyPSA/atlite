@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 <!---
-SPDX-FileCopyrightText: 2021 The Atlite Authors
+SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
 SPDX-License-Identifier: CC0-1.0
 --->
