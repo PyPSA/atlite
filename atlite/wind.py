@@ -57,6 +57,11 @@ def extrapolate_wind_speed(
         DataArray containing the extrapolated wind speeds. Name of the DataArray
         is 'wnd{to_height:d}'.
 
+    Raises
+    ------
+    RuntimeError
+        If the cutout is missing the data for the chosen `method`
+
     References
     ----------
     .. [1] Equation (2) in Andresen, G. et al (2015): 'Validation of Danish
@@ -84,12 +89,26 @@ def extrapolate_wind_speed(
     from_name = f"wnd{int(from_height):0d}m"
 
     if method == "logarithmic":
+        try:
+            roughness = ds["roughness"]
+        except KeyError:
+            raise RuntimeError(
+                "The logarithmic interpolation method requires surface roughness (roughness);\n"
+                "make sure you choose a compatible dataset like ERA5"
+            )
         wnd_spd = ds[from_name] * (
-            np.log(to_height / ds["roughness"]) / np.log(from_height / ds["roughness"])
+            np.log(to_height / roughness) / np.log(from_height / roughness)
         )
         method_desc = "logarithmic method with roughness"
     elif method == "power":
-        wnd_spd = ds[from_name] * (to_height / from_height) ** ds["wnd_shear_exp"]
+        try:
+            wnd_shear_exp = ds["wnd_shear_exp"]
+        except KeyError:
+            raise RuntimeError(
+                "The power law interpolation method requires a wind shear exponent (wnd_shear_exp);\n"
+                "make sure you choose a compatible dataset like ERA5 and update your cutout"
+            )
+        wnd_spd = ds[from_name] * (to_height / from_height) ** wnd_shear_exp
         method_desc = "power method with wind shear exponent"
     else:
         raise ValueError(
