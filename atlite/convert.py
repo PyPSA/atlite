@@ -478,19 +478,28 @@ def solar_thermal(
 
 
 # wind
-def convert_wind(ds, turbine):
+def convert_wind(
+    ds: xr.Dataset, turbine, windspeed_bias_correction=None, from_height=None
+):
     """
     Convert wind speeds for turbine to wind energy generation.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
-    wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
+    if windspeed_bias_correction is not None:
+        ds = ds.assign(
+            {f"wnd{from_height}m": ds[f"wnd{from_height}m"] * windspeed_bias_correction}
+        )
 
-    def _interpolate(da):
+    wnd_hub = windm.extrapolate_wind_speed(
+        ds, to_height=hub_height, from_height=from_height
+    )
+
+    def apply_power_curve(da):
         return np.interp(da, V, POW / P)
 
     da = xr.apply_ufunc(
-        _interpolate,
+        apply_power_curve,
         wnd_hub,
         input_core_dims=[[]],
         output_core_dims=[[]],
@@ -503,7 +512,15 @@ def convert_wind(ds, turbine):
     return da
 
 
-def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
+def wind(
+    cutout,
+    turbine,
+    smooth=False,
+    add_cutout_windspeed=False,
+    real_long_run_average_windspeed=None,
+    real_long_run_average_height=100,
+    **params,
+):
     """
     Generate wind generation time-series.
 
@@ -529,6 +546,10 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
         output at the highest wind speed in the power curve. If False, a warning will be
         raised if the power curve does not have a cut-out wind speed. The default is
         False.
+    real_long_run_average_speed : Path or rasterio dataset or None
+        Raster dataset with wind speeds to bias correct long run average wind speeds
+    real_long_run_average_height : int = 100
+        Height in meters of provided real_long_average_speed dataset
 
     Note
     ----
@@ -549,8 +570,24 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
     if smooth:
         turbine = windturbine_smooth(turbine, params=smooth)
 
+    windspeed_bias_correction = None
+    from_height = None
+
+    if real_long_run_average_windspeed is not None:
+        windspeed_bias_correction = windm.calculate_windspeed_bias_correction(
+            cutout.data,
+            real_long_run_average_windspeed,
+            real_long_run_average_height,
+            crs=cutout.crs,
+        )
+        from_height = real_long_run_average_height
+
     return cutout.convert_and_aggregate(
-        convert_func=convert_wind, turbine=turbine, **params
+        convert_func=convert_wind,
+        turbine=turbine,
+        windspeed_bias_correction=windspeed_bias_correction,
+        from_height=from_height,
+        **params,
     )
 
 
