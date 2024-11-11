@@ -478,19 +478,28 @@ def solar_thermal(
 
 
 # wind
-def convert_wind(ds, turbine):
+def convert_wind(
+    ds: xr.Dataset, turbine, windspeed_bias_correction=None, from_height=None
+):
     """
     Convert wind speeds for turbine to wind energy generation.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
-    wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
+    if windspeed_bias_correction is not None:
+        ds = ds.assign(
+            {f"wnd{from_height}m": ds[f"wnd{from_height}m"] * windspeed_bias_correction}
+        )
 
-    def _interpolate(da):
+    wnd_hub = windm.extrapolate_wind_speed(
+        ds, to_height=hub_height, from_height=from_height
+    )
+
+    def apply_power_curve(da):
         return np.interp(da, V, POW / P)
 
     da = xr.apply_ufunc(
-        _interpolate,
+        apply_power_curve,
         wnd_hub,
         input_core_dims=[[]],
         output_core_dims=[[]],
@@ -503,7 +512,15 @@ def convert_wind(ds, turbine):
     return da
 
 
-def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
+def wind(
+    cutout,
+    turbine: str | dict,
+    smooth: bool | dict = False,
+    add_cutout_windspeed: bool = False,
+    windspeed_bias_correction: xr.DataArray | None = None,
+    windspeed_height: int | None = None,
+    **params,
+):
     """
     Generate wind generation time-series.
 
@@ -513,22 +530,32 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
     Parameters
     ----------
     turbine : str or dict
-        A turbineconfig dictionary with the keys 'hub_height' for the
-        hub height and 'V', 'POW' defining the power curve.
-        Alternatively a str refering to a local or remote turbine configuration
-        as accepted by atlite.resource.get_windturbineconfig(). Locally stored turbine
-        configurations can also be modified with this function. E.g. to setup a different hub
-        height from the one used in the yaml file,one would write
-                "turbine=get_windturbineconfig(“NREL_ReferenceTurbine_5MW_offshore”)|{“hub_height”:120}"
+        A turbineconfig dictionary with the keys 'hub_height' for the hub height
+        and 'V', 'POW' defining the power curve. Alternatively a str refering to
+        a local or remote turbine configuration as accepted by
+        atlite.resource.get_windturbineconfig(). Locally stored turbine
+        configurations can also be modified with this function. E.g. to setup a
+        different hub height from the one used in the yaml file, one would write
+        >>> turbine = (
+        >>>     get_windturbineconfig("NREL_ReferenceTurbine_5MW_offshore")
+        >>>     | {"hub_height":120}
+        >>> )
     smooth : bool or dict
-        If True smooth power curve with a gaussian kernel as
-        determined for the Danish wind fleet to Delta_v = 1.27 and
-        sigma = 2.29. A dict allows to tune these values.
+        If True smooth power curve with a gaussian kernel as determined for the
+        Danish wind fleet to Delta_v = 1.27 and sigma = 2.29. A dict allows to
+        tune these values.
     add_cutout_windspeed : bool
-        If True and in case the power curve does not end with a zero, will add zero power
-        output at the highest wind speed in the power curve. If False, a warning will be
-        raised if the power curve does not have a cut-out wind speed. The default is
-        False.
+        If True and in case the power curve does not end with a zero, will add
+        zero power output at the highest wind speed in the power curve. If
+        False, a warning will be raised if the power curve does not have a
+        cut-out wind speed. The default is False.
+    windspeed_bias_correction : DataArray, optional
+        Correction factor that is applied to the windspeed at
+        `windspeed_height`. Such a correction factor can be calculated using
+        :py:func:`atlite.wind.calculate_windspeed_bias_correction` with a raster
+        dataset of mean wind speeds.
+    windspeed_height : int, optional
+        Height in meters of windspeed data from which to extrapolate
 
     Note
     ----
@@ -541,7 +568,7 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
     1074 – 1088. doi:10.1016/j.energy.2015.09.071
 
     """
-    if isinstance(turbine, (str, Path, dict)):
+    if isinstance(turbine, str | Path | dict):
         turbine = get_windturbineconfig(
             turbine, add_cutout_windspeed=add_cutout_windspeed
         )
@@ -550,7 +577,11 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
         turbine = windturbine_smooth(turbine, params=smooth)
 
     return cutout.convert_and_aggregate(
-        convert_func=convert_wind, turbine=turbine, **params
+        convert_func=convert_wind,
+        turbine=turbine,
+        windspeed_bias_correction=windspeed_bias_correction,
+        from_height=windspeed_height,
+        **params,
     )
 
 
