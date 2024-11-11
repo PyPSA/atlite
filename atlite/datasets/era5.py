@@ -361,15 +361,6 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         logger.debug(f"Adding finalizer for {target}")
         weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
 
-    # Remove default encoding we get from CDSAPI, which can lead to NaN values after loading with subsequent
-    # saving due to how xarray handles netcdf compression (only float encoded as short int seem affected)
-    # Fixes issue by keeping "float32" encoded as "float32" instead of internally saving as "short int", see:
-    # https://stackoverflow.com/questions/75755441/why-does-saving-to-netcdf-without-encoding-change-some-values-to-nan
-    # and hopefully fixed soon (could then remove), see https://github.com/pydata/xarray/issues/7691
-    for v in ds.data_vars:
-        if ds[v].encoding["dtype"] == "int16":
-            ds[v].encoding.clear()
-
     return ds
 
 

@@ -33,7 +33,7 @@ dependencies = [
         "pandas>=0.25",
         "bottleneck",
         "numexpr",
-        "xarray>=0.20",
+        "xarray>=2024.03.0",
         "netcdf4",
         "dask>=2021.10.0",
         "toolz",
