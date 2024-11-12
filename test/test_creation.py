@@ -11,7 +11,6 @@ Created on Wed May  6 15:23:13 2020.
 
 # IDEAS for tests
 
-import affine
 import numpy as np
 import pytest
 import rasterio as rio
@@ -60,12 +59,16 @@ def test_bounds(ref):
 
 
 def test_transform(ref):
-    reference_affine = rio.Affine(0.25, 0.00, -4.125, 0.00, 0.25, 55.875, 0.00, 0.00, 1.00)
+    reference_affine = rio.Affine(
+        0.25, 0.00, -4.125, 0.00, 0.25, 55.875, 0.00, 0.00, 1.00
+    )
     assert reference_affine == ref.transform
 
 
 def test_transform_r(ref):
-    reference_affine = rio.Affine(0.25, 0.00, -4.125, 0.00, -0.25, 61.125, 0.00, 0.00, 1.00)
+    reference_affine = rio.Affine(
+        0.25, 0.00, -4.125, 0.00, -0.25, 61.125, 0.00, 0.00, 1.00
+    )
     assert reference_affine == ref.transform_r
 
 
