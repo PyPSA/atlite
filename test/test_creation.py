@@ -32,9 +32,6 @@ def ref():
 
 
 def test_name(ref):
-    """
-    Asserts the variable
-    """
     assert ref.name == "creation_ref"
 
 
@@ -44,6 +41,15 @@ def test_module(ref):
 
 def test_crs(ref):
     assert ref.crs == "EPSG:4326"
+
+
+def test_shape(ref):
+    assert ref.shape == (21, 23)
+
+
+def test_extent(ref):
+    reference_extent = [-4.125, 1.625, 55.875, 61.125]
+    assert all([x == y for x, y in zip(ref.extent, reference_extent)])
 
 
 def test_odd_bounds_coords(ref):
