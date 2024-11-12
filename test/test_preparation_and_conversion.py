@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: 2021 - 2024 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -306,6 +306,13 @@ def wind_test(cutout):
 
     assert production.notnull().all()
     assert production.sum() > 0
+
+    # test with different power law interpolation method
+    production = cutout.wind(
+        atlite.windturbines.Enercon_E101_3000kW,
+        layout=cap_factor,
+        interpolation_method="power",
+    )
 
 
 def runoff_test(cutout):
