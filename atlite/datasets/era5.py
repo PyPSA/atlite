@@ -77,7 +77,7 @@ def _add_height(ds):
     if "time" in z.coords:
         z = z.isel(time=0, drop=True)
     ds["height"] = z / g0
-    ds = ds.drop_vars("z")
+    ds = ds.drop_vars("geopotential")
     return ds
 
 
@@ -343,10 +343,29 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     If you want to track the state of your request go to
     https://cds-beta.climate.copernicus.eu/requests?tab=all
     """
+
+    # started creating a var map to simplify the changes.
+    variable_map = {
+        "geopotential": "z",
+        "10m_u_component_of_wind": "",
+        "100m_u_component_of_wind": "",
+        "10m_v_component_of_wind": "",
+        "100m_v_component_of_wind": "",
+        "forecast_surface_roughness": "",
+        "surface_net_solar_radiation": "",
+        "surface_solar_radiation_downwards": "",
+        "toa_incident_solar_radiation": "",
+        "total_sky_direct_solar_radiation_at_surface": "",
+        "runoff": "",
+        "2m_temperature": "",
+        "soil_temperature_level_4": "",
+        "2m_dewpoint_temperature": "",
+    }
+
     request = {"product_type": "reanalysis", "format": "netcdf"}
     request.update(updates)
 
-    print(request)
+    logger.info(f"request: {request}")
 
     assert {"year", "month", "variable"}.issubset(
         request
@@ -360,13 +379,16 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     # Open the Zarr store as a dataset
     ds = xr.open_zarr(
         bucket,
-        chunks={},
-        storage_options=dict(token='anon')
+        chunks=chunks,  # the chunks are not aligned, we deal with this later
+        consolidated=True,
+        storage_options=dict(token="anon"),
     )
 
     # Select specific variables of interest
     variables = atleast_1d(request['variable'])  # e.g., ['100m_u_component_of_wind', '100m_v_component_of_wind']
     ds_selected_vars = ds[variables]
+
+    ds_selected_vars.unify_chunks()
 
     # Define the time range and spatial bounding box
     year = request['year']
@@ -387,7 +409,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         'latitude': slice(bbox[0], bbox[2]),
         'longitude': slice(bbox[1] + 180, bbox[3] + 180)
     }
-    print(lat_lon_bbox)
+    logger.info(f"lat_lon_bbox: {lat_lon_bbox}")
 
     # Apply selections
     ds = ds_selected_vars.sel(
