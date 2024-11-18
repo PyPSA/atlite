@@ -9,18 +9,22 @@ logging.basicConfig(level=logging.INFO)
 limon_co_lat = 39.26719230055635
 limon_co_lon = -103.69300728924804
 
+# much windier spot...
+ne_wind_lat = 42.0
+ne_wind_lon = -102.7
+
 center_lon = limon_co_lon
 center_lat = limon_co_lat
 
-# center_lat = miso_lat
-# center_lon = miso_lon
+center_lat = ne_wind_lat
+center_lon = ne_wind_lon
 
 # Define a roughly 30x30km box around the MISO coordinates
 # 1 degree of latitude is approximately 111 km
 # 1 degree of longitude varies, but at this latitude it's about 95 km
-lat_offset = 250 / 111 / 2  # Half of 30km in degrees latitude
+lat_offset = 100 / 111 / 2  # Half of 30km in degrees latitude
 lon_offset = (
-    250 / (95 * cos(radians(center_lat))) / 2
+    100 / (95 * cos(radians(center_lat))) / 2
 )  # Half of 30km in degrees longitude
 
 min_lat = center_lat - lat_offset
@@ -36,11 +40,11 @@ print(f"Max Longitude: {max_lon:.6f}")
 
 cutout = atlite.Cutout(
     # path="limon_co_wind.nc",
-    path="limon_co_2023.nc",
+    path="ne_wind.nc",
     module="era5",
-    x=slice(min_lon, max_lon),
+    x=slice(min_lon + 180, max_lon + 180),  # convert to 360 here, avoid differences between fetching & existing .nc paths
     y=slice(min_lat, max_lat),
-    time="2023-01",
+    time="2023",
     dt="h",
 )
 cutout.prepare(show_progress=True)
@@ -61,8 +65,12 @@ df = cap_factors.to_dataframe().reset_index()
 # Preview the DataFrame
 print(df.head())
 
+# get just a single time series from the grid area 
+df_filtered = df[(df['lon'] == 76.75) & (df['lat'] == 41.75)]
+print(df_filtered.head())
+
 # Save the DataFrame to a CSV file
-df.to_csv("capacity_factors.csv", index=False)
+df_filtered.to_csv("capacity_factors.csv", index=False)
 
 # Print out the current time
 current_time = datetime.now()
