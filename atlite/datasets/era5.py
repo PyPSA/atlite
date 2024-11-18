@@ -391,23 +391,27 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     ds_selected_vars.unify_chunks()
 
     # Define the time range and spatial bounding box
+    # TODO multiple years if needed?
     year = request['year']
-    month = str(request['month'][0]).zfill(2)  # Convert month to zero-padded format
+    month_start = str(request['month'][0]).zfill(2)  # Convert month to zero-padded format
+    month_end = str(request['month'][-1]).zfill(2)
     day_start = str(request['day'][0]).zfill(2)
     day_end = str(request['day'][-1]).zfill(2)
 
     # Create start and end time strings
-    time_start = f"{year}-{month}-{day_start}T00:00"
-    time_end = f"{year}-{month}-{day_end}T23:00"
+    time_start = f"{year}-{month_start}-{day_start}T00:00"
+    time_end = f"{year}-{month_end}-{day_end}T23:00"
 
     # Define the time range slice
     time_range = slice(time_start, time_end)
+    logger.info("Time Range:")
+    logger.info(time_start)
+    logger.info(time_end)
 
-    #time_range = slice("2020-01-01", "2020-01-31")
     bbox = request['area']
     lat_lon_bbox = {
         'latitude': slice(bbox[0], bbox[2]),
-        'longitude': slice(bbox[1] + 180, bbox[3] + 180)
+        'longitude': slice(bbox[1], bbox[3])
     }
     logger.info(f"lat_lon_bbox: {lat_lon_bbox}")
 
