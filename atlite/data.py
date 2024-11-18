@@ -225,6 +225,7 @@ def cutout_prepare(
                 ds[v].encoding.update(compression)
 
         ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
+        ds.unify_chunks() # not strictly necessary, but should speed things up.
 
         # write data to tmp file, copy it to original data, this is much safer
         # than appending variables
