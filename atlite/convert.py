@@ -495,10 +495,19 @@ def convert_wind(
     Convert wind speeds for turbine to wind energy generation.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
+    logger.info("power curve")
+    logger.info(V)
+    logger.info(P)
+    logger.info(POW)
 
     wnd_hub = windm.extrapolate_wind_speed(
         ds, to_height=hub_height, method=interpolation_method
     )
+
+    logger.info("wnd_hub")
+    logger.info(wnd_hub.to_series())
+    average_wind_speed = wnd_hub.to_series().mean()
+    logger.info(f"Average wind speed at hub height: {average_wind_speed:.2f} m/s")
 
     def apply_power_curve(da):
         return np.interp(da, V, POW / P)

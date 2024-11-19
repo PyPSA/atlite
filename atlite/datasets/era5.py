@@ -18,6 +18,8 @@ import cdsapi
 import numpy as np
 import pandas as pd
 import xarray as xr
+import gcsfs
+
 from dask import compute, delayed
 from dask.array import arctan2, sqrt
 from numpy import atleast_1d
@@ -375,13 +377,14 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     bucket = 'gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/'
 
     ProgressBar().register()
+    fs = gcsfs.GCSFileSystem(token='anon', cache_timeout=600)
 
     # Open the Zarr store as a dataset
     ds = xr.open_zarr(
         bucket,
         chunks=chunks,  # the chunks are not aligned, we deal with this later
         consolidated=True,
-        storage_options=dict(token="anon"),
+        storage_options=dict(token="anon", gcs=fs),
     )
 
     # Select specific variables of interest
@@ -421,6 +424,8 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         latitude=lat_lon_bbox['latitude'],
         longitude=lat_lon_bbox['longitude']
     )
+
+    #ds = ds.chunk({'latitude': 3, 'longitude': 3, 'time': 24})
 
     return ds
 
