@@ -47,6 +47,8 @@ dependencies = [
     "pyproj>=2",
     "geopandas",
     "cdsapi>=0.7.4",
+    "gcsfs",
+    "zarr",
 ]
 
 [project.urls]
