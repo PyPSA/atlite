@@ -80,7 +80,7 @@ def get_windturbineconfig(
         Config with details on the turbine
 
     """
-    assert isinstance(turbine, str | Path | dict)
+    assert isinstance(turbine, (str, Path, dict))
 
     if add_cutout_windspeed is False:
         msg = (
@@ -92,7 +92,7 @@ def get_windturbineconfig(
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
         conf = get_oedb_windturbineconfig(turbine[len("oedb:") :])
 
-    elif isinstance(turbine, str | Path):
+    elif isinstance(turbine, (str, Path)):
         if isinstance(turbine, str):
             turbine_path = windturbines[turbine.replace(".yaml", "")]
 
