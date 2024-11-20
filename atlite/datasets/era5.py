@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -20,6 +18,8 @@ import cdsapi
 import numpy as np
 import pandas as pd
 import xarray as xr
+from dask import compute, delayed
+from dask.array import arctan2, sqrt
 from numpy import atleast_1d
 
 from atlite.gis import maybe_swap_spatial_dims
@@ -44,7 +44,7 @@ crs = 4326
 
 features = {
     "height": ["height"],
-    "wind": ["wnd100m", "wnd_azimuth", "roughness"],
+    "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -53,7 +53,7 @@ features = {
         "solar_altitude",
         "solar_azimuth",
     ],
-    "temperature": ["temperature", "soil temperature"],
+    "temperature": ["temperature", "soil temperature", "dewpoint temperature"],
     "runoff": ["runoff"],
 }
 
@@ -68,6 +68,7 @@ def _add_height(ds):
     ----------
     [1] ERA5: surface elevation and orography, retrieved: 10.02.2019
     https://confluence.ecmwf.int/display/CKB/ERA5%3A+surface+elevation+and+orography
+
     """
     g0 = 9.80665
     z = ds["z"]
@@ -86,6 +87,8 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     longitude columns as 'lat' and 'lon'.
     """
     ds = ds.rename({"longitude": "x", "latitude": "y"})
+    if "valid_time" in ds.sizes:
+        ds = ds.rename({"valid_time": "time"}).unify_chunks()
     # round coords since cds coords are float32 which would lead to mismatches
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
@@ -93,13 +96,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     ds = maybe_swap_spatial_dims(ds)
     if add_lon_lat:
         ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
-
-    # Combine ERA5 and ERA5T data into a single dimension.
-    # See https://github.com/PyPSA/atlite/issues/190
-    if "expver" in ds.dims.keys():
-        # expver=1 is ERA5 data, expver=5 is ERA5T data
-        # This combines both by filling in NaNs from ERA5 data with values from ERA5T.
-        ds = ds.sel(expver=1).combine_first(ds.sel(expver=5))
+    ds = ds.drop_vars(["expver", "number"], errors="ignore")
 
     return ds
 
@@ -110,6 +107,8 @@ def get_data_wind(retrieval_params):
     """
     ds = retrieve_data(
         variable=[
+            "10m_u_component_of_wind",
+            "10m_v_component_of_wind",
             "100m_u_component_of_wind",
             "100m_v_component_of_wind",
             "forecast_surface_roughness",
@@ -118,13 +117,19 @@ def get_data_wind(retrieval_params):
     )
     ds = _rename_and_clean_coords(ds)
 
-    ds["wnd100m"] = np.sqrt(ds["u100"] ** 2 + ds["v100"] ** 2).assign_attrs(
-        units=ds["u100"].attrs["units"], long_name="100 metre wind speed"
-    )
+    for h in [10, 100]:
+        ds[f"wnd{h}m"] = sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
+            units=ds[f"u{h}"].attrs["units"], long_name=f"{h} metre wind speed"
+        )
+    ds["wnd_shear_exp"] = (
+        np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
+    ).assign_attrs(units="", long_name="wind shear exponent")
+
     # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
-    azimuth = np.arctan2(ds["u100"], ds["v100"])
+    azimuth = arctan2(ds["u100"], ds["v100"])
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
-    ds = ds.drop_vars(["u100", "v100"])
+
+    ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
     ds = ds.rename({"fsr": "roughness"})
 
     return ds
@@ -199,11 +204,22 @@ def get_data_temperature(retrieval_params):
     Get wind temperature for given retrieval parameters.
     """
     ds = retrieve_data(
-        variable=["2m_temperature", "soil_temperature_level_4"], **retrieval_params
+        variable=[
+            "2m_temperature",
+            "soil_temperature_level_4",
+            "2m_dewpoint_temperature",
+        ],
+        **retrieval_params,
     )
 
     ds = _rename_and_clean_coords(ds)
-    ds = ds.rename({"t2m": "temperature", "stl4": "soil temperature"})
+    ds = ds.rename(
+        {
+            "t2m": "temperature",
+            "stl4": "soil temperature",
+            "d2m": "dewpoint temperature",
+        }
+    )
 
     return ds
 
@@ -247,7 +263,7 @@ def _area(coords):
     return [y1, x0, y0, x1]
 
 
-def retrieval_times(coords, static=False):
+def retrieval_times(coords, static=False, monthly_requests=False):
     """
     Get list of retrieval cdsapi arguments for time dimension in coordinates.
 
@@ -260,10 +276,16 @@ def retrieval_times(coords, static=False):
     Parameters
     ----------
     coords : atlite.Cutout.coords
+    static : bool, optional
+    monthly_requests : bool, optional
+        If True, the data is requested on a monthly basis. This is useful for
+        large cutouts, where the data is requested in smaller chunks. The
+        default is False
 
     Returns
     -------
     list of dicts witht retrieval arguments
+
     """
     time = coords["time"].to_index()
     if static:
@@ -278,12 +300,21 @@ def retrieval_times(coords, static=False):
     times = []
     for year in time.year.unique():
         t = time[time.year == year]
-        for month in t.month.unique():
+        if monthly_requests:
+            for month in t.month.unique():
+                query = {
+                    "year": str(year),
+                    "month": str(month),
+                    "day": list(t[t.month == month].day.unique()),
+                    "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
+                }
+                times.append(query)
+        else:
             query = {
                 "year": str(year),
-                "month": str(month),
-                "day": list(t[t.month == month].day.unique()),
-                "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
+                "month": list(t.month.unique()),
+                "day": list(t.day.unique()),
+                "time": ["%02d:00" % h for h in t.hour.unique()],
             }
             times.append(query)
     return times
@@ -305,7 +336,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     Download data like ERA5 from the Climate Data Store (CDS).
 
     If you want to track the state of your request go to
-    https://cds.climate.copernicus.eu/cdsapp#!/yourrequests
+    https://cds-beta.climate.copernicus.eu/requests?tab=all
     """
     request = {"product_type": "reanalysis", "format": "netcdf"}
     request.update(updates)
@@ -338,19 +369,18 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         logger.debug(f"Adding finalizer for {target}")
         weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
 
-    # Remove default encoding we get from CDSAPI, which can lead to NaN values after loading with subsequent
-    # saving due to how xarray handles netcdf compression (only float encoded as short int seem affected)
-    # Fixes issue by keeping "float32" encoded as "float32" instead of internally saving as "short int", see:
-    # https://stackoverflow.com/questions/75755441/why-does-saving-to-netcdf-without-encoding-change-some-values-to-nan
-    # and hopefully fixed soon (could then remove), see https://github.com/pydata/xarray/issues/7691
-    for v in ds.data_vars:
-        if ds[v].encoding["dtype"] == "int16":
-            ds[v].encoding.clear()
-
     return ds
 
 
-def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
+def get_data(
+    cutout,
+    feature,
+    tmpdir,
+    lock=None,
+    monthly_requests=False,
+    concurrent_requests=False,
+    **creation_parameters,
+):
     """
     Retrieve data from ECMWFs ERA5 dataset (via CDS).
 
@@ -365,6 +395,13 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
         `atlite.datasets.era5.features`
     tmpdir : str/Path
         Directory where the temporary netcdf files are stored.
+    monthly_requests : bool, optional
+        If True, the data is requested on a monthly basis in ERA5. This is useful for
+        large cutouts, where the data is requested in smaller chunks. The
+        default is False
+    concurrent_requests : bool, optional
+        If True, the monthly data requests are posted concurrently.
+        Only has an effect if `monthly_requests` is True.
     **creation_parameters :
         Additional keyword arguments. The only effective argument is 'sanitize'
         (default True) which sets sanitization of the data on or off.
@@ -373,6 +410,7 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     -------
     xarray.Dataset
         Dataset of dask arrays of the retrieved variables.
+
     """
     coords = cutout.coords
 
@@ -401,6 +439,11 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     if feature in static_features:
         return retrieve_once(retrieval_times(coords, static=True)).squeeze()
 
-    datasets = map(retrieve_once, retrieval_times(coords))
+    time_chunks = retrieval_times(coords, monthly_requests=monthly_requests)
+    if concurrent_requests:
+        delayed_datasets = [delayed(retrieve_once)(chunk) for chunk in time_chunks]
+        datasets = compute(*delayed_datasets)
+    else:
+        datasets = map(retrieve_once, time_chunks)
 
     return xr.concat(datasets, dim="time").sel(time=coords["time"])

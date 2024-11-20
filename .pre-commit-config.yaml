@@ -1,65 +1,54 @@
-# SPDX-FileCopyrightText: 2021 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: CC0-1.0
+ci:
+  autoupdate_schedule: monthly
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.5.0
+  rev: v5.0.0
   hooks:
   - id: check-merge-conflict
-  - id: end-of-file-fixer
-  - id: fix-encoding-pragma
-  - id: mixed-line-ending
-  - id: trailing-whitespace
   - id: check-added-large-files
     args: ['--maxkb=2000']
 
-# Sort package imports alphabetically
-- repo: https://github.com/PyCQA/isort
-  rev: 5.13.2
+# Run ruff to lint and format
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.7.2
   hooks:
-  - id: isort
-    args: ["--profile", "black", "--filter-files"]
-
-# Convert relative imports to absolute imports
-- repo: https://github.com/MarcoGorelli/absolufy-imports
-  rev: v0.3.1
-  hooks:
-  - id: absolufy-imports
+    # Run the linter.
+  - id: ruff
+    args: [--fix]
+    # Run the formatter.
+  - id: ruff-format
 
 # Find common spelling mistakes in comments and docstrings
 - repo: https://github.com/codespell-project/codespell
-  rev: v2.2.6
+  rev: v2.3.0
   hooks:
   - id: codespell
     args: ['--ignore-regex="(\b[A-Z]+\b)"'] # Ignore capital case words, e.g. country codes
     types_or: [python, rst, markdown]
     files: ^(scripts|doc)/
 
-# Make docstrings PEP 257 compliant
-- repo: https://github.com/PyCQA/docformatter
-  rev: v1.7.5
+# Remove output from Jupyter notebooks
+- repo: https://github.com/aflc/pre-commit-jupyter
+  rev: v1.2.1
   hooks:
-  - id: docformatter
-    args: ['--in-place', '--make-summary-multi-line', '--pre-summary-newline']
+  - id: jupyter-notebook-cleanup
+    args: ['--remove-kernel-metadata']
 
-# Formatting with "black" coding style
-- repo: https://github.com/psf/black
-  rev: 24.3.0
-  hooks:
-  # Format Python files
-  - id: black
-  # Format Jupyter Python notebooks
-  - id: black-jupyter
 
-- repo: https://github.com/fsfe/reuse-tool
-  rev: v3.0.1
-  hooks:
-  - id: reuse
-
-# Do YAML formatting (before the linter checks it for misses)
+# Do YAML formatting
 - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.12.0
+  rev: v2.14.0
   hooks:
   - id: pretty-format-yaml
     args: [--autofix, --indent, '2', --preserve-quotes]
+
+# Reuse compliance
+- repo: https://github.com/fsfe/reuse-tool
+  rev: v4.0.3
+  hooks:
+  - id: reuse

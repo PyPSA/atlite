@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -8,18 +6,21 @@ Module for providing access to external ressources, like windturbine or pv
 panel configurations.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import re
 import warnings
 from operator import itemgetter
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
-import pkg_resources
 import requests
 import yaml
+from dask.array import radians
 from scipy.signal import fftconvolve
 
 from atlite.utils import arrowdict
@@ -27,13 +28,29 @@ from atlite.utils import arrowdict
 logger = logging.getLogger(name=__name__)
 
 
-RESOURCE_DIRECTORY = Path(pkg_resources.resource_filename(__name__, "resources"))
+RESOURCE_DIRECTORY = Path(__file__).parent / "resources"
 WINDTURBINE_DIRECTORY = RESOURCE_DIRECTORY / "windturbine"
 SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 
+if TYPE_CHECKING:
+    from typing import TypedDict
 
-def get_windturbineconfig(turbine, add_cutout_windspeed=False):
+    from typing_extensions import NotRequired
+
+    class TurbineConfig(TypedDict):
+        V: np.ndarray
+        POW: np.ndarray
+        P: float
+        hub_height: float | int
+        name: NotRequired[str]
+        manufacturer: NotRequired[str]
+        source: NotRequired[str]
+
+
+def get_windturbineconfig(
+    turbine: str | Path | dict, add_cutout_windspeed: bool = False
+) -> TurbineConfig:
     """
     Load the wind 'turbine' configuration.
 
@@ -58,16 +75,17 @@ def get_windturbineconfig(turbine, add_cutout_windspeed=False):
         raised if the power curve does not have a cut-out wind speed.
 
     Returns
-    ----------
+    -------
     config : dict
         Config with details on the turbine
+
     """
     assert isinstance(turbine, (str, Path, dict))
 
     if add_cutout_windspeed is False:
         msg = (
             "'add_cutout_windspeed' for wind turbine\npower curves will default to "
-            "True in atlite relase v0.2.13."
+            "True in atlite relase v0.2.15."
         )
         warnings.warn(msg, FutureWarning)
 
@@ -81,7 +99,7 @@ def get_windturbineconfig(turbine, add_cutout_windspeed=False):
         elif isinstance(turbine, Path):
             turbine_path = turbine
 
-        with open(turbine_path, "r") as f:
+        with open(turbine_path) as f:
             conf = yaml.safe_load(f)
             conf = dict(
                 V=np.array(conf["V"]),
@@ -109,9 +127,10 @@ def get_solarpanelconfig(panel):
             is read from this local path instead
 
     Returns
-    ----------
+    -------
     config : dict
         Config with details on the solarpanel
+
     """
     assert isinstance(panel, (str, Path))
 
@@ -121,7 +140,7 @@ def get_solarpanelconfig(panel):
     elif isinstance(panel, Path):
         panel_path = panel
 
-    with open(panel_path, "r") as f:
+    with open(panel_path) as f:
         conf = yaml.safe_load(f)
 
     return conf
@@ -144,6 +163,7 @@ def get_cspinstallationconfig(installation):
     -------
     config : dict
         Config with details on the CSP installation.
+
     """
     assert isinstance(installation, (str, Path))
 
@@ -154,7 +174,7 @@ def get_cspinstallationconfig(installation):
         installation_path = installation
 
     # Load and set expected index columns
-    with open(installation_path, "r") as f:
+    with open(installation_path) as f:
         config = yaml.safe_load(f)
     config["path"] = installation_path
 
@@ -170,8 +190,8 @@ def get_cspinstallationconfig(installation):
     da = da.rename({"azimuth": "azimuth [deg]", "altitude": "altitude [deg]"})
     da = da.assign_coords(
         {
-            "altitude": np.deg2rad(da["altitude [deg]"]),
-            "azimuth": np.deg2rad(da["azimuth [deg]"]),
+            "altitude": radians(da["altitude [deg]"]),
+            "azimuth": radians(da["azimuth [deg]"]),
         }
     )
     da = da.swap_dims({"altitude [deg]": "altitude", "azimuth [deg]": "azimuth"})
@@ -232,8 +252,9 @@ def windturbine_smooth(turbine, params=None):
     G. B. Andresen, A. A. Søndergaard, M. Greiner, Validation of
     Danish wind time series from a new global renewable energy atlas
     for energy system analysis, Energy 93, Part 1 (2015) 1074–1088.
+
     """
-    if params is None or params == True:
+    if params is None or params is True:
         params = {}
 
     eta = params.get("eta", 0.95)
@@ -282,10 +303,12 @@ def windturbine_smooth(turbine, params=None):
 
 
 def _max_v_is_zero_pow(turbine):
-    return np.any((turbine["POW"][turbine["V"] == turbine["V"].max()] == 0))
+    return np.any(turbine["POW"][turbine["V"] == turbine["V"].max()] == 0)
 
 
-def _validate_turbine_config_dict(turbine: dict, add_cutout_windspeed: bool):
+def _validate_turbine_config_dict(
+    turbine: dict, add_cutout_windspeed: bool
+) -> TurbineConfig:
     """
     Checks the turbine config dict format and power curve.
 
@@ -303,6 +326,7 @@ def _validate_turbine_config_dict(turbine: dict, add_cutout_windspeed: bool):
     -------
     dict
         validated and potentially modified turbine config dict
+
     """
     if not all(key in turbine for key in ("POW", "V", "P", "hub_height")):
         err_msg = (
@@ -339,25 +363,23 @@ def _validate_turbine_config_dict(turbine: dict, add_cutout_windspeed: bool):
         turbine["V"] = np.pad(turbine["V"], (0, 1), "maximum")
         turbine["POW"] = np.pad(turbine["POW"], (0, 1), "constant", constant_values=0)
         logger.info(
-            (
-                "adding a cut-out wind speed to the turbine power curve at "
-                f"V={turbine['V'][-1]} m/s."
-            )
+            "adding a cut-out wind speed to the turbine power curve at "
+            f"V={turbine['V'][-1]} m/s."
         )
 
     if not _max_v_is_zero_pow(turbine):
         logger.warning(
-            (
-                "The power curve does not have a cut-out wind speed, i.e. the power"
-                " output corresponding to the\nhighest wind speed is not zero. You can"
-                " either change the power curve manually or set\n"
-                "'add_cutout_windspeed=True' in the Cutout.wind conversion method."
-            )
+            "The power curve does not have a cut-out wind speed, i.e. the power"
+            " output corresponding to the\nhighest wind speed is not zero. You can"
+            " either change the power curve manually or set\n"
+            "'add_cutout_windspeed=True' in the Cutout.wind conversion method."
         )
     return turbine
 
 
-def get_oedb_windturbineconfig(search=None, **search_params):
+def get_oedb_windturbineconfig(
+    search: int | str | None = None, **search_params
+) -> TurbineConfig:
     """
     Download a windturbine configuration from the OEDB database.
 
@@ -388,6 +410,7 @@ def get_oedb_windturbineconfig(search=None, **search_params):
 
     >>> get_oedb_windturbineconfig(name="E-53/800", manufacturer="Enercon")
     {'V': ..., 'POW': ..., ...}
+
     """
     # Parse information of different allowed 'turbine' values
     if isinstance(search, int):

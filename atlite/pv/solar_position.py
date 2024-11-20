@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 
@@ -8,7 +6,8 @@ from warnings import warn
 
 import pandas as pd
 import xarray as xr
-from numpy import arccos, arcsin, arctan2, cos, deg2rad, pi, sin
+from dask.array import arccos, arcsin, arctan2, cos, radians, sin
+from numpy import pi
 
 
 def SolarPosition(ds, time_shift="0H"):
@@ -49,6 +48,7 @@ def SolarPosition(ds, time_shift="0H"):
     The unfortunately quite computationally intensive SPA algorithm [4,5] has
     been implemented using numba or plain numpy for a single location at
     https://github.com/pvlib/pvlib-python/blob/master/pvlib/spa.py.
+
     """
     # Act like a getter if these return variables are already in ds
     rvs = {
@@ -57,11 +57,7 @@ def SolarPosition(ds, time_shift="0H"):
     }
 
     if rvs.issubset(set(ds.data_vars)):
-        solar_position = ds[rvs]
-        solar_position = solar_position.rename(
-            {v: v.replace("solar_", "") for v in rvs}
-        )
-        return solar_position
+        return ds[rvs].rename({v: v.replace("solar_", "") for v in rvs})
 
     warn(
         """The calculation method and handling of solar position variables will change.
@@ -81,25 +77,27 @@ def SolarPosition(ds, time_shift="0H"):
 
     # Operations make new DataArray eager; reconvert to lazy dask arrays
     chunks = ds.chunksizes.get("time", "auto")
+    if n.ndim == 1:
+        chunks = chunks[0]
     n = n.chunk(chunks)
     hour = hour.chunk(chunks)
     minute = minute.chunk(chunks)
 
     L = 280.460 + 0.9856474 * n  # mean longitude (deg)
-    g = deg2rad(357.528 + 0.9856003 * n)  # mean anomaly (rad)
-    l = deg2rad(L + 1.915 * sin(g) + 0.020 * sin(2 * g))  # ecliptic long. (rad)
-    ep = deg2rad(23.439 - 4e-7 * n)  # obliquity of the ecliptic (rad)
+    g = radians(357.528 + 0.9856003 * n)  # mean anomaly (rad)
+    l = radians(L + 1.915 * sin(g) + 0.020 * sin(2 * g))  # ecliptic long. (rad)
+    ep = radians(23.439 - 4e-7 * n)  # obliquity of the ecliptic (rad)
 
     ra = arctan2(cos(ep) * sin(l), cos(l))  # right ascencion (rad)
     lmst = (6.697375 + (hour + minute / 60.0) + 0.0657098242 * n) * 15.0 + ds[
         "lon"
     ]  # local mean sidereal time (deg)
-    h = (deg2rad(lmst) - ra + pi) % (2 * pi) - pi  # hour angle (rad)
+    h = (radians(lmst) - ra + pi) % (2 * pi) - pi  # hour angle (rad)
 
     dec = arcsin(sin(ep) * sin(l))  # declination (rad)
 
     # alt and az from [2]
-    lat = deg2rad(ds["lat"])
+    lat = radians(ds["lat"])
     # Clip before arcsin to prevent values < -1. from rounding errors; can
     # cause NaNs later
     alt = arcsin(

@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -10,9 +8,8 @@ Functions for Geographic Information System.
 import logging
 import multiprocessing as mp
 from collections import OrderedDict
-from functools import wraps
 from pathlib import Path
-from warnings import catch_warnings, simplefilter, warn
+from warnings import catch_warnings, simplefilter
 
 import geopandas as gpd
 import numpy as np
@@ -27,7 +24,7 @@ from pyproj import CRS, Transformer
 from rasterio.features import geometry_mask
 from rasterio.mask import mask
 from rasterio.plot import show
-from rasterio.warp import reproject, transform_bounds
+from rasterio.warp import transform_bounds
 from scipy.ndimage import binary_dilation as dilation
 from shapely.ops import transform
 from shapely.strtree import STRtree
@@ -61,6 +58,7 @@ def get_coords(x, y, time, dx=0.25, dy=0.25, dt="h", **kwargs):
     ds : xarray.Dataset
         Dataset with x, y and time variables, representing the whole coordinate
         system.
+
     """
     x = slice(*sorted([x.start, x.stop]))
     y = slice(*sorted([y.start, y.stop]))
@@ -103,19 +101,6 @@ def reproject_shapes(shapes, crs1, crs2):
         return list(map(_reproject_shape, shapes))
 
 
-def reproject(shapes, p1, p2):
-    """
-    Project a collection of shapes from one crs to another.
-
-    Deprecated since version 0.2.
-    """
-    warn("reproject has been renamed to reproject_shapes", DeprecationWarning)
-    return reproject_shapes(shapes, p1, p2)
-
-
-reproject.__doc__ = reproject_shapes.__doc__
-
-
 def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     """
     Compute the indicatormatrix.
@@ -138,6 +123,7 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     -------
     I : sp.sparse.lil_matrix
       Indicatormatrix
+
     """
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
@@ -177,6 +163,7 @@ def compute_intersectionmatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     -------
     I : sp.sparse.lil_matrix
       Intersectionmatrix
+
     """
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
@@ -201,8 +188,8 @@ def padded_transform_and_shape(bounds, res):
     Get the (transform, shape) tuple of a raster with resolution `res` and
     bounds `bounds`.
     """
-    left, bottom = [(b // res) * res for b in bounds[:2]]
-    right, top = [(b // res + 1) * res for b in bounds[2:]]
+    left, bottom = ((b // res) * res for b in bounds[:2])
+    right, top = ((b // res + 1) * res for b in bounds[2:])
     shape = int((top - bottom) / res), int((right - left) / res)
     return rio.Affine(res, 0, left, 0, -res, top), shape
 
@@ -293,6 +280,7 @@ def shape_availability(geometry, excluder):
         Mask whith eligible raster cells indicated by 1 and excluded cells by 0.
     transform : rasterion.Affine
         Affine transform of the mask.
+
     """
     if not excluder.all_open:
         excluder.open_files()
@@ -404,6 +392,7 @@ class ExclusionContainer:
             Resolution of the base raster. All diverging rasters will be
             resampled using the gdal Resampling method 'nearest'.
             The default is 100.
+
         """
         self.rasters = []
         self.geometries = []
@@ -446,6 +435,7 @@ class ExclusionContainer:
             returned.
         crs : rasterio.CRS/EPSG
             CRS of the raster. Specify this if the raster has invalid crs.
+
         """
         d = dict(
             raster=raster,
@@ -472,6 +462,7 @@ class ExclusionContainer:
         invert : bool, optional
             Whether to exclude (False) or include (True) the specified areas
             of the geometries. The default is False.
+
         """
         d = dict(geometry=geometry, buffer=buffer, invert=invert)
         self.geometries.append(d)
@@ -564,6 +555,7 @@ class ExclusionContainer:
             Mask whith eligible raster cells indicated by 1 and excluded cells by 0.
         transform : rasterion.Affine
             Affine transform of the mask.
+
         """
         if isinstance(geometry, gpd.GeoDataFrame):
             geometry = geometry.geometry
@@ -633,6 +625,7 @@ class ExclusionContainer:
         -------
         _type_
             _description_
+
         """
         import matplotlib.pyplot as plt
 
@@ -674,7 +667,7 @@ def _process_func(i):
 
 
 def compute_availabilitymatrix(
-    cutout, shapes, excluder, nprocesses=None, disable_progressbar=False
+    cutout, shapes, excluder, nprocesses=None, disable_progressbar=True
 ):
     """
     Compute the eligible share within cutout cells in the overlap with shapes.
@@ -715,8 +708,8 @@ def compute_availabilitymatrix(
     lower left corner and going up, e.g. Affine(0.25, 0, 0, 0, 0.25, 50).
     Here we stick to the top down version which is why we use
     `cutout.transform_r` and flipping the y-axis in the end.
+
     """
-    availability = []
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
     shapes = shapes.to_crs(excluder.crs)
 
@@ -727,10 +720,16 @@ def compute_availabilitymatrix(
         total=len(shapes),
         desc="Compute availability matrix",
     )
+
     if nprocesses is None:
+        if not disable_progressbar:
+            iterator = tqdm(shapes.index, **tqdm_kwargs)
+        else:
+            iterator = shapes.index
         with catch_warnings():
             simplefilter("ignore")
-            for i in tqdm(shapes.index, **tqdm_kwargs):
+            availability = []
+            for i in iterator:
                 _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
                 availability.append(_)
     else:
@@ -752,6 +751,8 @@ def compute_availabilitymatrix(
                 )
 
     availability = np.stack(availability)[:, ::-1]  # flip axis, see Notes
+    if availability.ndim == 4:
+        availability = availability.squeeze(axis=1)
     coords = [(shapes.index), ("y", cutout.data.y.data), ("x", cutout.data.x.data)]
     return xr.DataArray(availability, coords=coords)
 
@@ -803,6 +804,7 @@ def regrid(ds, dimx, dimy, **kwargs):
       Arguments passed to rio.wrap.reproject; of note:
       - resampling is one of gis.Resampling.{average,cubic,bilinear,nearest}
       - src_crs, dst_crs define the different crs (default: EPSG 4326, ie latlong)
+
     """
     namex = dimx.name
     namey = dimy.name
@@ -828,7 +830,13 @@ def regrid(ds, dimx, dimy, **kwargs):
             mode="edge",
         )
 
-        return rio.warp.reproject(src, empty(shape), src_transform=trans, **kwargs)[0]
+        reprojected = rio.warp.reproject(
+            src, empty(shape), src_transform=trans, **kwargs
+        )[0]
+
+        if reprojected.ndim != src.ndim:
+            reprojected = reprojected.squeeze(axis=0)
+        return reprojected
 
     data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
     dtypes = {da.dtype for da in data_vars}

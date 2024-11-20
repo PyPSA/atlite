@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
-Base class for Atlite.
+Base class for atlite.
 """
 
 # There is a binary incompatibility between the pip wheels of netCDF4 and
@@ -35,6 +33,7 @@ from atlite.convert import (
     coefficient_of_performance,
     convert_and_aggregate,
     csp,
+    dewpoint_temperature,
     heat_demand,
     hydro,
     irradiation,
@@ -69,7 +68,7 @@ class Cutout:
 
     def __init__(self, path, **cutoutparams):
         """
-        Provide an Atlite cutout object.
+        Provide an atlite cutout object.
 
         Create a cutout object to use atlite operations on it. Based on the
         provided parameters, atlite first checks whether this cutout already
@@ -137,48 +136,14 @@ class Cutout:
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.
-        """
-        name = cutoutparams.get("name", None)
-        cutout_dir = cutoutparams.get("cutout_dir", None)
-        if cutout_dir or name or Path(path).is_dir():
-            raise ValueError(
-                "Old style format not supported. You can migrate the old "
-                "cutout directory using the function "
-                "`atlite.utils.migrate_from_cutout_directory()`. The argument "
-                "`cutout_dir` and `name` have been deprecated in favour of `path`."
-            )
 
+        """
         path = Path(path).with_suffix(".nc")
         chunks = cutoutparams.pop("chunks", {"time": 100})
         if isinstance(chunks, dict):
             storable_chunks = {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
         else:
             storable_chunks = {}
-
-        # Backward compatibility for xs, ys, months and years
-        if {"xs", "ys"}.intersection(cutoutparams):
-            warn(
-                "The arguments `xs` and `ys` have been deprecated in favour of "
-                "`x` and `y`",
-                DeprecationWarning,
-            )
-            if "xs" in cutoutparams:
-                cutoutparams["x"] = cutoutparams.pop("xs")
-            if "ys" in cutoutparams:
-                cutoutparams["y"] = cutoutparams.pop("ys")
-
-        if {"years", "months"}.intersection(cutoutparams):
-            warn(
-                "The arguments `years` and `months` have been deprecated in "
-                "favour of `time`",
-                DeprecationWarning,
-            )
-            assert "years" in cutoutparams
-            months = cutoutparams.pop("months", slice(1, 12))
-            years = cutoutparams.pop("years")
-            cutoutparams["time"] = slice(
-                f"{years.start}-{months.start}", f"{years.stop}-{months.stop}"
-            )
 
         # Three cases. First, cutout exists -> take the data.
         # Second, data is given -> take it. Third, else -> build a new cutout
@@ -277,20 +242,6 @@ class Cutout:
         Geographic coordinates of the cutout.
         """
         return self.data.coords
-
-    @property
-    def meta(self):
-        """
-        Metadata of the cutout.
-
-        Deprecated since v0.2.
-        """
-        warn(
-            "The `meta` attribute is deprecated in favour of direct "
-            "access to `data`",
-            DeprecationWarning,
-        )
-        return xr.Dataset(self.coords, attrs=self.data.attrs)
 
     @property
     def shape(self):
@@ -401,6 +352,7 @@ class Cutout:
         geopandas.GeoDataFrame
             Frame with coordinate columns 'x' and 'y', and geometries of the
             corresponding grid cells.
+
         """
         xs, ys = np.meshgrid(self.coords["x"], self.coords["y"])
         coords = np.asarray((np.ravel(xs), np.ravel(ys))).T
@@ -431,6 +383,7 @@ class Cutout:
         -------
         selected : Cutout
             Selected cutout.
+
         """
         if path is None:
             path = mktemp(
@@ -464,6 +417,7 @@ class Cutout:
         -------
         merged : Cutout
             Merged cutout.
+
         """
         assert isinstance(other, Cutout)
 
@@ -492,6 +446,7 @@ class Cutout:
         ----------
         fn : str | path-like
             File name where to store the cutout, defaults to `cutout.path`.
+
         """
         if fn is None:
             fn = self.path
@@ -543,6 +498,7 @@ class Cutout:
         -------
         I : sp.sparse.lil_matrix
           Indicatormatrix
+
         """
         return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
 
@@ -564,6 +520,7 @@ class Cutout:
         -------
         I : sp.sparse.lil_matrix
           Intersectionmatrix
+
         """
         return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
 
@@ -581,6 +538,7 @@ class Cutout:
         -------
         xr.DataArray
             A DataArray containing the area per grid cell with coordinates (x,y).
+
         """
         if crs is None:
             crs = self.crs
@@ -614,6 +572,7 @@ class Cutout:
         xr.DataArray
             Capacity layout with dimensions 'x' and 'y' indicating the total
             capacity placed within one grid cell.
+
         """
         return capacity_density * self.area(crs)
 
@@ -650,6 +609,7 @@ class Cutout:
         >>> layout = cutout.layout_from_capacity_list(data)
         >>> pv = cutout.pv('CdTe', 'latitude_optimal', layout=layout)
         >>> pv.plot()
+
         """
         with dask.config.set(**{"array.slicing.split_large_chunks": False}):
             nearest = (
@@ -680,6 +640,8 @@ class Cutout:
     temperature = temperature
 
     soil_temperature = soil_temperature
+
+    dewpoint_temperature = dewpoint_temperature
 
     coefficient_of_performance = coefficient_of_performance
 

@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2020 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -8,10 +7,7 @@ Spyder Editor.
 This is a temporary script file.
 """
 
-import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-import pandas as pd
-from matplotlib.collections import PatchCollection
 
 fig, ax = plt.subplots(figsize=(12, 5))
 ax.axis("off")

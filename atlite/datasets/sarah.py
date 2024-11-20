@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -57,6 +55,7 @@ def get_filenames(sarah_dir, coords):
     -------
     pd.DataFrame with two columns `sis` and `sid` for and timeindex for all
     relevant files.
+
     """
 
     def _filenames_starting_with(name):
@@ -160,7 +159,9 @@ def hourly_mean(ds):
     return ds
 
 
-def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
+def get_data(
+    cutout, feature, tmpdir, lock=None, monthly_requests=False, **creation_parameters
+):
     """
     Load stored SARAH data and reformat to matching the given cutout.
 
@@ -173,6 +174,10 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     feature : str
         Name of the feature data to retrieve. Must be in
         `atlite.datasets.sarah.features`
+    monthly_requests : bool
+        Takes no effect, only here for consistency with other dataset modules.
+    concurrent_requests : bool
+        Takes no effect, only here for consistency with other dataset modules.
     **creation_parameters :
         Mandatory arguments are:
             * 'sarah_dir', str. Directory of the stored SARAH data.
@@ -187,8 +192,9 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
     -------
     xarray.Dataset
         Dataset of dask arrays of the retrieved variables.
+
     """
-    assert cutout.dt in ("30min", "30T", "h", "H", "1h", "1H")
+    assert cutout.dt in ("30min", "30T", "h", "1h")
 
     coords = cutout.coords
     chunks = cutout.chunks
@@ -199,8 +205,8 @@ def get_data(cutout, feature, tmpdir, lock=None, **creation_parameters):
 
     files = get_filenames(sarah_dir, coords)
     open_kwargs = dict(chunks=chunks, parallel=creation_parameters["parallel"])
-    ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)
-    ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)
+    ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)[["SIS"]]
+    ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)[["SID"]]
     ds = xr.merge([ds_sis, ds_sid])
     ds = ds.sel(lon=as_slice(cutout.extent[:2]), lat=as_slice(cutout.extent[2:]))
     # fix float (im)precission

@@ -1,26 +1,28 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
 All functions for converting weather data into energy system model data.
 """
+
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from collections import namedtuple
 from operator import itemgetter
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
 from dask import compute, delayed
+from dask.array import absolute, arccos, cos, maximum, mod, radians, sin, sqrt
 from dask.diagnostics import ProgressBar
+from numpy import pi
 from scipy.sparse import csr_matrix
-
-logger = logging.getLogger(__name__)
 
 from atlite import csp as cspm
 from atlite import hydro as hydrom
@@ -38,6 +40,13 @@ from atlite.resource import (
     windturbine_smooth,
 )
 
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from typing import Literal
+
+    from atlite.resource import TurbineConfig
+
 
 def convert_and_aggregate(
     cutout,
@@ -51,7 +60,7 @@ def convert_and_aggregate(
     return_capacity=False,
     capacity_factor=False,
     capacity_factor_timeseries=False,
-    show_progress=True,
+    show_progress=False,
     dask_kwargs={},
     **convert_kwds,
 ):
@@ -64,7 +73,7 @@ def convert_and_aggregate(
     available from these.
 
     Parameters
-    -----------
+    ----------
     matrix : N x S - xr.DataArray or sp.sparse.csr_matrix or None
         If given, it is used to aggregate the grid cells to buses.
         N is the number of buses, S the number of spatial coordinates, in the
@@ -91,13 +100,13 @@ def convert_and_aggregate(
     capacity_factor_timeseries : boolean
         If True, the capacity factor time series of the chosen resource for
         each grid cell is computed.
-    show_progress : boolean, default True
+    show_progress : boolean, default False
         Whether to show a progress bar.
     dask_kwargs : dict, default {}
         Dict with keyword arguments passed to `dask.compute`.
 
     Other Parameters
-    -----------------
+    ----------------
     convert_func : Function
         Callback like convert_wind, convert_pv
 
@@ -112,8 +121,8 @@ def convert_and_aggregate(
     units : xr.DataArray (optional)
         The installed units per bus in MW corresponding to `layout`
         (only if `return_capacity` is True).
-    """
 
+    """
     func_name = convert_func.__name__.replace("convert_", "")
     logger.info(f"Convert and aggregate '{func_name}'.")
     da = convert_func(cutout.data, **convert_kwds)
@@ -246,6 +255,21 @@ def soil_temperature(cutout, **params):
     return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
 
 
+# dewpoint temperature
+def convert_dewpoint_temperature(ds):
+    """
+    Return dewpoint temperature.
+    """
+    # Temperature is in Kelvin
+    return ds["dewpoint temperature"] - 273.15
+
+
+def dewpoint_temperature(cutout, **params):
+    return cutout.convert_and_aggregate(
+        convert_func=convert_dewpoint_temperature, **params
+    )
+
+
 def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
     assert source in ["air", "soil"], NotImplementedError(
         "'source' must be one of  ['air', 'soil']"
@@ -301,7 +325,6 @@ def coefficient_of_performance(
     Energy & Environmental Science (2012), 5, 9291-9306,
     https://doi.org/10.1039/C2EE22653G.
     """
-
     return cutout.convert_and_aggregate(
         convert_func=convert_coefficient_of_performance,
         source=source,
@@ -371,6 +394,7 @@ def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **p
     ----
     You can also specify all of the general conversion arguments
     documented in the `convert_and_aggregate` function.
+
     """
     return cutout.convert_and_aggregate(
         convert_func=convert_heat_demand,
@@ -449,8 +473,8 @@ def solar_thermal(
     ----------
     [1] Henning and Palzer, Renewable and Sustainable Energy Reviews 30
     (2014) 1003-1018
-    """
 
+    """
     if not callable(orientation):
         orientation = get_orientation(orientation)
 
@@ -467,19 +491,25 @@ def solar_thermal(
 
 
 # wind
-def convert_wind(ds, turbine):
+def convert_wind(
+    ds: xr.Dataset,
+    turbine: TurbineConfig,
+    interpolation_method: Literal["logarithmic", "power"],
+) -> xr.DataArray:
     """
     Convert wind speeds for turbine to wind energy generation.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
-    wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
+    wnd_hub = windm.extrapolate_wind_speed(
+        ds, to_height=hub_height, method=interpolation_method
+    )
 
-    def _interpolate(da):
+    def apply_power_curve(da):
         return np.interp(da, V, POW / P)
 
     da = xr.apply_ufunc(
-        _interpolate,
+        apply_power_curve,
         wnd_hub,
         input_core_dims=[[]],
         output_core_dims=[[]],
@@ -492,12 +522,19 @@ def convert_wind(ds, turbine):
     return da
 
 
-def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
+def wind(
+    cutout,
+    turbine: str | Path | dict,
+    smooth: bool | dict = False,
+    add_cutout_windspeed: bool = False,
+    interpolation_method: Literal["logarithmic", "power"] = "logarithmic",
+    **params,
+) -> xr.DataArray:
     """
     Generate wind generation time-series.
 
-    Extrapolates 10m wind speed with monthly surface roughness to hub
-    height and evaluates the power curve.
+    Extrapolates wind speed to hub height (using logarithmic or power law) and
+    evaluates the power curve.
 
     Parameters
     ----------
@@ -518,6 +555,9 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
         output at the highest wind speed in the power curve. If False, a warning will be
         raised if the power curve does not have a cut-out wind speed. The default is
         False.
+    interpolation_method : {"logarithmic", "power"}
+        Law to interpolate wind speed to turbine hub height. Refer to
+        :py:func:`atlite.wind.extrapolate_wind_speed`.
 
     Note
     ----
@@ -526,41 +566,53 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
 
     References
     ----------
-    [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
-    1074 – 1088. doi:10.1016/j.energy.2015.09.071
+    .. [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
+       1074 – 1088. doi:10.1016/j.energy.2015.09.071
+
     """
-    if isinstance(turbine, (str, Path, dict)):
-        turbine = get_windturbineconfig(
-            turbine, add_cutout_windspeed=add_cutout_windspeed
-        )
+    turbine = get_windturbineconfig(turbine, add_cutout_windspeed=add_cutout_windspeed)
 
     if smooth:
         turbine = windturbine_smooth(turbine, params=smooth)
 
     return cutout.convert_and_aggregate(
-        convert_func=convert_wind, turbine=turbine, **params
+        convert_func=convert_wind,
+        turbine=turbine,
+        interpolation_method=interpolation_method,
+        **params,
     )
 
 
 # irradiation
 def convert_irradiation(
-    ds, orientation, irradiation="total", trigon_model="simple", clearsky_model=None
+    ds,
+    orientation,
+    tracking=None,
+    irradiation="total",
+    trigon_model="simple",
+    clearsky_model="simple",
 ):
     solar_position = SolarPosition(ds)
-    surface_orientation = SurfaceOrientation(ds, solar_position, orientation)
+    surface_orientation = SurfaceOrientation(ds, solar_position, orientation, tracking)
     irradiation = TiltedIrradiation(
         ds,
         solar_position,
         surface_orientation,
         trigon_model=trigon_model,
         clearsky_model=clearsky_model,
+        tracking=tracking,
         irradiation=irradiation,
     )
     return irradiation
 
 
 def irradiation(
-    cutout, orientation, irradiation="total", clearsky_model=None, **params
+    cutout,
+    orientation,
+    irradiation="total",
+    tracking=None,
+    clearsky_model=None,
+    **params,
 ):
     """
     Calculate the total, direct, diffuse, or ground irradiation on a tilted
@@ -569,12 +621,11 @@ def irradiation(
     Parameters
     ----------
     orientation : str, dict or callback
-        Surface orientation, e.g. a constant orientation {'slope': 0.0,
-        'azimuth': 0.0}. However, 'latitude_optimal' or a callback function
-        with the same signature as the callbacks generated by the
-        'atlite.pv.orientation.make_*' functions are also supported,
-        similar to the PV functions, although don't make much sense in this
-        context.
+        Panel orientation can be chosen from either
+        'latitude_optimal', a constant orientation {'slope': 0.0,
+        'azimuth': 0.0} or a callback function with the same signature
+        as the callbacks generated by the
+        'atlite.pv.orientation.make_*' functions.
     irradiation : str
         The irradiation quantity to be returned. Defaults to "total" for total
         combined irradiation. Other options include "direct" for direct irradiation,
@@ -582,13 +633,17 @@ def irradiation(
         by the ground via albedo. NOTE: "ground" irradiation is not calculated
         by all `trigon_model` options in the `convert_irradiation` method,
         so use with caution!
+    tracking : None or str:
+        None for no tracking, default
+        'horizontal' for 1-axis horizontal tracking
+        'tilted_horizontal' for 1-axis horizontal tracking with tilted axis
+        'vertical' for 1-axis vertical tracking
+        'dual' for 2-axis tracking
     clearsky_model : str or None
         Either the 'simple' or the 'enhanced' Reindl clearsky
         model. The default choice of None will choose dependending on
         data availability, since the 'enhanced' model also
         incorporates ambient air temperature and relative humidity.
-        NOTE: this option is only used if the used climate dataset
-        doesn't provide direct and diffuse irradiation separately!
 
     Returns
     -------
@@ -605,6 +660,7 @@ def irradiation(
     ----------
     [1] D.T. Reindl, W.A. Beckman, and J.A. Duffie. Diffuse fraction correla-
     tions. Solar Energy, 45(1):1 – 7, 1990.
+
     """
     if not callable(orientation):
         orientation = get_orientation(orientation)
@@ -612,6 +668,7 @@ def irradiation(
     return cutout.convert_and_aggregate(
         convert_func=convert_irradiation,
         orientation=orientation,
+        tracking=tracking,
         irradiation=irradiation,
         clearsky_model=clearsky_model,
         **params,
@@ -688,6 +745,7 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     for the MPP Performance of Different Types of PV-Modules Applied for
     the Performance Check of Grid Connected Systems, Freiburg, June 2004.
     Eurosun (ISES Europe Solar Congress).
+
     """
     if isinstance(panel, (str, Path)):
         panel = get_solarpanelconfig(panel)
@@ -776,6 +834,7 @@ def csp(cutout, installation, technology=None, **params):
 
     [2] Tobias Hirsch (ed.). CSPBankability Project Report, DLR, 2017.
     URL: https://www.dlr.de/sf/en/desktopdefault.aspx/tabid-11126/19467_read-48251/
+
     """
     if isinstance(installation, (str, Path)):
         installation = get_cspinstallationconfig(installation)
@@ -857,7 +916,7 @@ def hydro(
     hydrobasins,
     flowspeed=1,
     weight_with_height=False,
-    show_progress=True,
+    show_progress=False,
     **kwargs,
 ):
     """
@@ -889,6 +948,7 @@ def hydro(
     routing: baseline data and new approaches to study the world’s large river
     systems. Hydrological Processes, 27(15): 2171–2186. Data is available at
     www.hydrosheds.org.
+
     """
     basins = hydrom.determine_basins(plants, hydrobasins, show_progress=show_progress)
 
@@ -959,8 +1019,8 @@ def convert_line_rating(
     -------
     Imax
         xr.DataArray giving the maximal current capacity per timestep in Ampere.
-    """
 
+    """
     Ta = ds["temperature"]
     Tfilm = (Ta + Ts) / 2
     T0 = 273.15
@@ -980,23 +1040,23 @@ def convert_line_rating(
     k = (
         2.424e-2 + 7.477e-5 * (Tfilm - T0) - 4.407e-9 * (Tfilm - T0) ** 2
     )  # thermal conductivity
-    anglediff = ds["wnd_azimuth"] - np.deg2rad(psi)
-    Phi = np.abs(np.mod(anglediff + np.pi / 2, np.pi) - np.pi / 2)
+    anglediff = ds["wnd_azimuth"] - radians(psi)
+    Phi = absolute(mod(anglediff + pi / 2, pi) - pi / 2)
     K = (
-        1.194 - np.cos(Phi) + 0.194 * np.cos(2 * Phi) + 0.368 * np.sin(2 * Phi)
+        1.194 - cos(Phi) + 0.194 * cos(2 * Phi) + 0.368 * sin(2 * Phi)
     )  # wind direction factor
 
     Tdiff = Ts - Ta
     qcf1 = K * (1.01 + 1.347 * reynold**0.52) * k * Tdiff  # (3a) in [1]
     qcf2 = K * 0.754 * reynold**0.6 * k * Tdiff  # (3b) in [1]
 
-    qcf = np.maximum(qcf1, qcf2)
+    qcf = maximum(qcf1, qcf2)
 
     #  natural convection
-    qcn = 3.645 * np.sqrt(rho) * D**0.75 * Tdiff**1.25
+    qcn = 3.645 * sqrt(rho) * D**0.75 * Tdiff**1.25
 
     # convection loss is the max between forced and natural
-    qc = np.maximum(qcf, qcn)
+    qc = maximum(qcf, qcn)
 
     # 2. Radiated Loss
     qr = 17.8 * D * epsilon * ((Ts / 100) ** 4 - (Ta / 100) ** 4)
@@ -1010,18 +1070,19 @@ def convert_line_rating(
         solar_position = Position(ds["solar_altitude"], ds["solar_azimuth"])
     else:
         solar_position = SolarPosition(ds)
-    Phi_s = np.arccos(
-        np.cos(solar_position.altitude)
-        * np.cos((solar_position.azimuth) - np.deg2rad(psi))
+    Phi_s = arccos(
+        cos(solar_position.altitude) * cos((solar_position.azimuth) - radians(psi))
     )
 
-    qs = alpha * Q * A * np.sin(Phi_s)
+    qs = alpha * Q * A * sin(Phi_s)
 
-    Imax = np.sqrt((qc + qr - qs) / R)
+    Imax = sqrt((qc + qr - qs) / R)
     return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
 
 
-def line_rating(cutout, shapes, line_resistance, **params):
+def line_rating(
+    cutout, shapes, line_resistance, show_progress=False, dask_kwargs={}, **params
+):
     """
     Create a dynamic line rating time series based on the IEEE-738 standard.
 
@@ -1046,6 +1107,10 @@ def line_rating(cutout, shapes, line_resistance, **params):
     line_resistance : float/series
         Resistance of the lines in Ohm/meter. Alternatively in p.u. system in
         Ohm/1000km (see example below).
+    show_progress : boolean, default False
+        Whether to show a progress bar.
+    dask_kwargs : dict, default {}
+        Dict with keyword arguments passed to `dask.compute`.
     params : keyword arguments as float/series
         Arguments to tweak/modify the line rating calculations based on [1].
         Defaults are:
@@ -1083,6 +1148,7 @@ def line_rating(cutout, shapes, line_resistance, **params):
     >>> i = cutout.line_rating(shapes, n.lines.r/n.lines.length)
     >>> v = xr.DataArray(n.lines.v_nom, dims='name')
     >>> s = np.sqrt(3) * i * v / 1e3 # in MW
+
     """
     if not isinstance(shapes, gpd.GeoSeries):
         shapes = gpd.GeoSeries(shapes).rename_axis("dim_0")
@@ -1120,7 +1186,10 @@ def line_rating(cutout, shapes, line_resistance, **params):
             res.append(delayed(convert_line_rating)(ds, *df.iloc[i].values))
         else:
             res.append(dummy)
-    with ProgressBar():
-        res = compute(res)
+    if show_progress:
+        with ProgressBar(minimum=2):
+            res = compute(res, **dask_kwargs)
+    else:
+        res = compute(res, **dask_kwargs)
 
     return xr.concat(*res, dim=df.index).assign_attrs(units="A")

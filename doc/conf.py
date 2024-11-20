@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
-# SPDX-FileCopyrightText: 2017 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 
 #
-# Atlite documentation build configuration file, created by
+# atlite documentation build configuration file, created by
 # sphinx-quickstart on Tue Jan 5 10:04:42 2016.
 #
 # This file is execfile()d with the current directory set to its
@@ -16,11 +15,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import os
-import shlex
-import sys
 
-import pkg_resources  # part of setuptools
+from importlib.metadata import version as get_version
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -69,16 +65,17 @@ master_doc = "index"
 
 # General information about the project.
 project = "atlite"
-author = "The Atlite Authors"
-copyright = "2016-2023" + ", " + author
-documentation_title = "Atlite Documentation"
+author = "Contributors to atlite"
+copyright = author
+documentation_title = "atlite Documentation"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-version = pkg_resources.get_distribution("atlite").version
+release: str = get_version("atlite")
+version: str = ".".join(release.split(".")[:2])
 # The full version, including alpha/beta/rc tags.
 release = version
 
@@ -346,4 +343,4 @@ texinfo_documents = [
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {"https://docs.python.org/": None}
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}

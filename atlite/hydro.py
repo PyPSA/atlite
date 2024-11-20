@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
-Module involving hydro operations in Atlite.
+Module involving hydro operations in atlite.
 """
 
 import logging
@@ -41,13 +39,13 @@ def find_upstream_basins(meta, hid):
     return hids
 
 
-def determine_basins(plants, hydrobasins, show_progress=True):
+def determine_basins(plants, hydrobasins, show_progress=False):
     if isinstance(hydrobasins, str):
         hydrobasins = gpd.read_file(hydrobasins)
 
     assert isinstance(hydrobasins, gpd.GeoDataFrame), (
         "hydrobasins should be passed as a filename or a GeoDataFrame, "
-        "but received `type(hydrobasins) = {}`".format(type(hydrobasins))
+        f"but received `type(hydrobasins) = {type(hydrobasins)}`"
     )
 
     missing_columns = pd.Index(
@@ -81,7 +79,7 @@ def determine_basins(plants, hydrobasins, show_progress=True):
 
 
 def shift_and_aggregate_runoff_for_plants(
-    basins, runoff, flowspeed=1, show_progress=True
+    basins, runoff, flowspeed=1, show_progress=False
 ):
     inflow = xr.DataArray(
         np.zeros((len(basins.plants), runoff.indexes["time"].size)),

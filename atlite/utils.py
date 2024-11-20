@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -10,50 +8,15 @@ General utility functions for internal use.
 import logging
 import re
 import textwrap
-import warnings
 from pathlib import Path
 
 import pandas as pd
-import progressbar as pgb
 import xarray as xr
 
 from atlite.datasets import modules as datamodules
 from atlite.gis import maybe_swap_spatial_dims
 
 logger = logging.getLogger(__name__)
-
-
-def make_optional_progressbar(show, prefix, max_value=None):
-    warnings.warn(
-        "make_optional_progressbar() is deprecated and will be removed "
-        "in the next version.",
-        warnings.DeprecationWarning,
-    )
-    if show:
-        widgets = [
-            pgb.widgets.Percentage(),
-            " ",
-            pgb.widgets.SimpleProgress(
-                format="(%s)" % pgb.widgets.SimpleProgress.DEFAULT_FORMAT
-            ),
-            " ",
-            pgb.widgets.Bar(),
-            " ",
-            pgb.widgets.Timer(),
-            " ",
-            pgb.widgets.ETA(),
-        ]
-        if not prefix.endswith(": "):
-            prefix = prefix.strip() + ": "
-        maybe_progressbar = pgb.ProgressBar(
-            prefix=prefix, widgets=widgets, max_value=max_value
-        )
-    else:
-
-        def maybe_progressbar(x):
-            return x
-
-    return maybe_progressbar
 
 
 def migrate_from_cutout_directory(old_cutout_dir, path):
@@ -145,7 +108,7 @@ class arrowdict(dict):
         return dict_keys
 
 
-class CachedAttribute(object):
+class CachedAttribute:
     """
     Computes attribute value and caches it in the instance.
 

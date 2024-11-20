@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -43,11 +42,10 @@ Y1 = 61.0
 raster_clip = 0.25  # this rastio is excluded (True) in the raster
 
 
-@pytest.fixture
-def ref():
-    return Cutout(
-        path="creation_ref", module="era5", bounds=(X0, Y0, X1, Y1), time=TIME
-    )
+@pytest.fixture(scope="session")
+def ref(cutouts_path):
+    tmp_path = cutouts_path / "creation_ref.nc"
+    return Cutout(path=tmp_path, module="era5", bounds=(X0, Y0, X1, Y1), time=TIME)
 
 
 @pytest.fixture(scope="session")
@@ -437,7 +435,6 @@ def test_shape_availability_area(ref):
 
 def test_exclusioncontainer_geometries():
     crs = 3035
-    shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=crs)
     exclude = gpd.GeoSeries([box(X0 / 2 + X1 / 2, Y0 / 2 + Y1 / 2, X1, Y1)], crs=crs)
     res = 0.01
 

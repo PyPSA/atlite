@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 
@@ -8,20 +6,21 @@ import sys
 
 import numpy as np
 import xarray as xr
-from numpy import cos, deg2rad, pi, sin
+from dask.array import arccos, arcsin, arctan, cos, logical_and, radians, sin
+from numpy import pi
 
 
 def get_orientation(name, **params):
     """
     Definitions:
-        -`slope` is the angle between ground and panel.
-        -`azimuth` is the clockwise angle from North.
-            i.e. azimuth = 180 faces exactly South
+    -`slope` is the angle between ground and panel.
+    -`azimuth` is the clockwise angle from North.
+        i.e. azimuth = 180 faces exactly South
     """
     if isinstance(name, dict):
         params = name
         name = params.pop("name", "constant")
-    return getattr(sys.modules[__name__], "make_{}".format(name))(**params)
+    return getattr(sys.modules[__name__], f"make_{name}")(**params)
 
 
 def make_latitude_optimal():
@@ -45,23 +44,23 @@ def make_latitude_optimal():
     ----------
     lat : float
         Latitude in degrees.
+
     """
 
     def latitude_optimal(lon, lat, solar_position):
         slope = np.empty_like(lat.values)
 
-        below_25 = np.abs(lat.values) <= deg2rad(25)
-        below_50 = np.abs(lat.values) <= deg2rad(50)
+        below_25 = np.abs(lat.values) <= np.radians(25)
+        below_50 = np.abs(lat.values) <= np.radians(50)
 
         slope[below_25] = 0.87 * np.abs(lat.values[below_25])
         slope[~below_25 & below_50] = 0.76 * np.abs(
             lat.values[~below_25 & below_50]
-        ) + deg2rad(0.31)
-        slope[~below_50] = np.deg2rad(40.0)
+        ) + np.radians(0.31)
+        slope[~below_50] = np.radians(40.0)
 
         # South orientation for panels on northern hemisphere and vice versa
         azimuth = np.where(lat.values < 0, 0, pi)
-
         return dict(
             slope=xr.DataArray(slope, coords=lat.coords),
             azimuth=xr.DataArray(azimuth, coords=lat.coords),
@@ -71,8 +70,8 @@ def make_latitude_optimal():
 
 
 def make_constant(slope, azimuth):
-    slope = deg2rad(slope)
-    azimuth = deg2rad(azimuth)
+    slope = radians(slope)
+    azimuth = radians(azimuth)
 
     def constant(lon, lat, solar_position):
         return dict(slope=slope, azimuth=azimuth)
@@ -81,7 +80,7 @@ def make_constant(slope, azimuth):
 
 
 def make_latitude(azimuth=180):
-    azimuth = deg2rad(azimuth)
+    azimuth = radians(azimuth)
 
     def latitude(lon, lat, solar_position):
         return dict(slope=lat, azimuth=azimuth)
@@ -100,9 +99,10 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     [2] Marion, William F., and Aron P. Dobos. Rotation angle for the optimum
     tracking of one-axis trackers. No. NREL/TP-6A20-58891. National Renewable
     Energy Lab.(NREL), Golden, CO (United States), 2013.
+
     """
-    lon = deg2rad(ds["lon"])
-    lat = deg2rad(ds["lat"])
+    lon = radians(ds["lon"])
+    lat = radians(ds["lat"])
 
     orientation = orientation(lon, lat, solar_position)
     surface_slope = orientation["slope"]
@@ -111,7 +111,7 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     sun_altitude = solar_position["altitude"]
     sun_azimuth = solar_position["azimuth"]
 
-    if tracking == None:
+    if tracking is None:
         cosincidence = sin(surface_slope) * cos(sun_altitude) * cos(
             surface_azimuth - sun_azimuth
         ) + cos(surface_slope) * sin(sun_altitude)
@@ -120,11 +120,11 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
         axis_azimuth = orientation[
             "azimuth"
         ]  # here orientation['azimuth'] refers to the azimuth of the tracker axis.
-        rotation = np.arctan(
+        rotation = arctan(
             (cos(sun_altitude) / sin(sun_altitude)) * sin(sun_azimuth - axis_azimuth)
         )
         surface_slope = abs(rotation)
-        surface_azimuth = axis_azimuth + np.arcsin(
+        surface_azimuth = axis_azimuth + arcsin(
             sin(rotation / sin(surface_slope))
         )  # the 2nd part yields +/-1 and determines if the panel is facing east or west
         cosincidence = cos(surface_slope) * sin(sun_altitude) + sin(
@@ -136,7 +136,7 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
             "slope"
         ]  # here orientation['slope'] refers to the tilt of the tracker axis.
 
-        rotation = np.arctan(
+        rotation = arctan(
             (cos(sun_altitude) * sin(sun_azimuth - surface_azimuth))
             / (
                 cos(sun_altitude) * cos(sun_azimuth - surface_azimuth) * sin(axis_tilt)
@@ -144,7 +144,7 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
             )
         )
 
-        surface_slope = np.arccos(cos(rotation) * cos(axis_tilt))
+        surface_slope = arccos(cos(rotation) * cos(axis_tilt))
 
         azimuth_difference = sun_azimuth - surface_azimuth
         azimuth_difference = np.where(
@@ -154,12 +154,12 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
             azimuth_difference < -pi, 2 * pi + azimuth_difference, azimuth_difference
         )
         rotation = np.where(
-            np.logical_and(rotation < 0, azimuth_difference > 0),
+            logical_and(rotation < 0, azimuth_difference > 0),
             rotation + pi,
             rotation,
         )
         rotation = np.where(
-            np.logical_and(rotation > 0, azimuth_difference < 0),
+            logical_and(rotation > 0, azimuth_difference < 0),
             rotation - pi,
             rotation,
         )

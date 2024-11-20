@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -20,12 +18,19 @@ from dask.diagnostics import ProgressBar
 from dask.utils import SerializableLock
 from numpy import atleast_1d
 
-logger = logging.getLogger(__name__)
-
 from atlite.datasets import modules as datamodules
 
+logger = logging.getLogger(__name__)
 
-def get_features(cutout, module, features, tmpdir=None):
+
+def get_features(
+    cutout,
+    module,
+    features,
+    tmpdir=None,
+    monthly_requests=False,
+    concurrent_requests=False,
+):
     """
     Load the feature data for a given module.
 
@@ -39,7 +44,13 @@ def get_features(cutout, module, features, tmpdir=None):
 
     for feature in features:
         feature_data = delayed(get_data)(
-            cutout, feature, tmpdir=tmpdir, lock=lock, **parameters
+            cutout,
+            feature,
+            tmpdir=tmpdir,
+            lock=lock,
+            monthly_requests=monthly_requests,
+            concurrent_requests=concurrent_requests,
+            **parameters,
         )
         datasets.append(feature_data)
 
@@ -69,6 +80,7 @@ def available_features(module=None):
         A Series of all variables. The MultiIndex indicated which module
         provides the variable and with which feature name the variable can be
         obtained.
+
     """
     features = {name: m.features for name, m in datamodules.items()}
     features = (
@@ -91,7 +103,7 @@ def non_bool_dict(d):
 
 
 def maybe_remove_tmpdir(func):
-    "Use this wrapper to make tempfile deletion compatible with windows machines."
+    """Use this wrapper to make tempfile deletion compatible with windows machines."""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -115,6 +127,10 @@ def cutout_prepare(
     tmpdir=None,
     overwrite=False,
     compression={"zlib": True, "complevel": 9, "shuffle": True},
+    show_progress=False,
+    dask_kwargs=None,
+    monthly_requests=False,
+    concurrent_requests=False,
 ):
     """
     Prepare all or a selection of features in a cutout.
@@ -147,12 +163,27 @@ def cutout_prepare(
         To efficiently reduce cutout sizes, specify the number of 'least_significant_digits': n here.
         To disable compression, set "complevel" to None.
         Default is {'zlib': True, 'complevel': 9, 'shuffle': True}.
+    show_progress : bool, optional
+        If True, a progress bar is shown. The default is False.
+    dask_kwargs : dict, default {}
+        Dict with keyword arguments passed to `dask.compute`.
+    monthly_requests : bool, optional
+        If True, the data is requested on a monthly basis in ERA5. This is useful for
+        large cutouts, where the data is requested in smaller chunks. The
+        default is False
+    concurrent_requests : bool, optional
+        If True, the monthly data requests are posted concurrently.
+        Only has an effect if `monthly_requests` is True. The default is False.
 
     Returns
     -------
     cutout : atlite.Cutout
         Cutout with prepared data. The variables are stored in `cutout.data`.
+
     """
+    if dask_kwargs is None:
+        dask_kwargs = {}
+
     if cutout.prepared and not overwrite:
         logger.info("Cutout already prepared.")
         return cutout
@@ -174,7 +205,14 @@ def cutout_prepare(
             continue
         logger.info(f"Calculating and writing with module {module}:")
         missing_features = missing_vars.index.unique("feature")
-        ds = get_features(cutout, module, missing_features, tmpdir=tmpdir)
+        ds = get_features(
+            cutout,
+            module,
+            missing_features,
+            tmpdir=tmpdir,
+            monthly_requests=monthly_requests,
+            concurrent_requests=concurrent_requests,
+        )
         prepared |= set(missing_features)
 
         cutout.data.attrs.update(dict(prepared_features=list(prepared)))
@@ -198,8 +236,11 @@ def cutout_prepare(
         # Delayed writing for large cutout
         # cf. https://stackoverflow.com/questions/69810367/python-how-to-write-large-netcdf-with-xarray
         write_job = ds.to_netcdf(tmp, compute=False)
-        with ProgressBar():
-            write_job.compute()
+        if show_progress:
+            with ProgressBar(minimum=2):
+                write_job.compute(**dask_kwargs)
+        else:
+            write_job.compute(**dask_kwargs)
         if cutout.path.exists():
             cutout.data.close()
             cutout.path.unlink()

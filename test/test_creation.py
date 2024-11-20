@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 
-# SPDX-FileCopyrightText: 2021 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -13,11 +12,9 @@ Created on Wed May  6 15:23:13 2020.
 # IDEAS for tests
 
 import numpy as np
-import pandas as pd
 import pytest
-from xarray.testing import assert_allclose, assert_equal
+from xarray.testing import assert_equal
 
-import atlite
 from atlite import Cutout
 
 TIME = "2013-01-01"
@@ -102,7 +99,7 @@ def test_dx_dy_dt():
     )
     assert dx == cutout.dx
     assert dy == cutout.dy
-    assert "H" == cutout.dt
+    assert "h" == cutout.dt
 
 
 def test_available_features(ref):
