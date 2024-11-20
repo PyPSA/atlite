@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
+# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
 #
 # SPDX-License-Identifier: MIT
 """
-Base class for atlite.
+Base class for Atlite.
 """
 
 # There is a binary incompatibility between the pip wheels of netCDF4 and
@@ -68,7 +68,7 @@ class Cutout:
 
     def __init__(self, path, **cutoutparams):
         """
-        Provide an atlite cutout object.
+        Provide an Atlite cutout object.
 
         Create a cutout object to use atlite operations on it. Based on the
         provided parameters, atlite first checks whether this cutout already
