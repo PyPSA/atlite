@@ -65,6 +65,13 @@ def test_transform(ref):
     assert reference_affine == ref.transform
 
 
+def test_equals(ref):
+    test_cutout = Cutout(
+        path="creation_ref", module="era5", bounds=(X0, Y0, X1, Y1), time=TIME
+    )
+    assert ref.equals(test_cutout)
+
+
 def test_transform_r(ref):
     reference_affine = rio.Affine(
         0.25, 0.00, -4.125, 0.00, -0.25, 61.125, 0.00, 0.00, 1.00
