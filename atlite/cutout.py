@@ -477,6 +477,12 @@ class Cutout:
             )
         )
 
+    def __eq__(self, other):
+        if not isinstance(other, Cutout):
+            return NotImplemented
+        # Compare based on the path and data attributes
+        return self.path == other.path and self.data.equals(other.data)
+
     def indicatormatrix(self, shapes, shapes_crs=4326):
         """
         Compute the indicatormatrix.
