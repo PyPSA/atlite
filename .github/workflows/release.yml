@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
+#
+# SPDX-License-Identifier: CC0-1.0
+
+name: Release
+
+on:
+  push:
+    tags:
+    - v*.*.*
+
+jobs:
+  build:
+    # Build the Python SDist and wheel, performs metadata and readme linting
+    name: Build and verify package
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: hynek/build-and-inspect-python-package@v2
+
+  release:
+    # Publish a GitHub release from the given git tag
+    name: Create GitHub Release
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: softprops/action-gh-release@v2
+      with:
+        generate_release_notes: true
+
+  publish:
+    # Publish the built SDist and wheel from "dist" job to PyPI
+    name: Publish to PyPI
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/${{ github.event.repository.name }}
+    permissions:
+      id-token: write
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: Packages
+        path: dist
+    - uses: pypa/gh-action-pypi-publish@release/v1
