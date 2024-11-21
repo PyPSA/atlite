@@ -68,7 +68,7 @@ class Cutout:
 
     def __init__(self, path, **cutoutparams):
         """
-        Provide an Atlite cutout object.
+        Provide an atlite cutout object.
 
         Create a cutout object to use atlite operations on it. Based on the
         provided parameters, atlite first checks whether this cutout already
