@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 """
-Base class for Atlite.
+Base class for atlite.
 """
 
 # There is a binary incompatibility between the pip wheels of netCDF4 and
