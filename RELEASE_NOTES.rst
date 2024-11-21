@@ -8,10 +8,45 @@ Release Notes
 #############
 
 
-Upcoming Release
-================
+.. Upcoming Release
+.. ================
+
+.. .. warning:: 
+  
+..   The features listed below are not released yet, but will be part of the next release! 
+..   To use the features already you have to install the ``master`` branch, e.g. 
+..   ``pip install git+https://github.com/pypsa/atlite``.
+
+
+Version 0.3.0
+=============
+
+**Features**
+
+* Add power law interpolation method as a new argument to `cutout.wind` 
+  (`#402 <https://github.com/PyPSA/atlite/pull/402>`_)
+
+* Use ``dask.array`` functions in favour of ``numpy`` functions 
+  (`#367 <https://github.com/PyPSA/atlite/pull/367>`_)
+
+* Improved CI, testing, linting and build process 
+  (`#388 <https://github.com/PyPSA/atlite/pull/388>`_,
+  `#392 <https://github.com/PyPSA/atlite/pull/392>`_,
+  `#394 <https://github.com/PyPSA/atlite/pull/394>`_,
+  `#399 <https://github.com/PyPSA/atlite/pull/399>`_,
+  `#309 <https://github.com/PyPSA/atlite/pull/409>`_)
+
+**Bug fixes**
+
+* Adapt ERA5T merge to new CDS API (`#391 <https://github.com/PyPSA/atlite/pull/391>`_)
+
+* Fixes issues with dependeny updates 
+  (`#381 <https://github.com/PyPSA/atlite/pull/381>`_,
+  `#387 <https://github.com/PyPSA/atlite/pull/387>`_)
 
 * Use ``dask.array`` functions in favour of ``numpy`` functions.
+  (`#367 <https://github.com/PyPSA/atlite/pull/367>`_,
+
 
 Version 0.2.14
 ==============
