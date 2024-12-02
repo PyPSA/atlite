@@ -21,6 +21,8 @@ import xarray as xr
 from dask import compute, delayed
 from dask.array import arctan2, sqrt
 from numpy import atleast_1d
+from dask.diagnostics import ProgressBar
+
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
@@ -71,11 +73,11 @@ def _add_height(ds):
 
     """
     g0 = 9.80665
-    z = ds["z"]
+    z = ds["geopotential"]
     if "time" in z.coords:
         z = z.isel(time=0, drop=True)
     ds["height"] = z / g0
-    ds = ds.drop_vars("z")
+    ds = ds.drop_vars("geopotential")
     return ds
 
 
@@ -118,19 +120,19 @@ def get_data_wind(retrieval_params):
     ds = _rename_and_clean_coords(ds)
 
     for h in [10, 100]:
-        ds[f"wnd{h}m"] = sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
-            units=ds[f"u{h}"].attrs["units"], long_name=f"{h} metre wind speed"
+        ds[f"wnd{h}m"] = sqrt(ds[f"{h}m_u_component_of_wind"] ** 2 + ds[f"{h}m_v_component_of_wind"] ** 2).assign_attrs(
+            units=ds[f"{h}m_u_component_of_wind"].attrs["units"], long_name=f"{h} metre wind speed"
         )
     ds["wnd_shear_exp"] = (
         np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
     ).assign_attrs(units="", long_name="wind shear exponent")
 
     # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
-    azimuth = arctan2(ds["u100"], ds["v100"])
+    azimuth = arctan2(ds["100m_u_component_of_wind"], ds["100m_v_component_of_wind"])
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
 
-    ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
-    ds = ds.rename({"fsr": "roughness"})
+    ds = ds.drop_vars(["10m_u_component_of_wind", "10m_v_component_of_wind", "100m_u_component_of_wind", "100m_v_component_of_wind", "wnd10m"])
+    ds = ds.rename({"forecast_surface_roughness": "roughness"})
 
     return ds
 
@@ -159,7 +161,10 @@ def get_data_influx(retrieval_params):
 
     ds = _rename_and_clean_coords(ds)
 
-    ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
+    ds = ds.rename({"total_sky_direct_solar_radiation_at_surface": "influx_direct"
+                    , "toa_incident_solar_radiation": "influx_toa"
+                    , "surface_solar_radiation_downwards": "ssrd"
+                    , "surface_net_solar_radiation": "ssr"})
     ds["albedo"] = (
         ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
         .fillna(0.0)
@@ -215,9 +220,9 @@ def get_data_temperature(retrieval_params):
     ds = _rename_and_clean_coords(ds)
     ds = ds.rename(
         {
-            "t2m": "temperature",
-            "stl4": "soil temperature",
-            "d2m": "dewpoint temperature",
+            "2m_temperature": "temperature",
+            "soil_temperature_level_4": "soil temperature",
+            "2m_dewpoint_temperature": "dewpoint temperature",
         }
     )
 
@@ -231,7 +236,7 @@ def get_data_runoff(retrieval_params):
     ds = retrieve_data(variable=["runoff"], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
-    ds = ds.rename({"ro": "runoff"})
+    #ds = ds.rename({"ro": "runoff"})
 
     return ds
 
@@ -338,36 +343,84 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     If you want to track the state of your request go to
     https://cds-beta.climate.copernicus.eu/requests?tab=all
     """
+
+    # started creating a var map to simplify the changes.
+    variable_map = {
+        "geopotential": "z",
+        "10m_u_component_of_wind": "",
+        "100m_u_component_of_wind": "",
+        "10m_v_component_of_wind": "",
+        "100m_v_component_of_wind": "",
+        "forecast_surface_roughness": "",
+        "surface_net_solar_radiation": "",
+        "surface_solar_radiation_downwards": "",
+        "toa_incident_solar_radiation": "",
+        "total_sky_direct_solar_radiation_at_surface": "",
+        "runoff": "",
+        "2m_temperature": "",
+        "soil_temperature_level_4": "",
+        "2m_dewpoint_temperature": "",
+    }
+
     request = {"product_type": "reanalysis", "format": "netcdf"}
     request.update(updates)
+
+    logger.info(f"request: {request}")
 
     assert {"year", "month", "variable"}.issubset(
         request
     ), "Need to specify at least 'variable', 'year' and 'month'"
 
-    client = cdsapi.Client(
-        info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
+    data_arrays = {}
+    bucket = 'gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/'
+
+    ProgressBar().register()
+
+    # Open the Zarr store as a dataset
+    ds = xr.open_zarr(
+        bucket,
+        chunks=chunks,  # the chunks are not aligned, we deal with this later
+        consolidated=True,
+        storage_options=dict(token="anon"),
     )
-    result = client.retrieve(product, request)
 
-    if lock is None:
-        lock = nullcontext()
+    # Select specific variables of interest
+    variables = atleast_1d(request['variable'])  # e.g., ['100m_u_component_of_wind', '100m_v_component_of_wind']
+    ds_selected_vars = ds[variables]
 
-    with lock:
-        fd, target = mkstemp(suffix=".nc", dir=tmpdir)
-        os.close(fd)
+    ds_selected_vars.unify_chunks()
 
-        # Inform user about data being downloaded as "* variable (year-month)"
-        timestr = f"{request['year']}-{request['month']}"
-        variables = atleast_1d(request["variable"])
-        varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
-        logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
-        result.download(target)
+    # Define the time range and spatial bounding box
+    # TODO multiple years if needed?
+    year = request['year']
+    month_start = str(request['month'][0]).zfill(2)  # Convert month to zero-padded format
+    month_end = str(request['month'][-1]).zfill(2)
+    day_start = str(request['day'][0]).zfill(2)
+    day_end = str(request['day'][-1]).zfill(2)
 
-    ds = xr.open_dataset(target, chunks=chunks or {})
-    if tmpdir is None:
-        logger.debug(f"Adding finalizer for {target}")
-        weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
+    # Create start and end time strings
+    time_start = f"{year}-{month_start}-{day_start}T00:00"
+    time_end = f"{year}-{month_end}-{day_end}T23:00"
+
+    # Define the time range slice
+    time_range = slice(time_start, time_end)
+    logger.info("Time Range:")
+    logger.info(time_start)
+    logger.info(time_end)
+
+    bbox = request['area']
+    lat_lon_bbox = {
+        'latitude': slice(bbox[0], bbox[2]),
+        'longitude': slice(bbox[1], bbox[3])
+    }
+    logger.info(f"lat_lon_bbox: {lat_lon_bbox}")
+
+    # Apply selections
+    ds = ds_selected_vars.sel(
+        time=time_range,
+        latitude=lat_lon_bbox['latitude'],
+        longitude=lat_lon_bbox['longitude']
+    )
 
     return ds
 
