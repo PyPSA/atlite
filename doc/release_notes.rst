@@ -11,3 +11,5 @@
 
 * The option ``capacity_factor_timeseries`` can be selected when creating capacity factors to obtain
  the capacity factor of the selected resource per grid cell.
+
+ * The methods ``convert_cooling_demand`` and ``cooling_demand`` are implemented to evaluate cooling demand using the cooling degree-days approximation.
