@@ -10,6 +10,8 @@ https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 
 import logging
 import os
+import io
+import zipfile
 import warnings
 import weakref
 from tempfile import mkstemp
@@ -338,7 +340,15 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     If you want to track the state of your request go to
     https://cds-beta.climate.copernicus.eu/requests?tab=all
     """
-    request = {"product_type": "reanalysis", "format": "netcdf"}
+    
+    # Set url for data download, this allows to switch to different data 
+    # sources more easily.
+    url = 'https://cds.climate.copernicus.eu/api'
+    
+    request = {"product_type": ["reanalysis"],
+               "data_format": "netcdf", 
+               "download_format": "zip"}
+    
     request.update(updates)
 
     assert {"year", "month", "variable"}.issubset(
@@ -346,7 +356,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     ), "Need to specify at least 'variable', 'year' and 'month'"
 
     client = cdsapi.Client(
-        info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
+        url = url,
+        info_callback=logger.debug, 
+        debug=logging.DEBUG >= logging.root.level
     )
     result = client.retrieve(product, request)
 
@@ -354,7 +366,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         lock = nullcontext()
 
     with lock:
-        fd, target = mkstemp(suffix=".nc", dir=tmpdir)
+        fd, target_zip = mkstemp(suffix=".zip", dir=tmpdir)
         os.close(fd)
 
         # Inform user about data being downloaded as "* variable (year-month)"
@@ -362,12 +374,34 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         variables = atleast_1d(request["variable"])
         varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
         logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
-        result.download(target)
-
-    ds = xr.open_dataset(target, chunks=chunks or {})
+        result.download(target_zip)
+        
+        # Open the .zip file in memory
+        with zipfile.ZipFile(target_zip, "r") as zf:
+            # Identify .nc files inside the .zip
+            nc_files = [name for name in zf.namelist() if name.endswith(".nc")]
+     
+            if not nc_files:
+                raise FileNotFoundError("No .nc files found in the downloaded .zip archive.")
+     
+            if len(nc_files) == 1:
+                # If there's only one .nc file, read it into memory
+                with zf.open(nc_files[0]) as nc_file:
+                    # Pass the in-memory file-like object to Xarray
+                    ds = xr.open_dataset(io.BytesIO(nc_file.read()), chunks=chunks or {})
+                    
+            else:
+                # If multiple .nc files, combine them using Xarray
+                datasets = []
+                for nc_file in nc_files:
+                    with zf.open(nc_file) as file:
+                        datasets.append(xr.open_dataset(io.BytesIO(file.read()), chunks=chunks or {}))
+                # Combine datasets along temporal dimension
+                ds = xr.merge(datasets) 
+        
     if tmpdir is None:
-        logger.debug(f"Adding finalizer for {target}")
-        weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
+        logging.debug(f"Adding finalizer for {target_zip}")
+        weakref.finalize(ds._file_obj._manager, noisy_unlink, target_zip)
 
     return ds
 
