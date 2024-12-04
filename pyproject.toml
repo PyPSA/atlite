@@ -36,6 +36,7 @@ dependencies = [
     "numexpr",
     "xarray>=2024.03.0",
     "netcdf4",
+    "h5netcdf",
     "dask>=2021.10.0",
     "toolz",
     "requests",
