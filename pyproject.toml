@@ -36,6 +36,7 @@ dependencies = [
     "numexpr",
     "xarray>=2024.03.0",
     "netcdf4",
+    "h5netcdf", # For new cds api. Maybe make optional / may not be needed with future netcdf4 updates
     "dask>=2021.10.0",
     "toolz",
     "requests",
