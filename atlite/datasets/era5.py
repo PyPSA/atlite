@@ -307,7 +307,9 @@ def retrieval_times(coords, static=False, monthly_requests=False):
                 query = {
                     "year": str(year),
                     "month": [str(month).zfill(2)],
-                    "day": list(t[t.month == month].day.unique().astype(str).str.zfill(2)),
+                    "day": list(
+                        t[t.month == month].day.unique().astype(str).str.zfill(2)
+                    ),
                     "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
                 }
                 times.append(query)
@@ -320,7 +322,7 @@ def retrieval_times(coords, static=False, monthly_requests=False):
             }
             times.append(query)
     return times
-    
+
 
 def noisy_unlink(path):
     """
