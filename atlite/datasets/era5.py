@@ -306,7 +306,7 @@ def retrieval_times(coords, static=False, monthly_requests=False):
                     "year": str(year),
                     "month": str(month),
                     "day": list(t[t.month == month].day.unique()),
-                    "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
+                    "time": [f"{h:02d}:00" for h in t[t.month == month].hour.unique()],
                 }
                 times.append(query)
         else:
@@ -314,7 +314,7 @@ def retrieval_times(coords, static=False, monthly_requests=False):
                 "year": str(year),
                 "month": list(t.month.unique()),
                 "day": list(t.day.unique()),
-                "time": ["%02d:00" % h for h in t.hour.unique()],
+                "time": [f"{h:02d}:00" for h in t.hour.unique()],
             }
             times.append(query)
     return times
