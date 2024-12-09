@@ -292,9 +292,9 @@ def retrieval_times(coords, static=False, monthly_requests=False):
     time = coords["time"].to_index()
     if static:
         return {
-            "year": str(time[0].year),
-            "month": str(time[0].month),
-            "day": str(time[0].day),
+            "year": [str(time[0].year)],
+            "month": [str(time[0].month).zfill(2)],
+            "day": [str(time[0].day).zfill(2)],
             "time": time[0].strftime("%H:00"),
         }
 
@@ -306,21 +306,21 @@ def retrieval_times(coords, static=False, monthly_requests=False):
             for month in t.month.unique():
                 query = {
                     "year": str(year),
-                    "month": str(month),
-                    "day": list(t[t.month == month].day.unique()),
+                    "month": [str(month).zfill(2)],
+                    "day": list(t[t.month == month].day.unique().astype(str).str.zfill(2)),
                     "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
                 }
                 times.append(query)
         else:
             query = {
-                "year": str(year),
-                "month": list(t.month.unique()),
-                "day": list(t.day.unique()),
+                "year": [str(year)],
+                "month": list(t.month.unique().astype(str).str.zfill(2)),
+                "day": list(t.day.unique().astype(str).str.zfill(2)),
                 "time": ["%02d:00" % h for h in t.hour.unique()],
             }
             times.append(query)
     return times
-
+    
 
 def noisy_unlink(path):
     """
