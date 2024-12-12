@@ -1,5 +1,5 @@
 ..
-  SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
   SPDX-License-Identifier: CC-BY-4.0
 

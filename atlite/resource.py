@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -6,12 +6,15 @@ Module for providing access to external ressources, like windturbine or pv
 panel configurations.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import re
 import warnings
 from operator import itemgetter
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -30,8 +33,24 @@ WINDTURBINE_DIRECTORY = RESOURCE_DIRECTORY / "windturbine"
 SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 
+if TYPE_CHECKING:
+    from typing import TypedDict
 
-def get_windturbineconfig(turbine, add_cutout_windspeed=False):
+    from typing_extensions import NotRequired
+
+    class TurbineConfig(TypedDict):
+        V: np.ndarray
+        POW: np.ndarray
+        P: float
+        hub_height: float | int
+        name: NotRequired[str]
+        manufacturer: NotRequired[str]
+        source: NotRequired[str]
+
+
+def get_windturbineconfig(
+    turbine: str | Path | dict, add_cutout_windspeed: bool = False
+) -> TurbineConfig:
     """
     Load the wind 'turbine' configuration.
 
@@ -287,7 +306,9 @@ def _max_v_is_zero_pow(turbine):
     return np.any(turbine["POW"][turbine["V"] == turbine["V"].max()] == 0)
 
 
-def _validate_turbine_config_dict(turbine: dict, add_cutout_windspeed: bool):
+def _validate_turbine_config_dict(
+    turbine: dict, add_cutout_windspeed: bool
+) -> TurbineConfig:
     """
     Checks the turbine config dict format and power curve.
 
@@ -356,7 +377,9 @@ def _validate_turbine_config_dict(turbine: dict, add_cutout_windspeed: bool):
     return turbine
 
 
-def get_oedb_windturbineconfig(search=None, **search_params):
+def get_oedb_windturbineconfig(
+    search: int | str | None = None, **search_params
+) -> TurbineConfig:
     """
     Download a windturbine configuration from the OEDB database.
 

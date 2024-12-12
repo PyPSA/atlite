@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: 2021 - 2024 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -13,6 +13,7 @@ Created on Wed May  6 15:23:13 2020.
 
 import numpy as np
 import pytest
+import rasterio as rio
 from xarray.testing import assert_equal
 
 from atlite import Cutout
@@ -29,6 +30,53 @@ def ref():
     return Cutout(
         path="creation_ref", module="era5", bounds=(X0, Y0, X1, Y1), time=TIME
     )
+
+
+def test_name(ref):
+    assert ref.name == "creation_ref"
+
+
+def test_module(ref):
+    assert ref.module == "era5"
+
+
+def test_crs(ref):
+    assert ref.crs == "EPSG:4326"
+
+
+def test_shape(ref):
+    assert ref.shape == (21, 23)
+
+
+def test_extent(ref):
+    reference_extent = [-4.125, 1.625, 55.875, 61.125]
+    assert all([x == y for x, y in zip(ref.extent, reference_extent)])
+
+
+def test_bounds(ref):
+    reference_extent = [-4.125, 55.875, 1.625, 61.125]
+    assert all([x == y for x, y in zip(ref.bounds, reference_extent)])
+
+
+def test_transform(ref):
+    reference_affine = rio.Affine(
+        0.25, 0.00, -4.125, 0.00, 0.25, 55.875, 0.00, 0.00, 1.00
+    )
+    assert reference_affine == ref.transform
+
+
+def test_equals(ref):
+    test_cutout = Cutout(
+        path="creation_ref", module="era5", bounds=(X0, Y0, X1, Y1), time=TIME
+    )
+    assert ref.equals(test_cutout)
+
+
+def test_transform_r(ref):
+    reference_affine = rio.Affine(
+        0.25, 0.00, -4.125, 0.00, -0.25, 61.125, 0.00, 0.00, 1.00
+    )
+    assert reference_affine == ref.transform_r
 
 
 def test_odd_bounds_coords(ref):

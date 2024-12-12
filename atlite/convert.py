@@ -1,15 +1,18 @@
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
 All functions for converting weather data into energy system model data.
 """
 
+from __future__ import annotations
+
 import datetime as dt
 import logging
 from collections import namedtuple
 from operator import itemgetter
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import geopandas as gpd
 import numpy as np
@@ -38,6 +41,11 @@ from atlite.resource import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from typing import Literal
+
+    from atlite.resource import TurbineConfig
 
 
 def convert_and_aggregate(
@@ -478,19 +486,25 @@ def solar_thermal(
 
 
 # wind
-def convert_wind(ds, turbine):
+def convert_wind(
+    ds: xr.Dataset,
+    turbine: TurbineConfig,
+    interpolation_method: Literal["logarithmic", "power"],
+) -> xr.DataArray:
     """
     Convert wind speeds for turbine to wind energy generation.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
-    wnd_hub = windm.extrapolate_wind_speed(ds, to_height=hub_height)
+    wnd_hub = windm.extrapolate_wind_speed(
+        ds, to_height=hub_height, method=interpolation_method
+    )
 
-    def _interpolate(da):
+    def apply_power_curve(da):
         return np.interp(da, V, POW / P)
 
     da = xr.apply_ufunc(
-        _interpolate,
+        apply_power_curve,
         wnd_hub,
         input_core_dims=[[]],
         output_core_dims=[[]],
@@ -503,12 +517,19 @@ def convert_wind(ds, turbine):
     return da
 
 
-def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
+def wind(
+    cutout,
+    turbine: str | Path | dict,
+    smooth: bool | dict = False,
+    add_cutout_windspeed: bool = False,
+    interpolation_method: Literal["logarithmic", "power"] = "logarithmic",
+    **params,
+) -> xr.DataArray:
     """
     Generate wind generation time-series.
 
-    Extrapolates 10m wind speed with monthly surface roughness to hub
-    height and evaluates the power curve.
+    Extrapolates wind speed to hub height (using logarithmic or power law) and
+    evaluates the power curve.
 
     Parameters
     ----------
@@ -529,6 +550,9 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
         output at the highest wind speed in the power curve. If False, a warning will be
         raised if the power curve does not have a cut-out wind speed. The default is
         False.
+    interpolation_method : {"logarithmic", "power"}
+        Law to interpolate wind speed to turbine hub height. Refer to
+        :py:func:`atlite.wind.extrapolate_wind_speed`.
 
     Note
     ----
@@ -537,20 +561,20 @@ def wind(cutout, turbine, smooth=False, add_cutout_windspeed=False, **params):
 
     References
     ----------
-    [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
-    1074 – 1088. doi:10.1016/j.energy.2015.09.071
+    .. [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
+       1074 – 1088. doi:10.1016/j.energy.2015.09.071
 
     """
-    if isinstance(turbine, (str, Path, dict)):
-        turbine = get_windturbineconfig(
-            turbine, add_cutout_windspeed=add_cutout_windspeed
-        )
+    turbine = get_windturbineconfig(turbine, add_cutout_windspeed=add_cutout_windspeed)
 
     if smooth:
         turbine = windturbine_smooth(turbine, params=smooth)
 
     return cutout.convert_and_aggregate(
-        convert_func=convert_wind, turbine=turbine, **params
+        convert_func=convert_wind,
+        turbine=turbine,
+        interpolation_method=interpolation_method,
+        **params,
     )
 
 

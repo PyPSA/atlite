@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
-Base class for Atlite.
+Base class for atlite.
 """
 
 # There is a binary incompatibility between the pip wheels of netCDF4 and
@@ -68,7 +68,7 @@ class Cutout:
 
     def __init__(self, path, **cutoutparams):
         """
-        Provide an Atlite cutout object.
+        Provide an atlite cutout object.
 
         Create a cutout object to use atlite operations on it. Based on the
         provided parameters, atlite first checks whether this cutout already
@@ -112,8 +112,8 @@ class Cutout:
             Frequency of the time coordinate. The default is 'h'. Valid are all
             pandas offset aliases.
         chunks : dict
-            Chunks when opening netcdf files. For cutout preparation recommand
-            to chunk only along the time dimension. Defaults to {'time': 20}
+            Chunks when opening NetCDF files. For cutout preparation it is recommended
+            to chunk only along the time dimension. Defaults to {'time': 100}
         data : xr.Dataset
             User provided cutout data. Save the cutout using `Cutout.to_file()`
             afterwards.
@@ -131,7 +131,7 @@ class Cutout:
             sarah data which has missing data for areas where dawn and
             nightfall happens (ca. 30 min gap).
         gebco_path: str
-            Path to find the gebco netcdf file. Only necessary when including
+            Path to find the gebco NetCDF file. Only necessary when including
             the gebco module.
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
@@ -440,7 +440,7 @@ class Cutout:
 
     def to_file(self, fn=None):
         """
-        Save cutout to a netcdf file.
+        Save cutout to a NetCDF file.
 
         Parameters
         ----------
@@ -575,6 +575,15 @@ class Cutout:
 
         """
         return capacity_density * self.area(crs)
+
+    def equals(self, other):
+        """
+        It overrides xarray.Dataset.equals and ignores the path attribute in the comparison
+        """
+        if not isinstance(other, Cutout):
+            return NotImplemented
+        # Compare cutouts data attributes
+        return self.data.equals(other.data)
 
     def layout_from_capacity_list(self, data, col="Capacity"):
         """

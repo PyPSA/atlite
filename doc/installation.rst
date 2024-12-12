@@ -1,65 +1,48 @@
 ..
-  SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
   SPDX-License-Identifier: CC-BY-4.0
 
-############
+##############
 Installation
-############
+##############
 
-There are three possibilities to install atlite:
 
-* conda::
+Getting Python
+==============
+
+If it is your first time with Python, we recommend `conda
+<https://docs.conda.io/en/latest/miniconda.html>`_ or `pip
+<https://pip.pypa.io/en/stable/>`_ as easy-to-use package managers. They are
+available for Windows, Mac OS X and GNU/Linux.
+
+It is always helpful to use dedicated `conda environments 
+<https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html>`_ 
+or `virtual environments <https://pypi.python.org/pypi/virtualenv>`_.
+
+
+Installation with conda
+=======================
+
+If you are using ``conda`` you can install PyPSA with::
 
     conda install -c conda-forge atlite
 
 
-* pypi::
+Installing with pip
+===================
+
+If you have the Python package installer ``pip`` then just run::
 
     pip install atlite
 
-* or directly from GitHub for the most recent version::
+If you're feeling adventurous, you can also install the latest master branch from github with::
 
-    pip install git+https://github.com/pypsa/atlite/
-
-Requirements
-============
-
-Conda environment
------------------
-
-We provide a `conda environment file <https://github.com/PyPSA/atlite/blob/master/environment.yaml>`_
-for conveniently setting up all required and optional packages.
-For information on setting up conda environments from file,
-`click here <https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file>`_.
-
-Python version
---------------
-
-With the new version 0.2, Atlite requires an installed version of
-**Python 3.6 or above**.
-
-Required packages
------------------
-
-* bottleneck
-* cdsapi
-* dask (0.18.0+)
-* geopandas
-* netcdf4
-* numexpr
-* numpy
-* pandas
-* progressbar2
-* rasterio
-* rtree
-* scipy
-* shapely
-* xarray (0.11.2+)
+    pip install git+https://github.com/PyPSA/atlite.git
 
 
 Computational resources
------------------------
+=======================
 
 As for requirements on your computing equipment, we tried to keep
 the resource requirements low.
@@ -71,9 +54,9 @@ and can run in the background without clogging our computers.
 
 With regards to
 
-* CPU: While Atlite does some number crunching, it does not require
+* CPU: While atlite does some number crunching, it does not require
   special or large multicore CPUs
-* Memory: For the ERA5 dataset you should be fine running Atlite with
+* Memory: For the ERA5 dataset you should be fine running atlite with
   even 2-4 GiB.
   Other datasets can require more memory, as they sometimes need to be
   loaded fully or partially into memory for creating a cutout.

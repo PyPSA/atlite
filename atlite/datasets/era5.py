@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
 """
@@ -51,7 +51,7 @@ crs = 4326
 
 features = {
     "height": ["height"],
-    "wind": ["wnd100m", "wnd_azimuth", "roughness"],
+    "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -134,6 +134,8 @@ def get_data_wind(retrieval_params):
     """
     ds = retrieve_data(
         variable=[
+            "10m_u_component_of_wind",
+            "10m_v_component_of_wind",
             "100m_u_component_of_wind",
             "100m_v_component_of_wind",
             "forecast_surface_roughness",
@@ -142,13 +144,19 @@ def get_data_wind(retrieval_params):
     )
     ds = _rename_and_clean_coords(ds)
 
-    ds["wnd100m"] = sqrt(ds["u100"] ** 2 + ds["v100"] ** 2).assign_attrs(
-        units=ds["u100"].attrs["units"], long_name="100 metre wind speed"
-    )
+    for h in [10, 100]:
+        ds[f"wnd{h}m"] = sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
+            units=ds[f"u{h}"].attrs["units"], long_name=f"{h} metre wind speed"
+        )
+    ds["wnd_shear_exp"] = (
+        np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
+    ).assign_attrs(units="", long_name="wind shear exponent")
+
     # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
     azimuth = arctan2(ds["u100"], ds["v100"])
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
-    ds = ds.drop_vars(["u100", "v100"])
+
+    ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
     ds = ds.rename({"fsr": "roughness"})
 
     return ds
@@ -325,7 +333,7 @@ def retrieval_times(coords, static=False, monthly_requests=False):
                     "year": str(year),
                     "month": str(month),
                     "day": list(t[t.month == month].day.unique()),
-                    "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
+                    "time": [f"{h:02d}:00" for h in t[t.month == month].hour.unique()],
                 }
                 times.append(query)
         else:
@@ -333,7 +341,7 @@ def retrieval_times(coords, static=False, monthly_requests=False):
                 "year": str(year),
                 "month": list(t.month.unique()),
                 "day": list(t.day.unique()),
-                "time": ["%02d:00" % h for h in t.hour.unique()],
+                "time": [f"{h:02d}:00" for h in t.hour.unique()],
             }
             times.append(query)
     return times
@@ -524,15 +532,6 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     if tmpdir is None:
         logger.debug(f"Adding finalizer for {cache_filepath}")
         weakref.finalize(ds._file_obj._manager, noisy_unlink, cache_filepath)
-
-    # Remove default encoding we get from CDSAPI, which can lead to NaN values after loading with subsequent
-    # saving due to how xarray handles netcdf compression (only float encoded as short int seem affected)
-    # Fixes issue by keeping "float32" encoded as "float32" instead of internally saving as "short int", see:
-    # https://stackoverflow.com/questions/75755441/why-does-saving-to-netcdf-without-encoding-change-some-values-to-nan
-    # and hopefully fixed soon (could then remove), see https://github.com/pydata/xarray/issues/7691
-    for v in ds.data_vars:
-        if ds[v].encoding.get("dtype") == "int16":
-            ds[v].encoding.clear()
 
     return ds
 

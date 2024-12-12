@@ -1,9 +1,9 @@
 ..
-  SPDX-FileCopyrightText: 2016 - 2023 The Atlite Authors
+  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
   SPDX-License-Identifier: CC-BY-4.0
 
-Atlite: Convert weather data to energy systems data
+atlite: Convert weather data to energy systems data
 ===================================================
 
 .. image:: https://img.shields.io/pypi/v/atlite.svg
@@ -14,8 +14,8 @@ Atlite: Convert weather data to energy systems data
     :target: https://anaconda.org/conda-forge/atlite
     :alt: Conda version
 
-.. image:: https://github.com/PyPSA/atlite/actions/workflows/CI.yaml/badge.svg
-   :target: https://github.com/PyPSA/atlite/actions/workflows/CI.yaml
+.. image:: https://github.com/PyPSA/atlite/actions/workflows/test.yaml/badge.svg
+   :target: https://github.com/PyPSA/atlite/actions/workflows/test.yaml
 
 .. image:: https://codecov.io/gh/PyPSA/atlite/branch/master/graph/badge.svg?token=TEJ16CMIHJ
    :target: https://codecov.io/gh/PyPSA/atlite
@@ -40,7 +40,7 @@ Atlite: Convert weather data to energy systems data
    :target: https://stackoverflow.com/questions/tagged/pypsa
    :alt: Stackoverflow
 
-Atlite is a `free software
+atlite is a `free software
 <http://www.gnu.org/philosophy/free-sw.en.html>`_, `xarray
 <http://xarray.pydata.org/en/stable/>`_-based Python library for
 converting weather data (such as wind speeds, solar radiation,
@@ -55,17 +55,17 @@ E.g. using our recommended dataset `ERA5 <https://www.ecmwf.int/en/forecasts/dat
 we can obtain time-series with hourly resolution on a 30 km x 30 km
 grid.
 
-The time series derived with Atlite are used in energy system models
+The time series derived with atlite are used in energy system models
 like e.g. `PyPSA-EUR <https://github.com/PyPSA/pypsa-eur>`_
 or projects like `model.energy <https://model.energy/>`_.
 
 Maintainers
 ===========
 
-Atlite is currently maintained by volunteers from different institutions
+atlite is currently maintained by volunteers from different institutions
 with no dedicated funding for developing this package.
 
-Atlite was initially developed by the `Renewable Energy Group
+atlite was initially developed by the `Renewable Energy Group
 <https://fias.uni-frankfurt.de/physics/schramm/renewable-energy-system-and-network-analysis/>`_
 at `FIAS <https://fias.uni-frankfurt.de/>`_ to carry out simulations
 for the `CoNDyNet project <http://condynet.de/>`_, financed by the
@@ -77,17 +77,17 @@ Research Initiative
 Origin
 ======
 
-Atlite was originally conceived as a light-weight version of the Aarhus
+atlite was originally conceived as a light-weight version of the Aarhus
 University RE Atlas (`original publication doi:10.1016/j.energy.2015.09.071 <http://dx.doi.org/10.1016/j.energy.2015.09.071>`_).
 It has since been extended to use weather datasets simulated with projected
 climate change and to compute other time series, such as hydro power,
 solar thermal collectors and heating demand.
 
 
-Citing Atlite
+Citing atlite
 =============
 
-If you would like to cite the Atlite software, please refer to `this paper <https://doi.org/10.21105/joss.03294>`_ published in `JOSS <https://joss.theoj.org/>`_.
+If you would like to cite the atlite software, please refer to `this paper <https://doi.org/10.21105/joss.03294>`_ published in `JOSS <https://joss.theoj.org/>`_.
 
 
 
@@ -134,5 +134,5 @@ If you would like to cite the Atlite software, please refer to `this paper <http
 License
 =======
 
-Atlite is released and licensed under the
+atlite is released and licensed under the
 `MIT license <https://github.com/PyPSA/atlite/blob/mit-license/LICENSES/MIT.txt>`_.

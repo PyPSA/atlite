@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2021 The Atlite Authors
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: CC0-1.0
 ci:
@@ -15,7 +15,7 @@ repos:
 # Run ruff to lint and format
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
-  rev: v0.6.9
+  rev: v0.8.1
   hooks:
     # Run the linter.
   - id: ruff
@@ -49,6 +49,6 @@ repos:
 
 # Reuse compliance
 - repo: https://github.com/fsfe/reuse-tool
-  rev: v4.0.3
+  rev: v5.0.2
   hooks:
   - id: reuse
