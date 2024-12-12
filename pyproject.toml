@@ -49,6 +49,7 @@ dependencies = [
     "cdsapi>=0.7.4",
     "gcsfs",
     "zarr",
+    "paramiko",
 ]
 
 [project.urls]

@@ -46,11 +46,11 @@ print(f"Max Longitude: {max_lon:.6f}")
 
 cutout = atlite.Cutout(
     # path="limon_co_wind.nc",
-    path="ne_wind_new.nc",
+    path="ne_wind_new_1day.nc",
     module="era5",
     x=slice(min_lon + 180, max_lon + 180),  # convert to 360 here, avoid differences between fetching & existing .nc paths
     y=slice(min_lat, max_lat),
-    time="2023-01",
+    time="2023-01-01",
     dt="h",
 )
 cutout.prepare(show_progress=True)
