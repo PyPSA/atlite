@@ -31,8 +31,8 @@ from shapely.geometry import box
 
 from atlite.convert import (
     coefficient_of_performance,
-    cooling_demand,
     convert_and_aggregate,
+    cooling_demand,
     csp,
     dewpoint_temperature,
     heat_demand,
