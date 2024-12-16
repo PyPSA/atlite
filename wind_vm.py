@@ -65,6 +65,8 @@ lat1 = float(sys.argv[1])
 lon1 = float(sys.argv[2])
 lat2 = float(sys.argv[3])
 lon2 = float(sys.argv[4])
+
+
 startdate = sys.argv[5]
 enddate = sys.argv[6]
 

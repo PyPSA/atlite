@@ -3,6 +3,7 @@ from math import cos, radians
 import logging
 import xarray as xr
 from datetime import datetime
+import subprocess
 
 logging.basicConfig(level=logging.INFO)
 
@@ -41,4 +42,22 @@ cutout.prepare(show_progress=True)
 # Print out the current time
 current_time = datetime.now()
 print(f"Post prepare time: {current_time}")
+
+# Construct the shell command
+gcloud_command = [
+    "gcloud", "storage", "cp", nc_filename, "gs://era5_wind_cutouts"
+]
+
+# Run the command
+try:
+    result = subprocess.run(gcloud_command, capture_output=True, text=True)
+    
+    # Check if the command was successful
+    if result.returncode == 0:
+        print("File successfully uploaded to Google Cloud Storage.")
+    else:
+        print(f"Error: {result.stderr}")
+except Exception as e:
+    print(f"An error occurred while uploading the file: {e}")
+
 
