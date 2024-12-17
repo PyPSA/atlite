@@ -19,7 +19,7 @@ relevant quantities, mainly you can create data for
 * **Solar (PV)** power generation: Using predefined or custom panel properties.
 * **Solar (thermal)** heat generation from solar collectors.
 * **Hydro (run-off)** power generation.
-* **Heating demand** (based on degree-day approx.).
+* **Heating and cooling demand** (based on degree-day approx.).
 
 How it works
 ========================

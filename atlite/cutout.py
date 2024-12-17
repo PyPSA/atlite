@@ -32,6 +32,7 @@ from shapely.geometry import box
 from atlite.convert import (
     coefficient_of_performance,
     convert_and_aggregate,
+    cooling_demand,
     csp,
     dewpoint_temperature,
     heat_demand,
@@ -643,6 +644,8 @@ class Cutout:
     # Conversion and aggregation functions
 
     convert_and_aggregate = convert_and_aggregate
+
+    cooling_demand = cooling_demand
 
     heat_demand = heat_demand
 
