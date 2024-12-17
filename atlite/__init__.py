@@ -35,7 +35,6 @@ __version__ = version("atlite")
 match = re.match(r"(\d+\.\d+(\.\d+)?)", __version__)
 assert match, f"Could not determine release_version of pypsa: {__version__}"
 release_version = match.group(0)
-assert not __version__.startswith("0.0"), "Could not determine version of atlite."
 
 __all__ = [
     Cutout,
