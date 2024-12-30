@@ -448,7 +448,10 @@ def cooling_demand(
     ----------
     threshold : float
         Outside temperature in degrees Celsius below which there is no
-        cooling demand.
+        cooling demand. The default 23C is taken as a more liberal
+        estimation following European computational practices
+        (e.g. UK Met Office and European commission take as thresholds
+        22C and 24C, respectively)
     a : float
         Linear factor relating cooling demand to outside temperature.
     constant : float
