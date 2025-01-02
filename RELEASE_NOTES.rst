@@ -28,6 +28,7 @@ Upcoming Release
 * The methods ``convert_cooling_demand`` and ``cooling_demand`` are implemented
   to evaluate cooling demand using the cooling degree-days approximation.
 
+* Added support for ``numpy>=2".
 
 Version 0.3.0
 =============
