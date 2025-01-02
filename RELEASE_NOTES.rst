@@ -17,6 +17,17 @@ Upcoming Release
   To use the features already you have to install the ``master`` branch, e.g. 
   ``pip install git+https://github.com/pypsa/atlite``.
 
+* Added support for Python 3.13 release and dropped support for Python 3.9.
+  While Python 3.9 still gets security updates until October 2025, core
+  dependencies of atlite are dropping support for Python 3.9 (e.g. `numpy`) and
+  active support is only provided for the most recent versions (see `here
+  <https://endoflife.date/python>`_). It is recommended to upgrade to the latest
+  Python version if possible. Note that there might be some issues with
+  Windows and Python 3.13, which are not yet resolved. 
+
+* The methods ``convert_cooling_demand`` and ``cooling_demand`` are implemented
+  to evaluate cooling demand using the cooling degree-days approximation.
+
 * Added support for ``numpy>=2".
 
 Version 0.3.0

@@ -817,7 +817,7 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     Eurosun (ISES Europe Solar Congress).
 
     """
-    if isinstance(panel, (str, Path)):
+    if isinstance(panel, (str | Path)):
         panel = get_solarpanelconfig(panel)
     if not callable(orientation):
         orientation = get_orientation(orientation)
@@ -906,7 +906,7 @@ def csp(cutout, installation, technology=None, **params):
     URL: https://www.dlr.de/sf/en/desktopdefault.aspx/tabid-11126/19467_read-48251/
 
     """
-    if isinstance(installation, (str, Path)):
+    if isinstance(installation, (str | Path)):
         installation = get_cspinstallationconfig(installation)
 
     # Overwrite technology
