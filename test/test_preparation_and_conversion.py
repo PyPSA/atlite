@@ -66,7 +66,12 @@ def pv_test(cutout, time=TIME, skip_optimal_sum_test=False):
     Compare optimal orientation with flat orientation.
     """
     orientation = {"slope": 0.0, "azimuth": 0.0}
-    cap_factor = cutout.pv(atlite.resource.solarpanels.CdTe, orientation)
+    cap_factor = cutout.pv(atlite.resource.solarpanels.CdTe,
+                           orientation,
+                           per_gridcell=True,
+                           per_unit=True,
+                           agg_kwargs={'freq': None, 'agg': 'sum'})
+    cap_factor = cap_factor.loc[0]
 
     assert cap_factor.notnull().all()
     assert cap_factor.sum() > 0
@@ -97,7 +102,12 @@ def pv_test(cutout, time=TIME, skip_optimal_sum_test=False):
     assert all(cap_per_region.round(3) == capacity.round(3))
 
     # Now compare with optimal orienation
-    cap_factor_opt = cutout.pv(atlite.resource.solarpanels.CdTe, "latitude_optimal")
+    cap_factor_opt = cutout.pv(atlite.resource.solarpanels.CdTe,
+                               "latitude_optimal",
+                               per_gridcell=True,
+                               per_unit=True,
+                               agg_kwargs={'freq': None, 'agg': 'sum'})
+    cap_factor_opt = cap_factor_opt.loc[0]
 
     if not skip_optimal_sum_test:
         assert cap_factor_opt.sum() > cap_factor.sum()
@@ -145,14 +155,21 @@ def pv_tracking_test(cutout):
     cap_factor = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
-        capacity_factor=True,
+        per_gridcell=True,
+        per_unit=True,
+        agg_kwargs={'freq': None, 'agg': 'mean'}
     )
+    cap_factor = cap_factor.loc[0]
+    
     cap_factor_tracking_0axis = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
         tracking=None,
-        capacity_factor=True,
+        per_gridcell=True,
+        per_unit=True,
+        agg_kwargs={'freq': None, 'agg': 'mean'}
     )
+    cap_factor_tracking_0axis = cap_factor_tracking_0axis.loc[0]
 
     assert cap_factor_tracking_0axis.notnull().all()
     assert cap_factor_tracking_0axis.sum() > 0
@@ -163,29 +180,41 @@ def pv_tracking_test(cutout):
         atlite.resource.solarpanels.CSi,
         orientation,
         tracking="horizontal",
-        capacity_factor=True,
+        per_gridcell=True,
+        per_unit=True,
+        agg_kwargs={'freq': None, 'agg': 'mean'}
     )
+    cap_factor_tracking_1axis_h = cap_factor_tracking_1axis_h.loc[0]
 
     cap_factor_tracking_1axis_th = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
         tracking="tilted_horizontal",
-        capacity_factor=True,
+        per_gridcell=True,
+        per_unit=True,
+        agg_kwargs={'freq': None, 'agg': 'mean'}
     )
+    cap_factor_tracking_1axis_th = cap_factor_tracking_1axis_th.loc[0]
 
     cap_factor_tracking_1axis_v = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
         tracking="vertical",
-        capacity_factor=True,
+        per_gridcell=True,
+        per_unit=True,
+        agg_kwargs={'freq': None, 'agg': 'mean'}
     )
+    cap_factor_tracking_1axis_v = cap_factor_tracking_1axis_v.loc[0]
 
     cap_factor_tracking_2axis = cutout.pv(
         atlite.resource.solarpanels.CSi,
         orientation,
         tracking="dual",
-        capacity_factor=True,
+        per_gridcell=True,
+        per_unit=True,
+        agg_kwargs={'freq': None, 'agg': 'mean'}
     )
+    cap_factor_tracking_2axis = cap_factor_tracking_2axis.loc[0]
 
     assert cap_factor_tracking_1axis_v.notnull().all()
     assert cap_factor_tracking_1axis_v.sum() > 0
@@ -212,7 +241,11 @@ def csp_test(cutout):
     and technologies.
     """
     ## Test technology = "solar tower"
-    st = cutout.csp(atlite.cspinstallations.SAM_solar_tower, capacity_factor=True)
+    st = cutout.csp(atlite.cspinstallations.SAM_solar_tower,
+                    per_gridcell=True,
+                    per_unit=True,
+                    agg_kwargs={'freq': None, 'agg': 'mean'}
+                    )
 
     assert st.notnull().all()
     assert (st >= 0).all()
@@ -224,7 +257,11 @@ def csp_test(cutout):
     assert (st <= ll).all()
 
     ## Test technology = "parabolic trough"
-    pt = cutout.csp(atlite.cspinstallations.SAM_parabolic_trough, capacity_factor=True)
+    pt = cutout.csp(atlite.cspinstallations.SAM_parabolic_trough,
+                    per_gridcell=True,
+                    per_unit=True,
+                    agg_kwargs={'freq': None, 'agg': 'mean'}
+                    )
 
     assert pt.notnull().all()
     assert (pt >= 0).all()
@@ -281,7 +318,11 @@ def wind_test(cutout):
     lower production than a layout proportionally to the capacity layout
     squared.
     """
-    cap_factor = cutout.wind(atlite.windturbines.Enercon_E101_3000kW)
+    cap_factor = cutout.wind(atlite.windturbines.Enercon_E101_3000kW, 
+                             per_gridcell=True,
+                             per_unit=True,
+                             agg_kwargs={'freq': None, 'agg': 'sum'})
+    cap_factor = cap_factor.loc[0]
 
     assert cap_factor.notnull().all()
     assert cap_factor.sum() > 0
@@ -325,7 +366,11 @@ def runoff_test(cutout):
     lower sites (mostly at sea level) should have a smaller capacity
     factor total and production.
     """
-    cap_factor = cutout.runoff()
+    cap_factor = cutout.runoff(per_gridcell=True,
+                               per_unit=True,
+                               agg_kwargs={'freq': None, 'agg': 'sum'})
+    cap_factor = cap_factor.loc[0]
+    
     assert cap_factor.notnull().all()
     assert cap_factor.sum() > 0
 
@@ -372,11 +417,17 @@ def coefficient_of_performance_test(cutout):
     """
     Test the coefficient_of_performance function.
     """
-    cap_factor = cutout.coefficient_of_performance(source="air")
+    cap_factor = cutout.coefficient_of_performance(source="air",     
+                                                   per_gridcell=True,
+                                                   per_unit=True,
+                                                   agg_kwargs={'freq': None, 'agg': 'sum'})
     assert cap_factor.notnull().all()
     assert cap_factor.sum() > 0
 
-    cap_factor = cutout.coefficient_of_performance(source="soil")
+    cap_factor = cutout.coefficient_of_performance(source="soil",
+                                                   per_gridcell=True,
+                                                   per_unit=True,
+                                                   agg_kwargs={'freq': None, 'agg': 'sum'})
     assert cap_factor.notnull().all()
     assert cap_factor.sum() > 0
 
