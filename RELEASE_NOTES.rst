@@ -19,10 +19,11 @@ Upcoming Release
 
 * Added support for Python 3.13 release and dropped support for Python 3.9.
   While Python 3.9 still gets security updates until October 2025, core
-  dependencies of PyPSA are dropping support for Python 3.9 (e.g. `numpy`) and
+  dependencies of atlite are dropping support for Python 3.9 (e.g. `numpy`) and
   active support is only provided for the most recent versions (see `here
   <https://endoflife.date/python>`_). It is recommended to upgrade to the latest
-  Python version if possible.
+  Python version if possible. Note that there might be some issues with
+  Windows and Python 3.13, which are not yet resolved. 
 
 * The methods ``convert_cooling_demand`` and ``cooling_demand`` are implemented
   to evaluate cooling demand using the cooling degree-days approximation.
