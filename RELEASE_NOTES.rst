@@ -8,14 +8,24 @@ Release Notes
 #############
 
 
-.. Upcoming Release
-.. ================
+Upcoming Release
+================
 
-.. .. warning:: 
+.. warning:: 
   
-..   The features listed below are not released yet, but will be part of the next release! 
-..   To use the features already you have to install the ``master`` branch, e.g. 
-..   ``pip install git+https://github.com/pypsa/atlite``.
+  The features listed below are not released yet, but will be part of the next release! 
+  To use the features already you have to install the ``master`` branch, e.g. 
+  ``pip install git+https://github.com/pypsa/atlite``.
+
+* Added support for Python 3.13 release and dropped support for Python 3.9.
+  While Python 3.9 still gets security updates until October 2025, core
+  dependencies of PyPSA are dropping support for Python 3.9 (e.g. `numpy`) and
+  active support is only provided for the most recent versions (see `here
+  <https://endoflife.date/python>`_). It is recommended to upgrade to the latest
+  Python version if possible.
+
+* The methods ``convert_cooling_demand`` and ``cooling_demand`` are implemented
+  to evaluate cooling demand using the cooling degree-days approximation.
 
 
 Version 0.3.0
