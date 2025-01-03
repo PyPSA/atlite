@@ -40,7 +40,7 @@ dependencies = [
     "toolz",
     "requests",
     "pyyaml",
-    "rasterio",
+    "rasterio!=1.4.0,!=1.4.1",
     "shapely",
     "progressbar2",
     "tqdm",

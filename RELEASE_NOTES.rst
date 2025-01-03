@@ -30,6 +30,9 @@ Upcoming Release
 
 * Added support for ``numpy>=2".
 
+* Exclude versions 1.4.0 and 1.4.1 of ``rasterio`` due to a bug in these
+  versions causing flipped axes in ``cutout.compute_availabilitymatrix()``.
+
 Version 0.3.0
 =============
 
