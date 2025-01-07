@@ -1038,7 +1038,7 @@ def hydro(
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3
     # d-1 = m3 h-1 / 24
-    runoff *= (1000.0 / 24.0) * xr.DataArray(
+    runoff *= xr.DataArray(
         basins.shapes.to_crs(dict(proj="cea")).area
     )
 
