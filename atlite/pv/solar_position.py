@@ -77,7 +77,7 @@ def SolarPosition(ds, time_shift="0H"):
 
     # Operations make new DataArray eager; reconvert to lazy dask arrays
     chunks = ds.chunksizes.get("time", "auto")
-    if n.ndim == 1:
+    if isinstance(chunks, tuple):
         chunks = chunks[0]
     n = n.chunk(chunks)
     hour = hour.chunk(chunks)
