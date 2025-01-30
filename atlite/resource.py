@@ -80,7 +80,7 @@ def get_windturbineconfig(
         Config with details on the turbine
 
     """
-    assert isinstance(turbine, (str, Path, dict))
+    assert isinstance(turbine, (str | Path | dict))
 
     if add_cutout_windspeed is False:
         msg = (
@@ -92,7 +92,7 @@ def get_windturbineconfig(
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
         conf = get_oedb_windturbineconfig(turbine[len("oedb:") :])
 
-    elif isinstance(turbine, (str, Path)):
+    elif isinstance(turbine, (str | Path)):
         if isinstance(turbine, str):
             turbine_path = windturbines[turbine.replace(".yaml", "")]
 
@@ -132,7 +132,7 @@ def get_solarpanelconfig(panel):
         Config with details on the solarpanel
 
     """
-    assert isinstance(panel, (str, Path))
+    assert isinstance(panel, (str | Path))
 
     if isinstance(panel, str):
         panel_path = solarpanels[panel.replace(".yaml", "")]
@@ -165,7 +165,7 @@ def get_cspinstallationconfig(installation):
         Config with details on the CSP installation.
 
     """
-    assert isinstance(installation, (str, Path))
+    assert isinstance(installation, (str | Path))
 
     if isinstance(installation, str):
         installation_path = cspinstallations[installation.replace(".yaml", "")]
@@ -209,7 +209,7 @@ def get_cspinstallationconfig(installation):
 def solarpanel_rated_capacity_per_unit(panel):
     # unit is m^2 here
 
-    if isinstance(panel, (str, Path)):
+    if isinstance(panel, (str | Path)):
         panel = get_solarpanelconfig(panel)
 
     model = panel.get("model", "huld")
@@ -223,7 +223,7 @@ def solarpanel_rated_capacity_per_unit(panel):
 
 
 def windturbine_rated_capacity_per_unit(turbine):
-    if isinstance(turbine, (str, Path)):
+    if isinstance(turbine, (str | Path)):
         turbine = get_windturbineconfig(turbine)
 
     return turbine["P"]
@@ -335,7 +335,7 @@ def _validate_turbine_config_dict(
         )
         raise ValueError(err_msg)
 
-    if not all(isinstance(turbine[p], (np.ndarray, list)) for p in ("POW", "V")):
+    if not all(isinstance(turbine[p], (np.ndarray | list)) for p in ("POW", "V")):
         err_msg = "turbine entries 'POW' and 'V' must be np.ndarray or list"
         raise ValueError(err_msg)
 

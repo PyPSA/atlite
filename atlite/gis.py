@@ -135,7 +135,7 @@ def compute_indicatormatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     for i, d in enumerate(dest):
         for o in tree.query(d):
             # STRtree query returns a list of indices for shapely >= v2.0
-            if isinstance(o, (int, np.integer)):
+            if isinstance(o, (int | np.integer)):
                 o = orig[o]
             if o.intersects(d):
                 j = idx[hash(o.wkt)]
@@ -175,7 +175,7 @@ def compute_intersectionmatrix(orig, dest, orig_crs=4326, dest_crs=4326):
     for i, d in enumerate(dest):
         for o in tree.query(d):
             # STRtree query returns a list of indices for shapely >= v2.0
-            if isinstance(o, (int, np.integer)):
+            if isinstance(o, (int | np.integer)):
                 o = orig[o]
             j = idx[hash(o.wkt)]
             intersection[i, j] = o.intersects(d)
@@ -473,7 +473,7 @@ class ExclusionContainer:
         """
         for d in self.rasters:
             raster = d["raster"]
-            if isinstance(raster, (str, Path)):
+            if isinstance(raster, (str | Path)):
                 raster = rio.open(raster)
             else:
                 assert isinstance(raster, rio.DatasetReader)
@@ -488,7 +488,7 @@ class ExclusionContainer:
 
         for d in self.geometries:
             geometry = d["geometry"]
-            if isinstance(geometry, (str, Path)):
+            if isinstance(geometry, (str | Path)):
                 geometry = gpd.read_file(geometry)
             if isinstance(geometry, gpd.GeoDataFrame):
                 geometry = geometry.geometry
@@ -505,8 +505,8 @@ class ExclusionContainer:
         """
         Check whether all files in the raster container are closed.
         """
-        return all(isinstance(d["raster"], (str, Path)) for d in self.rasters) and all(
-            isinstance(d["geometry"], (str, Path)) for d in self.geometries
+        return all(isinstance(d["raster"], (str | Path)) for d in self.rasters) and all(
+            isinstance(d["geometry"], (str | Path)) for d in self.geometries
         )
 
     @property

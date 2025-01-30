@@ -10,13 +10,20 @@ on:
     - v*.*.*
 
 jobs:
+  test:
+    # Run test workflow before building and releasing
+    uses: ./.github/workflows/test.yaml
+
   build:
     # Build the Python SDist and wheel, performs metadata and readme linting
     name: Build and verify package
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: hynek/build-and-inspect-python-package@v2
+      with:
+        upload-name-suffix: "-release"
 
   release:
     # Publish a GitHub release from the given git tag

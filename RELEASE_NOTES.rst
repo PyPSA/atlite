@@ -17,9 +17,35 @@ Release Notes
 ..   To use the features already you have to install the ``master`` branch, e.g. 
 ..   ``pip install git+https://github.com/pypsa/atlite``.
 
+`v0.4.0 <https://github.com/PyPSA/atlite/releases/tag/v0.4.0>`__ (30th January 2025)
+=======================================================================================
 
-Version 0.3.0
-=============
+* The methods ``convert_cooling_demand`` and ``cooling_demand`` are implemented
+  to evaluate cooling demand using the cooling degree-days approximation.
+  (https://github.com/PyPSA/atlite/pull/415, https://github.com/PyPSA/atlite/pull/422)
+
+* Added support for Python 3.13 release and dropped support for Python 3.9.
+  While Python 3.9 still gets security updates until October 2025, core
+  dependencies of atlite are dropping support for Python 3.9 (e.g. `numpy`) and
+  active support is only provided for the most recent versions (see `here
+  <https://endoflife.date/python>`_). It is recommended to upgrade to the latest
+  Python version if possible. Note that there might be some issues with
+  Windows and Python 3.13, which are not yet resolved. 
+  (https://github.com/PyPSA/atlite/pull/418)
+
+* Added support for ``numpy>=2``. (https://github.com/PyPSA/atlite/pull/419)
+
+**Bug fixes**
+
+* Fix mismatched dim lengths during rechunking. 
+  (https://github.com/PyPSA/atlite/pull/423)
+
+* Exclude versions 1.4.0 and 1.4.1 of ``rasterio`` due to a bug in these
+  versions causing flipped axes in ``cutout.compute_availabilitymatrix()``.
+  (https://github.com/PyPSA/atlite/pull/420)
+
+`v0.3.0 <https://github.com/PyPSA/atlite/releases/tag/v0.3.0>`__ (21st November 2024)
+=======================================================================================
 
 **Features**
 
@@ -48,8 +74,8 @@ Version 0.3.0
   (`#367 <https://github.com/PyPSA/atlite/pull/367>`_,
 
 
-Version 0.2.14
-==============
+`v0.2.14 <https://github.com/PyPSA/atlite/release/tag/v0.2.14>`__ (23rd August 2024)
+=======================================================================================
 
 * Compatibility with new CDS infrastructure for ERA5 cutouts. Update your API
   key at https://cds-beta.climate.copernicus.eu/how-to-api and use the new API

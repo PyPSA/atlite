@@ -14,10 +14,10 @@ readme = "README.rst"
 authors=[{name = "Contributors to atlite", email = "jonas.hoersch@posteo.de"}]
 license = { file = "LICENSE" }
 classifiers=[
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Science/Research",
@@ -26,10 +26,10 @@ classifiers=[
     "Operating System :: OS Independent",
 
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "typing-extensions",
-    "numpy<2.0",
+    "numpy",
     "scipy",
     "pandas>=0.25",
     "bottleneck",
@@ -40,7 +40,7 @@ dependencies = [
     "toolz",
     "requests",
     "pyyaml",
-    "rasterio",
+    "rasterio!=1.4.0,!=1.4.1",
     "shapely",
     "progressbar2",
     "tqdm",
