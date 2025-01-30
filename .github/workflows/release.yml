@@ -12,7 +12,7 @@ on:
 jobs:
   test:
     # Run test workflow before building and releasing
-    uses: ./.github/workflows/test.yml
+    uses: ./.github/workflows/test.yaml
 
   build:
     # Build the Python SDist and wheel, performs metadata and readme linting
