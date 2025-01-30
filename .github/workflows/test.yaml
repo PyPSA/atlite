@@ -18,6 +18,7 @@ on:
         description: "Cache cutouts for all Python versions"
         default: "false"
         required: true
+  workflow_call:
 
 # Cancel any in-progress runs when a new run is triggered
 concurrency:
