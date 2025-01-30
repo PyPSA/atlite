@@ -22,6 +22,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: hynek/build-and-inspect-python-package@v2
+      with:
+        upload-name-suffix: "-release"
 
   release:
     # Publish a GitHub release from the given git tag
