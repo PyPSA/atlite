@@ -293,7 +293,7 @@ def retrieval_times(coords, static=False, monthly_requests=False):
     if static:
         return {
             "year": [str(time[0].year)],
-            "month": [str(time[0].month).zfill(2)],
+            "month": [time[0].strftime("%m")],
             "day": [str(time[0].day).zfill(2)],
             "time": time[0].strftime("%H:00"),
         }
