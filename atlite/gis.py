@@ -481,9 +481,7 @@ class ExclusionContainer:
                 if d["crs"]:
                     raster._crs = CRS(d["crs"])
                 else:
-                    raise ValueError(
-                        f"CRS of {raster} is invalid, please " "provide it."
-                    )
+                    raise ValueError(f"CRS of {raster} is invalid, please provide it.")
             d["raster"] = raster
 
         for d in self.geometries:
@@ -733,9 +731,9 @@ def compute_availabilitymatrix(
                 _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
                 availability.append(_)
     else:
-        assert (
-            excluder.all_closed
-        ), "For parallelization all raster files in excluder must be closed"
+        assert excluder.all_closed, (
+            "For parallelization all raster files in excluder must be closed"
+        )
         kwargs = {
             "initializer": _init_process,
             "initargs": (shapes, *args),

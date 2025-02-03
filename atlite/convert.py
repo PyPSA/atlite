@@ -148,7 +148,7 @@ def convert_and_aggregate(
     if matrix is not None:
         if shapes is not None:
             raise ValueError(
-                "Passing matrix and shapes is ambiguous. Pass " "only one of them."
+                "Passing matrix and shapes is ambiguous. Pass only one of them."
             )
 
         if isinstance(matrix, xr.DataArray):
