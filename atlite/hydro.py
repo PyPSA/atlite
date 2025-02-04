@@ -51,10 +51,10 @@ def determine_basins(plants, hydrobasins, show_progress=False):
     missing_columns = pd.Index(
         ["HYBAS_ID", "DIST_MAIN", "NEXT_DOWN", "geometry"]
     ).difference(hydrobasins.columns)
-    assert (
-        missing_columns.empty
-    ), "Couldn't find the column(s) {} in the hydrobasins dataset.".format(
-        ", ".join(missing_columns)
+    assert missing_columns.empty, (
+        "Couldn't find the column(s) {} in the hydrobasins dataset.".format(
+            ", ".join(missing_columns)
+        )
     )
 
     hydrobasins = hydrobasins.set_index("HYBAS_ID")

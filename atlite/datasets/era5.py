@@ -341,9 +341,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     request = {"product_type": "reanalysis", "format": "netcdf"}
     request.update(updates)
 
-    assert {"year", "month", "variable"}.issubset(
-        request
-    ), "Need to specify at least 'variable', 'year' and 'month'"
+    assert {"year", "month", "variable"}.issubset(request), (
+        "Need to specify at least 'variable', 'year' and 'month'"
+    )
 
     client = cdsapi.Client(
         info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
