@@ -112,8 +112,7 @@ def extrapolate_wind_speed(
         method_desc = "power method with wind shear exponent"
     else:
         raise ValueError(
-            f"Interpolation method must be 'logarithmic' or 'power', "
-            f" but is: {method}"
+            f"Interpolation method must be 'logarithmic' or 'power',  but is: {method}"
         )
 
     wnd_spd.attrs.update(

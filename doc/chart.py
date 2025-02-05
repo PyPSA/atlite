@@ -29,7 +29,7 @@ processeddata = [
     f"Solar PV power generation {linebreak}for a given panel type",
     "Solar thermal collector heat output",
     "Hydroelectric inflow (simplified)",
-    f"Heating demand {linebreak}" "(based on the degree-day approximation)",
+    f"Heating demand {linebreak}(based on the degree-day approximation)",
 ]
 
 climatestr = "\n" + "\n\n".join([" ◦ " + s for s in climatedata]) + "\n"

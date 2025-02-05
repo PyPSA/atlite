@@ -154,7 +154,7 @@ class Cutout:
             data.attrs.update(storable_chunks)
             if cutoutparams:
                 warn(
-                    f'Arguments {", ".join(cutoutparams)} are ignored, since '
+                    f"Arguments {', '.join(cutoutparams)} are ignored, since "
                     "cutout is already built."
                 )
         elif "data" in cutoutparams:

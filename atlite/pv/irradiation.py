@@ -64,9 +64,7 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
             * fmax(0.1, 0.426 * k - 0.256 * sinaltitude + 0.00349 * T + 0.0734 * rh)
         )
     else:
-        raise KeyError(
-            "`clearsky model` must be chosen from 'simple' and " "'enhanced'"
-        )
+        raise KeyError("`clearsky model` must be chosen from 'simple' and 'enhanced'")
 
     # Set diffuse fraction to one when the sun isn't up
     # fraction = fraction.where(sinaltitude >= sin(radians(threshold))).fillna(1.0)

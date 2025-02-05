@@ -487,9 +487,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     request = {"product_type": "reanalysis", "format": "netcdf"}
     request.update(updates)
 
-    assert {"year", "month", "variable"}.issubset(
-        request
-    ), "Need to specify at least 'variable', 'year' and 'month'"
+    assert {"year", "month", "variable"}.issubset(request), (
+        "Need to specify at least 'variable', 'year' and 'month'"
+    )
 
     # Use tmpdir for cache directory; if not provided, use current working directory
     if tmpdir is None:
