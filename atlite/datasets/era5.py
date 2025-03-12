@@ -8,6 +8,7 @@ For further reference see
 https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
+import datetime
 import logging
 import os
 import warnings
@@ -45,6 +46,7 @@ crs = 4326
 features = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
+    "wind_bias_correction": ["wnd_bias_correction"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -331,7 +333,7 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
-def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
+def retrieve_data(dataset, chunks=None, tmpdir=None, lock=None, **updates):
     """
     Download data like ERA5 from the Climate Data Store (CDS).
 
@@ -348,7 +350,7 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     client = cdsapi.Client(
         info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
     )
-    result = client.retrieve(product, request)
+    result = client.retrieve(dataset, request)
 
     if lock is None:
         lock = nullcontext()
@@ -367,9 +369,77 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     ds = xr.open_dataset(target, chunks=chunks or {})
     if tmpdir is None:
         logger.debug(f"Adding finalizer for {target}")
-        weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
+        weakref.finalize(ds._close.__self__.ds, noisy_unlink, target)
 
     return ds
+
+
+def retrieve_windspeed_average(
+    cutout, height, first_year=1980, last_year=None, **retrieval_params
+):
+    """
+    Retrieve average windspeed from `first_year` to `last_year`
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout for which to retrieve windspeeds from CDS
+    height : int
+        Height of windspeeds (ERA5 typically knows about 10m, 100m, 150m?)
+    first_year : int
+        First year to take into account
+    last_year : int, optional
+        Last year to take into account (if omitted takes the previous year)
+    **retrieval_params
+
+    Returns
+    -------
+    DataArray
+        Mean windspeed at cutout dimension
+    """
+    if last_year is None:
+        last_year = datetime.date.today().year - 1
+
+    ds = retrieve_data(
+        "reanalysis-era5-single-levels-monthly-means",
+        chunks=cutout.chunks,
+        product_type="monthly_averaged_reanalysis",
+        variable=[
+            f"{height}m_u_component_of_wind",
+            f"{height}m_v_component_of_wind",
+        ],
+        area=_area(cutout.coords),
+        grid=[cutout.dx, cutout.dy],
+        year=[str(y) for y in range(first_year, last_year + 1)],
+        month=[f"{m:02}" for m in range(1, 12 + 1)],
+        time=["00:00"],
+        **retrieval_params,
+    )
+    ds = _rename_and_clean_coords(ds)
+
+    return (
+        sqrt(ds[f"u{height}"] ** 2 + ds[f"v{height}"] ** 2)
+        .mean("date")
+        .assign_attrs(
+            units=ds[f"u{height}"].attrs["units"],
+            long_name=f"{height} metre wind speed as long run average",
+        )
+    )
+
+
+def get_data_windspeed_bias_correction(cutout, retrieval_params, creation_parameters):
+    """
+    Get windspeed bias correction
+    """
+    real_average_path = creation_parameters["windspeed_real_average_path"]
+    height = creation_parameters["windspeed_height"]
+    data_average = retrieve_windspeed_average(cutout, height, **retrieval_params)
+    from atlite.wind import calculate_windspeed_bias_correction
+
+    bias_correction = calculate_windspeed_bias_correction(
+        cutout, real_average_path, height=height, data_average=data_average
+    )
+    return bias_correction.to_dataset(name="wnd_bias_correction")
 
 
 def get_data(
@@ -403,8 +473,10 @@ def get_data(
         If True, the monthly data requests are posted concurrently.
         Only has an effect if `monthly_requests` is True.
     **creation_parameters :
-        Additional keyword arguments. The only effective argument is 'sanitize'
-        (default True) which sets sanitization of the data on or off.
+        Additional keyword arguments.
+        `sanitize` (default True) sets sanitization of the data on or off.
+        `windspeed_real_average_path` and `windspeed_height` are used by the
+        "windspeed_bias_correction" feature to calculate the correction factor.
 
     Returns
     -------
@@ -417,7 +489,8 @@ def get_data(
     sanitize = creation_parameters.get("sanitize", True)
 
     retrieval_params = {
-        "product": "reanalysis-era5-single-levels",
+        "dataset": "reanalysis-era5-single-levels",
+        "product_type": "reanalysis",
         "area": _area(coords),
         "chunks": cutout.chunks,
         "grid": [cutout.dx, cutout.dy],
@@ -438,6 +511,12 @@ def get_data(
 
     if feature in static_features:
         return retrieve_once(retrieval_times(coords, static=True)).squeeze()
+    elif feature == "windspeed_bias_correction":
+        return func(
+            cutout,
+            retrieval_params=dict(tmpdir=tmpdir, lock=lock),
+            creation_parameters=creation_parameters,
+        )
 
     time_chunks = retrieval_times(coords, monthly_requests=monthly_requests)
     if concurrent_requests:
