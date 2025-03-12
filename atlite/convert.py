@@ -565,18 +565,16 @@ def convert_wind(
     ds: xr.Dataset,
     turbine: TurbineConfig,
     interpolation_method: Literal["logarithmic", "power"],
-    windspeed_bias_correction=None,
-    from_height=None,
+    windspeed_bias_correction: bool | xr.DataArray | None = None,
 ) -> xr.DataArray:
     """
     Convert wind speeds for turbine to wind energy generation.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
-    if windspeed_bias_correction is not None:
-        ds = ds.assign(
-            {f"wnd{from_height}m": ds[f"wnd{from_height}m"] * windspeed_bias_correction}
-        )
+    ds, from_height = windm.apply_windspeed_bias_correction(
+        ds, windspeed_bias_correction
+    )
 
     wnd_hub = windm.extrapolate_wind_speed(
         ds, to_height=hub_height, method=interpolation_method, from_height=from_height
@@ -605,8 +603,7 @@ def wind(
     smooth: bool | dict = False,
     add_cutout_windspeed: bool = False,
     interpolation_method: Literal["logarithmic", "power"] = "logarithmic",
-    windspeed_bias_correction: xr.DataArray | None = None,
-    windspeed_height: int | None = None,
+    windspeed_bias_correction: bool | xr.DataArray | None = None,
     **params,
 ) -> xr.DataArray:
     """
@@ -645,8 +642,6 @@ def wind(
         `windspeed_height`. Such a correction factor can be calculated using
         :py:func:`atlite.wind.calculate_windspeed_bias_correction` with a raster
         dataset of mean wind speeds.
-    windspeed_height : int, optional
-        Height in meters of windspeed data from which to extrapolate
 
     Note
     ----
@@ -669,7 +664,6 @@ def wind(
         turbine=turbine,
         interpolation_method=interpolation_method,
         windspeed_bias_correction=windspeed_bias_correction,
-        from_height=windspeed_height,
         **params,
     )
 
