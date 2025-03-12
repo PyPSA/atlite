@@ -48,6 +48,7 @@ crs = 4326
 features = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
+    "wind_bias_correction": ["wnd_bias_correction"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -518,7 +519,9 @@ def retrieve_data(
     return ds
 
 
-def retrieve_windspeed_average(cutout, height, first_year=1980, last_year=None):
+def retrieve_windspeed_average(
+    cutout, height, first_year=1980, last_year=None, **retrieval_params
+):
     """
     Retrieve average windspeed from `first_year` to `last_year`
 
@@ -532,6 +535,7 @@ def retrieve_windspeed_average(cutout, height, first_year=1980, last_year=None):
         First year to take into account
     last_year : int, optional
         Last year to take into account (if omitted takes the previous year)
+    **retrieval_params
 
     Returns
     -------
@@ -554,6 +558,7 @@ def retrieve_windspeed_average(cutout, height, first_year=1980, last_year=None):
         year=[str(y) for y in range(first_year, last_year + 1)],
         month=[f"{m:02}" for m in range(1, 12 + 1)],
         time=["00:00"],
+        **retrieval_params,
     )
     ds = _rename_and_clean_coords(ds)
 
@@ -565,6 +570,21 @@ def retrieve_windspeed_average(cutout, height, first_year=1980, last_year=None):
             long_name=f"{height} metre wind speed as long run average",
         )
     )
+
+
+def get_data_windspeed_bias_correction(cutout, retrieval_params, creation_parameters):
+    """
+    Get windspeed bias correction
+    """
+    real_average_path = creation_parameters["windspeed_real_average_path"]
+    height = creation_parameters["windspeed_height"]
+    data_average = retrieve_windspeed_average(cutout, height, **retrieval_params)
+    from atlite.wind import calculate_windspeed_bias_correction
+
+    bias_correction = calculate_windspeed_bias_correction(
+        cutout, real_average_path, height=height, data_average=data_average
+    )
+    return bias_correction.to_dataset(name="wnd_bias_correction")
 
 
 def get_data(
@@ -602,8 +622,10 @@ def get_data(
         If True, the monthly data requests are posted concurrently.
         Only has an effect if `monthly_requests` is True.
     **creation_parameters :
-        Additional keyword arguments. The only effective argument is 'sanitize'
-        (default True) which sets sanitization of the data on or off.
+        Additional keyword arguments.
+        `sanitize` (default True) sets sanitization of the data on or off.
+        `windspeed_real_average_path` and `windspeed_height` are used by the
+        "windspeed_bias_correction" feature to calculate the correction factor.
 
     Returns
     -------
@@ -631,7 +653,7 @@ def get_data(
 
     logger.info(f"Requesting data for feature {feature}...")
 
-    def retrieve_once(time, longrunaverage=False):
+    def retrieve_once(time):
         ds = func({**retrieval_params, **time})
         if sanitize and sanitize_func is not None:
             ds = sanitize_func(ds)
@@ -639,6 +661,12 @@ def get_data(
 
     if feature in static_features:
         return retrieve_once(retrieval_times(coords, static=True)).squeeze()
+    elif feature == "windspeed_bias_correction":
+        return func(
+            cutout,
+            retrieval_params=dict(tmpdir=tmpdir, lock=lock),
+            creation_parameters=creation_parameters,
+        )
 
     time_chunks = retrieval_times(coords, monthly_requests=monthly_requests)
     if concurrent_requests:
