@@ -135,7 +135,10 @@ def extrapolate_wind_speed(
 
 
 def calculate_windspeed_bias_correction(
-    cutout, real_average: str | rio.DatasetReader, height: int = 100
+    cutout,
+    real_average: str | rio.DatasetReader,
+    height: int = 100,
+    data_average: xr.DataArray | None = None,
 ):
     """
     Derive a bias correction factor for windspeed at lra_height
@@ -152,6 +155,8 @@ def calculate_windspeed_bias_correction(
         Raster dataset with wind speeds to bias correct average wind speeds
     height : int
         Height in meters at which average windspeeds are provided
+    data_average : DataArray, optional
+        Long run average of the windspeed data, if not provided it is retrieved.
 
     Returns
     -------
@@ -179,18 +184,93 @@ def calculate_windspeed_bias_correction(
             real_average, [cutout.coords["y"], cutout.coords["x"]]
         )
 
-    for module in np.atleast_1d(cutout.module):
-        retrieve_windspeed_average = getattr(
-            getattr(datasets, module), "retrieve_windspeed_average"
+    if data_average is None:
+        for module in np.atleast_1d(cutout.module):
+            retrieve_windspeed_average = getattr(
+                getattr(datasets, module), "retrieve_windspeed_average"
+            )
+            if retrieve_windspeed_average is not None:
+                break
+        else:
+            raise AssertionError(
+                "None of the datasets modules define retrieve_windspeed_average"
+            )
+
+        logger.info(
+            "Retrieving average windspeeds at %d from module %s", height, module
         )
-        if retrieve_windspeed_average is not None:
-            break
+        data_average = retrieve_windspeed_average(cutout, height)
+
+    return (real_average / data_average).assign_attrs(height=height)
+
+
+def apply_windspeed_bias_correction(
+    ds: xr.Dataset, windspeed_bias_correction: bool | xr.DataArray | None = None
+) -> tuple[xr.Dataset, int | None]:
+    """
+    Apply bias correction to windspeeds.
+
+    uses either an explicitly provided scaling factor or a pre-calculated
+    scaling factor supplied in cutout.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing wind speed time-series (at one or multiple heights)
+        with keys like 'wnd{height:d}m' and potentially a pre-calculated scaling
+        factor at key 'wnd_bias_correction'
+    windspeed_bias_correction : bool or DataArray, optional
+        If a DataArray is given it used as scaling factor for the wind speed at
+        height `.attrs["height"]` (required),
+        if True, the scaling factor is taken from 'wnd_bias_correction' in `ds`
+        (or a ValueError is raised),
+        if None, a scaling factor is applied if it exists in `ds`
+
+    Returns
+    -------
+    ds, height
+        The dataset with a scaled wnd time-series and its height or None
+
+    Raises
+    ------
+    ValueError
+        If windspeed_bias_correction was True, but 'wnd_bias_correction' did not
+        exist in `ds` or if the scaling factor does not have the 'height` attribute.
+    """
+
+    if windspeed_bias_correction is False:
+        return ds, None
+
+    if windspeed_bias_correction is None:
+        scaling_factor = ds.get("wnd_bias_correction")
+        if scaling_factor is None:
+            return ds, None
+    elif windspeed_bias_correction is True:
+        try:
+            scaling_factor = ds["wnd_bias_correction"]
+        except KeyError:
+            raise ValueError(
+                "Windspeed bias correction is required, but cutout does not contain "
+                "scaling factor: 'wnd_bias_correction'.\n"
+                "Regenerate the cutout or provide the scaling factors explicitly, ie.\n"
+                "cutout.wind(..., windspeed_bias_correction=scaling_factors)"
+            )
+    elif isinstance(windspeed_bias_correction, xr.DataArray):
+        scaling_factor = windspeed_bias_correction
     else:
-        raise AssertionError(
-            "None of the datasets modules define retrieve_windspeed_average"
+        raise ValueError(
+            f"Expected None, True, False or a DataArray as windspeed_bias_correction, "
+            f"but found: {windspeed_bias_correction}"
         )
 
-    logger.info("Retrieving average windspeeds at %d from module %s", height, module)
-    data_average = retrieve_windspeed_average(cutout, height)
+    try:
+        height = int(scaling_factor.attrs["height"])
+        name = f"wnd{height:d}m"
+        windspeed = ds[name]
+    except (KeyError, ValueError):
+        raise ValueError(
+            "The provided bias correction needs to have a 'height' attribute where to "
+            "scale wind speeds"
+        )
 
-    return real_average / data_average
+    return ds.assign({name: windspeed * scaling_factor}), height
