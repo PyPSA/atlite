@@ -24,6 +24,8 @@ paper
 .coverage*
 !.coveragerc
 
+notebooks
+
 # Ignore IDE project files
 .idea/
 .vscode
