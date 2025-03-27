@@ -962,20 +962,68 @@ def runoff(
         else:
             normalize_using_yearly_i = normalize_using_yearly_i.astype(int)
 
-        years = (
-            pd.Series(pd.to_datetime(result.coords["time"].values).year)
-            .value_counts()
-            .loc[lambda x: x > 8700]
-            .index.intersection(normalize_using_yearly_i)
-        )
-        assert len(years), "Need at least a full year of data (more is better)"
-        years_overlap = slice(str(min(years)), str(max(years)))
+        result_time = pd.DatetimeIndex(result.coords["time"].values)
+        result_period = (result_time.min(), result_time.max())
 
+        if isinstance(normalize_using_yearly.index, pd.DatetimeIndex):
+            norm_period = (
+                normalize_using_yearly.index.min(),
+                normalize_using_yearly.index.max(),
+            )
+        else:
+            min_year, max_year = (
+                normalize_using_yearly_i.min(),
+                normalize_using_yearly_i.max(),
+            )
+            norm_period = (pd.Timestamp(f"{min_year}"), pd.Timestamp(f"{max_year + 1}"))
+
+        overlap_start = max(result_period[0], norm_period[0])
+        overlap_end = min(result_period[1], norm_period[1])
+
+        if overlap_start >= overlap_end:
+            raise ValueError(
+                f"No overlap between runoff data ({result_period}) and normalization data ({norm_period})"
+            )
+
+        years_overlap = slice(str(overlap_start.date()), str(overlap_end.date()))
         dim = result.dims[1 - result.get_axis_num("time")]
+
+        if isinstance(normalize_using_yearly.index, pd.DatetimeIndex):
+            norm_data = normalize_using_yearly.loc[overlap_start:overlap_end].sum()
+        else:
+            # Handle year-based index with proportional scaling
+            overlap_years = set(pd.date_range(overlap_start, overlap_end).year)
+            norm_years = sorted(overlap_years.intersection(normalize_using_yearly_i))
+
+            partial_years = []
+            norm_data = 0
+
+            for year in norm_years:
+                year_start = pd.Timestamp(f"{year}")
+                year_end = pd.Timestamp(f"{year}-12-31 23:59:59")
+                start = max(overlap_start, year_start)
+                end = min(overlap_end, year_end)
+
+                if start > year_start or end < year_end:
+                    partial_years.append(year)
+
+                fraction = (end - start).total_seconds() / (
+                    year_end - year_start
+                ).total_seconds()
+                norm_data += normalize_using_yearly.loc[year] * fraction
+
+            if partial_years:
+                logger.warning(
+                    f"Normalizing partial year data for year(s) {partial_years}. "
+                    f"This assumes runoff is evenly distributed throughout the year, "
+                    f"which may not be accurate for seasonal patterns. Consider using "
+                    f"time-based normalization data for more precise results."
+                )
+
         result *= (
-            xr.DataArray(normalize_using_yearly.loc[years_overlap].sum(), dims=[dim])
+            xr.DataArray(norm_data, dims=[dim])
             / result.sel(time=years_overlap).sum("time")
-        ).reindex(countries=result.coords["countries"])
+        ).reindex({dim: result.coords[dim]})
 
     return result
 
