@@ -580,14 +580,6 @@ class Cutout:
             )
         )
 
-    def equals(self, other):
-          """
-          It overrides xarray.Dataset.equals and ignores the path attribute in the comparison
-          """
-          if not isinstance(other, Cutout):
-              return NotImplemented
-          # Compare cutouts data attributes
-          return self.data.equals(other.data)
 
     def indicatormatrix(self, shapes, shapes_crs=4326):
         """
@@ -687,6 +679,15 @@ class Cutout:
 
         """
         return capacity_density * self.area(crs)
+
+    def equals(self, other):
+          """
+          It overrides xarray.Dataset.equals and ignores the path attribute in the comparison
+          """
+          if not isinstance(other, Cutout):
+              return NotImplemented
+          # Compare cutouts data attributes
+          return self.data.equals(other.data)
 
     def layout_from_capacity_list(self, data, col="Capacity"):
         """

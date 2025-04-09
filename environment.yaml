@@ -27,6 +27,10 @@ dependencies:
 - progressbar2
 - tqdm
 - cdo
+- openmeteo_requests
+- requests_cache
+- zipfile
+- re
 
   # dev tools
 - black
