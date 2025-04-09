@@ -35,7 +35,6 @@ from atlite.convert import (
     csp,
     dewpoint_temperature,
     heat_demand,
-    cooling_demand,
     hydro,
     irradiation,
     line_rating,
