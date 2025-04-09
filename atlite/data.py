@@ -42,17 +42,31 @@ def get_features(
     datasets = []
     get_data = datamodules[module].get_data
 
-    for feature in features:
-        feature_data = delayed(get_data)(
-            cutout,
-            feature,
-            tmpdir=tmpdir,
-            lock=lock,
-            monthly_requests=monthly_requests,
-            concurrent_requests=concurrent_requests,
-            **parameters,
-        )
-        datasets.append(feature_data)
+    if cutout.data.attrs["parallel"]:
+        for feature in features:
+            feature_data = delayed(get_data)(
+                cutout,
+                feature,
+                tmpdir=tmpdir,
+                lock=lock,
+                monthly_requests=monthly_requests,
+                concurrent_requests=concurrent_requests,
+                **parameters,
+            )
+            datasets.append(feature_data)
+
+    else:
+        for feature in features:
+            feature_data = get_data(
+                cutout,
+                feature,
+                tmpdir=tmpdir,
+                lock=lock,
+                monthly_requests=monthly_requests,
+                concurrent_requests=concurrent_requests,
+                **parameters,
+            )
+            datasets.append(feature_data)
 
     datasets = compute(*datasets)
 
