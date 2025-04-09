@@ -148,7 +148,7 @@ def convert_and_aggregate(
     if matrix is not None:
         if shapes is not None:
             raise ValueError(
-                "Passing matrix and shapes is ambiguous. Pass only one of them."
+                "Passing matrix and shapes is ambiguous. Pass " "only one of them."
             )
 
         if isinstance(matrix, xr.DataArray):
@@ -399,7 +399,6 @@ def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **p
         hour_shift=hour_shift,
         **params,
     )
-
 
 # cooling demand
 def convert_cooling_demand(ds, threshold, a, constant, hour_shift):
@@ -817,7 +816,7 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     Eurosun (ISES Europe Solar Congress).
 
     """
-    if isinstance(panel, (str | Path)):
+    if isinstance(panel, (str, Path)):
         panel = get_solarpanelconfig(panel)
     if not callable(orientation):
         orientation = get_orientation(orientation)
@@ -906,7 +905,7 @@ def csp(cutout, installation, technology=None, **params):
     URL: https://www.dlr.de/sf/en/desktopdefault.aspx/tabid-11126/19467_read-48251/
 
     """
-    if isinstance(installation, (str | Path)):
+    if isinstance(installation, (str, Path)):
         installation = get_cspinstallationconfig(installation)
 
     # Overwrite technology
@@ -1038,7 +1037,9 @@ def hydro(
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3
     # d-1 = m3 h-1 / 24
-    runoff *= xr.DataArray(basins.shapes.to_crs(dict(proj="cea")).area)
+    runoff *= (1000.0 / 24.0) * xr.DataArray(
+        basins.shapes.to_crs(dict(proj="cea")).area
+    )
 
     return hydrom.shift_and_aggregate_runoff_for_plants(
         basins, runoff, flowspeed, show_progress

@@ -66,10 +66,10 @@ class Cutout:
     This class builds the starting point for most atlite
     functionalities.
     """
-
+        
     def __init__(self, path, **cutoutparams):
         """
-        Provide an atlite cutout object.
+        Provide an Atlite cutout object.
 
         Create a cutout object to use atlite operations on it. Based on the
         provided parameters, atlite first checks whether this cutout already
@@ -112,9 +112,17 @@ class Cutout:
         dt : str, optional
             Frequency of the time coordinate. The default is 'h'. Valid are all
             pandas offset aliases.
+        interp_s : string, optional
+                    Interpolation method for spatial interpolation.
+                    The default is 'linear'. Valid are all xarray interpolation
+                    aliases (such as: 'quadratic', 'cubic',...)
+        interp_t : string, optional
+                    Interpolation method for temporal interpolation.
+                    The default is 'linear'. Valid are all xarray interpolation
+                    aliases (such as: 'quadratic', 'cubic',...)
         chunks : dict
-            Chunks when opening NetCDF files. For cutout preparation it is recommended
-            to chunk only along the time dimension. Defaults to {'time': 100}
+            Chunks when opening netcdf files. 
+            Defaults to {'time': 100, 'y': 100, 'x': 100}
         data : xr.Dataset
             User provided cutout data. Save the cutout using `Cutout.to_file()`
             afterwards.
@@ -132,15 +140,15 @@ class Cutout:
             sarah data which has missing data for areas where dawn and
             nightfall happens (ca. 30 min gap).
         gebco_path: str
-            Path to find the gebco NetCDF file. Only necessary when including
+            Path to find the gebco netcdf file. Only necessary when including
             the gebco module.
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.
-
         """
+
         path = Path(path).with_suffix(".nc")
-        chunks = cutoutparams.pop("chunks", {"time": 100})
+        chunks = cutoutparams.pop("chunks", {"time": 100, "y": 100, "x": 100})
         if isinstance(chunks, dict):
             storable_chunks = {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
         else:
@@ -154,7 +162,7 @@ class Cutout:
             data.attrs.update(storable_chunks)
             if cutoutparams:
                 warn(
-                    f"Arguments {', '.join(cutoutparams)} are ignored, since "
+                    f'Arguments {", ".join(cutoutparams)} are ignored, since '
                     "cutout is already built."
                 )
         elif "data" in cutoutparams:
@@ -170,6 +178,14 @@ class Cutout:
                 x = cutoutparams.pop("x")
                 y = cutoutparams.pop("y")
                 time = cutoutparams.pop("time")
+                
+                dx = cutoutparams.pop("dx", 0.25)
+                dy = cutoutparams.pop("dy", 0.25)
+                dt = cutoutparams.pop("dt", "1h")
+                
+                interp_s = cutoutparams.pop("interp_s", "linear")
+                interp_t = cutoutparams.pop("interp_t", "linear")
+  
                 module = cutoutparams.pop("module")
             except KeyError as exc:
                 raise TypeError(
@@ -178,12 +194,79 @@ class Cutout:
                     "passed via argument 'bounds' or 'x' and 'y'."
                 ) from exc
 
-            # TODO: check for dx, dy, x, y fine with module requirements
-            coords = get_coords(x, y, time, **cutoutparams)
 
+            # Convert different time inputs to a valid time slice with
+            # pd.Timestamps as data
+            
+            # convert string or timestamp to slice
+            if isinstance(time, str) or isinstance(time, pd.Timestamp):                
+                time = pd.Timestamp(time)
+                # Create a time slice using pandas datetime
+                time = slice(pd.Timestamp(f'{time.year}-{time.month}-{time.day} {time.hour}:{time.minute}'), 
+                             pd.Timestamp(f'{time.year}-12-31 23:00'), 
+                             pd.Timedelta(dt))
+                
+            # convert list of timestamps to slice
+            if isinstance(time, list):
+                freq = pd.Timedelta(pd.infer_freq(time))
+                if freq is not pd.Timedelta(None):
+                    time = slice(time[0], time[-1], freq)
+                else:
+                    time = slice(time[0], time[-1],  pd.Timedelta(dt))
+                        
+            # check if time slices has a timestep (dt) information
+            if isinstance(time, slice):                    
+                if (time.step is None) or (time.step is pd.Timedelta(None)):
+                    time = slice(pd.Timestamp(time.start), pd.Timestamp(time.stop), pd.Timedelta(dt))
+                else:
+                    time = slice(pd.Timestamp(time.start), pd.Timestamp(time.stop), pd.Timedelta(time.step))
+             
+            # check if time slices is valid, assume if start == stop a whole
+            # the data till the end of the year is requested.
+            if time.start == time.stop:
+                if time.start < pd.Timestamp(f'{time.start.year}-12-31 23:00'):
+                    time = slice(time.start, 
+                                 pd.Timestamp(f'{time.start.year}-12-31 23:00'),
+                                 time.step)
+                else:
+                    time = slice(time.start, time.start + 2*time.step, time.step)
+                        
+            if x.step is None:
+                x = slice(x.start, x.stop, dx)
+                
+            if y.step is None:
+                y = slice(y.start, y.stop, dy)
+
+            # TODO: check for dx, dy, x, y fine with module requirements
+            # A check for module requirements is added, in case multiple modules
+            # are used the first module requirements are considered
+            # Nevertheless this should be done differently and variable to consider
+            # cases that for example combine forecast with historic data
+            # In additiona a flag if parallel calculations are possible is included
+            time_now = pd.Timestamp.utcnow().replace(tzinfo=None).floor("h")
+            
+            if isinstance(module, list):
+                logger.info(f"Module requirements are set for the first module {module[0]}.")
+                x, y, time, parallel = datamodules[module[0]]._checkModuleRequirements(x, y, time, time_now)
+            else:
+                logger.info(f"Module requirements for module {module} are set.")
+                x, y, time, parallel = datamodules[module]._checkModuleRequirements(x, y, time, time_now)
+                
+            # In get coords forecast times up to 4 weeks are included
+            coords = get_coords(x, y, time, x.step, y.step, time.step, **cutoutparams)
+            
+            # additional attributes interpolation and parallel computing are included
             attrs = {
                 "module": module,
                 "prepared_features": [],
+                "tz": f'{time.start.tz}',
+                "dx": f'{x.step}',
+                "dy": f'{y.step}',
+                "dt": f'{time.step}',
+                "interp_s":f'{interp_s}',
+                "interp_t":f'{interp_t}',
+                "parallel":parallel,
+                "init_time": f'{time_now.strftime("%Y-%m-%d %H:%M:%S")}',
                 **storable_chunks,
                 **cutoutparams,
             }
@@ -196,6 +279,7 @@ class Cutout:
 
         self.path = path
         self.data = data
+        
 
     @property
     def name(self):
@@ -441,7 +525,7 @@ class Cutout:
 
     def to_file(self, fn=None):
         """
-        Save cutout to a NetCDF file.
+        Save cutout to a netcdf file.
 
         Parameters
         ----------
@@ -577,15 +661,6 @@ class Cutout:
         """
         return capacity_density * self.area(crs)
 
-    def equals(self, other):
-        """
-        It overrides xarray.Dataset.equals and ignores the path attribute in the comparison
-        """
-        if not isinstance(other, Cutout):
-            return NotImplemented
-        # Compare cutouts data attributes
-        return self.data.equals(other.data)
-
     def layout_from_capacity_list(self, data, col="Capacity"):
         """
         Get a capacity layout aligned to the cutout based on a capacity list.
@@ -644,8 +719,6 @@ class Cutout:
     # Conversion and aggregation functions
 
     convert_and_aggregate = convert_and_aggregate
-
-    cooling_demand = cooling_demand
 
     heat_demand = heat_demand
 
