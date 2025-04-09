@@ -32,7 +32,6 @@ from shapely.geometry import box
 from atlite.convert import (
     coefficient_of_performance,
     convert_and_aggregate,
-    cooling_demand,
     csp,
     dewpoint_temperature,
     heat_demand,
@@ -66,7 +65,7 @@ class Cutout:
     This class builds the starting point for most atlite
     functionalities.
     """
-        
+
     def __init__(self, path, **cutoutparams):
         """
         Provide an Atlite cutout object.
@@ -121,7 +120,7 @@ class Cutout:
                     The default is 'linear'. Valid are all xarray interpolation
                     aliases (such as: 'quadratic', 'cubic',...)
         chunks : dict
-            Chunks when opening netcdf files. 
+            Chunks when opening netcdf files.
             Defaults to {'time': 100, 'y': 100, 'x': 100}
         data : xr.Dataset
             User provided cutout data. Save the cutout using `Cutout.to_file()`
@@ -162,7 +161,7 @@ class Cutout:
             data.attrs.update(storable_chunks)
             if cutoutparams:
                 warn(
-                    f'Arguments {", ".join(cutoutparams)} are ignored, since '
+                    f"Arguments {', '.join(cutoutparams)} are ignored, since "
                     "cutout is already built."
                 )
         elif "data" in cutoutparams:
@@ -178,14 +177,14 @@ class Cutout:
                 x = cutoutparams.pop("x")
                 y = cutoutparams.pop("y")
                 time = cutoutparams.pop("time")
-                
+
                 dx = cutoutparams.pop("dx", 0.25)
                 dy = cutoutparams.pop("dy", 0.25)
                 dt = cutoutparams.pop("dt", "1h")
-                
+
                 interp_s = cutoutparams.pop("interp_s", "linear")
                 interp_t = cutoutparams.pop("interp_t", "linear")
-  
+
                 module = cutoutparams.pop("module")
             except KeyError as exc:
                 raise TypeError(
@@ -194,46 +193,59 @@ class Cutout:
                     "passed via argument 'bounds' or 'x' and 'y'."
                 ) from exc
 
-
             # Convert different time inputs to a valid time slice with
             # pd.Timestamps as data
-            
+
             # convert string or timestamp to slice
-            if isinstance(time, str) or isinstance(time, pd.Timestamp):                
+            if isinstance(time, str) or isinstance(time, pd.Timestamp):
                 time = pd.Timestamp(time)
                 # Create a time slice using pandas datetime
-                time = slice(pd.Timestamp(f'{time.year}-{time.month}-{time.day} {time.hour}:{time.minute}'), 
-                             pd.Timestamp(f'{time.year}-12-31 23:00'), 
-                             pd.Timedelta(dt))
-                
+                time = slice(
+                    pd.Timestamp(
+                        f"{time.year}-{time.month}-{time.day} {time.hour}:{time.minute}"
+                    ),
+                    pd.Timestamp(f"{time.year}-12-31 23:00"),
+                    pd.Timedelta(dt),
+                )
+
             # convert list of timestamps to slice
             if isinstance(time, list):
                 freq = pd.Timedelta(pd.infer_freq(time))
                 if freq is not pd.Timedelta(None):
                     time = slice(time[0], time[-1], freq)
                 else:
-                    time = slice(time[0], time[-1],  pd.Timedelta(dt))
-                        
+                    time = slice(time[0], time[-1], pd.Timedelta(dt))
+
             # check if time slices has a timestep (dt) information
-            if isinstance(time, slice):                    
+            if isinstance(time, slice):
                 if (time.step is None) or (time.step is pd.Timedelta(None)):
-                    time = slice(pd.Timestamp(time.start), pd.Timestamp(time.stop), pd.Timedelta(dt))
+                    time = slice(
+                        pd.Timestamp(time.start),
+                        pd.Timestamp(time.stop),
+                        pd.Timedelta(dt),
+                    )
                 else:
-                    time = slice(pd.Timestamp(time.start), pd.Timestamp(time.stop), pd.Timedelta(time.step))
-             
+                    time = slice(
+                        pd.Timestamp(time.start),
+                        pd.Timestamp(time.stop),
+                        pd.Timedelta(time.step),
+                    )
+
             # check if time slices is valid, assume if start == stop a whole
             # the data till the end of the year is requested.
             if time.start == time.stop:
-                if time.start < pd.Timestamp(f'{time.start.year}-12-31 23:00'):
-                    time = slice(time.start, 
-                                 pd.Timestamp(f'{time.start.year}-12-31 23:00'),
-                                 time.step)
+                if time.start < pd.Timestamp(f"{time.start.year}-12-31 23:00"):
+                    time = slice(
+                        time.start,
+                        pd.Timestamp(f"{time.start.year}-12-31 23:00"),
+                        time.step,
+                    )
                 else:
-                    time = slice(time.start, time.start + 2*time.step, time.step)
-                        
+                    time = slice(time.start, time.start + 2 * time.step, time.step)
+
             if x.step is None:
                 x = slice(x.start, x.stop, dx)
-                
+
             if y.step is None:
                 y = slice(y.start, y.stop, dy)
 
@@ -244,29 +256,35 @@ class Cutout:
             # cases that for example combine forecast with historic data
             # In additiona a flag if parallel calculations are possible is included
             time_now = pd.Timestamp.utcnow().replace(tzinfo=None).floor("h")
-            
+
             if isinstance(module, list):
-                logger.info(f"Module requirements are set for the first module {module[0]}.")
-                x, y, time, parallel = datamodules[module[0]]._checkModuleRequirements(x, y, time, time_now)
+                logger.info(
+                    f"Module requirements are set for the first module {module[0]}."
+                )
+                x, y, time, parallel = datamodules[module[0]]._checkModuleRequirements(
+                    x, y, time, time_now
+                )
             else:
                 logger.info(f"Module requirements for module {module} are set.")
-                x, y, time, parallel = datamodules[module]._checkModuleRequirements(x, y, time, time_now)
-                
+                x, y, time, parallel = datamodules[module]._checkModuleRequirements(
+                    x, y, time, time_now
+                )
+
             # In get coords forecast times up to 4 weeks are included
             coords = get_coords(x, y, time, x.step, y.step, time.step, **cutoutparams)
-            
+
             # additional attributes interpolation and parallel computing are included
             attrs = {
                 "module": module,
                 "prepared_features": [],
-                "tz": f'{time.start.tz}',
-                "dx": f'{x.step}',
-                "dy": f'{y.step}',
-                "dt": f'{time.step}',
-                "interp_s":f'{interp_s}',
-                "interp_t":f'{interp_t}',
-                "parallel":parallel,
-                "init_time": f'{time_now.strftime("%Y-%m-%d %H:%M:%S")}',
+                "tz": f"{time.start.tz}",
+                "dx": f"{x.step}",
+                "dy": f"{y.step}",
+                "dt": f"{time.step}",
+                "interp_s": f"{interp_s}",
+                "interp_t": f"{interp_t}",
+                "parallel": parallel,
+                "init_time": f"{time_now.strftime('%Y-%m-%d %H:%M:%S')}",
                 **storable_chunks,
                 **cutoutparams,
             }
@@ -279,7 +297,6 @@ class Cutout:
 
         self.path = path
         self.data = data
-        
 
     @property
     def name(self):

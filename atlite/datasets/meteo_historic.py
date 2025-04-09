@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -11,25 +9,25 @@ For further reference see
 https://open-meteo.com/en/docs/historical-weather-api
 """
 
+import datetime
+import io
 import logging
 import os
-import io
 import re
-import zipfile
+import time
 import warnings
 import weakref
-import time
-import xarray as xr
-import datetime
-import openmeteo_requests
-import requests_cache
+import zipfile
+from tempfile import mkstemp
+
 import cdsapi
 import numpy as np
+import openmeteo_requests
 import pandas as pd
-
-from numpy import atleast_1d
+import requests_cache
+import xarray as xr
 from dask import compute, delayed
-from tempfile import mkstemp
+from numpy import atleast_1d
 from retry_requests import retry
 
 from ..gis import maybe_swap_spatial_dims
@@ -45,20 +43,22 @@ except ImportError:
     @contextlib.contextmanager
     def nullcontext():
         yield
-        
+
 
 logger = logging.getLogger(__name__)
 
 # Setup Open-Meteo client with 7-day cache and retry on failure
 # Cache duration: -1 = never expire, 0 = no caching, timedelta = expire after set time
 cache_window = datetime.timedelta(days=7)
-cache_session = requests_cache.CachedSession('.meteo.cache', backend='sqlite', expire_after=cache_window)
+cache_session = requests_cache.CachedSession(
+    ".meteo.cache", backend="sqlite", expire_after=cache_window
+)
 retry_session = retry(cache_session, retries=5, backoff_factor=3)
 openmeteo = openmeteo_requests.Client(session=retry_session)
 
-# Set url for data download, this allows to switch to different data 
+# Set url for data download, this allows to switch to different data
 # sources more easily.
-era5_url = 'https://cds.climate.copernicus.eu/api'
+era5_url = "https://cds.climate.copernicus.eu/api"
 meteo_url = "https://archive-api.open-meteo.com/v1/archive"
 
 # Open-Meteo request limits
@@ -69,7 +69,7 @@ DAY_LIMIT = 10000
 # Delay of ERA5 data upload
 # For Open-Meteo slow changing variables from ERA5 are always interpolated
 # Starting from data of at least 7 days before nowtime
-ERA5_DELAY = pd.Timedelta(hours=-6.0*24)
+ERA5_DELAY = pd.Timedelta(hours=-6.0 * 24)
 
 # Model and CRS Settings
 crs = 4326
@@ -90,104 +90,147 @@ features = {
 
 static_features = {"height"}
 
-requirements = {'x': slice(-90, 90, 0.1),
-                'y': slice(-90, 90, 0.1),
-                'offset': (pd.Timestamp('1940-01-01')-pd.Timestamp.utcnow().replace(tzinfo=None).floor("h")),
-                'forecast': (pd.Timedelta(hours=-1.0*24)+(pd.Timestamp.utcnow().replace(tzinfo=None).ceil("d")-pd.Timestamp.utcnow().replace(tzinfo=None))).floor("h"),
-                'dt': pd.Timedelta(hours=1),
-                'parallel': False,
-                }
+requirements = {
+    "x": slice(-90, 90, 0.1),
+    "y": slice(-90, 90, 0.1),
+    "offset": (
+        pd.Timestamp("1940-01-01")
+        - pd.Timestamp.utcnow().replace(tzinfo=None).floor("h")
+    ),
+    "forecast": (
+        pd.Timedelta(hours=-1.0 * 24)
+        + (
+            pd.Timestamp.utcnow().replace(tzinfo=None).ceil("d")
+            - pd.Timestamp.utcnow().replace(tzinfo=None)
+        )
+    ).floor("h"),
+    "dt": pd.Timedelta(hours=1),
+    "parallel": False,
+}
 
 
 def _checkModuleRequirements(x, y, time, time_now, **kwargs):
     """
     Load and check the data requirements for a given module.
-    
-    Parameters:
+
+    Parameters
+    ----------
     x (slice): Defines the start, stop, and step values for the x-dimension.
     y (slice): Defines the start, stop, and step values for the y-dimension.
     time (slice): Defines the start, stop, and step values for the time dimension.
     **kwargs: Additional optional parameters.
     """
-    
+
     # Extract start, stop, and step values for x
     x_start, x_stop, x_step = x.start, x.stop, x.step
-    
+
     # Adjust x range based on module requirements
-    if requirements['x'].start > x.start:
-        x_start = requirements['x'].start 
-    if requirements['x'].stop < x.stop:
-        x_stop = requirements['x'].stop 
-    if requirements['x'].step > x.step:
-        x_step = requirements['x'].step
-    
+    if requirements["x"].start > x.start:
+        x_start = requirements["x"].start
+    if requirements["x"].stop < x.stop:
+        x_stop = requirements["x"].stop
+    if requirements["x"].step > x.step:
+        x_step = requirements["x"].step
+
     x = slice(x_start, x_stop, x_step)
-    
+
     # Extract start, stop, and step values for y
     y_start, y_stop, y_step = y.start, y.stop, y.step
-    
+
     # Adjust y range based on module requirements
-    if requirements['y'].start > y.start:
-        y_start = requirements['y'].start 
-    if requirements['y'].stop < y.stop:
-        y_stop = requirements['y'].stop 
-    if requirements['y'].step > y.step:
-        y_step = requirements['y'].step
-    
+    if requirements["y"].start > y.start:
+        y_start = requirements["y"].start
+    if requirements["y"].stop < y.stop:
+        y_stop = requirements["y"].stop
+    if requirements["y"].step > y.step:
+        y_step = requirements["y"].step
+
     y = slice(y_start, y_stop, y_step)
-    
-    
+
     # Extract time range parameters
     time_start = time.start
     time_stop = time.stop
     time_step = time.step
-    
+
     # Check forecast feasibility
-    feasible_start = time_now + requirements['offset']
-    feasible_end = time_now + requirements['forecast']
-    
+    feasible_start = time_now + requirements["offset"]
+    feasible_end = time_now + requirements["forecast"]
+
     # Ensure time_start is within feasible bounds
     if time_start < feasible_start:
-        logger.error(f"The required forecast start time {time_start} exceeds the model requirements.")
-        logger.error(f"The minimum start time of the forecast for {time_now} is {feasible_start}.")
-        logger.error(f"The maximum historical offset of the forecast is {requirements['offset']}.")
-        raise ValueError(f"Invalid forecast start time: {time_start}. Must be >= {feasible_start}.")
-        
+        logger.error(
+            f"The required forecast start time {time_start} exceeds the model requirements."
+        )
+        logger.error(
+            f"The minimum start time of the forecast for {time_now} is {feasible_start}."
+        )
+        logger.error(
+            f"The maximum historical offset of the forecast is {requirements['offset']}."
+        )
+        raise ValueError(
+            f"Invalid forecast start time: {time_start}. Must be >= {feasible_start}."
+        )
+
     if time_start >= feasible_end:
-        logger.error(f"The required forecast start time {time_start} exceeds the model requirements.")
-        logger.error(f"The maximum start time of the forecast for {time_now} needs to be smaller than {feasible_end}.")
-        raise ValueError(f"Invalid forecast start time: {time_start}. Must be < {feasible_end}.")
+        logger.error(
+            f"The required forecast start time {time_start} exceeds the model requirements."
+        )
+        logger.error(
+            f"The maximum start time of the forecast for {time_now} needs to be smaller than {feasible_end}."
+        )
+        raise ValueError(
+            f"Invalid forecast start time: {time_start}. Must be < {feasible_end}."
+        )
 
     # Ensure time_stop is greater than time_start
     if time_stop <= time_start:
-        logger.error(f"The required forecast end time {time_stop} exceeds the model requirements.")
-        logger.error(f"The minimum end time of the forecast for {time_now} needs to be larger than {time_start}.")
-        raise ValueError(f"Invalid forecast end time: {time_stop}. Must be > {time_start}.")
-          
+        logger.error(
+            f"The required forecast end time {time_stop} exceeds the model requirements."
+        )
+        logger.error(
+            f"The minimum end time of the forecast for {time_now} needs to be larger than {time_start}."
+        )
+        raise ValueError(
+            f"Invalid forecast end time: {time_stop}. Must be > {time_start}."
+        )
+
     # Ensure time_stop is greater than time_start
     if time_stop > feasible_end:
-        logger.error(f"The required forecast end time {time_stop} exceeds the model requirements.")
-        logger.error(f"The maximum end time of the forecast for {time_now} is {feasible_end}.")
+        logger.error(
+            f"The required forecast end time {time_stop} exceeds the model requirements."
+        )
+        logger.error(
+            f"The maximum end time of the forecast for {time_now} is {feasible_end}."
+        )
         logger.error(f"The maximum forecast horizon is {requirements['forecast']}.")
-        raise ValueError(f"Invalid forecast end time: {time_stop}. Must be <= {feasible_end}.")  
-         
+        raise ValueError(
+            f"Invalid forecast end time: {time_stop}. Must be <= {feasible_end}."
+        )
+
     # Ensure time step is within required limits
-    if (time_step is pd.Timedelta(None)) or (time.step < requirements['dt']):
-        logger.warning(f"The required temporal forecast resolution {time_step} exceeds the model requirements.")
-        logger.warning(f"The minimum temporal resolution of the forecast is {requirements['dt']}.")
-        logger.info(f"Set the temporal forecast resolution to the minimum: {requirements['dt']}.") 
-        time_step = requirements['dt']
-        
+    if (time_step is pd.Timedelta(None)) or (time.step < requirements["dt"]):
+        logger.warning(
+            f"The required temporal forecast resolution {time_step} exceeds the model requirements."
+        )
+        logger.warning(
+            f"The minimum temporal resolution of the forecast is {requirements['dt']}."
+        )
+        logger.info(
+            f"Set the temporal forecast resolution to the minimum: {requirements['dt']}."
+        )
+        time_step = requirements["dt"]
+
     time = slice(time_start, time_stop, time_step)
-    
+
     # Retrieve parallel processing setting from requirements
-    parallel = requirements['parallel']
-    
+    parallel = requirements["parallel"]
+
     return x, y, time, parallel
 
 
 def _add_height(ds):
-    """Convert geopotential 'z' to geopotential height following [1].
+    """
+    Convert geopotential 'z' to geopotential height following [1].
 
     References
     ----------
@@ -247,42 +290,45 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
 
 
 def _interpolate(ds, ds_ref, static, interp_s, interp_t):
-    
-    #Interpolate data to specific latitude and longitude values given as input (due to specific model resolution)
- 
+    # Interpolate data to specific latitude and longitude values given as input (due to specific model resolution)
+
     if not static:
         try:
             ds = ds.interp(
-                    time=ds_ref.time.values,
-                    method=interp_t,
-                    kwargs={"fill_value": "extrapolate"},
-                    )
+                time=ds_ref.time.values,
+                method=interp_t,
+                kwargs={"fill_value": "extrapolate"},
+            )
         except ValueError:
-            logger.info(f"Interpolation: Not enough supporting points for used interpolation method {interp_t}.")
+            logger.info(
+                f"Interpolation: Not enough supporting points for used interpolation method {interp_t}."
+            )
             logger.info("Interpolation method is set to 'nearest' instead.")
             ds = ds.interp(
-                    time=ds_ref.time.values,
-                    method='nearest',
-                    kwargs={"fill_value": "extrapolate"},
-                    )
+                time=ds_ref.time.values,
+                method="nearest",
+                kwargs={"fill_value": "extrapolate"},
+            )
 
     try:
         ds = ds.interp(
-                x=ds_ref.x.values,
-                y=ds_ref.y.values,
-                method=interp_s,
-                kwargs={"fill_value": "extrapolate"},
-                )
+            x=ds_ref.x.values,
+            y=ds_ref.y.values,
+            method=interp_s,
+            kwargs={"fill_value": "extrapolate"},
+        )
     except ValueError:
-        logger.info(f"Interpolation: Not enough supporting points for used interpolation method {interp_s}.")
+        logger.info(
+            f"Interpolation: Not enough supporting points for used interpolation method {interp_s}."
+        )
         logger.info("Interpolation method is set to 'nearest' instead.")
         ds = ds.interp(
-                x=ds_ref.x.values,
-                y=ds_ref.y.values,
-                method='nearest',
-                kwargs={"fill_value": "extrapolate"},
-                )
-        
+            x=ds_ref.x.values,
+            y=ds_ref.y.values,
+            method="nearest",
+            kwargs={"fill_value": "extrapolate"},
+        )
+
     return ds
 
 
@@ -336,7 +382,7 @@ def get_data_meteo_temperature(retrieval_params):
 
 def get_data_era5_wind(retrieval_params):
     """Get wind data for given retrieval parameters."""
-    
+
     ds = retrieve_era5_data(
         url=era5_url,
         variable=["forecast_surface_roughness"],
@@ -349,14 +395,14 @@ def get_data_era5_wind(retrieval_params):
 
 
 def combine_data_wind(ds_meteo, ds_era5, interp_s, interp_t):
-    
-    ds_era5 = _interpolate(ds=ds_era5,
-                       ds_ref=ds_meteo, 
-                       static=False, 
-                       interp_s=interp_s, 
-                       interp_t=interp_t,
-                       )
-    
+    ds_era5 = _interpolate(
+        ds=ds_era5,
+        ds_ref=ds_meteo,
+        static=False,
+        interp_s=interp_s,
+        interp_t=interp_t,
+    )
+
     ds = xr.merge([ds_meteo, ds_era5])
 
     ds = ds.rename(
@@ -367,11 +413,13 @@ def combine_data_wind(ds_meteo, ds_era5, interp_s, interp_t):
         }
     )
 
-    ds.wnd100m.attrs.update(units="m s**-1", long_name="Wind speed at 100m above ground")
+    ds.wnd100m.attrs.update(
+        units="m s**-1", long_name="Wind speed at 100m above ground"
+    )
     ds.wnd_azimuth.attrs.update(
         units="degree", long_name="Wind direction at 100m above ground"
     )
-    
+
     # unify_chunks() is necessary to avoid a bug in xarray
     ds = ds.unify_chunks()
 
@@ -389,25 +437,24 @@ def get_data_era5_influx(retrieval_params):
 
     ds = retrieve_era5_data(
         url=era5_url,
-        variable=["forecast_albedo",
-                  "toa_incident_solar_radiation"],
+        variable=["forecast_albedo", "toa_incident_solar_radiation"],
         **retrieval_params,
     )
-    
+
     ds = _rename_and_clean_coords(ds)
 
     return ds
-    
-    
+
+
 def combine_data_influx(ds_meteo, ds_era5, interp_s, interp_t):
-    
-    ds_era5 = _interpolate(ds=ds_era5,
-                           ds_ref=ds_meteo, 
-                           static=False, 
-                           interp_s=interp_s,
-                           interp_t=interp_t,
-                           )
-    
+    ds_era5 = _interpolate(
+        ds=ds_era5,
+        ds_ref=ds_meteo,
+        static=False,
+        interp_s=interp_s,
+        interp_t=interp_t,
+    )
+
     ds = xr.merge([ds_meteo, ds_era5])
 
     ds = ds.rename(
@@ -431,7 +478,7 @@ def combine_data_influx(ds_meteo, ds_era5, interp_s, interp_t):
     ds.influx_toa.attrs.update(
         units="W m**-2", long_name="TOA incident solar radiation"
     )
-        
+
     # unify_chunks() is necessary to avoid a bug in xarray
     ds = ds.unify_chunks()
 
@@ -460,10 +507,9 @@ def sanitize_influx(ds):
 def combine_data_temperature(ds_meteo, ds_era5, interp_s, interp_t):
     """Get wind temperature for given retrieval parameters."""
     ds = xr.merge([ds_meteo, ds_era5])
-    
+
     ds = ds.rename(
-        {"temperature_2m": "temperature",
-         "soil_temperature_54cm": "soil temperature"}
+        {"temperature_2m": "temperature", "soil_temperature_54cm": "soil temperature"}
     )
 
     # Convert from Celsius to Kelvin C -> K, by adding 273.15
@@ -480,10 +526,7 @@ def combine_data_temperature(ds_meteo, ds_era5, interp_s, interp_t):
 
 def get_data_era5_height(retrieval_params):
     """Get height data for given retrieval parameters."""
-    ds = retrieve_era5_data(
-        url=era5_url,
-        variable=["geopotential"], 
-        **retrieval_params)
+    ds = retrieve_era5_data(url=era5_url, variable=["geopotential"], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
     ds = _add_height(ds)
@@ -537,18 +580,22 @@ def retrieve_meteo_data(url, product, chunks=None, tmpdir=None, lock=None, **upd
     request.update(updates)
 
     # Generate list of (lon, lat) coordinate pairs
-    grid = np.meshgrid(request['coords']['x'], request['coords']['y'])
-    coords = pd.DataFrame(zip(grid[0].flatten(), grid[1].flatten()), columns=['longitude', 'latitude'])
+    grid = np.meshgrid(request["coords"]["x"], request["coords"]["y"])
+    coords = pd.DataFrame(
+        zip(grid[0].flatten(), grid[1].flatten()), columns=["longitude", "latitude"]
+    )
 
     # Calculate time and variable counts
-    start_date = request['start'].strftime('%Y-%m-%d')
-    end_date = request['end'].strftime('%Y-%m-%d')
+    start_date = request["start"].strftime("%Y-%m-%d")
+    end_date = request["end"].strftime("%Y-%m-%d")
     nr_days = abs((pd.to_datetime(start_date) - pd.to_datetime(end_date)).days)
-    nr_variables = len(request['variable']) 
+    nr_variables = len(request["variable"])
     nr_locations = len(coords)
 
     # Estimate request weight based on Open-Meteo's internal model
-    weight_of_full_api_request = max(nr_variables / 10, (nr_variables / 10) * (nr_days / 14)) * nr_locations
+    weight_of_full_api_request = (
+        max(nr_variables / 10, (nr_variables / 10) * (nr_days / 14)) * nr_locations
+    )
 
     # Dynamically determine chunk size based on rate limit thresholds
     if weight_of_full_api_request <= MINUTE_LIMIT:
@@ -561,21 +608,23 @@ def retrieve_meteo_data(url, product, chunks=None, tmpdir=None, lock=None, **upd
     chunk_size = int(max(1, chunk_size))  # Ensure chunk_size ≥ 1 and integer
 
     logger.info(f"Meteo-API: Downloading variables\n\t{request['variable']}\n")
-    logger.info(f"Meteo-API: Expected request weight of full request: {weight_of_full_api_request}")
+    logger.info(
+        f"Meteo-API: Expected request weight of full request: {weight_of_full_api_request}"
+    )
 
     # Loop through coordinate grid in blocks and request data
     data = []
     for i in range(0, len(coords), chunk_size):
-        coord_chunk = coords.iloc[i:i + chunk_size]
+        coord_chunk = coords.iloc[i : i + chunk_size]
 
         # Prepare API parameters for the current chunk
         params = {
-            "longitude": coord_chunk['longitude'].tolist(),
-            "latitude": coord_chunk['latitude'].tolist(),
-            "hourly": request['variable'],
+            "longitude": coord_chunk["longitude"].tolist(),
+            "latitude": coord_chunk["latitude"].tolist(),
+            "hourly": request["variable"],
             "wind_speed_unit": "ms",
             "start_date": start_date,
-            "end_date": end_date
+            "end_date": end_date,
         }
 
         try:
@@ -584,8 +633,10 @@ def retrieve_meteo_data(url, product, chunks=None, tmpdir=None, lock=None, **upd
             logger.info(f"{e}")
             try:
                 # Extract and classify rate limiting error
-                rate_limiting_error = list(e.args)[0]['reason']     
-                match = re.search(r"(Minutely|Hourly|Daily) API request limit", rate_limiting_error)
+                rate_limiting_error = list(e.args)[0]["reason"]
+                match = re.search(
+                    r"(Minutely|Hourly|Daily) API request limit", rate_limiting_error
+                )
                 if match:
                     apply_rate_limiting(error=match[0])
                 else:
@@ -594,8 +645,10 @@ def retrieve_meteo_data(url, product, chunks=None, tmpdir=None, lock=None, **upd
                 responses = openmeteo.weather_api(url, params=params)
             except Exception as e:
                 # Skip this chunk on repeated failure
-                logger.error(f"Meteo-API: Failed to fetch data for block starting at "
-                             f"({coord_chunk.loc[0, 'longitude']}, {coord_chunk.loc[0, 'latitude']}): {e}")
+                logger.error(
+                    f"Meteo-API: Failed to fetch data for block starting at "
+                    f"({coord_chunk.loc[0, 'longitude']}, {coord_chunk.loc[0, 'latitude']}): {e}"
+                )
                 continue
 
         # Parse chunked response and append results
@@ -605,7 +658,7 @@ def retrieve_meteo_data(url, product, chunks=None, tmpdir=None, lock=None, **upd
     ds = pd.concat(data).to_xarray()
     ds = _rename_and_clean_coords(ds)
     ds = ds.chunk(chunks=chunks)
-    
+
     return ds
 
 
@@ -631,9 +684,12 @@ def parse_meteo_responses(responses, params):
         # Reconstruct time index based on interval
         range_start = pd.to_datetime(response.Hourly().Time(), unit="s")
         range_end = pd.to_datetime(response.Hourly().TimeEnd(), unit="s")
-        date_range = pd.date_range(start=range_start, end=range_end, 
-                                   freq=pd.Timedelta(seconds=response.Hourly().Interval()),
-                                   inclusive="left")
+        date_range = pd.date_range(
+            start=range_start,
+            end=range_end,
+            freq=pd.Timedelta(seconds=response.Hourly().Interval()),
+            inclusive="left",
+        )
 
         # Initialize empty DataFrame for the current location
         response_df = pd.DataFrame(columns=params["hourly"])
@@ -670,14 +726,16 @@ def apply_rate_limiting(error=None):
     """
 
     now = datetime.datetime.now()
-    midnight = datetime.datetime(now.year, now.month, now.day) + datetime.timedelta(days=1, minutes=5)
+    midnight = datetime.datetime(now.year, now.month, now.day) + datetime.timedelta(
+        days=1, minutes=5
+    )
     time_until_midnight = (midnight - now).total_seconds()
 
     sleep_times = {
         None: 120,  # Fallback for unknown errors
         "Minutely API request limit": 60,
         "Hourly API request limit": 60 * 60,
-        "Daily API request limit": time_until_midnight
+        "Daily API request limit": time_until_midnight,
     }
 
     sleep_time = sleep_times[error]
@@ -691,21 +749,21 @@ def retrieve_era5_data(url, product, chunks=None, tmpdir=None, lock=None, **upda
 
     If you want to track the state of your request go to
     https://cds-beta.climate.copernicus.eu/requests?tab=all
-    """    
-    request = {"product_type": ["reanalysis"],
-               "data_format": "netcdf", 
-               "download_format": "zip"}
-    
+    """
+    request = {
+        "product_type": ["reanalysis"],
+        "data_format": "netcdf",
+        "download_format": "zip",
+    }
+
     request.update(updates)
 
-    assert {"year", "month", "variable"}.issubset(
-        request
-    ), "Need to specify at least 'variable', 'year' and 'month'"
+    assert {"year", "month", "variable"}.issubset(request), (
+        "Need to specify at least 'variable', 'year' and 'month'"
+    )
 
     client = cdsapi.Client(
-        url = url,
-        info_callback=logger.debug, 
-        debug=logging.DEBUG >= logging.root.level
+        url=url, info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
     )
     result = client.retrieve(product, request)
 
@@ -722,35 +780,43 @@ def retrieve_era5_data(url, product, chunks=None, tmpdir=None, lock=None, **upda
         varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
         logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
         result.download(target_zip)
-        
+
         # Open the .zip file in memory
         with zipfile.ZipFile(target_zip, "r") as zf:
             # Identify .nc files inside the .zip
             nc_files = [name for name in zf.namelist() if name.endswith(".nc")]
-     
+
             if not nc_files:
-                raise FileNotFoundError("No .nc files found in the downloaded .zip archive.")
-     
+                raise FileNotFoundError(
+                    "No .nc files found in the downloaded .zip archive."
+                )
+
             if len(nc_files) == 1:
                 # If there's only one .nc file, read it into memory
                 with zf.open(nc_files[0]) as nc_file:
                     # Pass the in-memory file-like object to Xarray
-                    ds = xr.open_dataset(io.BytesIO(nc_file.read()), chunks=chunks or {})
-                    
+                    ds = xr.open_dataset(
+                        io.BytesIO(nc_file.read()), chunks=chunks or {}
+                    )
+
             else:
                 # If multiple .nc files, combine them using Xarray
                 datasets = []
                 for nc_file in nc_files:
                     with zf.open(nc_file) as file:
-                        dataset = xr.open_dataset(io.BytesIO(file.read()), chunks=chunks or {})
-                        
-                        if 'expver' in dataset.variables:
-                            dataset = dataset.drop_vars(["expver", "number"], errors="ignore")
+                        dataset = xr.open_dataset(
+                            io.BytesIO(file.read()), chunks=chunks or {}
+                        )
+
+                        if "expver" in dataset.variables:
+                            dataset = dataset.drop_vars(
+                                ["expver", "number"], errors="ignore"
+                            )
 
                         datasets.append(dataset)
-                       
-                ds = xr.merge(datasets) 
-        
+
+                ds = xr.merge(datasets)
+
     if tmpdir is None:
         logging.debug(f"Adding finalizer for {target_zip}")
         weakref.finalize(ds._file_obj._manager, noisy_unlink, target_zip)
@@ -758,7 +824,9 @@ def retrieve_era5_data(url, product, chunks=None, tmpdir=None, lock=None, **upda
     return ds
 
 
-def retrieval_times_era5_forecast(coords, initialization_time, static=False, monthly_requests=False):
+def retrieval_times_era5_forecast(
+    coords, initialization_time, static=False, monthly_requests=False
+):
     """
     Get list of retrieval cdsapi arguments for time dimension in coordinates.
 
@@ -782,33 +850,36 @@ def retrieval_times_era5_forecast(coords, initialization_time, static=False, mon
     list of dicts witht retrieval arguments
 
     """
- 
+
     # Convert time coordinates to a pandas Index
     time = coords["time"].to_index()
     frequency = time.freq
-    
+
     # Determine the latest available ERA5 data time based on initialization time and required delay
     latest_era5_time = pd.Timestamp(initialization_time) + ERA5_DELAY
-    
+
     # Round up to the next full day and subtract 1 hour to align with ERA5 update frequency
-    latest_era5_time = latest_era5_time.ceil('D') - pd.Timedelta(hours=1)
-    
+    latest_era5_time = latest_era5_time.ceil("D") - pd.Timedelta(hours=1)
+
     # Define the minimum required time horizon for ERA5 downloads (last 24 hours)
     minimum_era5_time_horizon = pd.date_range(
-        start=latest_era5_time - pd.Timedelta(days=1),  # One day before the latest available time
+        start=latest_era5_time
+        - pd.Timedelta(days=1),  # One day before the latest available time
         end=latest_era5_time,  # Up to the latest available time
-        freq=frequency # Maintain original time frequency
+        freq=frequency,  # Maintain original time frequency
     )
-    
+
     # Merge the existing time index with the minimum ERA5 time horizon, avoiding duplicates
     time = time.union(minimum_era5_time_horizon)
-    
+
     # Ensure a continuous time index by filling missing values based on the determined frequency
-    complete_time_range = pd.date_range(start=time.min(), end=time.max(), freq=frequency)
-    
+    complete_time_range = pd.date_range(
+        start=time.min(), end=time.max(), freq=frequency
+    )
+
     # Keep only timestamps up to the latest available ERA5 time
     time = complete_time_range[complete_time_range <= latest_era5_time]
-    
+
     if static:
         return {
             "year": [str(time[0].year)],
@@ -826,7 +897,9 @@ def retrieval_times_era5_forecast(coords, initialization_time, static=False, mon
                 query = {
                     "year": str(year),
                     "month": [str(month).zfill(2)],
-                    "day": list(t[t.month == month].day.unique().astype(str).str.zfill(2)),
+                    "day": list(
+                        t[t.month == month].day.unique().astype(str).str.zfill(2)
+                    ),
                     "time": ["%02d:00" % h for h in t[t.month == month].hour.unique()],
                 }
                 times.append(query)
@@ -882,7 +955,7 @@ def get_data(
 
     """
     coords = cutout.coords
-    initialization_time = creation_parameters['init_time']
+    initialization_time = creation_parameters["init_time"]
 
     sanitize = creation_parameters.get("sanitize", True)
 
@@ -894,7 +967,7 @@ def get_data(
         "tmpdir": tmpdir,
         "lock": lock,
     }
-    
+
     retrieval_params_era5 = {
         "product": "reanalysis-era5-single-levels",
         "area": _area(coords),
@@ -904,63 +977,68 @@ def get_data(
         "lock": lock,
     }
 
-
     # Get fast changing variabels from meteo forecast
-    func_meteo = globals().get(f"get_data_meteo_{feature}")   
+    func_meteo = globals().get(f"get_data_meteo_{feature}")
     logger.info(f"Requesting data for feature {feature} from meteo...")
-    
-    
+
     if func_meteo is not None:
-        datasets_meteo = func_meteo({**retrieval_params_meteo, 
-                                     **{"start": coords["time"].to_index()[0], 
-                                        "end": coords["time"].to_index()[-1], 
-                                        "coords": coords}})
+        datasets_meteo = func_meteo(
+            {
+                **retrieval_params_meteo,
+                **{
+                    "start": coords["time"].to_index()[0],
+                    "end": coords["time"].to_index()[-1],
+                    "coords": coords,
+                },
+            }
+        )
     else:
         datasets_meteo = xr.Dataset()
 
-    
     def retrieve_once(time):
         ds = func_era5({**retrieval_params_era5, **time})
         return ds
-
 
     # Get missing and slow changing variabels from era5 data and interpolation
     func_era5 = globals().get(f"get_data_era5_{feature}")
 
     if func_era5 is not None:
         logger.info(f"Requesting addtional data for feature {feature} from era5...")
-                       
+
         if feature in static_features:
-            return retrieve_once(retrieval_times_era5_forecast(coords, initialization_time, static=True)).squeeze()
-           
-        time_chunks = retrieval_times_era5_forecast(coords, initialization_time, monthly_requests=monthly_requests)
+            return retrieve_once(
+                retrieval_times_era5_forecast(coords, initialization_time, static=True)
+            ).squeeze()
+
+        time_chunks = retrieval_times_era5_forecast(
+            coords, initialization_time, monthly_requests=monthly_requests
+        )
         if concurrent_requests:
             delayed_datasets = [delayed(retrieve_once)(chunk) for chunk in time_chunks]
             datasets_era5 = compute(*delayed_datasets)
         else:
             datasets_era5 = map(retrieve_once, time_chunks)
-              
+
         datasets_era5 = xr.concat(datasets_era5, dim="time")
-        
+
     else:
         datasets_era5 = xr.Dataset()
-        
+
     # Combine datasets and calculate the required variables
     combine_func = globals().get(f"combine_data_{feature}")
-    
+
     logger.info(f"Combine meteo and era5 datasets for feature {feature}...")
-    
+
     if combine_func is not None:
-        datasets = combine_func(datasets_meteo,
-                                datasets_era5, 
-                                cutout.data.interp_s, 
-                                cutout.data.interp_t)
+        datasets = combine_func(
+            datasets_meteo, datasets_era5, cutout.data.interp_s, cutout.data.interp_t
+        )
     else:
         datasets = xr.merge([datasets_meteo, datasets_era5])
-    
+
     sanitize_func = globals().get(f"sanitize_{feature}")
     if sanitize and sanitize_func is not None:
         # Sanitize the data after interpolation to remove residuals
         datasets = sanitize_func(datasets)
-   
+
     return datasets.sel(time=coords["time"])

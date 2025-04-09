@@ -148,7 +148,7 @@ def convert_and_aggregate(
     if matrix is not None:
         if shapes is not None:
             raise ValueError(
-                "Passing matrix and shapes is ambiguous. Pass " "only one of them."
+                "Passing matrix and shapes is ambiguous. Pass only one of them."
             )
 
         if isinstance(matrix, xr.DataArray):
@@ -399,6 +399,7 @@ def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **p
         hour_shift=hour_shift,
         **params,
     )
+
 
 # cooling demand
 def convert_cooling_demand(ds, threshold, a, constant, hour_shift):
