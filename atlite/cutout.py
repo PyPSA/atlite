@@ -580,6 +580,14 @@ class Cutout:
             )
         )
 
+    def equals(self, other):
+        """
+        It overrides xarray.Dataset.equals and ignores the path attribute in the comparison
+        """
+        if not isinstance(other, Cutout):
+            return NotImplemented
+        # Compare cutouts data attributes
+        return self.data.equals(other.data)
 
     def indicatormatrix(self, shapes, shapes_crs=4326):
         """
@@ -747,7 +755,7 @@ class Cutout:
     # Conversion and aggregation functions
 
     convert_and_aggregate = convert_and_aggregate
-    
+
     cooling_demand = cooling_demand
 
     heat_demand = heat_demand
