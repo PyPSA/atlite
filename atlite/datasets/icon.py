@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # SPDX-FileCopyrightText: 2016-2021 The Atlite Authors
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -11,19 +9,19 @@ For further reference see:
 https://www.dwd.de/DE/leistungen/nwv_icon_d2_modelldokumentation/nwv_icon_d2_modelldokumentation.html
 """
 
+import logging
 import os
 import warnings
+from bz2 import decompress
+from pathlib import Path
+
 import numpy as np
-import xarray as xr
 import pandas as pd
 import requests
-import logging
-
-from cdo import Cdo
-from pathlib import Path
-from retry import retry
-from bz2 import decompress
+import xarray as xr
 from bs4 import BeautifulSoup
+from cdo import Cdo
+from retry import retry
 
 from ..gis import maybe_swap_spatial_dims
 from ..pv.solar_position import SolarPosition
@@ -54,13 +52,15 @@ dwd_icon_grid_description_folder = "ICON_GLOBAL2WORLD_0125_EASY"
 # URL for accessing Open Data from DWD (Deutscher Wetterdienst)
 dwd_url = "https://opendata.dwd.de/weather/nwp/icon/grib/"
 dwd_grid_url = f"https://opendata.dwd.de/weather/lib/cdo/{dwd_icon_grid}.nc.bz2"
-dwd_grid_description_url = "https://opendata.dwd.de/weather/lib/cdo/{dwd_icon_grid_description_folder}.tar.bz2"
+dwd_grid_description_url = (
+    "https://opendata.dwd.de/weather/lib/cdo/{dwd_icon_grid_description_folder}.tar.bz2"
+)
 
 # ICON model runs are available at fixed intervals: 00, 03, 06, 09, 12, 15, 18, 21 UTC
 model_run_hours = np.array([0, 6, 12, 18])
 
 # Averaging window of different model runs
-averaging_window = 24 #hours
+averaging_window = 24  # hours
 
 # Coordinate Reference System (CRS) used for geospatial data
 crs = 4326
@@ -68,7 +68,11 @@ crs = 4326
 # Dictionary defining available meteorological features and their associated data fields
 features = {
     "height": ["height"],  # Elevation data
-    "wind": ["wnd100m", "wnd_azimuth", "roughness"],  # Wind speed, direction, and surface roughness
+    "wind": [
+        "wnd100m",
+        "wnd_azimuth",
+        "roughness",
+    ],  # Wind speed, direction, and surface roughness
     "influx": [
         "influx_toa",  # Top-of-atmosphere solar radiation
         "influx_direct",  # Direct solar radiation
@@ -86,137 +90,169 @@ static_features = {"height"}
 
 # Model requirements specifying spatial and temporal constraints
 requirements = {
-    'x': slice(-180, 180, 0.125), # Longitude range with resolution
-    'y': slice(-90, 90, 0.125),  # Latitude range with resolution
-    'offset': pd.Timedelta(hours=-18),  # Time offset for forecast initialization
-    'forecast': pd.Timedelta(hours=180),  # Maximum forecast range
-    'dt': pd.Timedelta(hours=1),  # Temporal resolution of data
-    'parallel': False,  # Flag for enabling parallel processing
-    }
+    "x": slice(-180, 180, 0.125),  # Longitude range with resolution
+    "y": slice(-90, 90, 0.125),  # Latitude range with resolution
+    "offset": pd.Timedelta(hours=-18),  # Time offset for forecast initialization
+    "forecast": pd.Timedelta(hours=180),  # Maximum forecast range
+    "dt": pd.Timedelta(hours=1),  # Temporal resolution of data
+    "parallel": False,  # Flag for enabling parallel processing
+}
 
 
 def _checkModuleRequirements(x, y, time, time_now, **kwargs):
     """
     Load and check the data requirements for a given module.
-    
-    Parameters:
+
+    Parameters
+    ----------
     x (slice): Defines the start, stop, and step values for the x-dimension.
     y (slice): Defines the start, stop, and step values for the y-dimension.
     time (slice): Defines the start, stop, and step values for the time dimension.
     **kwargs: Additional optional parameters.
     """
-    
+
     # Download reference grid to allow regular lat lon conversion
-    _download_reference_grid(grid=dwd_icon_grid, 
-                             model='ICON', 
-                             reference_grid_url=dwd_grid_url)
-    
+    _download_reference_grid(
+        grid=dwd_icon_grid, model="ICON", reference_grid_url=dwd_grid_url
+    )
+
     # Extract start, stop, and step values for x
     x_start, x_stop, x_step = x.start, x.stop, x.step
-    
+
     # Adjust x range based on module requirements
-    if requirements['x'].start > x.start:
-        x_start = requirements['x'].start 
-    if requirements['x'].stop < x.stop:
-        x_stop = requirements['x'].stop 
-    if requirements['x'].step > x.step:
-        x_step = requirements['x'].step
-    
+    if requirements["x"].start > x.start:
+        x_start = requirements["x"].start
+    if requirements["x"].stop < x.stop:
+        x_stop = requirements["x"].stop
+    if requirements["x"].step > x.step:
+        x_step = requirements["x"].step
+
     x = slice(x_start, x_stop, x_step)
-    
+
     # Extract start, stop, and step values for y
     y_start, y_stop, y_step = y.start, y.stop, y.step
-    
+
     # Adjust y range based on module requirements
-    if requirements['y'].start > y.start:
-        y_start = requirements['y'].start 
-    if requirements['y'].stop < y.stop:
-        y_stop = requirements['y'].stop 
-    if requirements['y'].step > y.step:
-        y_step = requirements['y'].step
-    
+    if requirements["y"].start > y.start:
+        y_start = requirements["y"].start
+    if requirements["y"].stop < y.stop:
+        y_stop = requirements["y"].stop
+    if requirements["y"].step > y.step:
+        y_step = requirements["y"].step
+
     y = slice(y_start, y_stop, y_step)
-    
-    
+
     # Extract time range parameters
     time_start = time.start
     time_stop = time.stop
     time_step = time.step
-    
+
     # Check forecast feasibility
-    feasible_start = time_now + requirements['offset']
-    feasible_end = time_now + requirements['forecast']
-    
+    feasible_start = time_now + requirements["offset"]
+    feasible_end = time_now + requirements["forecast"]
+
     # Ensure time_start is within feasible bounds
     if time_start < feasible_start:
-        logger.error(f"The required forecast start time {time_start} exceeds the model requirements.")
-        logger.error(f"The minimum start time of the forecast for {time_now} is {feasible_start}.")
-        logger.error(f"The maximum historical offset of the forecast is {requirements['offset']}.")
-        raise ValueError(f"Invalid forecast start time: {time_start}. Must be >= {feasible_start}.")
-        # logger.info(f"Set the start time to the minimum start time {feasible_start} and proceed.") 
+        logger.error(
+            f"The required forecast start time {time_start} exceeds the model requirements."
+        )
+        logger.error(
+            f"The minimum start time of the forecast for {time_now} is {feasible_start}."
+        )
+        logger.error(
+            f"The maximum historical offset of the forecast is {requirements['offset']}."
+        )
+        raise ValueError(
+            f"Invalid forecast start time: {time_start}. Must be >= {feasible_start}."
+        )
+        # logger.info(f"Set the start time to the minimum start time {feasible_start} and proceed.")
         # time_start = time_now + requirements['offset']
-        
+
     if time_start >= feasible_end:
-        logger.error(f"The required forecast start time {time_start} exceeds the model requirements.")
-        logger.error(f"The maximum start time of the forecast for {time_now} needs to be smaller than {feasible_end}.")
-        raise ValueError(f"Invalid forecast start time: {time_start}. Must be < {feasible_end}.")
-        # logger.info(f"Set the start time to the minimum start time {feasible_start} and proceed.") 
+        logger.error(
+            f"The required forecast start time {time_start} exceeds the model requirements."
+        )
+        logger.error(
+            f"The maximum start time of the forecast for {time_now} needs to be smaller than {feasible_end}."
+        )
+        raise ValueError(
+            f"Invalid forecast start time: {time_start}. Must be < {feasible_end}."
+        )
+        # logger.info(f"Set the start time to the minimum start time {feasible_start} and proceed.")
         # time_start = time_now + requirements['offset']
 
     # Ensure time_stop is greater than time_start
     if time_stop <= time_start:
-        logger.error(f"The required forecast end time {time_stop} exceeds the model requirements.")
-        logger.error(f"The minimum end time of the forecast for {time_now} needs to be larger than {time_start}.")
-        raise ValueError(f"Invalid forecast end time: {time_stop}. Must be > {time_start}.")
-        # logger.info(f"Set the end time to the maximum end time {feasible_end} and proceed.") 
-        # time_stop = time_now + requirements['forecast']      
-          
+        logger.error(
+            f"The required forecast end time {time_stop} exceeds the model requirements."
+        )
+        logger.error(
+            f"The minimum end time of the forecast for {time_now} needs to be larger than {time_start}."
+        )
+        raise ValueError(
+            f"Invalid forecast end time: {time_stop}. Must be > {time_start}."
+        )
+        # logger.info(f"Set the end time to the maximum end time {feasible_end} and proceed.")
+        # time_stop = time_now + requirements['forecast']
+
     # Ensure time_stop is greater than time_start
     if time_stop > feasible_end:
-        logger.error(f"The required forecast end time {time_stop} exceeds the model requirements.")
-        logger.error(f"The maximum end time of the forecast for {time_now} is {feasible_end}.")
+        logger.error(
+            f"The required forecast end time {time_stop} exceeds the model requirements."
+        )
+        logger.error(
+            f"The maximum end time of the forecast for {time_now} is {feasible_end}."
+        )
         logger.error(f"The maximum forecast horizon is {requirements['forecast']}.")
-        raise ValueError(f"Invalid forecast end time: {time_stop}. Must be <= {feasible_end}.")
-        # logger.info(f"Set the end time to the maximum end time {feasible_end} and proceed.") 
-        # time_stop = time_now + requirements['forecast']      
-         
+        raise ValueError(
+            f"Invalid forecast end time: {time_stop}. Must be <= {feasible_end}."
+        )
+        # logger.info(f"Set the end time to the maximum end time {feasible_end} and proceed.")
+        # time_stop = time_now + requirements['forecast']
+
     # # Check if forecast hours exceed limits
     # forecastHours = (time_stop - time_now)
     # if forecastHours > requirements['forecast']:
     #     logger.error(f"The end time of the forecast {time_stop} exceedes the model requirements.")
     #     logger.error(f"The maximum end time of the forecast for {time_now} is {feasible_end}.")
     #     logger.error(f"The required forecast horizon {forecastHours} exceeds the maximum forecast horzion {requirements['forecast']}.")
-    #     # logger.info(f"Set it to maximum forecast hours of {requirements['forecast']} hours.")   
+    #     # logger.info(f"Set it to maximum forecast hours of {requirements['forecast']} hours.")
     #     # forecastHours = requirements['forecast']
     #     # time_stop = time_now + forecastHours
-        
+
     # # Check if offset is within required limits
-    # offset = (time_start - time_now)    
+    # offset = (time_start - time_now)
     # if offset < requirements['offset']:
     #     logger.error(f"The start time of the forecast {time_start} exceeds model requirements.")
     #     logger.error(f"The minimum start time of the forecast for {time_now} is {feasible_start}.")
     #     logger.warning(f"Forecast offset of {offset} hours is below model requirements.")
-    #     logger.info(f"Set it to minimum offset of {requirements['offset']} hours.")   
+    #     logger.info(f"Set it to minimum offset of {requirements['offset']} hours.")
     #     offset = requirements['offset']
     #     time_start = time_now + offset
-            
+
     # Ensure time step is within required limits
-    if (time_step is pd.Timedelta(None)) or (time.step < requirements['dt']):
-        logger.warning(f"The required temporal forecast resolution {time_step} exceeds the model requirements.")
-        logger.warning(f"The minimum temporal resolution of the forecast is {requirements['dt']}.")
-        logger.info(f"Set the temporal forecast resolution to the minimum: {requirements['dt']}.") 
-        time_step = requirements['dt']
-        
+    if (time_step is pd.Timedelta(None)) or (time.step < requirements["dt"]):
+        logger.warning(
+            f"The required temporal forecast resolution {time_step} exceeds the model requirements."
+        )
+        logger.warning(
+            f"The minimum temporal resolution of the forecast is {requirements['dt']}."
+        )
+        logger.info(
+            f"Set the temporal forecast resolution to the minimum: {requirements['dt']}."
+        )
+        time_step = requirements["dt"]
+
     time = slice(time_start, time_stop, time_step)
-    
+
     # Retrieve parallel processing setting from requirements
-    parallel = requirements['parallel']
-    
+    parallel = requirements["parallel"]
+
     return x, y, time, parallel
 
 
 def _getCurrentRun(time):
-    '''
+    """
     Determines the most recent available model run based on the current time.
     The latest run is fully available approximately 2 hours after initialization.
     To ensure the model run is successfully uploaded, the download delay time is set to 3 hours.
@@ -227,35 +263,34 @@ def _getCurrentRun(time):
     ----------
     time : datetime
         The current datetime in UTC.
-        
+
     Returns
     -------
     datetime
         The timestamp of the most recent available model run, floored to the hour.
-    '''
+    """
     download_delay = 3  # Delay in hours before the run is fully available
-    
+
     # Adjust the current time by the delay to ensure availability
     adjusted_time = time - pd.Timedelta(hours=download_delay)
 
     # Find the most recent available run by flooring to the nearest model run hour
     run_hour = max(hour for hour in model_run_hours if hour <= adjusted_time.hour)
-    
+
     # Construct the correct model run time
     run_time = adjusted_time.replace(hour=run_hour, minute=0, second=0, microsecond=0)
 
     return run_time
 
 
-
 def _createDownloadUrl(url, var, field, run, hours):
-    '''
+    """
     Generates a list of download URLs for meteorological data from the DWD server.
     The function scrapes the available files for a given variable and model run,
     filtering based on field type, forecast hours, and model levels.
-    
+
     This code was adopted from: https://github.com/prayer007/dwdGribExtractor/tree/main
-    
+
     Parameters
     ----------
     url : string
@@ -263,130 +298,138 @@ def _createDownloadUrl(url, var, field, run, hours):
     var : string
         The variable name, optionally including levels separated by '/'.
     field : string
-        The field parameter: 'time-invariant' (static), 'soil-level' (162cm), 
+        The field parameter: 'time-invariant' (static), 'soil-level' (162cm),
         'model-level' (62;63), or 'single-level' (2D field).
     run : string
         Model run identifier.
     hours : int
         Maximum forecast hours to retrieve.
-    
+
     Returns
     -------
     list
         List of filtered download URLs.
-    '''   
-        
+    """
+
     # Extract variable name and associated levels
-    levels = pd.Series(var.split('/')[1:]).astype(int)  # Convert levels to integers
-    var = var.split('/')[0]  # Extract variable name
-    
+    levels = pd.Series(var.split("/")[1:]).astype(int)  # Convert levels to integers
+    var = var.split("/")[0]  # Extract variable name
+
     # Construct the data URL based on provided parameters
-    data_url = "{url}{run}/{var}/".format(url=url, var=var, run=run)
-    
+    data_url = f"{url}{run}/{var}/"
+
     # Send an HTTP GET request to fetch available files
     response = requests.get(data_url)
-    
+
     # Raise an error if the request fails
-    response.raise_for_status()  
-    
+    response.raise_for_status()
+
     # Parse the HTML content to extract links
-    soup = BeautifulSoup(response.content, 'html.parser')
-    
+    soup = BeautifulSoup(response.content, "html.parser")
+
     # Find all anchor tags ('a') representing file links
-    link_tags = soup.find_all('a')
-    
+    link_tags = soup.find_all("a")
+
     # Initialize an empty list to store the file URLs
     urls = []
-    
+
     # Iterate through all link tags, extract URLs, and store them
     for tag in link_tags:
-        link = tag.get('href')  # Extract the hyperlink reference
-    
+        link = tag.get("href")  # Extract the hyperlink reference
+
         if link:
             # Construct the full URL by appending the relative link to the base URL
             full_url = data_url + link
             urls.append(full_url)
-    
+
     # Convert the list of URLs into a Pandas Series for easy filtering
     urls = pd.Series(urls)
-    
+
     # Filter URLs to retain only those containing 'regular-lat-lon' grid format
-    urls = urls[urls.str.contains('icosahedral')]
-   
+    urls = urls[urls.str.contains("icosahedral")]
+
     # Further filter URLs based on the specified model field
     urls = urls[urls.str.contains(field)]
-    
+
     # Apply forecast time horizon filter (excluding 'time-invariant' fields)
-    if field != 'time-invariant':
-        urls = urls[urls.str.findall(r"\_(\d{3})\_").str[0].astype(int) <= hours]       
-    
+    if field != "time-invariant":
+        urls = urls[urls.str.findall(r"\_(\d{3})\_").str[0].astype(int) <= hours]
+
     # Filter URLs based on model levels, if specified
     if not levels.empty:
         url_mask = pd.Series(index=urls.index, data=False)  # Initialize boolean mask
         for level in levels:
             url_mask += urls.str.contains(f"_{level}_")  # Check if URL contains level
-        urls = urls[url_mask]  # Apply filter    
+        urls = urls[url_mask]  # Apply filter
 
     # Convert filtered URLs back to a list
     urls = list(urls)
-        
+
     return urls
 
 
 def _deaverage(da):
-    '''
+    """
     Converts a temporally averaged data array into individual time-step values.
     Each time step's original value is reconstructed by reversing the cumulative averaging process.
-    
+
     Parameters
     ----------
     da : xarray.DataArray
         Input data array with a time dimension containing cumulative averages.
-    
+
     Returns
     -------
     xarray.DataArray
         Data array with de-averaged values.
-    '''
+    """
     # Create an integer index for time, matching da's shape
-    time_index = xr.DataArray(np.arange(1, da.sizes["time"] + 1), dims="time", coords={"time": da.time})
+    time_index = xr.DataArray(
+        np.arange(1, da.sizes["time"] + 1), dims="time", coords={"time": da.time}
+    )
 
     # Apply the reverse operation: Ψ_inst(t) = t * Ψ(t) - (t-1) * Ψ(t-1)
-    da_instantaneous = (time_index * da - (time_index - 1) * da.shift(time=1, fill_value=0))
-    
-    # Fill the first timestep with NaNs, since it is always zero
-    da_instantaneous = da_instantaneous.where(da_instantaneous.time != da_instantaneous.time[0], np.nan)
+    da_instantaneous = time_index * da - (time_index - 1) * da.shift(
+        time=1, fill_value=0
+    )
 
-    return da_instantaneous  
-    
+    # Fill the first timestep with NaNs, since it is always zero
+    da_instantaneous = da_instantaneous.where(
+        da_instantaneous.time != da_instantaneous.time[0], np.nan
+    )
+
+    return da_instantaneous
+
 
 def _deaccumulate(da):
-    '''
+    """
     Converts accumulated data into time-step differences.
     This function takes an accumulated dataset and calculates the incremental
     values between consecutive time steps.
-    
+
     Parameters
     ----------
     da : xarray.DataArray
         Input data array with a time dimension containing accumulated values.
-    
+
     Returns
     -------
     xarray.DataArray
         Data array with de-accumulated values (time-step differences).
-    '''
-    
+    """
+
     # Apply the reverse operation: Ψ_inst(t) = Ψ(t) - Ψ(t-1)
     da_instantaneous = da - da.shift(time=1, fill_value=0)
-    
+
     # Fill the first timestep with NaNs, since it is always zero
-    da_instantaneous = da_instantaneous.where(da_instantaneous.time != da_instantaneous.time[0], np.nan)
+    da_instantaneous = da_instantaneous.where(
+        da_instantaneous.time != da_instantaneous.time[0], np.nan
+    )
 
-    return da_instantaneous  
+    return da_instantaneous
 
 
-def _average_duplicate_times(ds): 
+def _average_duplicate_times(ds):
     """
     Averages duplicate timestamps in an xarray Dataset.
 
@@ -417,13 +460,13 @@ def _average_duplicate_times(ds):
 
 
 def _mainDataCollector(url, var, field, forecast, offset, coords, area, grid, tmpdir):
-    '''
+    """
     Downloads meteorological data for a given variable and processes it accordingly.
-    
+
     This function retrieves data from the specified URL, processes it to rename and clean
     coordinates, and applies de-averaging or de-accumulation where necessary based on
     the GRIB step type.
-    
+
     Parameters
     ----------
     url : string
@@ -441,13 +484,13 @@ def _mainDataCollector(url, var, field, forecast, offset, coords, area, grid, tm
         The spatial coordinates where data is required.
     tmpdir : string
         Path to the temporary directory where downloaded files are stored.
-    
+
     Returns
     -------
     xarray.Dataset
         Processed dataset containing the collected meteorological data.
-    '''        
-    
+    """
+
     # Extract the most recent forecast run time
     latestRun = forecast[0]
 
@@ -455,62 +498,69 @@ def _mainDataCollector(url, var, field, forecast, offset, coords, area, grid, tm
     previousRuns = offset[offset < latestRun]
 
     # Keep only entries that align with ICON model run hours
-    previousRuns = previousRuns[previousRuns.hour.isin(model_run_hours)].sort_values(ascending=True)
-       
+    previousRuns = previousRuns[previousRuns.hour.isin(model_run_hours)].sort_values(
+        ascending=True
+    )
+
     if len(previousRuns) > 0:
         # Get the hour of the earliest previous run
         first_prev_hour = previousRuns[0].hour
-    
+
         # Find the previous index in `model_run_hours`
         prev_idx = np.where(model_run_hours == first_prev_hour)[0][0] - 1
-    
+
         # Compute the adjusted previous run
-        previousRun = pd.DatetimeIndex([previousRuns[0].replace(
-            hour=model_run_hours[prev_idx], minute=0, second=0, microsecond=0
-        )])
-    
+        previousRun = pd.DatetimeIndex(
+            [
+                previousRuns[0].replace(
+                    hour=model_run_hours[prev_idx], minute=0, second=0, microsecond=0
+                )
+            ]
+        )
+
         # Add previousRun to previousRuns, ensuring uniqueness
         previousRuns = previousRuns.union(previousRun).sort_values(ascending=True)
 
     # Create a list of runs including the latest run and previous runs
     # Use an averaging_window of X hours for all previous runs to average the results
-    runs = [(run.strftime("%H"), averaging_window) for run in previousRuns] + [(latestRun.strftime("%H"), len(forecast))]
+    runs = [(run.strftime("%H"), averaging_window) for run in previousRuns] + [
+        (latestRun.strftime("%H"), len(forecast))
+    ]
 
     # # Generate download URLs for the specified variable and field
     # urls = []
     # for run, hours in runs:
     #     urls = urls + _createDownloadUrl(url, var, field, run, hours)
-        
+
     # urls = pd.Series(urls).unique()
-        
+
     ds_temps = []  # List to store temporary datasets
-    
+
     for run, hours in runs:
-        
         # Generate download URLs for the specified variable and field
         urls = _createDownloadUrl(url, var, field, run, hours)
-        
+
         # Download and collect the main dataset for the given variable
-        ds_temps.append(_download(urls, var, coords, area, grid, tmpdir))  
+        ds_temps.append(_download(urls, var, coords, area, grid, tmpdir))
 
     # Concatenate along the time dimension, keeping also duplicated timestamps
     ds = xr.concat(ds_temps, dim="time")
-    
+
     # Average duplicates for smooth forecast transitioning
     ds = _average_duplicate_times(ds)
-            
+
     # # Download and collect the main dataset for the given variable
-    # ds_temp = _mainDataCollector(url, var, field, forecast, offset, tmpdir)   
-    
+    # ds_temp = _mainDataCollector(url, var, field, forecast, offset, tmpdir)
+
     # Rename and clean coordinate labels for consistency
     # ds_temp = _rename_and_clean_coords(ds_temp)
-    
+
     # # Iterate through all data variables in the dataset
     # for ds_var in list(ds_temp.data_vars):
     #     # If the variable is an averaged quantity, apply de-averaging
     #     if ds_temp[ds_var].attrs['GRIB_stepType'] == 'avg':
     #         ds_temp[ds_var] = _deaverage(ds_temp[ds_var])
-                       
+
     #     # If the variable is an accumulated quantity, apply de-accumulation
     #     elif ds_temp[ds_var].attrs['GRIB_stepType'] == 'accum':
     #         ds_temp[ds_var] = _deaccumulate(ds_temp[ds_var])
@@ -520,12 +570,12 @@ def _mainDataCollector(url, var, field, forecast, offset, coords, area, grid, tm
 
 
 def _interpolate(ds, static, coords, grid, interp_s, interp_t):
-    '''
+    """
     Interpolates a dataset to match specific latitude and longitude coordinates.
-    
+
     If the data is not static, it first interpolates temporally. Then, it applies
     spatial interpolation using binning to adjust the data to the grid resolution.
-    
+
     Parameters
     ----------
     ds : xarray.Dataset
@@ -540,105 +590,117 @@ def _interpolate(ds, static, coords, grid, interp_s, interp_t):
         Spatial interpolation method (not used in the function but can be applied elsewhere).
     interp_t : string
         Temporal interpolation method to be used.
-    
+
     Returns
     -------
     xarray.Dataset
         The interpolated dataset adjusted to the target spatial and temporal resolution.
-    '''
-    
+    """
+
     # Perform temporal interpolation if the data is not static
     if not static:
         try:
-            ds = ds.interp(time=coords['time'].values, 
-                           method=interp_t, 
-                           kwargs={"fill_value": "extrapolate"})
+            ds = ds.interp(
+                time=coords["time"].values,
+                method=interp_t,
+                kwargs={"fill_value": "extrapolate"},
+            )
         except ValueError:
-            logger.info(f"Interpolation: Not enough supporting points for used interpolation method {interp_t}.")
+            logger.info(
+                f"Interpolation: Not enough supporting points for used interpolation method {interp_t}."
+            )
             logger.info("Interpolation method is set to 'nearest' instead.")
-            ds = ds.interp(time=coords['time'].values, 
-                           method="nearest", 
-                           kwargs={"fill_value": "extrapolate"})
-    
+            ds = ds.interp(
+                time=coords["time"].values,
+                method="nearest",
+                kwargs={"fill_value": "extrapolate"},
+            )
+
     # Create bin edges and labels for x-coordinates
-    x_bins = coords['x'].values
-    x_bins = np.insert(x_bins, 0, np.round(x_bins[0] - grid[0], 8), axis=0)  # Extend bin range
+    x_bins = coords["x"].values
+    x_bins = np.insert(
+        x_bins, 0, np.round(x_bins[0] - grid[0], 8), axis=0
+    )  # Extend bin range
     x_bins_label = np.round(x_bins[:-1] + grid[0], 8)  # Compute bin centers
-    
+
     # Create bin edges and labels for y-coordinates
-    y_bins = coords['y'].values
-    y_bins = np.insert(y_bins, 0, np.round(y_bins[0] - grid[1], 8), axis=0)  # Extend bin range
+    y_bins = coords["y"].values
+    y_bins = np.insert(
+        y_bins, 0, np.round(y_bins[0] - grid[1], 8), axis=0
+    )  # Extend bin range
     y_bins_label = np.round(y_bins[:-1] + grid[1], 8)  # Compute bin centers
-    
+
     # Store original dataset attributes
     attrs = ds.attrs
-    
+
     # Perform spatial binning by grouping data into bins along x and y dimensions and computing the mean
     ds = ds.groupby_bins("x", x_bins, labels=x_bins_label).mean(dim="x")
     ds = ds.groupby_bins("y", y_bins, labels=y_bins_label).mean(dim="y")
-    
+
     # Rename bins to standard coordinate names
-    ds = ds.rename({'y_bins': 'y', 'x_bins': 'x'})
-    
+    ds = ds.rename({"y_bins": "y", "x_bins": "x"})
+
     # Reassign original dataset attributes
     ds = ds.assign_attrs(attrs)
-    
+
     return ds
 
 
 @retry(tries=5, delay=5, backoff=2, logger=logger)
-def _urlopen_with_retry(data_url, tmpfp, engine='cfgrib', regrid=False, **kwargs):
-    '''
+def _urlopen_with_retry(data_url, tmpfp, engine="cfgrib", regrid=False, **kwargs):
+    """
     Attempts to download and decompress a dataset file with automatic retry on failure.
-    
+
     This function fetches data from a given URL, retries up to five times in case of failure,
     and decompresses the response content before saving it to a temporary file.
-    
+
     Parameters
     ----------
     data_url : string
         The URL from which data should be downloaded.
     tmpfp : string
         The file path where the downloaded content will be temporarily stored.
-    
+
     Returns
     -------
     tuple
         - resp (requests.Response): The HTTP response object from the request.
         - ds (xarray.Dataset): The dataset extracted from the downloaded file.
-    '''
-    
+    """
+
     # Send an HTTP GET request to the data URL with a timeout of 5 seconds
     resp = requests.get(data_url, timeout=5)
 
     # Check if the request was successful (HTTP 200 OK)
     if resp.status_code == 200:
         # Open the specified temporary file and write the decompressed response content
-        with open(tmpfp, 'wb') as f:
+        with open(tmpfp, "wb") as f:
             f.write(decompress(resp.content))
     else:
         # Raise an error if the response was unsuccessful
-        raise ValueError(f"Error in response: {resp.reason}, status code: {resp.status_code}")
-    
+        raise ValueError(
+            f"Error in response: {resp.reason}, status code: {resp.status_code}"
+        )
+
     if regrid:
-        # Regrid the data to regular lon-lat grid        
+        # Regrid the data to regular lon-lat grid
         ds = _regrid_data(tmpfp, **kwargs)
     else:
         # Load the downloaded file as an xarray dataset using the 'cfgrib' engine
-        ds = xr.open_dataset(tmpfp, engine=engine)   
-    
+        ds = xr.open_dataset(tmpfp, engine=engine)
+
     # Return both the HTTP response object and the loaded dataset
     return resp, ds
 
 
 def _download(urls, var, coords, area, grid, tmpdir=None):
-    '''
+    """
     Collects meteorological data for all timesteps of a given variable.
-    
+
     This function retrieves data files, processes them, and merges them into
     a single dataset. It determines the latest available runs, downloads
     the necessary files, and structures them according to the expected format.
-    
+
     Parameters
     ----------
     url : string
@@ -654,13 +716,13 @@ def _download(urls, var, coords, area, grid, tmpdir=None):
         Array representing the forecast offsets.
     tmpdir : string, optional
         Temporary directory for storing downloaded files.
-    
+
     Returns
     -------
     xarray.Dataset
         Merged dataset containing the collected meteorological data.
-    '''    
-    
+    """
+
     # # Extract the most recent forecast run time
     # latestRun = forecast[0]
 
@@ -677,89 +739,97 @@ def _download(urls, var, coords, area, grid, tmpdir=None):
     # urls = []
     # for run, hours in runs:
     #     urls = urls + _createDownloadUrl(url, var, field, run, hours)
-        
+
     # urls = pd.Series(urls).unique()
-        
+
     ds_temps = []  # List to store temporary datasets
-    
+
     # Iterate over generated URLs and process each file
     for data_url in urls:
-        logger.info("ICON data -> Processing file: {f}".format(f=data_url))                
-        
+        logger.info(f"ICON data -> Processing file: {data_url}")
+
         # Extract filename from URL and construct temporary file path
-        tmpfn = os.path.basename(data_url) 
-        tmpfn = Path(tmpfn).with_suffix('')
-        tmpfp = "{p}/{tmpfn}".format(tmpfn=tmpfn, p=tmpdir) 
-        
+        tmpfn = os.path.basename(data_url)
+        tmpfn = Path(tmpfn).with_suffix("")
+        tmpfp = f"{tmpdir}/{tmpfn}"
+
         # Attempt to download and extract the dataset
         try:
-            resp, ds_temp = _urlopen_with_retry(data_url, 
-                                                tmpfp,
-                                                regrid=True,
-                                                engine='netcdf4',
-                                                var=var,
-                                                coords=coords,
-                                                area=area,
-                                                grid=grid, 
-                                                tmpdir=tmpdir)
+            resp, ds_temp = _urlopen_with_retry(
+                data_url,
+                tmpfp,
+                regrid=True,
+                engine="netcdf4",
+                var=var,
+                coords=coords,
+                area=area,
+                grid=grid,
+                tmpdir=tmpdir,
+            )
         except Exception as err:
-            logger.info("Could not get {url}: {err}".format(err=err, url=data_url))
+            logger.info(f"Could not get {data_url}: {err}")
             continue  # Skip to next URL if download fails
-        
+
         # Check if the dataset contains other coordinate
         ds_coords = list(ds_temp.coords)
-        ds_coords_to_keep = ["valid_time", "longitude", "latitude", "generalVerticalLayer"] 
-        ds_coords_to_drop = [ds_coord for ds_coord in ds_coords if ds_coord not in ds_coords_to_keep]
-        
+        ds_coords_to_keep = [
+            "valid_time",
+            "longitude",
+            "latitude",
+            "generalVerticalLayer",
+        ]
+        ds_coords_to_drop = [
+            ds_coord for ds_coord in ds_coords if ds_coord not in ds_coords_to_keep
+        ]
+
         # Remove unwanted coordinates
         ds_temp = ds_temp.drop_vars(ds_coords_to_drop)
-                    
+
         ds_temps.append(ds_temp)
-       
+
     # Merge all collected datasets into a single dataset
-    ds = xr.merge(ds_temps)   
-    
+    ds = xr.merge(ds_temps)
+
     # Rename and clean coordinate labels for consistency
     ds = _rename_and_clean_coords(ds)
-    
+
     # Iterate through all data variables in the dataset
     for ds_var in list(ds.data_vars):
         # If the variable is an averaged quantity, apply de-averaging
-        if ds[ds_var].attrs['GRIB_stepType'] == 'avg':
+        if ds[ds_var].attrs["GRIB_stepType"] == "avg":
             ds[ds_var] = _deaverage(ds[ds_var])
-                                   
+
         # If the variable is an accumulated quantity, apply de-accumulation
-        elif ds[ds_var].attrs['GRIB_stepType'] == 'accum':
+        elif ds[ds_var].attrs["GRIB_stepType"] == "accum":
             ds[ds_var] = _deaccumulate(ds[ds_var])
 
     return ds
 
 
 def _download_reference_grid(grid: str | Path, model: str, reference_grid_url: str):
-    
     assert isinstance(grid, str | Path)
-    
+
     # Ensure the directory exists
-    os.makedirs(GRID_DIRECTORY, exist_ok=True)             
-    
+    os.makedirs(GRID_DIRECTORY, exist_ok=True)
+
     if isinstance(grid, str):
         reference_grid_path = f"{GRID_DIRECTORY}/{Path(grid).with_suffix('.nc')}"
     else:
         reference_grid_path = grid
-    
+
     # Check wheter the reference grid dataset exists in atlite/resources/grids.
     # If not, download it from the grid data url.
     if not os.path.isfile(reference_grid_path):
         try:
-            logger.info(f"{model} Grid Data -> Downloading file: {reference_grid_url}")   
+            logger.info(f"{model} Grid Data -> Downloading file: {reference_grid_url}")
             # Download the zip file and save it temporarely
-            resp, reference_grid = _urlopen_with_retry(reference_grid_url, 
-                                                       tmpfp=reference_grid_path,
-                                                       engine='netcdf4')
-    
+            resp, reference_grid = _urlopen_with_retry(
+                reference_grid_url, tmpfp=reference_grid_path, engine="netcdf4"
+            )
+
         except Exception as err:
             logger.info(f"Could not get {reference_grid_url}: {err}")
-    
+
     return reference_grid_path
 
 
@@ -788,81 +858,90 @@ def _regrid_data(tmp_data_filepath, var, coords, area, grid, tmpdir):
     """
 
     # Data Logging of the ICON Grid
-    logger.info(f"ICON Grid Data -> Processing file: {dwd_grid_url}")   
-    
+    logger.info(f"ICON Grid Data -> Processing file: {dwd_grid_url}")
+
     # Load original dataset to later process attributes
-    ds_original = xr.load_dataset(tmp_data_filepath, engine='cfgrib')     
-    
+    ds_original = xr.load_dataset(tmp_data_filepath, engine="cfgrib")
+
     # Initialize Cdo constructor
     cdo = Cdo()
     # Set temporary direcotry for Cdo operations
-    cdo = Cdo(tempdir=tmpdir)   
-    
+    cdo = Cdo(tempdir=tmpdir)
+
     # Set the reference grid as downloaded in requirements
     reference_grid = f"{GRID_DIRECTORY}/{Path(dwd_icon_grid).with_suffix('.nc')}"
-    
+
     # Attach the reference grid data to the input dataset
-    ds = cdo.setgrid(reference_grid, 
-                     input=tmp_data_filepath,
-                     returnXDataset=True)   
-    
+    ds = cdo.setgrid(reference_grid, input=tmp_data_filepath, returnXDataset=True)
+
     # Create a temporary target grid file from target coordinates
-    target_grid_file = os.path.basename(f"target_grid_file_lonlat_x{area[1]}x{area[3]}_y{area[0]}x{area[2]}_g{grid[0]}x{grid[1]}")  
-    tmp_target_grid_file = os.path.basename(f"{target_grid_file}")   
+    target_grid_file = os.path.basename(
+        f"target_grid_file_lonlat_x{area[1]}x{area[3]}_y{area[0]}x{area[2]}_g{grid[0]}x{grid[1]}"
+    )
+    tmp_target_grid_file = os.path.basename(f"{target_grid_file}")
     tmp_target_grid_file_name = Path(tmp_target_grid_file + ".txt")
     tmp_target_grid_file_path = f"{tmpdir}/{tmp_target_grid_file_name}"
     if not os.path.isfile(tmp_target_grid_file_path):
         with open(tmp_target_grid_file_path, "w") as f:
             f.write("gridtype = lonlat\n")
-            f.write(f"xsize = {len(coords['x'])}\n")      # number of longitudes
-            f.write(f"ysize = {len(coords['y'])}\n")      # number of latitudes
-            f.write(f"xfirst = {area[1]}\n")     # first longitude
-            f.write(f"xinc = {grid[0]}\n")       # longitude increment
-            f.write(f"yfirst = {area[2]}\n")   # first latitude
-            f.write(f"yinc = {grid[1]}\n")       # latitude increment
-    
+            f.write(f"xsize = {len(coords['x'])}\n")  # number of longitudes
+            f.write(f"ysize = {len(coords['y'])}\n")  # number of latitudes
+            f.write(f"xfirst = {area[1]}\n")  # first longitude
+            f.write(f"xinc = {grid[0]}\n")  # longitude increment
+            f.write(f"yfirst = {area[2]}\n")  # first latitude
+            f.write(f"yinc = {grid[1]}\n")  # latitude increment
+
     # Create a temporary transformation weight file from the reference subgrid to the target grid.
-    tmp_weight_file = os.path.basename(f"weight_file_lonlat_x{area[1]}x{area[3]}_y{area[0]}x{area[2]}_g{grid[0]}x{grid[1]}")   
+    tmp_weight_file = os.path.basename(
+        f"weight_file_lonlat_x{area[1]}x{area[3]}_y{area[0]}x{area[2]}_g{grid[0]}x{grid[1]}"
+    )
     tmp_weight_file_name = Path(tmp_weight_file + ".nc")
     tmp_weight_file_path = f"{tmpdir}/{tmp_weight_file_name}"
 
     if not os.path.isfile(tmp_weight_file_path):
-        cdo.gennn(tmp_target_grid_file_path, 
-                  input=ds,
-                  output=tmp_weight_file_path)
-    
+        cdo.gennn(tmp_target_grid_file_path, input=ds, output=tmp_weight_file_path)
+
     # Regrid the data to the target grid (triangular to latlon grid)
-    ds = cdo.remap(f"{tmp_target_grid_file_path},{tmp_weight_file_path}",
-                   input=ds,
-                   returnXDataset=True)
+    ds = cdo.remap(
+        f"{tmp_target_grid_file_path},{tmp_weight_file_path}",
+        input=ds,
+        returnXDataset=True,
+    )
 
     # Drop 'bnds' and all associated variables from the dataset
-    if 'bnds' in ds.sizes:
-        ds = ds.drop_dims('bnds')
-                
-    if 'generalVerticalLayer' in list(ds_original.coords):
-        ds = ds.rename({'height': 'generalVerticalLayer'})
-        
-    if 'heightAboveGround' in list(ds_original.coords):
-        ds = ds.sel({'height': 2.0})
-        
-    if 'depthBelowLandLayer' in list(ds_original.coords):
-        ds = ds.isel({'depth': 0})
-        
+    if "bnds" in ds.sizes:
+        ds = ds.drop_dims("bnds")
+
+    if "generalVerticalLayer" in list(ds_original.coords):
+        ds = ds.rename({"height": "generalVerticalLayer"})
+
+    if "heightAboveGround" in list(ds_original.coords):
+        ds = ds.sel({"height": 2.0})
+
+    if "depthBelowLandLayer" in list(ds_original.coords):
+        ds = ds.isel({"depth": 0})
+
     # Rename variable dimensions accordingly
-    ds = ds.rename({'time': "valid_time", "lon": "longitude", "lat": "latitude"})
-        
+    ds = ds.rename({"time": "valid_time", "lon": "longitude", "lat": "latitude"})
+
     # Create a mapping of variable names
-    rename_mapping = {old_var: new_var for old_var, new_var in zip(ds.data_vars, ds_original.data_vars)}
-    
+    rename_mapping = {
+        old_var: new_var
+        for old_var, new_var in zip(ds.data_vars, ds_original.data_vars)
+    }
+
     # Rename all variables in ds based on ds_original
     ds = ds.rename(rename_mapping)
-        
+
     for data_var in list(ds_original.data_vars):
-        ds[data_var].attrs['GRIB_stepType'] = ds_original[data_var].attrs['GRIB_stepType'] 
-        ds[data_var].attrs['GRIB_missingValue'] = ds_original[data_var].attrs['GRIB_missingValue']
-        ds[data_var].attrs['GRIB_gridType'] = "latlon"
-    
+        ds[data_var].attrs["GRIB_stepType"] = ds_original[data_var].attrs[
+            "GRIB_stepType"
+        ]
+        ds[data_var].attrs["GRIB_missingValue"] = ds_original[data_var].attrs[
+            "GRIB_missingValue"
+        ]
+        ds[data_var].attrs["GRIB_gridType"] = "latlon"
+
     return ds
 
 
@@ -886,48 +965,52 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
 
     return ds
 
+
 def _interpolate_to_cutout_resolution(ds, retrieval_params, static):
-    
     # Interpolate the data spatially and temporally to the wanted cutout resolution
     ds_temps = []
     for idx, var in enumerate(ds.data_vars):
-        ds_temps.append(_interpolate(ds[var], static, 
-                                     retrieval_params['coords'], 
-                                     retrieval_params['grid'],
-                                     retrieval_params['interp_s'],
-                                     retrieval_params['interp_t'])
-                        )
-    
+        ds_temps.append(
+            _interpolate(
+                ds[var],
+                static,
+                retrieval_params["coords"],
+                retrieval_params["grid"],
+                retrieval_params["interp_s"],
+                retrieval_params["interp_t"],
+            )
+        )
+
     ds = xr.merge(ds_temps)
     ds = ds.assign_coords(lon=("x", ds.x.values), lat=("y", ds.y.values))
-    
-    ds = ds.unify_chunks().chunk(chunks=retrieval_params['chunks'] or {})
-    
+
+    ds = ds.unify_chunks().chunk(chunks=retrieval_params["chunks"] or {})
+
     return ds
 
 
 def get_data_wind(retrieval_params):
-    '''
+    """
     Retrieves and processes wind data from the DWD server.
-    
+
     The function collects wind speed and direction data at 100m above ground level,
     as well as surface roughness data. It then processes and interpolates this data
     to match the desired spatial and temporal resolution.
-    
+
     Parameters
     ----------
     retrieval_params : dict
         Dictionary containing parameters for data retrieval, including coordinates,
         grid resolution, and interpolation methods.
-    
+
     Returns
     -------
     xarray.Dataset
         Processed dataset containing wind speed, wind direction, and surface roughness.
-    '''
-    
+    """
+
     # Retrieve wind data from model levels 62 and 63
-    retrieval_params['field'] = ['model-level', 'model-level']
+    retrieval_params["field"] = ["model-level", "model-level"]
     ds = retrieve_data(
         url=dwd_url,
         variable=[
@@ -936,46 +1019,44 @@ def get_data_wind(retrieval_params):
         ],
         **retrieval_params,
     )
-    
+
     # Compute the mean wind values across the general vertical layers
-    ds["u"] = ds["u"].mean('generalVerticalLayer')
-    ds["v"] = ds["v"].mean('generalVerticalLayer')
-    ds = ds.drop_dims('generalVerticalLayer')  # Remove the dimension after averaging
+    ds["u"] = ds["u"].mean("generalVerticalLayer")
+    ds["v"] = ds["v"].mean("generalVerticalLayer")
+    ds = ds.drop_dims("generalVerticalLayer")  # Remove the dimension after averaging
     ds = ds.rename({"u": "u_100m", "v": "v_100m"})  # Rename variables for clarity
-    
-    
+
     # Retrieve surface roughness data from single-level data
-    retrieval_params['field'] = ['single-level']
+    retrieval_params["field"] = ["single-level"]
     ds2 = retrieve_data(
         url=dwd_url,
         variable=["z0"],  # Surface roughness length
         **retrieval_params,
     )
-        
+
     # Merge wind data with roughness data into a single dataset
     ds = xr.merge([ds, ds2])
-    
+
     # Rename roughness variable for clarity
     ds = ds.rename({"fsr": "roughness"})
     ds["roughness"] = ds["roughness"].assign_attrs(
-        units="m",
-        long_name="Surface roughness"
+        units="m", long_name="Surface roughness"
     )
-    
+
     # Compute wind speed at 100m using the Pythagorean theorem
     ds["wnd100m"] = np.sqrt(ds["u_100m"] ** 2 + ds["v_100m"] ** 2).assign_attrs(
         units="m/s", long_name="100 metre wind speed"
     )
-    
+
     # Compute wind direction azimuth (0 = North, π/2 = East, π = South, 3π/2 = West)
     azimuth = np.arctan2(ds["u_100m"], ds["v_100m"])
-    
+
     # Ensure wind azimuth is within the 0 to 2π range
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
-    
+
     # Remove intermediate wind component variables after processing
     ds = ds.drop_vars(["u_100m", "v_100m"])
-        
+
     return ds
 
 
@@ -988,7 +1069,12 @@ def sanitize_wind(ds):
 def get_data_influx(retrieval_params):
     """Get influx data for given retrieval parameters."""
     # Retrieve single-level data
-    retrieval_params['field'] = ['single-level', 'single-level', 'single-level', 'single-level']
+    retrieval_params["field"] = [
+        "single-level",
+        "single-level",
+        "single-level",
+        "single-level",
+    ]
     ds = retrieve_data(
         url=dwd_url,
         variable=[
@@ -1000,29 +1086,42 @@ def get_data_influx(retrieval_params):
         **retrieval_params,
     )
 
-    ds = ds.rename({"avg_tnswrf": "influx_toa", 
-                    "ASWDIR_S": "influx_direct", 
-                    "ASWDIFD_S": "influx_diffuse", 
-                    "al": "albedo"})
-    
-    ds["albedo"] = (ds["albedo"]/100).assign_attrs(units="(0 - 1)", long_name="Shortwave broadband albedo for diffuse radiation")
-    ds["influx_diffuse"] = ds["influx_diffuse"].assign_attrs(units="W m**-2", long_name="Surface down solar diffuse radiation")
-    ds["influx_direct"] = ds["influx_direct"].assign_attrs(units="W m**-2", long_name="Surface down solar direct radiation")
-    ds["influx_toa"] = ds["influx_toa"].assign_attrs(units="W m**-2", long_name="Net short-wave radiation flux at top of atmosphere (TOA)")
-            
+    ds = ds.rename(
+        {
+            "avg_tnswrf": "influx_toa",
+            "ASWDIR_S": "influx_direct",
+            "ASWDIFD_S": "influx_diffuse",
+            "al": "albedo",
+        }
+    )
+
+    ds["albedo"] = (ds["albedo"] / 100).assign_attrs(
+        units="(0 - 1)", long_name="Shortwave broadband albedo for diffuse radiation"
+    )
+    ds["influx_diffuse"] = ds["influx_diffuse"].assign_attrs(
+        units="W m**-2", long_name="Surface down solar diffuse radiation"
+    )
+    ds["influx_direct"] = ds["influx_direct"].assign_attrs(
+        units="W m**-2", long_name="Surface down solar direct radiation"
+    )
+    ds["influx_toa"] = ds["influx_toa"].assign_attrs(
+        units="W m**-2",
+        long_name="Net short-wave radiation flux at top of atmosphere (TOA)",
+    )
+
     # # Interpolate the data spatially and temporally to the wanted cutout resolution
     # ds_temps = []
     # for idx, var in enumerate(ds):
-    #     ds_temps.append(_interpolate(ds[var], False, 
-    #                                  retrieval_params['coords'], 
+    #     ds_temps.append(_interpolate(ds[var], False,
+    #                                  retrieval_params['coords'],
     #                                  retrieval_params['grid'],
     #                                  retrieval_params['interp_s'],
     #                                  retrieval_params['interp_t'])
     #                     )
-    
+
     # ds = xr.merge(ds_temps)
     # ds = ds.assign_coords(lon=("x", ds.x.values), lat=("y", ds.y.values))
-        
+
     # ICON-EU variables are mean values for previous hour, i.e. 13:01 to 14:00 are labelled as "14:00"
     # account by calculating the SolarPosition for the center of the interval for aggregation happens
     # see https://github.com/PyPSA/atlite/issues/158
@@ -1041,31 +1140,29 @@ def get_data_influx(retrieval_params):
             )
         )
         sp = SolarPosition(ds, time_shift=time_shift)
-        
+
     sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
     ds = xr.merge([ds, sp])
-    
+
     # # Interpolate the data spatially and temporally to the wanted cutout resolution
     # ds_temps = []
     # for idx, var in enumerate(ds):
-    #     ds_temps.append(_interpolate(ds[var], False, 
-    #                                  retrieval_params['coords'], 
+    #     ds_temps.append(_interpolate(ds[var], False,
+    #                                  retrieval_params['coords'],
     #                                  retrieval_params['grid'],
     #                                  retrieval_params['interp_s'],
     #                                  retrieval_params['interp_t'])
     #                     )
-    
+
     # ds = xr.merge(ds_temps)
     # ds = ds.assign_coords(lon=("x", ds.x.values), lat=("y", ds.y.values))
-    
+
     # ds = ds.unify_chunks.chunk(chunks=retrieval_params['chunks'] or {})
-    
-    
-    
+
     # ds = ds.drop_vars(['lon','lat'])
     # ds = ds.assign_coords(lon=("x", ds.x.values), lat=("y", ds.y.values))
-        
+
     return ds
 
 
@@ -1079,36 +1176,36 @@ def sanitize_influx(ds):
 def get_data_temperature(retrieval_params):
     """Get wind temperature for given retrieval parameters."""
     # Retrieve single-level data
-    retrieval_params['field'] = ['single-level','soil-level']
-    ds = retrieve_data(
-        url=dwd_url,
-        variable=["t_2m",
-                  "t_so/162"],
-        **retrieval_params
+    retrieval_params["field"] = ["single-level", "soil-level"]
+    ds = retrieve_data(url=dwd_url, variable=["t_2m", "t_so/162"], **retrieval_params)
+
+    ds = ds.rename({"t2m": "temperature", "T_SO": "soil temperature"})
+
+    ds["temperature"] = ds["temperature"].assign_attrs(
+        units="K", long_name="Temperature at 2m above ground"
+    )
+    ds["soil temperature"] = ds["soil temperature"].assign_attrs(
+        units="K", long_name="Soil temperature in 162 cm depth "
     )
 
-    ds = ds.rename({"t2m": "temperature",
-                    "T_SO": "soil temperature"})
-    
-    ds["temperature"] = ds["temperature"].assign_attrs(units="K", long_name="Temperature at 2m above ground")
-    ds["soil temperature"] = ds["soil temperature"].assign_attrs(units="K", long_name="Soil temperature in 162 cm depth ")
-    
     return ds
 
 
 def get_data_runoff(retrieval_params):
     """Get runoff data for given retrieval parameters."""
     # Retrieve single-level data
-    retrieval_params['field'] = ['single-level','single-level']
-    ds = retrieve_data(url=dwd_url,
-                       variable=["runoff_s", 
-                                 "runoff_g"], 
-                       **retrieval_params)
-        
-    ds["runoff"] = (ds["RUNOFF_S"] + ds["RUNOFF_G"]).assign_attrs(units="kg m**-2", long_name="Surface and Soil water runoff (accumulated since model start)")
+    retrieval_params["field"] = ["single-level", "single-level"]
+    ds = retrieve_data(
+        url=dwd_url, variable=["runoff_s", "runoff_g"], **retrieval_params
+    )
+
+    ds["runoff"] = (ds["RUNOFF_S"] + ds["RUNOFF_G"]).assign_attrs(
+        units="kg m**-2",
+        long_name="Surface and Soil water runoff (accumulated since model start)",
+    )
 
     ds = ds.drop_vars(["RUNOFF_S", "RUNOFF_G"])
-    
+
     return ds
 
 
@@ -1121,16 +1218,14 @@ def sanitize_runoff(ds):
 def get_data_height(retrieval_params):
     """Get height data for given retrieval parameters."""
     # Retrieve time-invariant data
-    retrieval_params['field'] = ['time-invariant']
-    ds = retrieve_data(url=dwd_url,
-                       variable=["hsurf"],
-                       **retrieval_params)
-    
+    retrieval_params["field"] = ["time-invariant"]
+    ds = retrieve_data(url=dwd_url, variable=["hsurf"], **retrieval_params)
+
     ds = ds.rename({"HSURF": "height"})
     ds["height"] = ds["height"].assign_attrs(
         units="m",
-        long_name="Geometric Height of the earths surface above sea level (2D field)"
-        )
+        long_name="Geometric Height of the earths surface above sea level (2D field)",
+    )
 
     return ds
 
@@ -1194,7 +1289,7 @@ def retrieval_times(coords, tz, static=False):
     return {
         "forecast": forecast_times,
         "offset": offset_times,
-        }
+    }
 
 
 def noisy_unlink(path):
@@ -1205,44 +1300,50 @@ def noisy_unlink(path):
     except PermissionError:
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
-    
-def retrieve_data(url, product, chunks=None, tmpdir=None, lock=None, **updates):
 
+def retrieve_data(url, product, chunks=None, tmpdir=None, lock=None, **updates):
     """
     Download data from the ICON-EU Model from the Open Data Server (ODS) of DWD.
-    
+
     If you want to manually downolad the data go to:
     https://opendata.dwd.de/weather/nwp/icon-eu/grib/
     """
-    
+
     request = {"product_type": "icon_eu", "format": "direct-download"}
     request.update(updates)
 
     ds_temps = []
-    #Download data for each variable individually and then merge all in one xarray
+    # Download data for each variable individually and then merge all in one xarray
     logger.info(f"open-dwd: Downloading variables\n\t{request['variable']}\n")
-    for idx, var in enumerate(request['variable']):
-        ds_temps.append(_mainDataCollector(url,
-                                  var, 
-                                  request['field'][idx],
-                                  request['forecast'], 
-                                  request['offset'],
-                                  request['coords'],
-                                  request['area'],
-                                  request['grid'],
-                                  tmpdir)
-                        ) 
-          
+    for idx, var in enumerate(request["variable"]):
+        ds_temps.append(
+            _mainDataCollector(
+                url,
+                var,
+                request["field"][idx],
+                request["forecast"],
+                request["offset"],
+                request["coords"],
+                request["area"],
+                request["grid"],
+                tmpdir,
+            )
+        )
+
     ds = xr.merge(ds_temps).chunk(chunks=chunks)
-    
+
     return ds
 
 
-def get_data(cutout, feature, tmpdir, 
-             lock=None,     
-             monthly_requests=False,
-             concurrent_requests=False, 
-             **creation_parameters):
+def get_data(
+    cutout,
+    feature,
+    tmpdir,
+    lock=None,
+    monthly_requests=False,
+    concurrent_requests=False,
+    **creation_parameters,
+):
     """
     Retrieve data from DWDs ICON-EU Model dataset (via ODS).
 
@@ -1274,7 +1375,7 @@ def get_data(cutout, feature, tmpdir,
     coords = cutout.coords
 
     sanitize = creation_parameters.get("sanitize", True)
-    
+
     retrieval_params = {
         "product": "dwd_icon_eu",
         "area": _area(coords),
@@ -1302,8 +1403,10 @@ def get_data(cutout, feature, tmpdir,
         return ds
 
     if feature in static_features:
-        return retrieve_once(retrieval_times(coords, cutout.data.tz, True), True).squeeze()
-    
+        return retrieve_once(
+            retrieval_times(coords, cutout.data.tz, True), True
+        ).squeeze()
+
     dataset = retrieve_once(retrieval_times(coords, cutout.data.tz, False), False)
 
     return dataset.sel(time=coords["time"])

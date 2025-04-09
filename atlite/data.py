@@ -41,9 +41,9 @@ def get_features(
     lock = SerializableLock()
     datasets = []
     get_data = datamodules[module].get_data
-    
-    if cutout.data.attrs['parallel']:
-        for feature in features: 
+
+    if cutout.data.attrs["parallel"]:
+        for feature in features:
             feature_data = delayed(get_data)(
                 cutout,
                 feature,
@@ -54,9 +54,9 @@ def get_features(
                 **parameters,
             )
             datasets.append(feature_data)
-        
+
     else:
-        for feature in features:   
+        for feature in features:
             feature_data = get_data(
                 cutout,
                 feature,
@@ -67,7 +67,7 @@ def get_features(
                 **parameters,
             )
             datasets.append(feature_data)
-        
+
     datasets = compute(*datasets)
 
     ds = xr.merge(datasets, compat="equals")
