@@ -565,14 +565,19 @@ def convert_wind(
     ds: xr.Dataset,
     turbine: TurbineConfig,
     interpolation_method: Literal["logarithmic", "power"],
+    windspeed_bias_correction: bool | xr.DataArray | None = None,
 ) -> xr.DataArray:
     """
     Convert wind speeds for turbine to wind energy generation.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
+    ds, from_height = windm.apply_windspeed_bias_correction(
+        ds, windspeed_bias_correction
+    )
+
     wnd_hub = windm.extrapolate_wind_speed(
-        ds, to_height=hub_height, method=interpolation_method
+        ds, to_height=hub_height, method=interpolation_method, from_height=from_height
     )
 
     def apply_power_curve(da):
@@ -598,6 +603,7 @@ def wind(
     smooth: bool | dict = False,
     add_cutout_windspeed: bool = False,
     interpolation_method: Literal["logarithmic", "power"] = "logarithmic",
+    windspeed_bias_correction: bool | xr.DataArray | None = None,
     **params,
 ) -> xr.DataArray:
     """
@@ -609,17 +615,20 @@ def wind(
     Parameters
     ----------
     turbine : str or dict
-        A turbineconfig dictionary with the keys 'hub_height' for the
-        hub height and 'V', 'POW' defining the power curve.
-        Alternatively a str refering to a local or remote turbine configuration
-        as accepted by atlite.resource.get_windturbineconfig(). Locally stored turbine
-        configurations can also be modified with this function. E.g. to setup a different hub
-        height from the one used in the yaml file,one would write
-                "turbine=get_windturbineconfig(“NREL_ReferenceTurbine_5MW_offshore”)|{“hub_height”:120}"
+        A turbineconfig dictionary with the keys 'hub_height' for the hub height
+        and 'V', 'POW' defining the power curve. Alternatively a str refering to
+        a local or remote turbine configuration as accepted by
+        atlite.resource.get_windturbineconfig(). Locally stored turbine
+        configurations can also be modified with this function. E.g. to setup a
+        different hub height from the one used in the yaml file, one would write
+        >>> turbine = (
+        >>>     get_windturbineconfig("NREL_ReferenceTurbine_5MW_offshore")
+        >>>     | {"hub_height":120}
+        >>> )
     smooth : bool or dict
-        If True smooth power curve with a gaussian kernel as
-        determined for the Danish wind fleet to Delta_v = 1.27 and
-        sigma = 2.29. A dict allows to tune these values.
+        If True smooth power curve with a gaussian kernel as determined for the
+        Danish wind fleet to Delta_v = 1.27 and sigma = 2.29. A dict allows to
+        tune these values.
     add_cutout_windspeed : bool
         If True and in case the power curve does not end with a zero, will add zero power
         output at the highest wind speed in the power curve. If False, a warning will be
@@ -628,6 +637,11 @@ def wind(
     interpolation_method : {"logarithmic", "power"}
         Law to interpolate wind speed to turbine hub height. Refer to
         :py:func:`atlite.wind.extrapolate_wind_speed`.
+    windspeed_bias_correction : DataArray, optional
+        Correction factor that is applied to the windspeed at
+        `windspeed_height`. Such a correction factor can be calculated using
+        :py:func:`atlite.wind.calculate_windspeed_bias_correction` with a raster
+        dataset of mean wind speeds.
 
     Note
     ----
@@ -649,6 +663,7 @@ def wind(
         convert_func=convert_wind,
         turbine=turbine,
         interpolation_method=interpolation_method,
+        windspeed_bias_correction=windspeed_bias_correction,
         **params,
     )
 
