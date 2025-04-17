@@ -21,6 +21,7 @@ import xarray as xr
 from dask import compute, delayed
 from dask.array import arctan2, sqrt
 from numpy import atleast_1d
+from pathlib import Path
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
@@ -331,6 +332,277 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
+def _convert_grib_to_netcdf(grib_file, netcdf_file):
+    """
+    Convert grib file to netcdf file.
+
+    The function does the same thing as the CDS backend does, but locally.
+    This is needed, as the grib file is the recommended download file type for CDS, with conversion to netcdf locally.
+    The routine is a reduced version based on the documentation here:
+    https://confluence.ecmwf.int/display/CKB/GRIB+to+netCDF+conversion+on+new+CDS+and+ADS+systems#GRIBtonetCDFconversiononnewCDSandADSsystems-jupiternotebook
+    """
+    logger.debug(f"Converting grib to netCDF file ({grib_file} to {netcdf_file}).")
+
+    ### Get the base name of the file to use in the output file names
+    fname, _ = os.path.splitext(os.path.basename(grib_file))
+
+    ### Configuration options for opening the GRIB files as an xarray object,
+    #  these depend on the dataset your are working with, this example is for ERA5 single-levels
+
+    # The open_datasets_kwargs is a list of dictionaries, which is used to open the grib file into a list of
+    #  consistent hypercube which are compatible netCDF. There are a number of common elements, so we define a
+    #  common set and use them in each open_dataset_kwargs dictionary.
+    common_kwargs = {
+        "time_dims": ["valid_time"],
+        "ignore_keys": ["edition"],
+        "extra_coords": {"expver": "valid_time"},
+        "coords_as_attributes": [
+            "surface",
+            "depthBelowLandLayer",
+            "entireAtmosphere",
+            "heightAboveGround",
+            "meanSea",
+        ],
+    }
+    open_datasets_kwargs: dict[str, Any] | list[dict[str, Any]] = [
+        # To open the atmospheric variables
+        {**common_kwargs, "filter_by_keys": {"stream": ["oper"]}, "tag": "oper"},
+        # To open the ocean-wave variables
+        {**common_kwargs, "filter_by_keys": {"stream": ["wave"]}, "tag": "wave"},
+    ]
+
+    ### if open_datasets_kwargs is a list, then we open the grib file as a list of datasets
+    datasets: dict[str, xr.Dataset] = {}
+    for i, open_ds_kwargs in enumerate(open_datasets_kwargs):
+        # The tag in the open_datasets_kwargs is used to name the dataset,
+        # and subsequently the NetCDF file, if no tag is provided the index number is used
+        ds_tag = open_ds_kwargs.pop("tag", i)
+        try:
+            ds = xr.open_dataset(grib_file, engine="cfgrib", **open_ds_kwargs)
+        except Exception:
+            ds = None
+        if ds:
+            datasets[f"{fname}_{ds_tag}"] = ds
+
+    ### Define a function to safely rename variables in an xarray dataset,
+    #  i.e. ensures that the new names are not already in the dataset
+    def safely_rename_variable(
+        dataset: xr.Dataset, rename: dict[str, str]
+    ) -> xr.Dataset:
+        """
+        Rename variables in an xarray dataset,
+        ensuring that the new names are not already in the dataset.
+        """
+        # Create a rename order based on variabels that exist in datasets, and if there is
+        # a conflict, the variable that is being renamed will be renamed first.
+        rename_order: list[str] = []
+        conflicts: list[str] = []
+        for old_name, new_name in rename.items():
+            if old_name not in dataset:
+                continue
+
+            if new_name in dataset:
+                rename_order.append(old_name)
+                conflicts.append(old_name)
+            else:
+                rename_order = [old_name] + rename_order
+
+        # Ensure that the conflicts are handled correctly
+        # Is this necessary? We can let xarray fail by itself in the next step.
+        for conflict in conflicts:
+            new_name = rename[conflict]
+            if (new_name not in rename_order) or (
+                rename_order.index(conflict) > rename_order.index(new_name)
+            ):
+                raise ValueError(
+                    f"Refusing to to rename to existing variable name: {conflict}->{new_name}"
+                )
+
+        for old_name in rename_order:
+            dataset = dataset.rename({old_name: rename[old_name]})
+
+        return dataset
+
+    # Define a function to safely expand dimensions in an xarray dataset,
+    #  ensures that the data for the new dimensions are in the dataset
+    def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
+        """
+        Expand dimensions in an xarray dataset, ensuring that the new dimensions are not already in the dataset
+        and that the order of dimensions is preserved.
+        """
+        dims_required = [
+            c for c in dataset.coords if c in expand_dims + list(dataset.dims)
+        ]
+        dims_missing = [
+            (c, i) for i, c in enumerate(dims_required) if c not in dataset.dims
+        ]
+        dataset = dataset.expand_dims(
+            dim=[x[0] for x in dims_missing], axis=[x[1] for x in dims_missing]
+        )
+        return dataset
+
+    logger.debug("Converting grib file")
+    out_datasets: dict[str, xr.Dataset] = {}
+    for out_fname_base, dataset in datasets.items():
+        dataset = safely_rename_variable(
+            dataset,
+            {
+                "time": "forecast_reference_time",
+                "step": "forecast_period",
+                "isobaricInhPa": "pressure_level",
+                "hybrid": "model_level",
+            },
+        )
+
+        dataset = safely_expand_dims(
+            dataset, ["valid_time", "pressure_level", "model_level"]
+        )
+
+        out_datasets[out_fname_base] = dataset
+
+    datasets = out_datasets
+
+    logger.debug("Writing converted netcdf file")
+    # Compression options to use for each datavar when writing to netcdf
+    compression_options = {
+        "zlib": True,
+        "complevel": 1,
+        "shuffle": True,
+    }
+    for out_fname_base, dataset in datasets.items():
+        dataset.to_netcdf(
+            netcdf_file,
+            engine="h5netcdf",
+            encoding={var: compression_options for var in dataset.data_vars},
+        )
+
+
+# # ---
+
+#     fname = Path(grib_file).stem
+
+#     # Configuration options for opening the GRIB files as an xarray object, in this case for ERA5 single-levels
+
+#     # Options for opening the grib files into a list of consistent hypercube which are compatible netCDF.
+#     # Common options
+#     common_kwargs = {
+#         "time_dims": ["valid_time"],
+#         "ignore_keys": ["edition"],
+#         "extra_coords": {"expver": "valid_time"},
+#         "coords_as_attributes": [
+#             "surface",
+#             "depthBelowLandLayer",
+#             "entireAtmosphere",
+#             "heightAboveGround",
+#             "meanSea",
+#         ],
+#         "engine": "cfgrib",
+#     }
+#     # Specific options
+#     open_datasets_kwargs = [
+#         # for atmospheric variables
+#         {**common_kwargs, "filter_by_keys": {"stream": ["oper"]}, "tag": "stream-oper"},
+#         # for ocean-wave variables
+#         {**common_kwargs, "filter_by_keys": {"stream": ["wave"]}, "tag": "stream-wave"},
+#     ]
+
+#     # Open the GRIB as a dictionary of xarray datasets
+#     logger.debug(f"Opening {grib_file} as xarray datasets for conversion.")
+
+#     # Define a function to safely rename variables in an xarray dataset,
+#     #  i.e. ensures that the new names are not already in the dataset
+#     def safely_rename_variable(
+#         dataset: xr.Dataset, rename: dict[str, str]
+#     ) -> xr.Dataset:
+#         """
+#         Rename variables in an xarray dataset,
+#         ensuring that the new names are not already in the dataset.
+#         """
+#         # Create a rename order based on variabels that exist in datasets, and if there is
+#         # a conflict, the variable that is being renamed will be renamed first.
+#         rename_order: list[str] = []
+#         conflicts: list[str] = []
+#         for old_name, new_name in rename.items():
+#             if old_name not in dataset:
+#                 continue
+
+#             if new_name in dataset:
+#                 rename_order.append(old_name)
+#                 conflicts.append(old_name)
+#             else:
+#                 rename_order = [old_name] + rename_order
+
+#         # Ensure that the conflicts are handled correctly
+#         # Is this necessary? We can let xarray fail by itself in the next step.
+#         for conflict in conflicts:
+#             new_name = rename[conflict]
+#             if (new_name not in rename_order) or (
+#                 rename_order.index(conflict) > rename_order.index(new_name)
+#             ):
+#                 raise ValueError(
+#                     f"Refusing to to rename to existing variable name: {conflict}->{new_name}"
+#                 )
+
+#         for old_name in rename_order:
+#             dataset = dataset.rename({old_name: rename[old_name]})
+
+#         return dataset
+
+#     # Define a function to safely expand dimensions in an xarray dataset,
+#     #  ensures that the data for the new dimensions are in the dataset
+#     def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
+#         """
+#         Expand dimensions in an xarray dataset, ensuring that the new dimensions are not already in the dataset
+#         and that the order of dimensions is preserved.
+#         """
+#         dims_required = [
+#             c for c in dataset.coords if c in expand_dims + list(dataset.dims)
+#         ]
+#         dims_missing = [
+#             (c, i) for i, c in enumerate(dims_required) if c not in dataset.dims
+#         ]
+#         dataset = dataset.expand_dims(
+#             dim=[x[0] for x in dims_missing], axis=[x[1] for x in dims_missing]
+#         )
+#         return dataset
+
+#     out_datasets: dict[str, xr.Dataset] = {}
+#     for out_fname_base, dataset in datasets.items():
+#         dataset = safely_rename_variable(
+#             dataset,
+#             {
+#                 "time": "forecast_reference_time",
+#                 "step": "forecast_period",
+#                 "isobaricInhPa": "pressure_level",
+#                 "hybrid": "model_level",
+#             },
+#         )
+
+#         dataset = safely_expand_dims(
+#             dataset, ["valid_time", "pressure_level", "model_level"]
+#         )
+#         out_datasets[out_fname_base] = dataset
+
+#     datasets = out_datasets
+
+#     # Write the datasets to NetCDF
+#     logger.debug(f"Writing netcdf version of grib file: {netcdf_file}")
+#     for out_fname_base, dataset in datasets.items():
+#         # Same compression options for all variables in the dataset
+#         dataset.to_netcdf(
+#             netcdf_file,
+#             engine="h5netcdf",
+#             encoding={
+#                     var: {
+#                         "zlib": True,
+#                         "complevel": 1,
+#                         "shuffle": True,
+#                     }
+#                     for var in dataset
+#                 },
+#         )
+
+
 def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     """
     Download data like ERA5 from the Climate Data Store (CDS).
@@ -338,12 +610,14 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     If you want to track the state of your request go to
     https://cds-beta.climate.copernicus.eu/requests?tab=all
     """
-    request = {"product_type": "reanalysis", "format": "netcdf"}
+    request = {"product_type": ["reanalysis"], "download_format": "unarchived"}
     request.update(updates)
 
     assert {"year", "month", "variable"}.issubset(request), (
         "Need to specify at least 'variable', 'year' and 'month'"
     )
+
+    logger.debug(f"Requesting {product} with API request: {request}")
 
     client = cdsapi.Client(
         info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
@@ -353,8 +627,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     if lock is None:
         lock = nullcontext()
 
+    suffix = f".{request['data_format']}"  # .netcdf or .grib
     with lock:
-        fd, target = mkstemp(suffix=".nc", dir=tmpdir)
+        fd, target = mkstemp(suffix=suffix, dir=tmpdir)
         os.close(fd)
 
         # Inform user about data being downloaded as "* variable (year-month)"
@@ -363,6 +638,12 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
         logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
         result.download(target)
+
+    # Convert from grib to netcdf locally, same conversion as in CDS backend
+    if request["data_format"] == "grib":
+        new_target = target.replace(suffix, ".nc")
+        _convert_grib_to_netcdf(target, new_target)
+        target = new_target
 
     ds = xr.open_dataset(target, chunks=chunks or {})
     if tmpdir is None:
@@ -377,6 +658,7 @@ def get_data(
     feature,
     tmpdir,
     lock=None,
+    data_format="grib",
     monthly_requests=False,
     concurrent_requests=False,
     **creation_parameters,
@@ -399,6 +681,9 @@ def get_data(
         If True, the data is requested on a monthly basis in ERA5. This is useful for
         large cutouts, where the data is requested in smaller chunks. The
         default is False
+    data_format : str, optional
+        The format of the data to be downloaded. Can be either 'grib' or 'netcdf',
+        'grib' highly recommended because CDSAPI limits request size for netcdf.
     concurrent_requests : bool, optional
         If True, the monthly data requests are posted concurrently.
         Only has an effect if `monthly_requests` is True.
@@ -420,9 +705,10 @@ def get_data(
         "product": "reanalysis-era5-single-levels",
         "area": _area(coords),
         "chunks": cutout.chunks,
-        "grid": [cutout.dx, cutout.dy],
+        "grid": f"{cutout.dx}/{cutout.dy}",
         "tmpdir": tmpdir,
         "lock": lock,
+        "data_format": data_format,
     }
 
     func = globals().get(f"get_data_{feature}")
