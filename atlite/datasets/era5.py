@@ -364,13 +364,11 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
     }
 
     # Open grib file as dataset
-    datasets: dict[str, xr.Dataset] = {
-        f"{fname}": xr.open_dataset(
-            grib_file,
-            engine="cfgrib",
-            **open_datasets_kwargs,
-        )
-    }
+    ds = xr.open_dataset(
+        grib_file,
+        engine="cfgrib",
+        **open_datasets_kwargs,
+    )
 
     ### Define a function to safely rename variables in an xarray dataset,
     #  i.e. ensures that the new names are not already in the dataset
@@ -429,26 +427,19 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
         )
         return dataset
 
-    logger.debug("Converting grib file")
-    out_datasets: dict[str, xr.Dataset] = {}
-    for out_fname_base, dataset in datasets.items():
-        dataset = safely_rename_variable(
-            dataset,
-            {
-                "time": "forecast_reference_time",
-                "step": "forecast_period",
-                "isobaricInhPa": "pressure_level",
-                "hybrid": "model_level",
-            },
-        )
+    logger.debug("Converting grib file to netcdf format")
+    # Variables and dimensions to rename if they exist in the dataset
+    rename_vars = {
+        "time": "forecast_reference_time",
+        "step": "forecast_period",
+        "isobaricInhPa": "pressure_level",
+        "hybrid": "model_level",
+    }
+    rename_vars = {k: v for k, v in rename_vars.items() if k in ds}
 
-        dataset = safely_expand_dims(
-            dataset, ["valid_time", "pressure_level", "model_level"]
-        )
+    ds = safely_rename_variable(ds, rename_vars)
 
-        out_datasets[out_fname_base] = dataset
-
-    datasets = out_datasets
+    ds = safely_expand_dims(ds, ["valid_time", "pressure_level", "model_level"])
 
     logger.debug(f"Writing converted netcdf file: {netcdf_file}")
     # Compression options to use for each datavar when writing to netcdf
@@ -457,12 +448,12 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
         "complevel": 1,
         "shuffle": True,
     }
-    for out_fname_base, dataset in datasets.items():
-        dataset.to_netcdf(
-            netcdf_file,
-            engine="h5netcdf",
-            encoding={var: compression_options for var in dataset.data_vars},
-        )
+    ds.to_netcdf(
+        netcdf_file,
+        engine="h5netcdf",
+        encoding={var: compression_options for var in ds.data_vars},
+    )
+
 
 def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     """
