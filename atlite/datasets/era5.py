@@ -12,6 +12,7 @@ import logging
 import os
 import warnings
 import weakref
+from pathlib import Path
 from tempfile import mkstemp
 
 import cdsapi
@@ -21,7 +22,6 @@ import xarray as xr
 from dask import compute, delayed
 from dask.array import arctan2, sqrt
 from numpy import atleast_1d
-from pathlib import Path
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
