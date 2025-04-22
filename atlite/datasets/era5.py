@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from dask import compute, delayed
+from dask.utils import SerializableLock
 from dask.array import arctan2, sqrt
 from numpy import atleast_1d
 
@@ -332,14 +333,30 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
-def _convert_grib_to_netcdf(grib_file, netcdf_file):
+def _convert_grib_to_netcdf(grib_file: str | Path, netcdf_file: str | Path) -> None:
     """
-    Convert grib file to netcdf file.
+    Convert grib file of ERA5 data from the CDS to netcdf file.
 
     The function does the same thing as the CDS backend does, but locally.
     This is needed, as the grib file is the recommended download file type for CDS, with conversion to netcdf locally.
     The routine is a reduced version based on the documentation here:
     https://confluence.ecmwf.int/display/CKB/GRIB+to+netCDF+conversion+on+new+CDS+and+ADS+systems#GRIBtonetCDFconversiononnewCDSandADSsystems-jupiternotebook
+
+    Parameters
+    ----------
+    grib_file : str | Path
+        Path to the grib file to be converted.
+    netcdf_file : str | Path
+        Path to the netcdf file to be created.
+
+    Returns
+    -------
+    None
+        The function does not return anything, but writes a netcdf file at the given path.
+
+    Examples
+    --------
+    >>> _convert_grib_to_netcdf("path/to/input.grib", "path/to/output.nc")
     """
     logger.debug(f"Converting grib to netCDF file: {grib_file}")
     fname = Path(grib_file).stem
@@ -411,12 +428,47 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
     )
 
 
-def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
+def retrieve_data(product: str, chunks: dict[str, int] | None = None, tmpdir: str | Path | None = None, lock: SerializableLock | None = None, **updates) -> xr.Dataset:
     """
     Download data like ERA5 from the Climate Data Store (CDS).
 
     If you want to track the state of your request go to
     https://cds-beta.climate.copernicus.eu/requests?tab=all
+
+    Parameters
+    ----------
+    product : str
+        Product name, e.g. 'reanalysis-era5-single-levels'.
+    chunks : dict, optional
+        Chunking for xarray dataset, e.g. {'time': 1, 'x': 100, 'y': 100}.
+        Default is None.
+    tmpdir : str, optional
+        Directory where the downloaded data is temporarily stored.
+        Default is None, which uses the system's temporary directory.
+    lock : dask.utils.SerializableLock, optional
+        Lock for thread-safe file writing. Default is None.
+    updates : dict
+        Additional parameters for the request.
+        Must include 'year', 'month', and 'variable'.
+        Can include e.g. 'data_format'.
+    
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with the retrieved variables.
+
+    Examples
+    --------
+    >>> ds = retrieve_data(
+    ...     product='reanalysis-era5-single-levels',
+    ...     chunks={'time': 1, 'x': 100, 'y': 100},
+    ...     tmpdir='/tmp',
+    ...     lock=None,
+    ...     year='2020',
+    ...     month='01',
+    ...     variable=['10m_u_component_of_wind', '10m_v_component_of_wind'],
+    ...     data_format='netcdf'
+    ... )
     """
     request = {"product_type": ["reanalysis"], "download_format": "unarchived"}
     request.update(updates)
