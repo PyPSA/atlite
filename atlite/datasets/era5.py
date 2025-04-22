@@ -344,9 +344,7 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
     logger.debug(f"Converting grib to netCDF file: {grib_file}")
     fname = Path(grib_file).stem
 
-    ### Configuration options for opening the GRIB files as an xarray object,
-    #  these depend on the dataset your are working with, this example is for ERA5 single-levels
-
+    # Open grib file as dataset
     # Options to open different datasets into a datasets of consistent hypercubes which are compatible netCDF
     # There are options that might be relevant for e.g. for wave model data, that have been removed here
     # to keep the code cleaner and shorter
@@ -363,15 +361,12 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
         ],
     }
 
-    # Open grib file as dataset
     ds = xr.open_dataset(
         grib_file,
         engine="cfgrib",
         **open_datasets_kwargs,
     )
 
-    # Define a function to safely expand dimensions in an xarray dataset,
-    #  ensures that the data for the new dimensions are in the dataset
     def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
         """
         Expand dimensions in an xarray dataset, ensuring that the new dimensions are not already in the dataset
@@ -397,13 +392,13 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
         "hybrid": "model_level",
     }
     rename_vars = {k: v for k, v in rename_vars.items() if k in ds}
-
     ds = ds.rename(rename_vars)
 
+    # safely expand dimensions in an xarray dataset to ensure that data for the new dimensions are in the dataset
     ds = safely_expand_dims(ds, ["valid_time", "pressure_level", "model_level"])
 
     logger.debug(f"Writing converted netcdf file: {netcdf_file}")
-    # Compression options to use for each datavar when writing to netcdf
+    # Compression options to use, use a low compression level here for faster writing as the final cutout will be compressed later
     compression_options = {
         "zlib": True,
         "complevel": 1,
