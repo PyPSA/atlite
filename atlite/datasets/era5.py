@@ -20,8 +20,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from dask import compute, delayed
-from dask.utils import SerializableLock
 from dask.array import arctan2, sqrt
+from dask.utils import SerializableLock
 from numpy import atleast_1d
 
 from atlite.gis import maybe_swap_spatial_dims
@@ -428,7 +428,13 @@ def _convert_grib_to_netcdf(grib_file: str | Path, netcdf_file: str | Path) -> N
     )
 
 
-def retrieve_data(product: str, chunks: dict[str, int] | None = None, tmpdir: str | Path | None = None, lock: SerializableLock | None = None, **updates) -> xr.Dataset:
+def retrieve_data(
+    product: str,
+    chunks: dict[str, int] | None = None,
+    tmpdir: str | Path | None = None,
+    lock: SerializableLock | None = None,
+    **updates,
+) -> xr.Dataset:
     """
     Download data like ERA5 from the Climate Data Store (CDS).
 
@@ -451,7 +457,7 @@ def retrieve_data(product: str, chunks: dict[str, int] | None = None, tmpdir: st
         Additional parameters for the request.
         Must include 'year', 'month', and 'variable'.
         Can include e.g. 'data_format'.
-    
+
     Returns
     -------
     xarray.Dataset
