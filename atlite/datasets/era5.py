@@ -341,18 +341,16 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
     The routine is a reduced version based on the documentation here:
     https://confluence.ecmwf.int/display/CKB/GRIB+to+netCDF+conversion+on+new+CDS+and+ADS+systems#GRIBtonetCDFconversiononnewCDSandADSsystems-jupiternotebook
     """
-    logger.debug(f"Converting grib to netCDF file ({grib_file} to {netcdf_file}).")
-
-    ### Get the base name of the file to use in the output file names
-    fname, _ = os.path.splitext(os.path.basename(grib_file))
+    logger.debug(f"Converting grib to netCDF file: {grib_file}")
+    fname = Path(grib_file).stem
 
     ### Configuration options for opening the GRIB files as an xarray object,
     #  these depend on the dataset your are working with, this example is for ERA5 single-levels
 
-    # The open_datasets_kwargs is a list of dictionaries, which is used to open the grib file into a list of
-    #  consistent hypercube which are compatible netCDF. There are a number of common elements, so we define a
-    #  common set and use them in each open_dataset_kwargs dictionary.
-    common_kwargs = {
+    # Options to open different datasets into a datasets of consistent hypercubes which are compatible netCDF
+    # There are options that might be relevant for e.g. for wave model data, that have been removed here
+    # to keep the code cleaner and shorter
+    open_datasets_kwargs = {
         "time_dims": ["valid_time"],
         "ignore_keys": ["edition"],
         "extra_coords": {"expver": "valid_time"},
@@ -364,25 +362,15 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
             "meanSea",
         ],
     }
-    open_datasets_kwargs: dict[str, Any] | list[dict[str, Any]] = [
-        # To open the atmospheric variables
-        {**common_kwargs, "filter_by_keys": {"stream": ["oper"]}, "tag": "oper"},
-        # To open the ocean-wave variables
-        {**common_kwargs, "filter_by_keys": {"stream": ["wave"]}, "tag": "wave"},
-    ]
 
-    ### if open_datasets_kwargs is a list, then we open the grib file as a list of datasets
-    datasets: dict[str, xr.Dataset] = {}
-    for i, open_ds_kwargs in enumerate(open_datasets_kwargs):
-        # The tag in the open_datasets_kwargs is used to name the dataset,
-        # and subsequently the NetCDF file, if no tag is provided the index number is used
-        ds_tag = open_ds_kwargs.pop("tag", i)
-        try:
-            ds = xr.open_dataset(grib_file, engine="cfgrib", **open_ds_kwargs)
-        except Exception:
-            ds = None
-        if ds:
-            datasets[f"{fname}_{ds_tag}"] = ds
+    # Open grib file as dataset
+    datasets: dict[str, xr.Dataset] = {
+        f"{fname}": xr.open_dataset(
+            grib_file,
+            engine="cfgrib",
+            **open_datasets_kwargs,
+        )
+    }
 
     ### Define a function to safely rename variables in an xarray dataset,
     #  i.e. ensures that the new names are not already in the dataset
@@ -462,7 +450,7 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
 
     datasets = out_datasets
 
-    logger.debug("Writing converted netcdf file")
+    logger.debug(f"Writing converted netcdf file: {netcdf_file}")
     # Compression options to use for each datavar when writing to netcdf
     compression_options = {
         "zlib": True,
@@ -475,133 +463,6 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
             engine="h5netcdf",
             encoding={var: compression_options for var in dataset.data_vars},
         )
-
-
-# # ---
-
-#     fname = Path(grib_file).stem
-
-#     # Configuration options for opening the GRIB files as an xarray object, in this case for ERA5 single-levels
-
-#     # Options for opening the grib files into a list of consistent hypercube which are compatible netCDF.
-#     # Common options
-#     common_kwargs = {
-#         "time_dims": ["valid_time"],
-#         "ignore_keys": ["edition"],
-#         "extra_coords": {"expver": "valid_time"},
-#         "coords_as_attributes": [
-#             "surface",
-#             "depthBelowLandLayer",
-#             "entireAtmosphere",
-#             "heightAboveGround",
-#             "meanSea",
-#         ],
-#         "engine": "cfgrib",
-#     }
-#     # Specific options
-#     open_datasets_kwargs = [
-#         # for atmospheric variables
-#         {**common_kwargs, "filter_by_keys": {"stream": ["oper"]}, "tag": "stream-oper"},
-#         # for ocean-wave variables
-#         {**common_kwargs, "filter_by_keys": {"stream": ["wave"]}, "tag": "stream-wave"},
-#     ]
-
-#     # Open the GRIB as a dictionary of xarray datasets
-#     logger.debug(f"Opening {grib_file} as xarray datasets for conversion.")
-
-#     # Define a function to safely rename variables in an xarray dataset,
-#     #  i.e. ensures that the new names are not already in the dataset
-#     def safely_rename_variable(
-#         dataset: xr.Dataset, rename: dict[str, str]
-#     ) -> xr.Dataset:
-#         """
-#         Rename variables in an xarray dataset,
-#         ensuring that the new names are not already in the dataset.
-#         """
-#         # Create a rename order based on variabels that exist in datasets, and if there is
-#         # a conflict, the variable that is being renamed will be renamed first.
-#         rename_order: list[str] = []
-#         conflicts: list[str] = []
-#         for old_name, new_name in rename.items():
-#             if old_name not in dataset:
-#                 continue
-
-#             if new_name in dataset:
-#                 rename_order.append(old_name)
-#                 conflicts.append(old_name)
-#             else:
-#                 rename_order = [old_name] + rename_order
-
-#         # Ensure that the conflicts are handled correctly
-#         # Is this necessary? We can let xarray fail by itself in the next step.
-#         for conflict in conflicts:
-#             new_name = rename[conflict]
-#             if (new_name not in rename_order) or (
-#                 rename_order.index(conflict) > rename_order.index(new_name)
-#             ):
-#                 raise ValueError(
-#                     f"Refusing to to rename to existing variable name: {conflict}->{new_name}"
-#                 )
-
-#         for old_name in rename_order:
-#             dataset = dataset.rename({old_name: rename[old_name]})
-
-#         return dataset
-
-#     # Define a function to safely expand dimensions in an xarray dataset,
-#     #  ensures that the data for the new dimensions are in the dataset
-#     def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
-#         """
-#         Expand dimensions in an xarray dataset, ensuring that the new dimensions are not already in the dataset
-#         and that the order of dimensions is preserved.
-#         """
-#         dims_required = [
-#             c for c in dataset.coords if c in expand_dims + list(dataset.dims)
-#         ]
-#         dims_missing = [
-#             (c, i) for i, c in enumerate(dims_required) if c not in dataset.dims
-#         ]
-#         dataset = dataset.expand_dims(
-#             dim=[x[0] for x in dims_missing], axis=[x[1] for x in dims_missing]
-#         )
-#         return dataset
-
-#     out_datasets: dict[str, xr.Dataset] = {}
-#     for out_fname_base, dataset in datasets.items():
-#         dataset = safely_rename_variable(
-#             dataset,
-#             {
-#                 "time": "forecast_reference_time",
-#                 "step": "forecast_period",
-#                 "isobaricInhPa": "pressure_level",
-#                 "hybrid": "model_level",
-#             },
-#         )
-
-#         dataset = safely_expand_dims(
-#             dataset, ["valid_time", "pressure_level", "model_level"]
-#         )
-#         out_datasets[out_fname_base] = dataset
-
-#     datasets = out_datasets
-
-#     # Write the datasets to NetCDF
-#     logger.debug(f"Writing netcdf version of grib file: {netcdf_file}")
-#     for out_fname_base, dataset in datasets.items():
-#         # Same compression options for all variables in the dataset
-#         dataset.to_netcdf(
-#             netcdf_file,
-#             engine="h5netcdf",
-#             encoding={
-#                     var: {
-#                         "zlib": True,
-#                         "complevel": 1,
-#                         "shuffle": True,
-#                     }
-#                     for var in dataset
-#                 },
-#         )
-
 
 def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     """
