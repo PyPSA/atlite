@@ -370,45 +370,6 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
         **open_datasets_kwargs,
     )
 
-    ### Define a function to safely rename variables in an xarray dataset,
-    #  i.e. ensures that the new names are not already in the dataset
-    def safely_rename_variable(
-        dataset: xr.Dataset, rename: dict[str, str]
-    ) -> xr.Dataset:
-        """
-        Rename variables in an xarray dataset,
-        ensuring that the new names are not already in the dataset.
-        """
-        # Create a rename order based on variabels that exist in datasets, and if there is
-        # a conflict, the variable that is being renamed will be renamed first.
-        rename_order: list[str] = []
-        conflicts: list[str] = []
-        for old_name, new_name in rename.items():
-            if old_name not in dataset:
-                continue
-
-            if new_name in dataset:
-                rename_order.append(old_name)
-                conflicts.append(old_name)
-            else:
-                rename_order = [old_name] + rename_order
-
-        # Ensure that the conflicts are handled correctly
-        # Is this necessary? We can let xarray fail by itself in the next step.
-        for conflict in conflicts:
-            new_name = rename[conflict]
-            if (new_name not in rename_order) or (
-                rename_order.index(conflict) > rename_order.index(new_name)
-            ):
-                raise ValueError(
-                    f"Refusing to to rename to existing variable name: {conflict}->{new_name}"
-                )
-
-        for old_name in rename_order:
-            dataset = dataset.rename({old_name: rename[old_name]})
-
-        return dataset
-
     # Define a function to safely expand dimensions in an xarray dataset,
     #  ensures that the data for the new dimensions are in the dataset
     def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
@@ -437,7 +398,7 @@ def _convert_grib_to_netcdf(grib_file, netcdf_file):
     }
     rename_vars = {k: v for k, v in rename_vars.items() if k in ds}
 
-    ds = safely_rename_variable(ds, rename_vars)
+    ds = ds.rename(rename_vars)
 
     ds = safely_expand_dims(ds, ["valid_time", "pressure_level", "model_level"])
 
