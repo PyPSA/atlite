@@ -333,7 +333,20 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
-def _convert_grib_to_netcdf(grib_file: str | Path, netcdf_file: str | Path) -> None:
+def sanitize_chunks(chunks, **dim_mapping):
+    dim_mapping = dict(time="valid_time", x="longitude", y="latitude") | dim_mapping
+    if not isinstance(chunks, dict):
+        # preserve "auto" or None
+        return chunks
+
+    return {
+        extname: chunks[intname]
+        for intname, extname in dim_mapping.items()
+        if intname in chunks
+    }
+
+
+def open_with_grib_conventions(grib_file: str | Path, chunks=None) -> xr.Dataset:
     """
     Convert grib file of ERA5 data from the CDS to netcdf file.
 
@@ -346,42 +359,32 @@ def _convert_grib_to_netcdf(grib_file: str | Path, netcdf_file: str | Path) -> N
     ----------
     grib_file : str | Path
         Path to the grib file to be converted.
-    netcdf_file : str | Path
-        Path to the netcdf file to be created.
+    chunks
+        Chunks
 
     Returns
     -------
-    None
-        The function does not return anything, but writes a netcdf file at the given path.
-
-    Examples
-    --------
-    >>> _convert_grib_to_netcdf("path/to/input.grib", "path/to/output.nc")
+    xr.Dataset
     """
-    logger.debug(f"Converting grib to netCDF file: {grib_file}")
-    fname = Path(grib_file).stem
-
+    #
     # Open grib file as dataset
     # Options to open different datasets into a datasets of consistent hypercubes which are compatible netCDF
     # There are options that might be relevant for e.g. for wave model data, that have been removed here
     # to keep the code cleaner and shorter
-    open_datasets_kwargs = {
-        "time_dims": ["valid_time"],
-        "ignore_keys": ["edition"],
-        "extra_coords": {"expver": "valid_time"},
-        "coords_as_attributes": [
+    ds = xr.open_dataset(
+        grib_file,
+        engine="cfgrib",
+        time_dims=["valid_time"],
+        ignore_keys=["edition"],
+        # extra_coords={"expver": "valid_time"},
+        coords_as_attributes=[
             "surface",
             "depthBelowLandLayer",
             "entireAtmosphere",
             "heightAboveGround",
             "meanSea",
         ],
-    }
-
-    ds = xr.open_dataset(
-        grib_file,
-        engine="cfgrib",
-        **open_datasets_kwargs,
+        chunks=sanitize_chunks(chunks),
     )
 
     def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
@@ -414,18 +417,7 @@ def _convert_grib_to_netcdf(grib_file: str | Path, netcdf_file: str | Path) -> N
     # safely expand dimensions in an xarray dataset to ensure that data for the new dimensions are in the dataset
     ds = safely_expand_dims(ds, ["valid_time", "pressure_level", "model_level"])
 
-    logger.debug(f"Writing converted netcdf file: {netcdf_file}")
-    # Compression options to use, use a low compression level here for faster writing as the final cutout will be compressed later
-    compression_options = {
-        "zlib": True,
-        "complevel": 1,
-        "shuffle": True,
-    }
-    ds.to_netcdf(
-        netcdf_file,
-        engine="h5netcdf",
-        encoding={var: compression_options for var in ds.data_vars},
-    )
+    return ds
 
 
 def retrieve_data(
@@ -507,11 +499,9 @@ def retrieve_data(
 
     # Convert from grib to netcdf locally, same conversion as in CDS backend
     if request["data_format"] == "grib":
-        new_target = target.replace(suffix, ".nc")
-        _convert_grib_to_netcdf(target, new_target)
-        target = new_target
-
-    ds = xr.open_dataset(target, chunks=chunks or {})
+        ds = open_with_grib_conventions(target, chunks=chunks)
+    else:
+        ds = xr.open_dataset(target, chunks=sanitize_chunks(chunks))
     if tmpdir is None:
         logger.debug(f"Adding finalizer for {target}")
         weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
