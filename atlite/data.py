@@ -60,9 +60,15 @@ def get_features(
 
     ds = xr.merge(datasets, compat="equals")
     for v in ds:
-        ds[v].attrs["module"] = module
+        da = ds[v]
+        da.attrs["module"] = module
         fd = datamodules[module].features.items()
-        ds[v].attrs["feature"] = [k for k, l in fd if v in l].pop()
+        da.attrs["feature"] = [k for k, l in fd if v in l].pop()
+
+        if da.chunks is not None:
+            chunksizes = [c[0] for c in da.chunks]
+            da.encoding["chunksizes"] = chunksizes
+
     return ds
 
 
