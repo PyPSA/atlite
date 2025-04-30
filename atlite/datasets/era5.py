@@ -88,9 +88,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     Optionally (add_lon_lat, default:True) preserves latitude and
     longitude columns as 'lat' and 'lon'.
     """
-    ds = ds.rename({"longitude": "x", "latitude": "y"})
-    if "valid_time" in ds.sizes:
-        ds = ds.rename({"valid_time": "time"}).unify_chunks()
+    ds = ds.rename({"longitude": "x", "latitude": "y", "valid_time": "time"})
     # round coords since cds coords are float32 which would lead to mismatches
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
