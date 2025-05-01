@@ -331,6 +331,11 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
+def add_finalizer(ds: xr.Dataset, target: str | Path):
+    logger.debug(f"Adding finalizer for {target}")
+    weakref.finalize(ds._close.__self__.ds, noisy_unlink, target)
+
+
 def sanitize_chunks(chunks, **dim_mapping):
     dim_mapping = dict(time="valid_time", x="longitude", y="latitude") | dim_mapping
     if not isinstance(chunks, dict):
@@ -344,7 +349,9 @@ def sanitize_chunks(chunks, **dim_mapping):
     }
 
 
-def open_with_grib_conventions(grib_file: str | Path, chunks=None) -> xr.Dataset:
+def open_with_grib_conventions(
+    grib_file: str | Path, chunks=None, tmpdir: str | Path | None = None
+) -> xr.Dataset:
     """
     Convert grib file of ERA5 data from the CDS to netcdf file.
 
@@ -359,6 +366,8 @@ def open_with_grib_conventions(grib_file: str | Path, chunks=None) -> xr.Dataset
         Path to the grib file to be converted.
     chunks
         Chunks
+    tmpdir : Path, optional
+        If None adds a finalizer to the dataset object
 
     Returns
     -------
@@ -384,6 +393,8 @@ def open_with_grib_conventions(grib_file: str | Path, chunks=None) -> xr.Dataset
         ],
         chunks=sanitize_chunks(chunks),
     )
+    if tmpdir is None:
+        add_finalizer(ds, grib_file)
 
     def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
         """
@@ -497,12 +508,11 @@ def retrieve_data(
 
     # Convert from grib to netcdf locally, same conversion as in CDS backend
     if request["data_format"] == "grib":
-        ds = open_with_grib_conventions(target, chunks=chunks)
+        ds = open_with_grib_conventions(target, chunks=chunks, tmpdir=tmpdir)
     else:
         ds = xr.open_dataset(target, chunks=sanitize_chunks(chunks))
-    if tmpdir is None:
-        logger.debug(f"Adding finalizer for {target}")
-        weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
+        if tmpdir is None:
+            add_finalizer(target)
 
     return ds
 
