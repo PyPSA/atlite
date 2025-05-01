@@ -16,8 +16,6 @@ import numpy as np
 import rasterio as rio
 import xarray as xr
 
-from . import datasets
-
 logger = logging.getLogger(__name__)
 
 
@@ -185,6 +183,8 @@ def calculate_windspeed_bias_correction(
         )
 
     if data_average is None:
+        from . import datasets
+
         for module in np.atleast_1d(cutout.module):
             retrieve_windspeed_average = getattr(
                 getattr(datasets, module), "retrieve_windspeed_average"

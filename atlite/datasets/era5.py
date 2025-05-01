@@ -27,6 +27,7 @@ from numpy import atleast_1d
 
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
+from atlite.wind import calculate_windspeed_bias_correction
 
 # Null context for running a with statements wihout any context
 try:
@@ -48,7 +49,7 @@ crs = 4326
 features = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
-    "wind_bias_correction": ["wnd_bias_correction"],
+    "windspeed_bias_correction": ["wnd_bias_correction"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -469,7 +470,7 @@ def retrieve_data(
     Examples
     --------
     >>> ds = retrieve_data(
-    ...     product='reanalysis-era5-single-levels',
+    ...     dataset='reanalysis-era5-single-levels',
     ...     chunks={'time': 1, 'x': 100, 'y': 100},
     ...     tmpdir='/tmp',
     ...     lock=None,
@@ -520,7 +521,12 @@ def retrieve_data(
 
 
 def retrieve_windspeed_average(
-    cutout, height, first_year=1980, last_year=None, **retrieval_params
+    cutout,
+    height,
+    first_year=1980,
+    last_year=None,
+    data_format="grib",
+    **retrieval_params,
 ):
     """
     Retrieve average windspeed from `first_year` to `last_year`
@@ -558,13 +564,14 @@ def retrieve_windspeed_average(
         year=[str(y) for y in range(first_year, last_year + 1)],
         month=[f"{m:02}" for m in range(1, 12 + 1)],
         time=["00:00"],
+        data_format=data_format,
         **retrieval_params,
     )
     ds = _rename_and_clean_coords(ds)
 
     return (
         sqrt(ds[f"u{height}"] ** 2 + ds[f"v{height}"] ** 2)
-        .mean("date")
+        .mean("time")
         .assign_attrs(
             units=ds[f"u{height}"].attrs["units"],
             long_name=f"{height} metre wind speed as long run average",
@@ -577,9 +584,8 @@ def get_data_windspeed_bias_correction(cutout, retrieval_params, creation_parame
     Get windspeed bias correction
     """
     real_average_path = creation_parameters["windspeed_real_average_path"]
-    height = creation_parameters["windspeed_height"]
+    height = creation_parameters.get("windspeed_height", 100)
     data_average = retrieve_windspeed_average(cutout, height, **retrieval_params)
-    from atlite.wind import calculate_windspeed_bias_correction
 
     bias_correction = calculate_windspeed_bias_correction(
         cutout, real_average_path, height=height, data_average=data_average
@@ -664,7 +670,7 @@ def get_data(
     elif feature == "windspeed_bias_correction":
         return func(
             cutout,
-            retrieval_params=dict(tmpdir=tmpdir, lock=lock),
+            retrieval_params=dict(tmpdir=tmpdir, lock=lock, data_format=data_format),
             creation_parameters=creation_parameters,
         )
 

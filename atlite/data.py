@@ -31,6 +31,7 @@ def get_features(
     tmpdir=None,
     monthly_requests=False,
     concurrent_requests=False,
+    **parameter_updates,
 ):
     """
     Load the feature data for a given module.
@@ -38,7 +39,7 @@ def get_features(
     This get the data for a set of features from a module. All modules
     in `atlite.datasets` are allowed.
     """
-    parameters = cutout.data.attrs
+    parameters = cutout.data.attrs | parameter_updates
     lock = SerializableLock()
     datasets = []
     get_data = datamodules[module].get_data
@@ -140,6 +141,7 @@ def cutout_prepare(
     dask_kwargs=None,
     monthly_requests=False,
     concurrent_requests=False,
+    **parameter_updates,
 ):
     """
     Prepare all or a selection of features in a cutout.
@@ -185,6 +187,8 @@ def cutout_prepare(
     concurrent_requests : bool, optional
         If True, the monthly data requests are posted concurrently.
         Only has an effect if `monthly_requests` is True. The default is False.
+    **parameter_updates
+        Updates of creation parameters
 
     Returns
     -------
@@ -224,19 +228,23 @@ def cutout_prepare(
             data_format=data_format,
             monthly_requests=monthly_requests,
             concurrent_requests=concurrent_requests,
+            **parameter_updates,
         )
         prepared |= set(missing_features)
 
-        cutout.data.attrs.update(dict(prepared_features=list(prepared)))
-        attrs = non_bool_dict(cutout.data.attrs)
-        attrs.update(ds.attrs)
+        attrs = non_bool_dict(
+            cutout.data.attrs
+            | ds.attrs
+            | dict(prepared_features=list(prepared))
+            | parameter_updates
+        )
 
         # Add optional compression to the newly prepared features
         if compression:
             for v in missing_vars:
                 ds[v].encoding.update(compression)
 
-        ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
+        ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(attrs)
 
         # write data to tmp file, copy it to original data, this is much safer
         # than appending variables
