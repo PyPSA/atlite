@@ -59,7 +59,7 @@ def get_features(
 
     datasets = compute(*datasets)
 
-    ds = xr.merge(datasets, compat="equals")
+    ds = xr.merge([da for da in datasets if da is not None], compat="equals")
     for v in ds:
         da = ds[v]
         da.attrs["module"] = module
@@ -230,21 +230,25 @@ def cutout_prepare(
             concurrent_requests=concurrent_requests,
             **parameter_updates,
         )
-        prepared |= set(missing_features)
-
+        new_features = set(da.attrs["feature"] for da in ds.data_vars.values())
+        if not new_features:
+            logger.warning("No new features prepared")
+            return
         attrs = non_bool_dict(
             cutout.data.attrs
             | ds.attrs
-            | dict(prepared_features=list(prepared))
+            | dict(prepared_features=list(prepared | new_features))
             | parameter_updates
         )
 
         # Add optional compression to the newly prepared features
         if compression:
-            for v in missing_vars:
-                ds[v].encoding.update(compression)
+            for da in ds.data_vars.values():
+                da.encoding.update(compression)
 
-        ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(attrs)
+        ds = cutout.data.merge(
+            ds[missing_vars.loc[list(new_features)].values]
+        ).assign_attrs(attrs)
 
         # write data to tmp file, copy it to original data, this is much safer
         # than appending variables
