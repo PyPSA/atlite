@@ -47,6 +47,8 @@ dependencies = [
     "pyproj>=2",
     "geopandas",
     "cdsapi>=0.7.4",
+    "cfgrib>=0.9.15.0",
+    "h5netcdf>=1.6.1",
 ]
 
 [project.urls]
