@@ -659,6 +659,10 @@ def wind(
     if smooth:
         turbine = windturbine_smooth(turbine, params=smooth)
 
+    if isinstance(windspeed_bias_correction, xr.DataArray):
+        # Front-load coordinate alignment cost
+        windspeed_bias_correction = cutout.data.reindex_like(windspeed_bias_correction)
+
     return cutout.convert_and_aggregate(
         convert_func=convert_wind,
         turbine=turbine,

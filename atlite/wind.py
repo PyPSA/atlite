@@ -16,6 +16,8 @@ import numpy as np
 import rasterio as rio
 import xarray as xr
 
+from .gis import CRS, _as_transform
+
 logger = logging.getLogger(__name__)
 
 
@@ -137,50 +139,40 @@ def calculate_windspeed_bias_correction(
     real_average: str | rio.DatasetReader,
     height: int = 100,
     data_average: xr.DataArray | None = None,
-):
+    data_crs: CRS | str | int | None = None,
+) -> xr.DataArray:
     """
     Derive a bias correction factor for windspeed at lra_height
 
     Regrids the raster dataset in real_average to cutout grid, retrieves the average
     windspeed from the first dataset that offers
-    :py:func:`retrieve_longrunaverage_windspeed` (only ERA5, currently).
+    :py:func:`retrieve_windspeed_average` (only ERA5, currently).
 
     Parameters
     ----------
-    cutout : Cutout
-        Atlite cutout
+    cutout : Cutout, optional
+        Cutout for which to retrieve data_average. Can be omitted if
+        data_average and data_crs are passed explicitly.
     real_average : Path or rasterio.Dataset
         Raster dataset with wind speeds to bias correct average wind speeds
     height : int
         Height in meters at which average windspeeds are provided
     data_average : DataArray, optional
-        Long run average of the windspeed data, if not provided it is retrieved.
+        Long run average of the windspeed data, if not provided it is retrieved
+        with the standard settings suitable for bias correction with GWA 3.1.
+    data_crs : CRS like, optional
+        CRS that data_average is given in.
 
     Returns
     -------
     DataArray
         Ratio between windspeeds in `real_average` to those of average windspeeds in
         dataset.
+
+    See Also
+    --------
+    atlite.datasets.era5.retrieve_windspeed_average
     """
-    if isinstance(real_average, str | Path):
-        real_average = rio.open(real_average)
-
-    if isinstance(real_average, rio.DatasetReader):
-        real_average = rio.band(real_average, 1)
-
-    if isinstance(real_average, rio.Band):
-        real_average, transform = rio.warp.reproject(
-            real_average,
-            np.empty(cutout.shape),
-            dst_crs=cutout.crs,
-            dst_transform=cutout.transform,
-            dst_nodata=np.nan,
-            resampling=rio.enums.Resampling.average,
-        )
-
-        real_average = xr.DataArray(
-            real_average, [cutout.coords["y"], cutout.coords["x"]]
-        )
 
     if data_average is None:
         from . import datasets
@@ -190,6 +182,7 @@ def calculate_windspeed_bias_correction(
                 getattr(datasets, module), "retrieve_windspeed_average"
             )
             if retrieve_windspeed_average is not None:
+                data_crs = getattr(datasets, module).crs
                 break
         else:
             raise AssertionError(
@@ -200,6 +193,31 @@ def calculate_windspeed_bias_correction(
             "Retrieving average windspeeds at %d from module %s", height, module
         )
         data_average = retrieve_windspeed_average(cutout, height)
+
+    if isinstance(real_average, str | Path):
+        real_average = rio.open(real_average)
+
+    if isinstance(real_average, rio.DatasetReader):
+        real_average = rio.band(real_average, 1)
+
+    if isinstance(real_average, rio.Band):
+        transform = _as_transform(data_average.indexes["x"], data_average.indexes["y"])
+
+        real_average, _ = rio.warp.reproject(
+            real_average,
+            np.empty(data_average.shape),
+            dst_crs=CRS(data_crs),
+            dst_transform=transform,
+            dst_nodata=np.nan,
+            resampling=rio.enums.Resampling.average,
+        )
+
+        real_average = xr.DataArray(real_average, data_average.coords)
+    else:
+        raise ValueError(
+            f"`real_average` needs to be a path or rasterio object to a raster dataset"
+            f", but is: {real_average}"
+        )
 
     return (real_average / data_average).assign_attrs(height=height)
 
