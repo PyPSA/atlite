@@ -449,7 +449,7 @@ def retrieve_data(
 
     Parameters
     ----------
-    product : str
+    dataset : str
         Product name, e.g. 'reanalysis-era5-single-levels'.
     chunks : dict, optional
         Chunking for xarray dataset, e.g. {'time': 1, 'x': 100, 'y': 100}.
@@ -591,7 +591,7 @@ def retrieve_windspeed_average(
             year=[year],
             month=[f"{m:02d}" for m in range(1, 12 + 1)],
             day=[f"{d:02d}" for d in range(1, 31 + 1)],
-            time=[f"{h:02d}" for h in range(0, 23 + 1)],
+            time=[f"{h:02d}:00" for h in range(0, 23 + 1)],
             data_format=data_format,
             **retrieval_params,
         )
