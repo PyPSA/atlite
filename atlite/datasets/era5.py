@@ -623,7 +623,7 @@ def get_data_windspeed_bias_correction(cutout, retrieval_params, creation_parame
     """
     real_average_path = creation_parameters.get("windspeed_real_average_path")
     if real_average_path is None:
-        logger.warning(
+        logger.info(
             "Skipping feature windspeed_bias_correction, since windspeed_real_average_path was not provided.\n"
             "Download mean wind speeds from global wind atlas at https://globalwindatlas.info/ and add it\n"
             'to the cutout with `cutout.prepare(windspeed_real_average_path="path/to/gwa3_250_windspeed_100m.tif")`'

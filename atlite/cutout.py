@@ -137,7 +137,9 @@ class Cutout:
         windspeed_real_average_path: str, optional
             Path to raster dataset with wind speeds to bias correct average wind
             speeds. If not given during ERA5 cutout creation, the corresponding
-            windspeed_bias_correction feature is skipped.
+            windspeed_bias_correction feature is skipped. It has been tested to
+            work well with the mean wind speeds at 100m from global wind atlas
+            at https://globalwindatlas.info/ .
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.
