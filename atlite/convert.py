@@ -565,16 +565,18 @@ def convert_wind(
     ds: xr.Dataset,
     turbine: TurbineConfig,
     interpolation_method: Literal["logarithmic", "power"],
-    windspeed_bias_correction: bool | xr.DataArray | None = None,
+    windspeed_bias_correction: xr.DataArray | None,
 ) -> xr.DataArray:
     """
     Convert wind speeds for turbine to wind energy generation.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
-    ds, from_height = windm.apply_windspeed_bias_correction(
-        ds, windspeed_bias_correction
-    )
+    from_height = None
+    if windspeed_bias_correction is not None:
+        ds, from_height = windm.apply_windspeed_bias_correction(
+            ds, windspeed_bias_correction
+        )
 
     wnd_hub = windm.extrapolate_wind_speed(
         ds, to_height=hub_height, method=interpolation_method, from_height=from_height
@@ -637,11 +639,14 @@ def wind(
     interpolation_method : {"logarithmic", "power"}
         Law to interpolate wind speed to turbine hub height. Refer to
         :py:func:`atlite.wind.extrapolate_wind_speed`.
-    windspeed_bias_correction : DataArray, optional
-        Correction factor that is applied to the windspeed at
-        `windspeed_height`. Such a correction factor can be calculated using
+    windspeed_bias_correction : bool, DataArray, optional
+        Correction factor that is applied to the wind speed at height
+        `.attrs["height"]`. Such a correction factor can be calculated using
         :py:func:`atlite.wind.calculate_windspeed_bias_correction` with a raster
         dataset of mean wind speeds.
+        if True, the scaling factor is taken from 'wnd_bias_correction' in `cutout`
+        (or a ValueError is raised),
+        if None, a scaling factor is applied if it exists in `cutout`
 
     Note
     ----
@@ -662,6 +667,20 @@ def wind(
     if isinstance(windspeed_bias_correction, xr.DataArray):
         # Front-load coordinate alignment cost
         windspeed_bias_correction = cutout.data.reindex_like(windspeed_bias_correction)
+    elif windspeed_bias_correction is None:
+        windspeed_bias_correction = cutout.data.get("wnd_bias_correction")
+    elif windspeed_bias_correction is True:
+        try:
+            windspeed_bias_correction = cutout.data["wnd_bias_correction"]
+        except KeyError:
+            raise ValueError(
+                "Wind speed bias correction is required, but cutout does not contain "
+                "scaling factor: 'wnd_bias_correction'.\n"
+                "Regenerate the cutout or provide the scaling factors explicitly, ie.\n"
+                "cutout.wind(..., windspeed_bias_correction=scaling_factors)"
+            ) from None
+    else:
+        windspeed_bias_correction = None
 
     return cutout.convert_and_aggregate(
         convert_func=convert_wind,

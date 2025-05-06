@@ -223,7 +223,7 @@ def calculate_windspeed_bias_correction(
 
 
 def apply_windspeed_bias_correction(
-    ds: xr.Dataset, windspeed_bias_correction: bool | xr.DataArray | None = None
+    ds: xr.Dataset, scaling_factor: xr.DataArray
 ) -> tuple[xr.Dataset, int | None]:
     """
     Apply bias correction to windspeeds.
@@ -237,12 +237,8 @@ def apply_windspeed_bias_correction(
         Dataset containing wind speed time-series (at one or multiple heights)
         with keys like 'wnd{height:d}m' and potentially a pre-calculated scaling
         factor at key 'wnd_bias_correction'
-    windspeed_bias_correction : bool or DataArray, optional
-        If a DataArray is given it used as scaling factor for the wind speed at
-        height `.attrs["height"]` (required),
-        if True, the scaling factor is taken from 'wnd_bias_correction' in `ds`
-        (or a ValueError is raised),
-        if None, a scaling factor is applied if it exists in `ds`
+    scaling_factor : DataArray
+        Scaling factor for the wind speed at height `.attrs["height"]`
 
     Returns
     -------
@@ -252,34 +248,8 @@ def apply_windspeed_bias_correction(
     Raises
     ------
     ValueError
-        If windspeed_bias_correction was True, but 'wnd_bias_correction' did not
-        exist in `ds` or if the scaling factor does not have the 'height` attribute.
+        If the scaling factor does not have the 'height` attribute.
     """
-
-    if windspeed_bias_correction is False:
-        return ds, None
-
-    if windspeed_bias_correction is None:
-        scaling_factor = ds.get("wnd_bias_correction")
-        if scaling_factor is None:
-            return ds, None
-    elif windspeed_bias_correction is True:
-        try:
-            scaling_factor = ds["wnd_bias_correction"]
-        except KeyError:
-            raise ValueError(
-                "Windspeed bias correction is required, but cutout does not contain "
-                "scaling factor: 'wnd_bias_correction'.\n"
-                "Regenerate the cutout or provide the scaling factors explicitly, ie.\n"
-                "cutout.wind(..., windspeed_bias_correction=scaling_factors)"
-            )
-    elif isinstance(windspeed_bias_correction, xr.DataArray):
-        scaling_factor = windspeed_bias_correction
-    else:
-        raise ValueError(
-            f"Expected None, True, False or a DataArray as windspeed_bias_correction, "
-            f"but found: {windspeed_bias_correction}"
-        )
 
     try:
         height = int(scaling_factor.attrs["height"])
