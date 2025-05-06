@@ -15,6 +15,7 @@ import warnings
 import weakref
 from pathlib import Path
 from tempfile import mkstemp
+from typing import Literal
 
 import cdsapi
 import numpy as np
@@ -437,6 +438,7 @@ def retrieve_data(
     chunks: dict[str, int] | None = None,
     tmpdir: str | Path | None = None,
     lock: SerializableLock | None = None,
+    data_format: Literal["grib", "netcdf"] = "grib",
     **updates,
 ) -> xr.Dataset:
     """
@@ -457,6 +459,8 @@ def retrieve_data(
         Default is None, which uses the system's temporary directory.
     lock : dask.utils.SerializableLock, optional
         Lock for thread-safe file writing. Default is None.
+    data_format : {"grib", "netcdf"}
+        Data format to use for retrieving from CDS.
     updates : dict
         Additional parameters for the request.
         Must include 'year', 'month', and 'variable'.
@@ -481,7 +485,7 @@ def retrieve_data(
     ... )
     """
     request = {"product_type": ["reanalysis"], "download_format": "unarchived"}
-    request.update(updates)
+    request.update(updates, data_format=data_format)
 
     assert {"year", "month", "variable"}.issubset(request), (
         "Need to specify at least 'variable', 'year' and 'month'"
@@ -497,7 +501,7 @@ def retrieve_data(
     if lock is None:
         lock = nullcontext()
 
-    suffix = f".{request['data_format']}"  # .netcdf or .grib
+    suffix = f".{data_format}"  # .netcdf or .grib
     with lock:
         fd, target = mkstemp(suffix=suffix, dir=tmpdir)
         os.close(fd)
@@ -510,7 +514,7 @@ def retrieve_data(
         result.download(target)
 
     # Convert from grib to netcdf locally, same conversion as in CDS backend
-    if request["data_format"] == "grib":
+    if data_format == "grib":
         ds = open_with_grib_conventions(target, chunks=chunks, tmpdir=tmpdir)
     else:
         ds = xr.open_dataset(target, chunks=sanitize_chunks(chunks))
