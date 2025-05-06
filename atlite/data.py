@@ -27,6 +27,7 @@ def get_features(
     cutout,
     module,
     features,
+    data_format,
     tmpdir=None,
     monthly_requests=False,
     concurrent_requests=False,
@@ -47,6 +48,7 @@ def get_features(
             cutout,
             feature,
             tmpdir=tmpdir,
+            data_format=data_format,
             lock=lock,
             monthly_requests=monthly_requests,
             concurrent_requests=concurrent_requests,
@@ -58,9 +60,15 @@ def get_features(
 
     ds = xr.merge(datasets, compat="equals")
     for v in ds:
-        ds[v].attrs["module"] = module
+        da = ds[v]
+        da.attrs["module"] = module
         fd = datamodules[module].features.items()
-        ds[v].attrs["feature"] = [k for k, l in fd if v in l].pop()
+        da.attrs["feature"] = [k for k, l in fd if v in l].pop()
+
+        if da.chunks is not None:
+            chunksizes = [c[0] for c in da.chunks]
+            da.encoding["chunksizes"] = chunksizes
+
     return ds
 
 
@@ -125,6 +133,7 @@ def cutout_prepare(
     cutout,
     features=None,
     tmpdir=None,
+    data_format="grib",
     overwrite=False,
     compression={"zlib": True, "complevel": 9, "shuffle": True},
     show_progress=False,
@@ -153,6 +162,8 @@ def cutout_prepare(
         Directory in which temporary files (for example retrieved ERA5 netcdf
         files) are stored. If set, the directory will not be deleted and the
         intermediate files can be examined.
+    data_format : str, optional
+        The data format used to retrieve the data. Only relevant for ERA5 data. The default is 'grib'.
     overwrite : bool, optional
         Whether to overwrite variables which are already included in the
         cutout. The default is False.
@@ -210,6 +221,7 @@ def cutout_prepare(
             module,
             missing_features,
             tmpdir=tmpdir,
+            data_format=data_format,
             monthly_requests=monthly_requests,
             concurrent_requests=concurrent_requests,
         )

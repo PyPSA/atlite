@@ -12,6 +12,7 @@ import logging
 import os
 import warnings
 import weakref
+from pathlib import Path
 from tempfile import mkstemp
 
 import cdsapi
@@ -20,6 +21,7 @@ import pandas as pd
 import xarray as xr
 from dask import compute, delayed
 from dask.array import arctan2, sqrt
+from dask.utils import SerializableLock
 from numpy import atleast_1d
 
 from atlite.gis import maybe_swap_spatial_dims
@@ -86,9 +88,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     Optionally (add_lon_lat, default:True) preserves latitude and
     longitude columns as 'lat' and 'lon'.
     """
-    ds = ds.rename({"longitude": "x", "latitude": "y"})
-    if "valid_time" in ds.sizes:
-        ds = ds.rename({"valid_time": "time"}).unify_chunks()
+    ds = ds.rename({"longitude": "x", "latitude": "y", "valid_time": "time"})
     # round coords since cds coords are float32 which would lead to mismatches
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
@@ -331,19 +331,160 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
-def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
+def add_finalizer(ds: xr.Dataset, target: str | Path):
+    logger.debug(f"Adding finalizer for {target}")
+    weakref.finalize(ds._close.__self__.ds, noisy_unlink, target)
+
+
+def sanitize_chunks(chunks, **dim_mapping):
+    dim_mapping = dict(time="valid_time", x="longitude", y="latitude") | dim_mapping
+    if not isinstance(chunks, dict):
+        # preserve "auto" or None
+        return chunks
+
+    return {
+        extname: chunks[intname]
+        for intname, extname in dim_mapping.items()
+        if intname in chunks
+    }
+
+
+def open_with_grib_conventions(
+    grib_file: str | Path, chunks=None, tmpdir: str | Path | None = None
+) -> xr.Dataset:
+    """
+    Convert grib file of ERA5 data from the CDS to netcdf file.
+
+    The function does the same thing as the CDS backend does, but locally.
+    This is needed, as the grib file is the recommended download file type for CDS, with conversion to netcdf locally.
+    The routine is a reduced version based on the documentation here:
+    https://confluence.ecmwf.int/display/CKB/GRIB+to+netCDF+conversion+on+new+CDS+and+ADS+systems#GRIBtonetCDFconversiononnewCDSandADSsystems-jupiternotebook
+
+    Parameters
+    ----------
+    grib_file : str | Path
+        Path to the grib file to be converted.
+    chunks
+        Chunks
+    tmpdir : Path, optional
+        If None adds a finalizer to the dataset object
+
+    Returns
+    -------
+    xr.Dataset
+    """
+    #
+    # Open grib file as dataset
+    # Options to open different datasets into a datasets of consistent hypercubes which are compatible netCDF
+    # There are options that might be relevant for e.g. for wave model data, that have been removed here
+    # to keep the code cleaner and shorter
+    ds = xr.open_dataset(
+        grib_file,
+        engine="cfgrib",
+        time_dims=["valid_time"],
+        ignore_keys=["edition"],
+        # extra_coords={"expver": "valid_time"},
+        coords_as_attributes=[
+            "surface",
+            "depthBelowLandLayer",
+            "entireAtmosphere",
+            "heightAboveGround",
+            "meanSea",
+        ],
+        chunks=sanitize_chunks(chunks),
+    )
+    if tmpdir is None:
+        add_finalizer(ds, grib_file)
+
+    def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
+        """
+        Expand dimensions in an xarray dataset, ensuring that the new dimensions are not already in the dataset
+        and that the order of dimensions is preserved.
+        """
+        dims_required = [
+            c for c in dataset.coords if c in expand_dims + list(dataset.dims)
+        ]
+        dims_missing = [
+            (c, i) for i, c in enumerate(dims_required) if c not in dataset.dims
+        ]
+        dataset = dataset.expand_dims(
+            dim=[x[0] for x in dims_missing], axis=[x[1] for x in dims_missing]
+        )
+        return dataset
+
+    logger.debug("Converting grib file to netcdf format")
+    # Variables and dimensions to rename if they exist in the dataset
+    rename_vars = {
+        "time": "forecast_reference_time",
+        "step": "forecast_period",
+        "isobaricInhPa": "pressure_level",
+        "hybrid": "model_level",
+    }
+    rename_vars = {k: v for k, v in rename_vars.items() if k in ds}
+    ds = ds.rename(rename_vars)
+
+    # safely expand dimensions in an xarray dataset to ensure that data for the new dimensions are in the dataset
+    ds = safely_expand_dims(ds, ["valid_time", "pressure_level", "model_level"])
+
+    return ds
+
+
+def retrieve_data(
+    product: str,
+    chunks: dict[str, int] | None = None,
+    tmpdir: str | Path | None = None,
+    lock: SerializableLock | None = None,
+    **updates,
+) -> xr.Dataset:
     """
     Download data like ERA5 from the Climate Data Store (CDS).
 
     If you want to track the state of your request go to
     https://cds-beta.climate.copernicus.eu/requests?tab=all
+
+    Parameters
+    ----------
+    product : str
+        Product name, e.g. 'reanalysis-era5-single-levels'.
+    chunks : dict, optional
+        Chunking for xarray dataset, e.g. {'time': 1, 'x': 100, 'y': 100}.
+        Default is None.
+    tmpdir : str, optional
+        Directory where the downloaded data is temporarily stored.
+        Default is None, which uses the system's temporary directory.
+    lock : dask.utils.SerializableLock, optional
+        Lock for thread-safe file writing. Default is None.
+    updates : dict
+        Additional parameters for the request.
+        Must include 'year', 'month', and 'variable'.
+        Can include e.g. 'data_format'.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with the retrieved variables.
+
+    Examples
+    --------
+    >>> ds = retrieve_data(
+    ...     product='reanalysis-era5-single-levels',
+    ...     chunks={'time': 1, 'x': 100, 'y': 100},
+    ...     tmpdir='/tmp',
+    ...     lock=None,
+    ...     year='2020',
+    ...     month='01',
+    ...     variable=['10m_u_component_of_wind', '10m_v_component_of_wind'],
+    ...     data_format='netcdf'
+    ... )
     """
-    request = {"product_type": "reanalysis", "format": "netcdf"}
+    request = {"product_type": ["reanalysis"], "download_format": "unarchived"}
     request.update(updates)
 
     assert {"year", "month", "variable"}.issubset(request), (
         "Need to specify at least 'variable', 'year' and 'month'"
     )
+
+    logger.debug(f"Requesting {product} with API request: {request}")
 
     client = cdsapi.Client(
         info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
@@ -353,8 +494,9 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
     if lock is None:
         lock = nullcontext()
 
+    suffix = f".{request['data_format']}"  # .netcdf or .grib
     with lock:
-        fd, target = mkstemp(suffix=".nc", dir=tmpdir)
+        fd, target = mkstemp(suffix=suffix, dir=tmpdir)
         os.close(fd)
 
         # Inform user about data being downloaded as "* variable (year-month)"
@@ -364,10 +506,13 @@ def retrieve_data(product, chunks=None, tmpdir=None, lock=None, **updates):
         logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
         result.download(target)
 
-    ds = xr.open_dataset(target, chunks=chunks or {})
-    if tmpdir is None:
-        logger.debug(f"Adding finalizer for {target}")
-        weakref.finalize(ds._file_obj._manager, noisy_unlink, target)
+    # Convert from grib to netcdf locally, same conversion as in CDS backend
+    if request["data_format"] == "grib":
+        ds = open_with_grib_conventions(target, chunks=chunks, tmpdir=tmpdir)
+    else:
+        ds = xr.open_dataset(target, chunks=sanitize_chunks(chunks))
+        if tmpdir is None:
+            add_finalizer(target)
 
     return ds
 
@@ -377,6 +522,7 @@ def get_data(
     feature,
     tmpdir,
     lock=None,
+    data_format="grib",
     monthly_requests=False,
     concurrent_requests=False,
     **creation_parameters,
@@ -399,6 +545,9 @@ def get_data(
         If True, the data is requested on a monthly basis in ERA5. This is useful for
         large cutouts, where the data is requested in smaller chunks. The
         default is False
+    data_format : str, optional
+        The format of the data to be downloaded. Can be either 'grib' or 'netcdf',
+        'grib' highly recommended because CDSAPI limits request size for netcdf.
     concurrent_requests : bool, optional
         If True, the monthly data requests are posted concurrently.
         Only has an effect if `monthly_requests` is True.
@@ -420,9 +569,10 @@ def get_data(
         "product": "reanalysis-era5-single-levels",
         "area": _area(coords),
         "chunks": cutout.chunks,
-        "grid": [cutout.dx, cutout.dy],
+        "grid": f"{cutout.dx}/{cutout.dy}",
         "tmpdir": tmpdir,
         "lock": lock,
+        "data_format": data_format,
     }
 
     func = globals().get(f"get_data_{feature}")

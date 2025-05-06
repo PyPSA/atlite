@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 ci:
-  autoupdate_schedule: monthly
+  autoupdate_schedule: quarterly
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -15,7 +15,7 @@ repos:
 # Run ruff to lint and format
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
-  rev: v0.11.4
+  rev: v0.11.8
   hooks:
     # Run the linter.
   - id: ruff
