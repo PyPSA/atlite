@@ -134,11 +134,10 @@ class Cutout:
         gebco_path: str
             Path to find the gebco NetCDF file. Only necessary when including
             the gebco module.
-        windspeed_real_average_path: str
+        windspeed_real_average_path: str, optional
             Path to raster dataset with wind speeds to bias correct average wind
-            speeds
-        windspeed_height: int, defaults to 100
-            Height in meters at which average windspeeds are provided
+            speeds. If not given during ERA5 cutout creation, the corresponding
+            windspeed_bias_correction feature is skipped.
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.

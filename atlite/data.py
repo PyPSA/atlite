@@ -188,7 +188,8 @@ def cutout_prepare(
         If True, the monthly data requests are posted concurrently.
         Only has an effect if `monthly_requests` is True. The default is False.
     **parameter_updates
-        Updates of creation parameters
+        Updates of creation parameters, for list of available params check docstring of
+        :py:method:`atlite.Cutout.__init__`.
 
     Returns
     -------
