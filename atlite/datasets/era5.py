@@ -26,7 +26,7 @@ from dask.array import arctan2, sqrt
 from dask.utils import SerializableLock
 from numpy import atleast_1d
 
-from atlite.gis import maybe_swap_spatial_dims
+from atlite.gis import maybe_swap_spatial_dims, rotate
 from atlite.pv.solar_position import SolarPosition
 from atlite.wind import calculate_windspeed_bias_correction
 
@@ -525,27 +525,37 @@ def retrieve_data(
 
 
 def retrieve_windspeed_average(
-    cutout,
-    height,
-    first_year=1980,
-    last_year=None,
-    data_format="grib",
+    cutout=None,
+    height: int = 100,
+    first_year: int = 2008,
+    last_year: int | None = 2017,
+    data_format: Literal["grib", "netcdf"] = "grib",
     **retrieval_params,
 ):
     """
     Retrieve average windspeed from `first_year` to `last_year`
 
+    The default time-period 2008-2017 was chosen to align with the simulation
+    period of GWA3.
+
     Parameters
     ----------
-    cutout : atlite.Cutout
-        Cutout for which to retrieve windspeeds from CDS
+    cutout : atlite.Cutout or None
+        Cutout for which to retrieve windspeeds from CDS. If no cutout is
+        specified the global means are retrieved at native resolution 0.25/0.25.
     height : int
-        Height of windspeeds (ERA5 typically knows about 10m, 100m, 150m?)
-    first_year : int
+        Height of windspeeds (ERA5 typically knows about 10m, 100m)
+    first_year : int, defaults to 2008
         First year to take into account
-    last_year : int, optional
+    last_year : int, defaults to 2017
         Last year to take into account (if omitted takes the previous year)
+    data_format : {"grib", "netcdf"}
+        Data format to use for retrieving from CDS.
     **retrieval_params
+
+    References
+    ----------
+    https://globalwindatlas.info/
 
     Returns
     -------
@@ -555,32 +565,56 @@ def retrieve_windspeed_average(
     if last_year is None:
         last_year = datetime.date.today().year - 1
 
-    ds = retrieve_data(
-        "reanalysis-era5-single-levels-monthly-means",
-        chunks=cutout.chunks,
-        product_type="monthly_averaged_reanalysis",
-        variable=[
-            f"{height}m_u_component_of_wind",
-            f"{height}m_v_component_of_wind",
-        ],
-        area=_area(cutout.coords),
-        grid=[cutout.dx, cutout.dy],
-        year=[str(y) for y in range(first_year, last_year + 1)],
-        month=[f"{m:02}" for m in range(1, 12 + 1)],
-        time=["00:00"],
-        data_format=data_format,
-        **retrieval_params,
-    )
-    ds = _rename_and_clean_coords(ds)
-
-    return (
-        sqrt(ds[f"u{height}"] ** 2 + ds[f"v{height}"] ** 2)
-        .mean("time")
-        .assign_attrs(
-            units=ds[f"u{height}"].attrs["units"],
-            long_name=f"{height} metre wind speed as long run average",
+    retrieval_params = (
+        {
+            "dataset": "reanalysis-era5-single-levels",
+            "product_type": "reanalysis",
+        }
+        | (
+            {
+                "area": _area(cutout.coords),
+                "chunks": cutout.chunks,
+                "grid": f"{cutout.dx}/{cutout.dy}",
+            }
+            if cutout is not None
+            else {}
         )
+        | retrieval_params
     )
+
+    def retrieve_chunk(year):
+        ds = retrieve_data(
+            variable=[
+                f"{height}m_u_component_of_wind",
+                f"{height}m_v_component_of_wind",
+            ],
+            year=[year],
+            month=[f"{m:02d}" for m in range(1, 12 + 1)],
+            day=[f"{d:02d}" for d in range(1, 31 + 1)],
+            time=[f"{h:02d}" for h in range(0, 23 + 1)],
+            data_format=data_format,
+            **retrieval_params,
+        )
+        ds = _rename_and_clean_coords(ds)
+
+        if cutout is None:
+            # the default longitude range of CDS is [0, 360], while [-180, 180] is standard
+            ds = rotate(ds)
+
+        return (
+            sqrt(ds[f"u{height}"] ** 2 + ds[f"v{height}"] ** 2)
+            .mean("time")
+            .assign_attrs(
+                units=ds[f"u{height}"].attrs["units"],
+                long_name=f"{height} metre wind speed as long run average",
+            )
+        )
+
+    years = range(first_year, last_year + 1)
+    return xr.concat(
+        compute(*(delayed(retrieve_chunk)(str(year)) for year in years)),
+        dim=pd.Index(years, name="year"),
+    ).mean("year")
 
 
 def get_data_windspeed_bias_correction(cutout, retrieval_params, creation_parameters):
@@ -681,7 +715,7 @@ def get_data(
     elif feature == "windspeed_bias_correction":
         return func(
             cutout,
-            retrieval_params=dict(tmpdir=tmpdir, lock=lock, data_format=data_format),
+            retrieval_params=retrieval_params,
             creation_parameters=creation_parameters,
         )
 
