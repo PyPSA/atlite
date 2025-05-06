@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 ci:
-  autoupdate_schedule: monthly
+  autoupdate_schedule: quarterly
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
