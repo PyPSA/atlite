@@ -639,7 +639,7 @@ def wind(
     interpolation_method : {"logarithmic", "power"}
         Law to interpolate wind speed to turbine hub height. Refer to
         :py:func:`atlite.wind.extrapolate_wind_speed`.
-    windspeed_bias_correction : bool, DataArray, optional
+    windspeed_bias_correction : bool or DataArray, optional
         Correction factor that is applied to the wind speed at height
         `.attrs["height"]`. Such a correction factor can be calculated using
         :py:func:`atlite.wind.calculate_windspeed_bias_correction` with a raster
@@ -666,7 +666,7 @@ def wind(
 
     if isinstance(windspeed_bias_correction, xr.DataArray):
         # Front-load coordinate alignment cost
-        windspeed_bias_correction = cutout.data.reindex_like(windspeed_bias_correction)
+        windspeed_bias_correction = windspeed_bias_correction.reindex_like(cutout.data)
     elif windspeed_bias_correction is None:
         windspeed_bias_correction = cutout.data.get("wnd_bias_correction")
     elif windspeed_bias_correction is True:
