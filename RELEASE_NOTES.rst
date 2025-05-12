@@ -17,7 +17,7 @@ Release Notes
 ..   To use the features already you have to install the ``master`` branch, e.g. 
 ..   ``pip install git+https://github.com/pypsa/atlite``.
 
-`v0.4.0 <https://github.com/PyPSA/atlite/releases/tag/v0.4.0>`__ (30th January 2025)
+`v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================
 
 * ERA5 data is now by default using the `grib` backened instead of the `netcdf` backend of the CDS.
@@ -27,6 +27,9 @@ Release Notes
   The yielded cutouts should be identical in their data to previous cutouts.
   You can still use the `netcdf` backend by passing `data_format='netcdf'` to the `cutout.prepare()` method.
   (https://github.com/PyPSA/atlite/issues/439)
+
+`v0.4.0 <https://github.com/PyPSA/atlite/releases/tag/v0.4.0>`__ (30th January 2025)
+=======================================================================================
 
 * The methods ``convert_cooling_demand`` and ``cooling_demand`` are implemented
   to evaluate cooling demand using the cooling degree-days approximation.
