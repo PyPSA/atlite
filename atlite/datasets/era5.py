@@ -8,12 +8,14 @@ For further reference see
 https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
+import datetime
 import logging
 import os
 import warnings
 import weakref
 from pathlib import Path
 from tempfile import mkstemp
+from typing import Literal
 
 import cdsapi
 import numpy as np
@@ -24,8 +26,9 @@ from dask.array import arctan2, sqrt
 from dask.utils import SerializableLock
 from numpy import atleast_1d
 
-from atlite.gis import maybe_swap_spatial_dims
+from atlite.gis import maybe_swap_spatial_dims, rotate
 from atlite.pv.solar_position import SolarPosition
+from atlite.wind import calculate_windspeed_bias_correction
 
 # Null context for running a with statements wihout any context
 try:
@@ -47,6 +50,7 @@ crs = 4326
 features = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
+    "windspeed_bias_correction": ["wnd_bias_correction"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -430,10 +434,11 @@ def open_with_grib_conventions(
 
 
 def retrieve_data(
-    product: str,
+    dataset: str,
     chunks: dict[str, int] | None = None,
     tmpdir: str | Path | None = None,
     lock: SerializableLock | None = None,
+    data_format: Literal["grib", "netcdf"] = "grib",
     **updates,
 ) -> xr.Dataset:
     """
@@ -444,7 +449,7 @@ def retrieve_data(
 
     Parameters
     ----------
-    product : str
+    dataset : str
         Product name, e.g. 'reanalysis-era5-single-levels'.
     chunks : dict, optional
         Chunking for xarray dataset, e.g. {'time': 1, 'x': 100, 'y': 100}.
@@ -454,6 +459,8 @@ def retrieve_data(
         Default is None, which uses the system's temporary directory.
     lock : dask.utils.SerializableLock, optional
         Lock for thread-safe file writing. Default is None.
+    data_format : {"grib", "netcdf"}
+        Data format to use for retrieving from CDS.
     updates : dict
         Additional parameters for the request.
         Must include 'year', 'month', and 'variable'.
@@ -467,7 +474,7 @@ def retrieve_data(
     Examples
     --------
     >>> ds = retrieve_data(
-    ...     product='reanalysis-era5-single-levels',
+    ...     dataset='reanalysis-era5-single-levels',
     ...     chunks={'time': 1, 'x': 100, 'y': 100},
     ...     tmpdir='/tmp',
     ...     lock=None,
@@ -478,23 +485,23 @@ def retrieve_data(
     ... )
     """
     request = {"product_type": ["reanalysis"], "download_format": "unarchived"}
-    request.update(updates)
+    request.update(updates, data_format=data_format)
 
     assert {"year", "month", "variable"}.issubset(request), (
         "Need to specify at least 'variable', 'year' and 'month'"
     )
 
-    logger.debug(f"Requesting {product} with API request: {request}")
+    logger.debug(f"Requesting {dataset} with API request: {request}")
 
     client = cdsapi.Client(
         info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
     )
-    result = client.retrieve(product, request)
+    result = client.retrieve(dataset, request)
 
     if lock is None:
         lock = nullcontext()
 
-    suffix = f".{request['data_format']}"  # .netcdf or .grib
+    suffix = f".{data_format}"  # .netcdf or .grib
     with lock:
         fd, target = mkstemp(suffix=suffix, dir=tmpdir)
         os.close(fd)
@@ -507,7 +514,7 @@ def retrieve_data(
         result.download(target)
 
     # Convert from grib to netcdf locally, same conversion as in CDS backend
-    if request["data_format"] == "grib":
+    if data_format == "grib":
         ds = open_with_grib_conventions(target, chunks=chunks, tmpdir=tmpdir)
     else:
         ds = xr.open_dataset(target, chunks=sanitize_chunks(chunks))
@@ -515,6 +522,120 @@ def retrieve_data(
             add_finalizer(target)
 
     return ds
+
+
+def retrieve_windspeed_average(
+    cutout=None,
+    height: int = 100,
+    first_year: int = 2008,
+    last_year: int | None = 2017,
+    data_format: Literal["grib", "netcdf"] = "grib",
+    **retrieval_params,
+):
+    """
+    Retrieve average windspeed from `first_year` to `last_year`
+
+    The default time-period 2008-2017 was chosen to align with the simulation
+    period of GWA3.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout or None
+        Cutout for which to retrieve windspeeds from CDS. If no cutout is
+        specified the global means are retrieved at native resolution 0.25/0.25.
+    height : int
+        Height of windspeeds (ERA5 typically knows about 10m, 100m)
+    first_year : int, defaults to 2008
+        First year to take into account
+    last_year : int, defaults to 2017
+        Last year to take into account (if omitted takes the previous year)
+    data_format : {"grib", "netcdf"}
+        Data format to use for retrieving from CDS.
+    **retrieval_params
+
+    References
+    ----------
+    https://globalwindatlas.info/
+
+    Returns
+    -------
+    DataArray
+        Mean windspeed at cutout dimension
+    """
+    if last_year is None:
+        last_year = datetime.date.today().year - 1
+
+    retrieval_params = (
+        {
+            "dataset": "reanalysis-era5-single-levels",
+            "product_type": "reanalysis",
+        }
+        | (
+            {
+                "area": _area(cutout.coords),
+                "chunks": cutout.chunks,
+                "grid": f"{cutout.dx}/{cutout.dy}",
+            }
+            if cutout is not None
+            else {}
+        )
+        | retrieval_params
+    )
+
+    def retrieve_chunk(year):
+        ds = retrieve_data(
+            variable=[
+                f"{height}m_u_component_of_wind",
+                f"{height}m_v_component_of_wind",
+            ],
+            year=[year],
+            month=[f"{m:02d}" for m in range(1, 12 + 1)],
+            day=[f"{d:02d}" for d in range(1, 31 + 1)],
+            time=[f"{h:02d}:00" for h in range(0, 23 + 1)],
+            data_format=data_format,
+            **retrieval_params,
+        )
+        ds = _rename_and_clean_coords(ds)
+
+        if cutout is None:
+            # the default longitude range of CDS is [0, 360], while [-180, 180] is standard
+            ds = rotate(ds)
+
+        return (
+            sqrt(ds[f"u{height}"] ** 2 + ds[f"v{height}"] ** 2)
+            .mean("time")
+            .assign_attrs(
+                units=ds[f"u{height}"].attrs["units"],
+                long_name=f"{height} metre wind speed as long run average",
+            )
+        )
+
+    years = range(first_year, last_year + 1)
+    return xr.concat(
+        compute(*(delayed(retrieve_chunk)(str(year)) for year in years)),
+        dim=pd.Index(years, name="year"),
+    ).mean("year")
+
+
+def get_data_windspeed_bias_correction(cutout, retrieval_params, creation_parameters):
+    """
+    Get windspeed bias correction
+    """
+    real_average_path = creation_parameters.get("windspeed_real_average_path")
+    if real_average_path is None:
+        logger.info(
+            "Skipping feature windspeed_bias_correction, since windspeed_real_average_path was not provided.\n"
+            "Download mean wind speeds from global wind atlas at https://globalwindatlas.info/ and add it\n"
+            'to the cutout with `cutout.prepare(windspeed_real_average_path="path/to/gwa3_250_windspeed_100m.tif")`'
+        )
+        return None
+    height = creation_parameters.get("windspeed_height", 100)
+    data_average = retrieve_windspeed_average(cutout, height, **retrieval_params)
+
+    bias_correction = calculate_windspeed_bias_correction(
+        cutout, real_average_path, height=height, data_average=data_average
+    )
+    return bias_correction.to_dataset(name="wnd_bias_correction")
 
 
 def get_data(
@@ -552,8 +673,10 @@ def get_data(
         If True, the monthly data requests are posted concurrently.
         Only has an effect if `monthly_requests` is True.
     **creation_parameters :
-        Additional keyword arguments. The only effective argument is 'sanitize'
-        (default True) which sets sanitization of the data on or off.
+        Additional keyword arguments.
+        `sanitize` (default True) sets sanitization of the data on or off.
+        `windspeed_real_average_path` and `windspeed_height` are used by the
+        "windspeed_bias_correction" feature to calculate the correction factor.
 
     Returns
     -------
@@ -566,7 +689,8 @@ def get_data(
     sanitize = creation_parameters.get("sanitize", True)
 
     retrieval_params = {
-        "product": "reanalysis-era5-single-levels",
+        "dataset": "reanalysis-era5-single-levels",
+        "product_type": "reanalysis",
         "area": _area(coords),
         "chunks": cutout.chunks,
         "grid": f"{cutout.dx}/{cutout.dy}",
@@ -588,6 +712,12 @@ def get_data(
 
     if feature in static_features:
         return retrieve_once(retrieval_times(coords, static=True)).squeeze()
+    elif feature == "windspeed_bias_correction":
+        return func(
+            cutout,
+            retrieval_params=retrieval_params,
+            creation_parameters=creation_parameters,
+        )
 
     time_chunks = retrieval_times(coords, monthly_requests=monthly_requests)
     if concurrent_requests:

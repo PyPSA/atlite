@@ -8,6 +8,7 @@ Functions for Geographic Information System.
 import logging
 import multiprocessing as mp
 from collections import OrderedDict
+from functools import singledispatch
 from pathlib import Path
 from warnings import catch_warnings, simplefilter
 
@@ -771,7 +772,69 @@ def maybe_swap_spatial_dims(ds, namex="x", namey="y"):
     return ds.isel(**swaps) if swaps else ds
 
 
-def _as_transform(x, y):
+@singledispatch
+def rotate(x):
+    """
+    Rotate the x coordinate of a dataarray from 0 to 360, to standard
+    coordinates between -180 and 180 degrees.
+    """
+    _, *types = rotate.registry.keys()
+    raise ValueError(f"rotate is only implemented for: {', '.join(types)}")
+
+
+@rotate.register(xr.Dataset)
+@rotate.register(xr.DataArray)
+def _(da):
+    x = da.indexes["x"]
+
+    assert x.is_monotonic_increasing
+    i = x.searchsorted(180.0)
+    if i >= len(x):
+        return da
+
+    da = xr.concat(
+        [
+            da.isel(x=slice(i, None)).assign_coords(x=x[i:] - 360.0),
+            da.isel(x=slice(None, i)),
+        ],
+        dim="x",
+    )
+
+    if "lon" in da.coords:
+        da = da.assign_coords(lon=da.coords["x"])
+
+    return da
+
+
+@rotate.register
+def _(x: pd.Index) -> pd.Index:
+    assert x.is_monotonic_increasing
+    i = x.searchsorted(180.0)
+    if i >= len(x):
+        return x
+
+    return (x[i:] - 360.0).append(x[:i])
+
+
+def _as_transform(x: pd.Index | np.ndarray, y: pd.Index | np.ndarray) -> rio.Affine:
+    """
+    Derive a transform for equally-spaced longitude, latitude coordinates
+
+    x and y are assumed to point to the cell center, while the transform points
+    to the lower, left corner.
+
+    Parameters
+    ----------
+    x : Index
+        x coordinates
+    y : Index
+        y coordinates
+
+    Returns
+    -------
+    transform : Affine
+        Rasterio Affine object
+    """
     lx, rx = x[[0, -1]]
     ly, uy = y[[0, -1]]
 
