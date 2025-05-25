@@ -8,14 +8,22 @@ Release Notes
 #############
 
 
-.. Upcoming Release
-.. ================
+Upcoming Release
+================
 
-.. .. warning:: 
+.. warning:: 
   
-..   The features listed below are not released yet, but will be part of the next release! 
-..   To use the features already you have to install the ``master`` branch, e.g. 
-..   ``pip install git+https://github.com/pypsa/atlite``.
+  The features listed below are not released yet, but will be part of the next release! 
+  To use the features already you have to install the ``master`` branch, e.g. 
+  ``pip install git+https://github.com/pypsa/atlite``.
+
+**Features**
+
+* The method ``runoff(normalize_using_yearly=...)`` now supports handling of
+  partial years when normalizing runoff data based on annual data. The
+  normalization is applied proportionally based on the time overlap. A warning
+  is shown for partial years noting the strong assumption of evenly distributed
+  runoff throughout the year.
 
 `v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================
