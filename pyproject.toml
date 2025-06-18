@@ -45,7 +45,7 @@ dependencies = [
     "progressbar2",
     "tqdm",
     "pyproj>=2",
-    "geopandas",
+    "geopandas>=0.10.0",
     "cdsapi>=0.7.4",
     "cfgrib>=0.9.15.0",
     "h5netcdf>=1.6.1",
