@@ -17,6 +17,8 @@ Release Notes
 ..   To use the features already you have to install the ``master`` branch, e.g. 
 ..   ``pip install git+https://github.com/pypsa/atlite``.
 
+* Feature: Add a new onshore turbine that matchs closer to PyPSA assumption cost 
+
 `v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================
 
