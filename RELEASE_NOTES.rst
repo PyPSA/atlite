@@ -18,6 +18,9 @@ Release Notes
 ..   ``pip install git+https://github.com/pypsa/atlite``.
 
 * Feature: Add new onshore turbine models: eno 126 3.5 MW, eno 126 4 MW, and eno 126 4.8 MW . (turbines that match more closely the PyPSA/technologydata cost assumptions)
+* Set `add_cutout_windspeed = True` as default for `get_windturbineconfig` to ensure that the cutout wind speed is always added to the turbine configuration (`GH #316 <https://github.com/PyPSA/atlite/pull/316>`_);
+  removed the `DeprecationWarning`.
+* Addressed `rasterio` DeprecationWarning on `crs.is_valid`.
 
 `v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================
