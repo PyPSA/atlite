@@ -18,6 +18,7 @@ Release Notes
 ..   ``pip install git+https://github.com/pypsa/atlite``.
 
 * Feature: Add new onshore turbine models: eno 126 3.5 MW, eno 126 4 MW, and eno 126 4.8 MW . (turbines that match more closely the PyPSA/technologydata cost assumptions)
+* Fix calls to `cdsapi` for ERA5 to be compliant with current API syntax (https://github.com/PyPSA/atlite/pull/414 and https://github.com/PyPSA/atlite/pull/454).
 
 `v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================
