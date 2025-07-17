@@ -97,7 +97,7 @@ class Cutout:
         time : str | slice
             Time range to include in the cutout, e.g. "2011" or
             ("2011-01-05", "2011-01-25")
-            This is necessary when building a new cutout. 
+            This is necessary when building a new cutout.
         bounds : DataFrame | Tuple, optional
             The outer bounds of the cutout containing (min.long, min.lat, max.long, max.lat)
             or a single-row DataFrame with [["minx", "miny", "maxx", "maxy"]] column values.
@@ -165,14 +165,18 @@ class Cutout:
 
             if "bounds" in cutoutparams:
                 bounds = cutoutparams.pop("bounds")
-                 # If its a dataframe, we will extract the values
+                # If its a dataframe, we will extract the values
                 if isinstance(bounds, pd.DataFrame) and bounds.shape[0] == 1:
-                    x1, y1, x2, y2 = bounds.iloc[0][["minx", "miny", "maxx", "maxy"]].to_list()
+                    x1, y1, x2, y2 = bounds.iloc[0][
+                        ["minx", "miny", "maxx", "maxy"]
+                    ].to_list()
                 elif isinstance(bounds, tuple):  # If its a tuple
                     x1, y1, x2, y2 = bounds
                 else:
-                    raise ValueError("`bounds` must be a tuple or a DataFrame with a single row entry.")
-             
+                    raise ValueError(
+                        "`bounds` must be a tuple or a DataFrame with a single row entry."
+                    )
+
             cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
 
             try:

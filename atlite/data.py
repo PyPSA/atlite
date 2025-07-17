@@ -8,9 +8,9 @@ Management of data retrieval and structure.
 import logging
 import os
 from functools import wraps
+from pathlib import Path
 from shutil import rmtree
 from tempfile import mkdtemp, mkstemp
-from pathlib import Path
 
 import pandas as pd
 import xarray as xr
@@ -192,11 +192,11 @@ def cutout_prepare(
     cutout : atlite.Cutout
         Cutout with prepared data. The variables are stored in `cutout.data`.
 
-    
+
     Raises
-    -------
+    ------
     NotADirectoryError
-        The argument `tmpdir` is not a valid path. 
+        The argument `tmpdir` is not a valid path.
 
     """
     if dask_kwargs is None:
