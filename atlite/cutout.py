@@ -176,8 +176,7 @@ class Cutout:
                     raise ValueError(
                         "`bounds` must be a tuple or a DataFrame with a single row entry."
                     )
-
-            cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
+                cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
 
             try:
                 x = cutoutparams.pop("x")
