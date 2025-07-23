@@ -53,6 +53,8 @@ jobs:
         os: ${{ fromJSON(github.event_name == 'schedule' && '["ubuntu-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
     env:
       MPLBACKEND: Agg  # https://github.com/orgs/community/discussions/26434
+      CDSAPI_URL: ${{ vars.CDSAPI_URL }}
+      CDSAPI_KEY: ${{ secrets.CDSAPI_TOKEN }}
 
     steps:
     - name: Setup cache and secrets (Linux & MacOS)
@@ -60,15 +62,12 @@ jobs:
       run: |
         echo "CACHE_PATH=$HOME/.atlite_cache" >> $GITHUB_ENV
         echo "today=$(date +'%Y-%m-%d')"  >> $GITHUB_ENV
-        echo -ne "url: ${{ vars.CDSAPI_URL }}\nkey: ${{  secrets.CDSAPI_TOKEN  }}\n" > ~/.cdsapirc
       shell: bash
 
     - name: Setup cache and secrets (Windows)
       if: runner.os == 'Windows'
       run: |
         echo CACHE_PATH=%USERPROFILE%\.atlite_cache >> %GITHUB_ENV%
-        echo url: ${{ vars.CDSAPI_URL }} > %USERPROFILE%\.cdsapirc
-        echo key: ${{ secrets.CDSAPI_TOKEN }} >> %USERPROFILE%\.cdsapirc
         for /f "tokens=2 delims==" %%a in ('"wmic os get localdatetime /value"') do set "today=%%a"
         set mydate=%today:~0,4%-%today:~4,2%-%today:~6,2%
         echo today=%mydate% >> %GITHUB_ENV%
