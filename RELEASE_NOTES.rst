@@ -18,6 +18,8 @@ Release Notes
 ..   ``pip install git+https://github.com/pypsa/atlite``.
 
 * Feature: Add new onshore turbine models: eno 126 3.5 MW, eno 126 4 MW, and eno 126 4.8 MW . (turbines that match more closely the PyPSA/technologydata cost assumptions)
+* Fix `atlite.Cutout()` to be able to handle the `bounds` argument to be a `DataFrame` in accordance to the docstring (https://github.com/PyPSA/atlite/pull/445).
+* Raise a `FileNotFoundError` if the `temp_dir` explicitly specified for cutout preparation does not exist instead of failing with an obfuscated error message (https://github.com/PyPSA/atlite/pull/445).
 
 `v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================
