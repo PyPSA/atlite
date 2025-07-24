@@ -28,6 +28,7 @@ Upcoming Release
 * Fix `atlite.Cutout()` to be able to handle the `bounds` argument to be a `DataFrame` in accordance to the docstring (https://github.com/PyPSA/atlite/pull/445).
 * Raise a `FileNotFoundError` if the `temp_dir` explicitly specified for cutout preparation does not exist instead of failing with an obfuscated error message (https://github.com/PyPSA/atlite/pull/445).
 * Addressed `rasterio` DeprecationWarning on `crs.is_valid`.
+* Fix calls to `cdsapi` for ERA5 to be compliant with current API syntax (https://github.com/PyPSA/atlite/pull/414 and https://github.com/PyPSA/atlite/pull/454).
 
 `v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================
