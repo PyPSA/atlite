@@ -486,18 +486,9 @@ def retrieve_data(
 
     logger.debug(f"Requesting {product} with API request: {request}")
 
-    client_kwargs = {
-        "info_callback": logger.debug,
-        "debug": logging.DEBUG >= logging.root.level,
-    }
-
-    # Use environment variables if set, otherwise fall back to default config
-    if os.environ.get("CDSAPI_URL"):
-        client_kwargs["url"] = os.environ.get("CDSAPI_URL")
-    if os.environ.get("CDSAPI_KEY"):
-        client_kwargs["key"] = os.environ.get("CDSAPI_KEY")
-
-    client = cdsapi.Client(**client_kwargs)
+    client = cdsapi.Client(
+        info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
+    )
     result = client.retrieve(product, request)
 
     if lock is None:
