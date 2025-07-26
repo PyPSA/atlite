@@ -5,7 +5,7 @@
 # Turbine characteristic data
 name: eno 126 4
 # The manufacturer of this turbine
-manufacturer: eno energy 
+manufacturer: eno energy
 # Link to the original datasheet of the turbine
 source: https://www.eno-energy.com/maschinen/eno126/
 
