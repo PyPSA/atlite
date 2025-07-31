@@ -8,6 +8,7 @@ Management of data retrieval and structure.
 import logging
 import os
 from functools import wraps
+from pathlib import Path
 from shutil import rmtree
 from tempfile import mkdtemp, mkstemp
 
@@ -161,7 +162,7 @@ def cutout_prepare(
     tmpdir : str/Path, optional
         Directory in which temporary files (for example retrieved ERA5 netcdf
         files) are stored. If set, the directory will not be deleted and the
-        intermediate files can be examined.
+        intermediate files can be examined. The path must be a valid path.
     data_format : str, optional
         The data format used to retrieve the data. Only relevant for ERA5 data. The default is 'grib'.
     overwrite : bool, optional
@@ -191,6 +192,12 @@ def cutout_prepare(
     cutout : atlite.Cutout
         Cutout with prepared data. The variables are stored in `cutout.data`.
 
+
+    Raises
+    ------
+    NotADirectoryError
+        The argument `tmpdir` is not a valid path.
+
     """
     if dask_kwargs is None:
         dask_kwargs = {}
@@ -199,6 +206,10 @@ def cutout_prepare(
         logger.info("Cutout already prepared.")
         return cutout
 
+    # ensure that the tmpdir actually exists
+    temp_dir_path = Path(tmpdir)
+    if not temp_dir_path.is_dir():
+        raise FileNotFoundError(f"The tmpdir: {temp_dir_path} does not exist.")
     logger.info(f"Storing temporary files in {tmpdir}")
 
     modules = atleast_1d(cutout.module)
