@@ -29,6 +29,7 @@ Upcoming Release
 * Raise a `FileNotFoundError` if the `temp_dir` explicitly specified for cutout preparation does not exist instead of failing with an obfuscated error message (https://github.com/PyPSA/atlite/pull/445).
 * Addressed `rasterio` DeprecationWarning on `crs.is_valid`.
 * Fix calls to `cdsapi` for ERA5 to be compliant with current API syntax (https://github.com/PyPSA/atlite/pull/414 and https://github.com/PyPSA/atlite/pull/454).
+* Fix `reproject_shapes()` to preserve coordinate order by enforcing (x=lon, y=lat) with `always_xy=True` when transforming from one CRS to another (https://github.com/PyPSA/atlite/pull/462). 
 
 `v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================

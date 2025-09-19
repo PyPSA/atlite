@@ -88,7 +88,7 @@ def reproject_shapes(shapes, crs1, crs2):
     """
     Project a collection of shapes from one crs to another.
     """
-    transformer = Transformer.from_crs(crs1, crs2)
+    transformer = Transformer.from_crs(crs1, crs2, always_xy=True)
 
     def _reproject_shape(shape):
         return transform(transformer.transform, shape)
