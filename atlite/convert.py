@@ -752,7 +752,10 @@ def wave(cutout, wec_type, **params):
     if isinstance(wec_type, str | Path):
         wec_type = get_wecgeneratorconfig(wec_type)
 
-    return cutout.convert_and_aggregate(wec_type=wec_type, **params)
+    return cutout.convert_and_aggregate(
+        convert_func=convert_wave,
+        wec_type=wec_type,
+        **params)
 
 
 def convert_irradiation(
