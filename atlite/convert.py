@@ -36,7 +36,7 @@ from atlite.pv.solar_position import SolarPosition
 from atlite.resource import (
     get_cspinstallationconfig,
     get_solarpanelconfig,
-    get_wecgeneratorconfig,
+    get_waveenergyconverter,
     get_windturbineconfig,
     windturbine_smooth,
 )
@@ -655,8 +655,8 @@ def wind(
 
 
 # wave
-def convert_wave(ds, wec_type):
-    r"""
+def convert_wave(ds, wec):
+    """
     Convert wave height (Hs) and wave peak period (Tp) data into normalized power output
     using the device-specific Wave Energy Converter (WEC) power matrix.
 
@@ -685,7 +685,7 @@ def convert_wave(ds, wec_type):
     A progress message is printed every one million cases to track computation.
     """
 
-    power_matrix = pd.DataFrame.from_dict(wec_type["Power_Matrix"])
+    power_matrix = pd.DataFrame.from_dict(wec["Power_Matrix"])
     max_pow = power_matrix.to_numpy().max()
 
     Hs = np.ceil(ds["wave_height"] * 2) / 2
@@ -704,6 +704,8 @@ def convert_wave(ds, wec_type):
         if count % 1000000 == 0:
             print(f"Case {count} of {cases}: %")
         if np.isnan(Hs_ind) or np.isnan(Tp_ind):
+            power_list.append(0)
+        elif Hs_ind > 10 or Tp_ind > 18:
             power_list.append(0)
         else:
             generated_power = power_matrix.loc[Hs_ind, Tp_ind]
@@ -725,7 +727,7 @@ def convert_wave(ds, wec_type):
     return da
 
 
-def wave(cutout, wec_type, **params):
+def wave(cutout, wec, **params):
     """
     Compute wave energy generation time series for a given cutout and Wave Energy Converter (WEC) type.
 
@@ -749,12 +751,12 @@ def wave(cutout, wec_type, **params):
     opportunities, and untapped potential for 100% decarbonised systems. Energy, Volume 336, 2025,
     138359, ISSN 0360-5442, https://doi.org/10.1016/j.energy.2025.138359.
     """
-    if isinstance(wec_type, str | Path):
-        wec_type = get_wecgeneratorconfig(wec_type)
+    if isinstance(wec, str | Path):
+        wec = get_waveenergyconverter(wec)
 
     return cutout.convert_and_aggregate(
         convert_func=convert_wave,
-        wec_type=wec_type,
+        wec=wec, 
         **params)
 
 
