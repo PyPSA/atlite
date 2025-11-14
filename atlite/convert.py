@@ -656,7 +656,7 @@ def wind(
 
 # wave
 def convert_wave(ds, wec):
-    """
+    r"""
     Convert wave height (Hs) and wave peak period (Tp) data into normalized power output
     using the device-specific Wave Energy Converter (WEC) power matrix.
 
@@ -754,10 +754,7 @@ def wave(cutout, wec, **params):
     if isinstance(wec, str | Path):
         wec = get_waveenergyconverter(wec)
 
-    return cutout.convert_and_aggregate(
-        convert_func=convert_wave,
-        wec=wec, 
-        **params)
+    return cutout.convert_and_aggregate(convert_func=convert_wave, wec=wec, **params)
 
 
 def convert_irradiation(
