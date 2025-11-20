@@ -8,14 +8,39 @@ Release Notes
 #############
 
 
-.. Upcoming Release
-.. ================
+Upcoming Release
+================
 
-.. .. warning:: 
+.. warning:: 
   
-..   The features listed below are not released yet, but will be part of the next release! 
-..   To use the features already you have to install the ``master`` branch, e.g. 
-..   ``pip install git+https://github.com/pypsa/atlite``.
+   The features listed below are not released yet, but will be part of the next release! 
+   To use the features already you have to install the ``master`` branch, e.g. 
+   ``pip install git+https://github.com/pypsa/atlite``.
+
+**Breaking**
+* Set `add_cutout_windspeed = True` as default for `get_windturbineconfig` to ensure that the cutout wind speed is always added to the turbine configuration (`GH #316 <https://github.com/PyPSA/atlite/pull/316>`_);
+  removed the `DeprecationWarning`.
+ 
+**Features**
+* Add new onshore turbine models: eno 126 3.5 MW, eno 126 4 MW, and eno 126 4.8 MW . (turbines that match more closely the PyPSA/technologydata cost assumptions)
+
+**Bug fixes**
+* Fix `atlite.Cutout()` to be able to handle the `bounds` argument to be a `DataFrame` in accordance to the docstring (https://github.com/PyPSA/atlite/pull/445).
+* Raise a `FileNotFoundError` if the `temp_dir` explicitly specified for cutout preparation does not exist instead of failing with an obfuscated error message (https://github.com/PyPSA/atlite/pull/445).
+* Addressed `rasterio` DeprecationWarning on `crs.is_valid`.
+* Fix calls to `cdsapi` for ERA5 to be compliant with current API syntax (https://github.com/PyPSA/atlite/pull/414 and https://github.com/PyPSA/atlite/pull/454).
+* Fix `reproject_shapes()` to preserve coordinate order by enforcing (x=lon, y=lat) with `always_xy=True` when transforming from one CRS to another (https://github.com/PyPSA/atlite/pull/462). 
+
+`v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
+=======================================================================================
+
+* ERA5 data is now by default using the `grib` backened instead of the `netcdf` backend of the CDS.
+  This change became necessary, as the `netcdf` backend became size-limited, cf. (https://forum.ecmwf.int/t/limitation-change-on-netcdf-era5-requests/12477).
+  Side effects include that downloads of ERA5 data should now be faster and possible for larger extends,
+  with a downside of more processing locally and larger temporary storage requirements.
+  The yielded cutouts should be identical in their data to previous cutouts.
+  You can still use the `netcdf` backend by passing `data_format='netcdf'` to the `cutout.prepare()` method.
+  (https://github.com/PyPSA/atlite/issues/439)
 
 `v0.4.0 <https://github.com/PyPSA/atlite/releases/tag/v0.4.0>`__ (30th January 2025)
 =======================================================================================
