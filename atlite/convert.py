@@ -13,6 +13,7 @@ from collections import namedtuple
 from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING
+from tqdm import tqdm
 
 import geopandas as gpd
 import numpy as np
@@ -655,8 +656,8 @@ def wind(
 
 
 # wave
-def convert_wave(ds, wec):
-    r"""
+def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
+    """
     Convert wave height (Hs) and wave peak period (Tp) data into normalized power output
     using the device-specific Wave Energy Converter (WEC) power matrix.
 
@@ -664,16 +665,18 @@ def convert_wave(ds, wec):
     in the dataset to a corresponding power output from the WEC power matrix.
     The resulting power output is normalized by the maximum possible output (capacity)
     to obtain the specific generation profile.
-
+    
     Parameters
     ----------
     ds : xarray.Dataset
         Input dataset (cutout) containing two variables:
         wave_height: significant wave height (m)
         wave_period: peak wave period (s)
-    wec_type : dict
+    converter : dict
         Dictionary defining the WEC characteristics, including:
-        Power_Matrix: a power matrix dictionary stored in "resources\wecgenerator"
+        Power_Matrix: a power matrix dictionary stored in `resources\wecgenerator`
+    time_chunk_size : int
+        Size of time chunks for processing large datasets, to limit memory spikes. Default is 100.
 
     Returns
     -------
@@ -684,50 +687,35 @@ def convert_wave(ds, wec):
     -----
     A progress message is printed every one million cases to track computation.
     """
-
-    power_matrix = pd.DataFrame.from_dict(wec["Power_Matrix"])
-    max_pow = power_matrix.to_numpy().max()
-
-    Hs = np.ceil(ds["wave_height"] * 2) / 2
-    Tp = np.ceil(ds["wave_period"] * 2) / 2
-
-    Hs_list = Hs.to_numpy().flatten().tolist()
-    Tp_list = Tp.to_numpy().flatten().tolist()
-
-    # empty list for result
-    power_list = []
-    cases = len(Hs_list)
-    count = 0
-
-    # for loop to loop through Hs and Tp pairs and get the power output and capacity factor
-    for Hs_ind, Tp_ind in zip(Hs_list, Tp_list):
-        if count % 1000000 == 0:
-            print(f"Case {count} of {cases}: %")
-        if np.isnan(Hs_ind) or np.isnan(Tp_ind):
-            power_list.append(0)
-        elif Hs_ind > 10 or Tp_ind > 18:
-            power_list.append(0)
-        else:
-            generated_power = power_matrix.loc[Hs_ind, Tp_ind]
-            power_list.append(generated_power / max_pow)
-        count += 1
-
-    # results list to numpy array
-    power_list_np = np.array(power_list)
-
-    power_list_np = power_list_np.reshape(Hs.shape)
-
-    da = xr.DataArray(
-        power_list_np, coords=Hs.coords, dims=Hs.dims, name="Power generated"
+    power_matrix = (
+        pd.DataFrame.from_dict(converter["Power_Matrix"])
+        .stack()
+        .rename_axis(index=["wave_height", "wave_period"])
+        .where(lambda x: x > 0)
+        .dropna()
+        .to_xarray()
     )
+    
+    results = []
+    steps = np.arange(0, len(ds.time), step=100)
+    
+    for step in tqdm(steps, desc="Processing wave data chunks", total=len(steps), unit="time chunk"):
+        ds_ = ds.isel(time=slice(step, step + time_chunk_size))
+        cf = power_matrix.interp(
+            {"wave_height": ds_.wave_height, "wave_period": ds_.wave_period},
+            method="nearest",
+        )
+        results.append(cf)
+        
+    da = xr.concat(results, dim="time")
     da.attrs["units"] = "kWh/kWp"
     da = da.rename("specific generation")
     da = da.fillna(0)
-
+    
     return da
 
 
-def wave(cutout, wec, **params):
+def wave(cutout, converter, **params):
     """
     Compute wave energy generation time series for a given cutout and Wave Energy Converter (WEC) type.
 
@@ -751,10 +739,13 @@ def wave(cutout, wec, **params):
     opportunities, and untapped potential for 100% decarbonised systems. Energy, Volume 336, 2025,
     138359, ISSN 0360-5442, https://doi.org/10.1016/j.energy.2025.138359.
     """
-    if isinstance(wec, str | Path):
-        wec = get_waveenergyconverter(wec)
+    if isinstance(converter, str | Path):
+        converter = get_waveenergyconverter(converter)
 
-    return cutout.convert_and_aggregate(convert_func=convert_wave, wec=wec, **params)
+    return cutout.convert_and_aggregate(
+        convert_func=convert_wave,
+        converter=converter, 
+        **params)
 
 
 def convert_irradiation(

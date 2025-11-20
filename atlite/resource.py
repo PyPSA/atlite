@@ -114,22 +114,21 @@ def get_windturbineconfig(
 
     return _validate_turbine_config_dict(conf, add_cutout_windspeed)
 
-
-def get_waveenergyconverter(wec):
+def get_waveenergyconverter(converter):
     """
-    Load the wec wec_type power matrix
+    Load the wave energy converter power matrix
     the configuration can either be one from local storage then 'wec_type' is
     considered part of the file base name '<wec_type>.yaml'
     """
-    assert isinstance(wec, (str | Path))
+    assert isinstance(converter, (str | Path))
 
-    if isinstance(wec, str):
-        wec_path = waveenergyconverter[wec.replace(".yaml", "")]
+    if isinstance(converter, str):
+        converter_path = waveenergyconverter[converter.replace(".yaml", "")]
 
-    elif isinstance(wec, Path):
-        wec_path = wec
+    elif isinstance(converter, Path):
+        converter_path = converter
 
-    with open(wec_path) as f:
+    with open(converter_path) as f:
         conf = yaml.safe_load(f)
 
     return conf

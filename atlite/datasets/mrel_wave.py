@@ -11,7 +11,6 @@ Volume 236, 2024, 121391,ISSN 0960-1481, https://doi.org/10.1016/j.renene.2024.1
 """
 
 import logging
-
 import numpy as np
 import xarray as xr
 from rasterio.warp import Resampling
@@ -21,17 +20,17 @@ from atlite.gis import regrid
 logger = logging.getLogger(__name__)
 
 crs = 4326
-dx = 0.0625
-dy = 0.04
+dx = 0.03
+dy = 0.03
 
-features = {"hs": "wave_height", "tp": "wave_period"}
-
+features = {"hs": "wave_height", "fp": "wave_period"}
 
 def _rename_and_clean_coords(ds, cutout):
     """
     Rename 'longitude' and 'latitude' columns to 'x' and 'y', fix roundings and grid dimensions.
     """
     coords = cutout.coords
+    
     if "longitude" in ds and "latitude" in ds:
         ds = ds.rename({"longitude": "x", "latitude": "y"})
     # round coords since cds coords are float32 which would lead to mismatches
@@ -69,7 +68,6 @@ def _bounds(coords, pad: float = 0) -> dict[str, slice]:
 
     return {"x": slice(x0, x1), "y": slice(y0, y1)}
 
-
 def get_data(cutout, feature, tmpdir, **creation_parameters):
     """
     Load stored MREL (ECHOWAVE) data and reformat to matching the given cutout.
@@ -103,7 +101,10 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     bounds = _bounds(cutout.coords, pad=creation_parameters.get("pad", 0))
     ds = ds.sel(**bounds)
 
-    ds = ds[list(features.values())].rename(features)
+    # invert the wave peak frequency to obrain wave peak period
+    ds['tp'] = (1 / ds['fp'])
+    
+    ds = ds[list(features.keys())].rename(features)
     for feature in features.values():
         sanitize_func = globals().get(f"sanitize_{feature}")
         if sanitize_func is not None:
