@@ -13,7 +13,6 @@ from collections import namedtuple
 from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING
-from tqdm import tqdm
 
 import geopandas as gpd
 import numpy as np
@@ -24,6 +23,7 @@ from dask.array import absolute, arccos, cos, maximum, mod, radians, sin, sqrt
 from dask.diagnostics import ProgressBar
 from numpy import pi
 from scipy.sparse import csr_matrix
+from tqdm import tqdm
 
 from atlite import csp as cspm
 from atlite import hydro as hydrom
@@ -657,7 +657,7 @@ def wind(
 
 # wave
 def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
-    """
+    r"""
     Convert wave height (Hs) and wave peak period (Tp) data into normalized power output
     using the device-specific Wave Energy Converter (WEC) power matrix.
 
@@ -665,7 +665,7 @@ def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
     in the dataset to a corresponding power output from the WEC power matrix.
     The resulting power output is normalized by the maximum possible output (capacity)
     to obtain the specific generation profile.
-    
+
     Parameters
     ----------
     ds : xarray.Dataset
@@ -695,23 +695,25 @@ def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
         .dropna()
         .to_xarray()
     )
-    
+
     results = []
     steps = np.arange(0, len(ds.time), step=100)
-    
-    for step in tqdm(steps, desc="Processing wave data chunks", total=len(steps), unit="time chunk"):
+
+    for step in tqdm(
+        steps, desc="Processing wave data chunks", total=len(steps), unit="time chunk"
+    ):
         ds_ = ds.isel(time=slice(step, step + time_chunk_size))
         cf = power_matrix.interp(
             {"wave_height": ds_.wave_height, "wave_period": ds_.wave_period},
             method="nearest",
         )
         results.append(cf)
-        
+
     da = xr.concat(results, dim="time")
     da.attrs["units"] = "kWh/kWp"
     da = da.rename("specific generation")
     da = da.fillna(0)
-    
+
     return da
 
 
@@ -743,9 +745,8 @@ def wave(cutout, converter, **params):
         converter = get_waveenergyconverter(converter)
 
     return cutout.convert_and_aggregate(
-        convert_func=convert_wave,
-        converter=converter, 
-        **params)
+        convert_func=convert_wave, converter=converter, **params
+    )
 
 
 def convert_irradiation(
