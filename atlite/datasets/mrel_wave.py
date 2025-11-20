@@ -105,7 +105,7 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     ds = ds.sel(**bounds)
 
     # invert the wave peak frequency to obrain wave peak period
-    ds["tp"] = (1 / ds["fp"])
+    ds["tp"] = 1 / ds["fp"]
 
     ds = ds[list(features.keys())].rename(features)
     for feature in features.values():
