@@ -114,6 +114,7 @@ def get_windturbineconfig(
 
     return _validate_turbine_config_dict(conf, add_cutout_windspeed)
 
+
 def get_waveenergyconverter(wec):
     """
     Load the wec wec_type power matrix
@@ -537,7 +538,9 @@ def get_oedb_windturbineconfig(
 # Global caches
 _oedb_turbines = None
 windturbines = arrowdict({p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
-waveenergyconverter = arrowdict({p.stem: p for p in WAVEENERGYCONVERTER_DIRECTORY.glob("*.yaml")})
+waveenergyconverter = arrowdict(
+    {p.stem: p for p in WAVEENERGYCONVERTER_DIRECTORY.glob("*.yaml")}
+)
 solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
 cspinstallations = arrowdict(
     {p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.yaml")}
