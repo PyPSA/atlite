@@ -114,7 +114,6 @@ def get_windturbineconfig(
 
     return _validate_turbine_config_dict(conf, add_cutout_windspeed)
 
-
 def get_waveenergyconverter(converter):
     """
     Load the wave energy converter power matrix
