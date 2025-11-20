@@ -657,7 +657,7 @@ def wind(
 
 # wave
 def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
-    """
+    r"""
     Convert wave height (Hs) and wave peak period (Tp) data into normalized power output
     using the device-specific Wave Energy Converter (WEC) power matrix.
 
