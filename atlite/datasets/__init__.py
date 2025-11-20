@@ -6,6 +6,11 @@
 atlite datasets.
 """
 
-from atlite.datasets import era5, gebco, sarah
+from atlite.datasets import era5, gebco, mrel_wave, sarah
 
-modules = {"era5": era5, "sarah": sarah, "gebco": gebco}
+modules = {
+    "era5": era5,
+    "sarah": sarah,
+    "mrel_wave": mrel_wave,
+    "gebco": gebco,
+}

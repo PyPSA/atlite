@@ -23,6 +23,7 @@ from dask.array import absolute, arccos, cos, maximum, mod, radians, sin, sqrt
 from dask.diagnostics import ProgressBar
 from numpy import pi
 from scipy.sparse import csr_matrix
+from tqdm import tqdm
 
 from atlite import csp as cspm
 from atlite import hydro as hydrom
@@ -36,6 +37,7 @@ from atlite.pv.solar_position import SolarPosition
 from atlite.resource import (
     get_cspinstallationconfig,
     get_solarpanelconfig,
+    get_waveenergyconverter,
     get_windturbineconfig,
     windturbine_smooth,
 )
@@ -653,7 +655,100 @@ def wind(
     )
 
 
-# irradiation
+# wave
+def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
+    r"""
+    Convert wave height (Hs) and wave peak period (Tp) data into normalized power output
+    using the device-specific Wave Energy Converter (WEC) power matrix.
+
+    This function matches each combination of significant wave height and peak period
+    in the dataset to a corresponding power output from the WEC power matrix.
+    The resulting power output is normalized by the maximum possible output (capacity)
+    to obtain the specific generation profile.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Input dataset (cutout) containing two variables:
+        wave_height: significant wave height (m)
+        wave_period: peak wave period (s)
+    converter : dict
+        Dictionary defining the WEC characteristics, including:
+        Power_Matrix: a power matrix dictionary stored in `resources\wecgenerator`
+    time_chunk_size : int
+        Size of time chunks for processing large datasets, to limit memory spikes. Default is 100.
+
+    Returns
+    -------
+    xarray.DataArray
+        DataArray of specific power generation values (normalized power output).
+
+    Notes
+    -----
+    A progress message is printed every one million cases to track computation.
+    """
+    power_matrix = (
+        pd.DataFrame.from_dict(converter["Power_Matrix"])
+        .stack()
+        .rename_axis(index=["wave_height", "wave_period"])
+        .where(lambda x: x > 0)
+        .dropna()
+        .to_xarray()
+    )
+
+    results = []
+    steps = np.arange(0, len(ds.time), step=100)
+
+    for step in tqdm(
+        steps, desc="Processing wave data chunks", total=len(steps), unit="time chunk"
+    ):
+        ds_ = ds.isel(time=slice(step, step + time_chunk_size))
+        cf = power_matrix.interp(
+            {"wave_height": ds_.wave_height, "wave_period": ds_.wave_period},
+            method="nearest",
+        )
+        results.append(cf)
+
+    da = xr.concat(results, dim="time")
+    da.attrs["units"] = "kWh/kWp"
+    da = da.rename("specific generation")
+    da = da.fillna(0)
+
+    return da
+
+
+def wave(cutout, converter, **params):
+    """
+    Compute wave energy generation time series for a given cutout and Wave Energy Converter (WEC) type.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Atlite cutout object containing wave-related data (e.g., `wave_height`, `wave_period`).
+    wec_type : str, pathlib.Path, or dict
+        WEC configuration describing the device's power characteristics.
+
+    Returns
+    -------
+    xarray.DataArray
+        Time series of normalized wave power generation for the entire cutout area, with units of "kWh/kWp".
+        The dimensions and resolution follow the input cutout and aggregation parameters.
+
+    References
+    ----------
+    [1] Lavidas G., Mezilis L., Alday M., Baki H., Tan J., Jain A., Engelfried T. and Raghavan V.,
+    Marine renewables in Energy Systems: Impacts of climate data, generators, energy policies,
+    opportunities, and untapped potential for 100% decarbonised systems. Energy, Volume 336, 2025,
+    138359, ISSN 0360-5442, https://doi.org/10.1016/j.energy.2025.138359.
+    """
+    if isinstance(converter, str | Path):
+        converter = get_waveenergyconverter(converter)
+
+    return cutout.convert_and_aggregate(
+        convert_func=convert_wave, converter=converter, **params
+    )
+
+
 def convert_irradiation(
     ds,
     orientation,

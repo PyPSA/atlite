@@ -31,6 +31,7 @@ RESOURCE_DIRECTORY = Path(__file__).parent / "resources"
 WINDTURBINE_DIRECTORY = RESOURCE_DIRECTORY / "windturbine"
 SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
+WAVEENERGYCONVERTER_DIRECTORY = RESOURCE_DIRECTORY / "waveenergyconverter"
 
 if TYPE_CHECKING:
     from typing import TypedDict
@@ -107,6 +108,26 @@ def get_windturbineconfig(
         conf = turbine
 
     return _validate_turbine_config_dict(conf, add_cutout_windspeed)
+
+
+def get_waveenergyconverter(converter):
+    """
+    Load the wave energy converter power matrix
+    the configuration can either be one from local storage then 'wec_type' is
+    considered part of the file base name '<wec_type>.yaml'
+    """
+    assert isinstance(converter, (str | Path))
+
+    if isinstance(converter, str):
+        converter_path = waveenergyconverter[converter.replace(".yaml", "")]
+
+    elif isinstance(converter, Path):
+        converter_path = converter
+
+    with open(converter_path) as f:
+        conf = yaml.safe_load(f)
+
+    return conf
 
 
 def get_solarpanelconfig(panel):
@@ -512,6 +533,9 @@ def get_oedb_windturbineconfig(
 # Global caches
 _oedb_turbines = None
 windturbines = arrowdict({p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
+waveenergyconverter = arrowdict(
+    {p.stem: p for p in WAVEENERGYCONVERTER_DIRECTORY.glob("*.yaml")}
+)
 solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
 cspinstallations = arrowdict(
     {p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.yaml")}

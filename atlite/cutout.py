@@ -44,6 +44,7 @@ from atlite.convert import (
     soil_temperature,
     solar_thermal,
     temperature,
+    wave,
     wind,
 )
 from atlite.data import available_features, cutout_prepare
@@ -672,6 +673,8 @@ class Cutout:
     solar_thermal = solar_thermal
 
     wind = wind
+
+    wave = wave
 
     irradiation = irradiation
 
