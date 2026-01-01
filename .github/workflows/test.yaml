@@ -31,7 +31,7 @@ jobs:
     name: Build and verify package
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0   # Needed for setuptools_scm
     - uses: hynek/build-and-inspect-python-package@v2
@@ -73,25 +73,25 @@ jobs:
         echo today=%mydate% >> %GITHUB_ENV%
       shell: cmd
 
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0 # Needed for setuptools_scm
 
     - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Cache retrieved cutouts
       if: ${{ inputs.cache_cutouts != 'false' }}
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ${{ env.CACHE_PATH }}
         key: retrieved-cutouts-${{ env.today }}
         enableCrossOsArchive: true
 
     - name: Download package
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: Packages
         path: dist
