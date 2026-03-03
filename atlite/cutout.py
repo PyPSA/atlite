@@ -753,8 +753,6 @@ class Cutout:
         profiles = {}
         for _, row in locations.iterrows():
             name = row[name_col]
-            profiles[name] = cf.sel(
-                x=row[x_col], y=row[y_col], method="nearest"
-            ).values
+            profiles[name] = cf.sel(x=row[x_col], y=row[y_col], method="nearest").values
 
         return pd.DataFrame(profiles, index=pd.DatetimeIndex(cf.time.values))
