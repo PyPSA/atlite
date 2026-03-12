@@ -1,0 +1,22 @@
+version = 1
+SPDX-PackageName = "atlite"
+SPDX-PackageSupplier = "Jonas Hörsch <jonas.hoersch@posteo.de>"
+SPDX-PackageDownloadLocation = "https://github.com/PyPSA/atlite"
+
+[[annotations]]
+path = "doc/img/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Contributors to atlite <https://github.com/pypsa/atlite>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "doc/workflow**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Contributors to atlite <https://github.com/pypsa/atlite>"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "doc/examples/**.nblink"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Contributors to atlite <https://github.com/pypsa/atlite>"
+SPDX-License-Identifier = "CC-BY-4.0"
