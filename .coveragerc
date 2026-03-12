@@ -5,8 +5,14 @@
 [run]
 branch = True
 source = atlite
+relative_files = True
 omit =
     test/*
     setup.py
     atlite/datasets/ncep*
     atlite/datasets/cordex*
+
+[paths]
+source =
+    atlite/
+    */site-packages/atlite/
