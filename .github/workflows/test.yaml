@@ -113,10 +113,7 @@ jobs:
 
     - name: Generate coverage report
       if: ${{ !cancelled() }}
-      run: |
-        mv .coverage .coverage.data
-        coverage combine
-        coverage xml
+      run: coverage xml
 
     - name: Upload code coverage report
       if: ${{ !cancelled() && github.event_name != 'schedule' }}

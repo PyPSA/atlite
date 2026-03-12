@@ -3,5 +3,11 @@
 # SPDX-License-Identifier: MIT
 comment: false
 
-fixes:
-- "*/site-packages/atlite/::atlite/"
+coverage:
+  status:
+    project:
+      default:
+        threshold: 15%
+    patch:
+      default:
+        target: auto
