@@ -103,17 +103,20 @@ jobs:
       if: matrix.os != 'windows-latest' || matrix.python-version != '3.13'
       run: |
         coverage run -m pytest . --cache-path=${{ env.CACHE_PATH }} --verbose
-        coverage xml
+      id: pytest
 
     - name: Test with pytest (windows & Python 3.13)
       if: matrix.os == 'windows-latest' && matrix.python-version == '3.13'
       run: |
         coverage run -m pytest . --cache-path=${{ env.CACHE_PATH }} --verbose
-        coverage xml
-        return 0 # Ignore windows and pytest 3.13
+      continue-on-error: true
+
+    - name: Generate coverage report
+      if: ${{ !cancelled() }}
+      run: coverage xml
 
     - name: Upload code coverage report
-      if: github.event_name != 'schedule'
+      if: ${{ !cancelled() && github.event_name != 'schedule' }}
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
