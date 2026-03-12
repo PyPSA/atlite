@@ -27,3 +27,5 @@ paper
 # Ignore IDE project files
 .idea/
 .vscode
+AGENTS.md
+uv.lock
