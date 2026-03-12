@@ -23,6 +23,7 @@ Upcoming Release
  
 **Features**
 * Add new onshore turbine models: eno 126 3.5 MW, eno 126 4 MW, and eno 126 4.8 MW . (turbines that match more closely the PyPSA/technologydata cost assumptions)
+* Document per-cell capacity factor extraction via ``capacity_factor_timeseries=True`` without aggregation arguments; add structured return value docs to ``convert_and_aggregate`` and usage examples to ``wind()``/``pv()`` (`#481 <https://github.com/PyPSA/atlite/pull/481>`_).
 
 **Bug fixes**
 * Fix `atlite.Cutout()` to be able to handle the `bounds` argument to be a `DataFrame` in accordance to the docstring (https://github.com/PyPSA/atlite/pull/445).

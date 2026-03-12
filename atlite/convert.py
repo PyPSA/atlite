@@ -67,21 +67,20 @@ def convert_and_aggregate(
     """
     Convert and aggregate a weather-based renewable generation time-series.
 
-    NOTE: Not meant to be used by the user him or herself. Rather it is a
-    gateway function that is called by all the individual time-series
-    generation functions like pv and wind. Thus, all its parameters are also
-    available from these.
+    This is a gateway function called by the individual time-series
+    generation functions like ``pv`` and ``wind``. All parameters documented
+    here are also available from those functions.
 
     Parameters
     ----------
     matrix : N x S - xr.DataArray or sp.sparse.csr_matrix or None
         If given, it is used to aggregate the grid cells to buses.
         N is the number of buses, S the number of spatial coordinates, in the
-        order of `cutout.grid`.
+        order of ``cutout.grid``.
     index : pd.Index
         Index of Buses.
     layout : X x Y - xr.DataArray
-        The capacity to be build in each of the `grid_cells`.
+        The capacity to be build in each of the ``grid_cells``.
     shapes : list or pd.Series of shapely.geometry.Polygon
         If given, matrix is constructed as indicatormatrix of the polygons, its
         index determines the bus index on the time-series.
@@ -93,7 +92,7 @@ def convert_and_aggregate(
         to False).
     return_capacity : boolean
         Additionally returns the installed capacity at each bus corresponding
-        to `layout` (defaults to False).
+        to ``layout`` (defaults to False).
     capacity_factor : boolean
         If True, the static capacity factor of the chosen resource for each
         grid cell is computed.
@@ -103,23 +102,40 @@ def convert_and_aggregate(
     show_progress : boolean, default False
         Whether to show a progress bar.
     dask_kwargs : dict, default {}
-        Dict with keyword arguments passed to `dask.compute`.
+        Dict with keyword arguments passed to ``dask.compute``.
 
     Other Parameters
     ----------------
     convert_func : Function
         Callback like convert_wind, convert_pv
 
-
     Returns
     -------
     resource : xr.DataArray
-        Time-series of renewable generation aggregated to buses, if
-        `matrix` or equivalents are provided else the total sum of
-        generated energy.
+        The return value depends on which arguments are provided:
+
+        **With aggregation** (``matrix``, ``shapes``, or ``layout`` given):
+        Time-series of renewable generation aggregated to buses, with
+        dimensions ``(bus, time)``.
+
+        **Without aggregation** (none of the above given):
+
+        - ``capacity_factor_timeseries=True``: per-cell capacity factor
+          time series with dimensions ``(time, y, x)`` in p.u. Individual
+          locations can be extracted with
+          ``result.sel(x=lon, y=lat, method="nearest")``.
+        - ``capacity_factor=True``: time-averaged capacity factor per cell
+          with dimensions ``(y, x)`` in p.u.
+        - Otherwise: total energy sum per cell with dimensions ``(y, x)``.
+
     units : xr.DataArray (optional)
-        The installed units per bus in MW corresponding to `layout`
-        (only if `return_capacity` is True).
+        The installed units per bus in MW corresponding to ``layout``
+        (only if ``return_capacity`` is True).
+
+    See Also
+    --------
+    wind : Generate wind generation time-series.
+    pv : Generate solar PV generation time-series.
 
     """
     func_name = convert_func.__name__.replace("convert_", "")
@@ -629,10 +645,31 @@ def wind(
         Law to interpolate wind speed to turbine hub height. Refer to
         :py:func:`atlite.wind.extrapolate_wind_speed`.
 
+    Returns
+    -------
+    resource : xr.DataArray
+        Wind generation time-series. See :py:func:`convert_and_aggregate`
+        for the return value depending on the aggregation arguments.
+
     Note
     ----
     You can also specify all of the general conversion arguments
-    documented in the `convert_and_aggregate` function.
+    documented in the :py:func:`convert_and_aggregate` function.
+
+    Examples
+    --------
+    Aggregate wind generation to bus regions:
+
+    >>> wind = cutout.wind(turbine="Vestas_V112_3MW", matrix=matrix,
+    ...                    index=buses, per_unit=True)
+
+    Get per-cell capacity factor time series (no aggregation):
+
+    >>> cf = cutout.wind(turbine="Vestas_V112_3MW",
+    ...                  capacity_factor_timeseries=True)
+    >>> cf.dims
+    ('time', 'y', 'x')
+    >>> location_cf = cf.sel(x=6.9, y=53.1, method="nearest")
 
     References
     ----------
@@ -795,13 +832,26 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     Returns
     -------
     pv : xr.DataArray
-        Time-series or capacity factors based on additional general
-        conversion arguments.
+        PV generation time-series. See :py:func:`convert_and_aggregate`
+        for the return value depending on the aggregation arguments.
 
     Note
     ----
     You can also specify all of the general conversion arguments
-    documented in the `convert_and_aggregate` function.
+    documented in the :py:func:`convert_and_aggregate` function.
+
+    Examples
+    --------
+    Aggregate PV generation to bus regions:
+
+    >>> pv = cutout.pv(panel="CSi", orientation="latitude_optimal",
+    ...                matrix=matrix, index=buses, per_unit=True)
+
+    Get per-cell capacity factor time series (no aggregation):
+
+    >>> cf = cutout.pv(panel="CSi", orientation="latitude_optimal",
+    ...                capacity_factor_timeseries=True)
+    >>> location_cf = cf.sel(x=6.9, y=53.1, method="nearest")
 
     References
     ----------
