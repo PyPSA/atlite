@@ -67,11 +67,9 @@ jobs:
     - name: Setup cache and secrets (Windows)
       if: runner.os == 'Windows'
       run: |
-        echo CACHE_PATH=%USERPROFILE%\.atlite_cache >> %GITHUB_ENV%
-        for /f "tokens=2 delims==" %%a in ('"wmic os get localdatetime /value"') do set "today=%%a"
-        set mydate=%today:~0,4%-%today:~4,2%-%today:~6,2%
-        echo today=%mydate% >> %GITHUB_ENV%
-      shell: cmd
+        echo "CACHE_PATH=$env:USERPROFILE\.atlite_cache" >> $env:GITHUB_ENV
+        echo "today=$(Get-Date -Format 'yyyy-MM-dd')" >> $env:GITHUB_ENV
+      shell: pwsh
 
     - uses: actions/checkout@v4
       with:
@@ -105,17 +103,20 @@ jobs:
       if: matrix.os != 'windows-latest' || matrix.python-version != '3.13'
       run: |
         coverage run -m pytest . --cache-path=${{ env.CACHE_PATH }} --verbose
-        coverage xml
+      id: pytest
 
     - name: Test with pytest (windows & Python 3.13)
       if: matrix.os == 'windows-latest' && matrix.python-version == '3.13'
       run: |
         coverage run -m pytest . --cache-path=${{ env.CACHE_PATH }} --verbose
-        coverage xml
-        return 0 # Ignore windows and pytest 3.13
+      continue-on-error: true
+
+    - name: Generate coverage report
+      if: ${{ !cancelled() }}
+      run: coverage xml
 
     - name: Upload code coverage report
-      if: github.event_name != 'schedule'
+      if: ${{ !cancelled() && github.event_name != 'schedule' }}
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
