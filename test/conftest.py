@@ -16,6 +16,8 @@ BOUNDS = (-4, 56, 1.5, 62)
 SARAH_DIR = os.getenv("SARAH_DIR", "/home/vres/climate-data/sarah_v2")
 GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 
+CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
+
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -37,30 +39,38 @@ def cutouts_path(tmp_path_factory, pytestconfig):
         return tmp_path_factory.mktemp("atlite_cutouts")
 
 
+def _prepare_era5_cutout(path, prepare_kwargs=None, **kwargs):
+    cutout = Cutout(path=path, module="era5", bounds=BOUNDS, **kwargs)
+    if not path.exists() and not CDS_API_CONFIGURED:
+        pytest.skip("CDS API not configured and no cached cutout available")
+    cutout.prepare(**(prepare_kwargs or {}))
+    return cutout
+
+
 @pytest.fixture(scope="session")
 def cutout_era5(cutouts_path):
     tmp_path = cutouts_path / "cutout_era5.nc"
-    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
-    cutout.prepare()
-    return cutout
+    return _prepare_era5_cutout(tmp_path, time=TIME)
 
 
 @pytest.fixture(scope="session")
 def cutout_era5_mon(cutouts_path):
     tmp_path = cutouts_path / "cutout_era5_mon.nc"
-    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
-    cutout.prepare(monthly_requests=True, concurrent_requests=False)
-
-    return cutout
+    return _prepare_era5_cutout(
+        tmp_path,
+        time=TIME,
+        prepare_kwargs={"monthly_requests": True, "concurrent_requests": False},
+    )
 
 
 @pytest.fixture(scope="session")
 def cutout_era5_mon_concurrent(cutouts_path):
     tmp_path = cutouts_path / "cutout_era5_mon_concurrent.nc"
-    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
-    cutout.prepare(monthly_requests=True, concurrent_requests=True)
-
-    return cutout
+    return _prepare_era5_cutout(
+        tmp_path,
+        time=TIME,
+        prepare_kwargs={"monthly_requests": True, "concurrent_requests": True},
+    )
 
 
 @pytest.fixture(scope="session")
@@ -76,43 +86,25 @@ def cutout_era5_3h_sampling(cutouts_path):
         f"{TIME} 18:00",
         f"{TIME} 21:00",
     ]
-    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=time)
-    cutout.prepare()
-    return cutout
+    return _prepare_era5_cutout(tmp_path, time=time)
 
 
 @pytest.fixture(scope="session")
 def cutout_era5_2days_crossing_months(cutouts_path):
     tmp_path = cutouts_path / "cutout_era5_2days_crossing_months.nc"
-    time = slice("2013-02-28", "2013-03-01")
-    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=time)
-    cutout.prepare()
-    return cutout
+    return _prepare_era5_cutout(tmp_path, time=slice("2013-02-28", "2013-03-01"))
 
 
 @pytest.fixture(scope="session")
 def cutout_era5_coarse(cutouts_path):
     tmp_path = cutouts_path / "cutout_era5_coarse.nc"
-    cutout = Cutout(
-        path=tmp_path, module="era5", bounds=BOUNDS, time=TIME, dx=0.5, dy=0.7
-    )
-    cutout.prepare()
-    return cutout
+    return _prepare_era5_cutout(tmp_path, time=TIME, dx=0.5, dy=0.7)
 
 
 @pytest.fixture(scope="session")
 def cutout_era5_weird_resolution(cutouts_path):
     tmp_path = cutouts_path / "cutout_era5_weird_resolution.nc"
-    cutout = Cutout(
-        path=tmp_path,
-        module="era5",
-        bounds=BOUNDS,
-        time=TIME,
-        dx=0.132,
-        dy=0.32,
-    )
-    cutout.prepare()
-    return cutout
+    return _prepare_era5_cutout(tmp_path, time=TIME, dx=0.132, dy=0.32)
 
 
 @pytest.fixture(scope="session")
@@ -141,14 +133,9 @@ def cutout_era5t(cutouts_path):
     first_day_prev_month = first_day_this_month - relativedelta(months=1)
     last_day_second_prev_month = first_day_prev_month - relativedelta(days=1)
 
-    cutout = Cutout(
-        path=tmp_path,
-        module="era5",
-        bounds=BOUNDS,
-        time=slice(last_day_second_prev_month, first_day_prev_month),
+    return _prepare_era5_cutout(
+        tmp_path, time=slice(last_day_second_prev_month, first_day_prev_month)
     )
-    cutout.prepare()
-    return cutout
 
 
 @pytest.fixture(scope="session")
