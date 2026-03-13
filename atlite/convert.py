@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import warnings
 from collections import namedtuple
 from operator import itemgetter
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import geopandas as gpd
 import numpy as np
@@ -43,8 +44,6 @@ from atlite.resource import (
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from typing import Literal
-
     from atlite.resource import TurbineConfig
 
 
@@ -58,6 +57,7 @@ def convert_and_aggregate(
     shapes_crs=4326,
     per_unit=False,
     return_capacity=False,
+    aggregate_time: Literal["sum", "mean", False] | None = None,
     capacity_factor=False,
     capacity_factor_timeseries=False,
     show_progress=False,
@@ -93,12 +93,17 @@ def convert_and_aggregate(
     return_capacity : boolean
         Additionally returns the installed capacity at each bus corresponding
         to ``layout`` (defaults to False).
+    aggregate_time : "sum", "mean", False, or None
+        Controls temporal aggregation of results. ``"sum"`` sums over time,
+        ``"mean"`` averages over time, ``False`` returns full timeseries.
+        ``None`` keeps the historical default behavior: time-summed results
+        without spatial aggregation and full timeseries with spatial
+        aggregation. Replaces the deprecated ``capacity_factor`` and
+        ``capacity_factor_timeseries`` parameters.
     capacity_factor : boolean
-        If True, the static capacity factor of the chosen resource for each
-        grid cell is computed.
+        Deprecated. Use ``aggregate_time="mean"`` instead.
     capacity_factor_timeseries : boolean
-        If True, the capacity factor time series of the chosen resource for
-        each grid cell is computed.
+        Deprecated. Use ``aggregate_time=False`` instead (which is the default).
     show_progress : boolean, default False
         Whether to show a progress bar.
     dask_kwargs : dict, default {}
@@ -116,17 +121,21 @@ def convert_and_aggregate(
 
         **With aggregation** (``matrix``, ``shapes``, or ``layout`` given):
         Time-series of renewable generation aggregated to buses, with
-        dimensions ``(bus, time)``.
+        dimensions ``(bus, time)``. If ``aggregate_time`` is set, the time
+        dimension is reduced accordingly.
 
         **Without aggregation** (none of the above given):
 
-        - ``capacity_factor_timeseries=True``: per-cell capacity factor
-          time series with dimensions ``(time, y, x)`` in p.u. Individual
-          locations can be extracted with
-          ``result.sel(x=lon, y=lat, method="nearest")``.
-        - ``capacity_factor=True``: time-averaged capacity factor per cell
-          with dimensions ``(y, x)`` in p.u.
-        - Otherwise: total energy sum per cell with dimensions ``(y, x)``.
+        - ``aggregate_time=False``: per-cell timeseries ``(time, y, x)``.
+        - ``aggregate_time="mean"``: time-averaged per cell ``(y, x)``.
+        - ``aggregate_time="sum"``: time-summed per cell ``(y, x)``.
+
+        Legacy behavior (deprecated):
+
+        - ``capacity_factor_timeseries=True``: equivalent to
+          ``aggregate_time=False``.
+        - ``capacity_factor=True``: equivalent to ``aggregate_time="mean"``.
+        - No flags: historical default behavior.
 
     units : xr.DataArray (optional)
         The installed units per bus in MW corresponding to ``layout``
@@ -138,6 +147,41 @@ def convert_and_aggregate(
     pv : Generate solar PV generation time-series.
 
     """
+    if (
+        aggregate_time is not None
+        and aggregate_time is not False
+        and aggregate_time
+        not in (
+            "sum",
+            "mean",
+        )
+    ):
+        raise ValueError(
+            f"aggregate_time must be 'sum', 'mean', False, or None, got {aggregate_time!r}"
+        )
+
+    if capacity_factor or capacity_factor_timeseries:
+        if aggregate_time is not None and aggregate_time is not False:
+            raise ValueError(
+                "Cannot use 'aggregate_time' together with deprecated "
+                "'capacity_factor' or 'capacity_factor_timeseries'."
+            )
+        if capacity_factor:
+            warnings.warn(
+                "capacity_factor is deprecated. Use aggregate_time='mean' instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            aggregate_time = "mean"
+        if capacity_factor_timeseries:
+            warnings.warn(
+                "capacity_factor_timeseries is deprecated. "
+                "Use aggregate_time=False instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            aggregate_time = False
+
     func_name = convert_func.__name__.replace("convert_", "")
     logger.info(f"Convert and aggregate '{func_name}'.")
     da = convert_func(cutout.data, **convert_kwds)
@@ -150,16 +194,15 @@ def convert_and_aggregate(
                 "One of `matrix`, `shapes` and `layout` must be "
                 "given for `per_unit` or `return_capacity`"
             )
-        if capacity_factor or capacity_factor_timeseries:
-            if capacity_factor_timeseries:
-                res = da.rename("capacity factor")
-            else:
-                res = da.mean("time").rename("capacity factor")
-            res.attrs["units"] = "p.u."
-            return maybe_progressbar(res, show_progress, **dask_kwargs)
-        else:
+
+        effective_aggregate_time = "sum" if aggregate_time is None else aggregate_time
+        if effective_aggregate_time == "mean":
+            res = da.mean("time")
+        elif effective_aggregate_time == "sum":
             res = da.sum("time", keep_attrs=True)
-            return maybe_progressbar(res, show_progress, **dask_kwargs)
+        else:
+            res = da
+        return maybe_progressbar(res, show_progress, **dask_kwargs)
 
     if matrix is not None:
         if shapes is not None:
@@ -215,6 +258,12 @@ def convert_and_aggregate(
         results.attrs["units"] = "p.u."
     else:
         results.attrs["units"] = "MW"
+
+    effective_aggregate_time = False if aggregate_time is None else aggregate_time
+    if effective_aggregate_time == "mean":
+        results = results.mean("time")
+    elif effective_aggregate_time == "sum":
+        results = results.sum("time", keep_attrs=True)
 
     if return_capacity:
         return maybe_progressbar(results, show_progress, **dask_kwargs), capacity
@@ -666,7 +715,7 @@ def wind(
     Get per-cell capacity factor time series (no aggregation):
 
     >>> cf = cutout.wind(turbine="Vestas_V112_3MW",
-    ...                  capacity_factor_timeseries=True)
+    ...                  aggregate_time=False)
     >>> cf.dims
     ('time', 'y', 'x')
     >>> location_cf = cf.sel(x=6.9, y=53.1, method="nearest")
@@ -850,7 +899,7 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     Get per-cell capacity factor time series (no aggregation):
 
     >>> cf = cutout.pv(panel="CSi", orientation="latitude_optimal",
-    ...                capacity_factor_timeseries=True)
+    ...                aggregate_time=False)
     >>> location_cf = cf.sel(x=6.9, y=53.1, method="nearest")
 
     References
