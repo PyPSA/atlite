@@ -23,6 +23,7 @@ Upcoming Release
  
 **Features**
 * Add new onshore turbine models: eno 126 3.5 MW, eno 126 4 MW, and eno 126 4.8 MW . (turbines that match more closely the PyPSA/technologydata cost assumptions)
+* Document per-cell capacity factor extraction via ``capacity_factor_timeseries=True`` without aggregation arguments; add structured return value docs to ``convert_and_aggregate`` and usage examples to ``wind()``/``pv()`` (`#481 <https://github.com/PyPSA/atlite/pull/481>`_).
 
 **Bug fixes**
 * Fix `atlite.Cutout()` to be able to handle the `bounds` argument to be a `DataFrame` in accordance to the docstring (https://github.com/PyPSA/atlite/pull/445).
@@ -30,6 +31,9 @@ Upcoming Release
 * Addressed `rasterio` DeprecationWarning on `crs.is_valid`.
 * Fix calls to `cdsapi` for ERA5 to be compliant with current API syntax (https://github.com/PyPSA/atlite/pull/414 and https://github.com/PyPSA/atlite/pull/454).
 * Fix `reproject_shapes()` to preserve coordinate order by enforcing (x=lon, y=lat) with `always_xy=True` when transforming from one CRS to another (https://github.com/PyPSA/atlite/pull/462). 
+* Fix example notebooks to work with latest geopandas version (https://github.com/PyPSA/atlite/pull/482).
+* Updated pre-commit package versions
+* Fix a performance issue where xarray searches all combinations in `layout_from_capacity_list` (https://github.com/PyPSA/atlite/pull/483).
 
 `v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================
