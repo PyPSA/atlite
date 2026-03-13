@@ -19,7 +19,6 @@ from pathlib import Path
 from tempfile import mktemp
 from warnings import warn
 
-import dask
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -633,18 +632,22 @@ class Cutout:
         >>> pv.plot()
 
         """
-        with dask.config.set(**{"array.slicing.split_large_chunks": False}):
-            nearest = (
-                self.uniform_layout()
-                .chunk()
-                .sel({"x": data.x.values, "y": data.y.values}, "nearest")
-            )
 
-        data = (
-            data.assign(x=nearest.x.data, y=nearest.y.data)
-            .groupby(["y", "x"])[col]
-            .sum()
-        )
+        x_grid = self.data.x.values
+        y_grid = self.data.y.values
+
+        # Find nearest grid indices
+        ix = np.searchsorted(x_grid, data.x.values, side="left")
+        iy = np.searchsorted(y_grid, data.y.values, side="left")
+
+        # clip if outside of cutout
+        ix = np.clip(ix, 0, len(x_grid) - 1)
+        iy = np.clip(iy, 0, len(y_grid) - 1)
+        # move to best distance - assumes equal size steps
+        ix = ix - (data.x.values - x_grid[ix - 1] < x_grid[ix] - data.x.values)
+        iy = iy - (data.y.values - y_grid[iy - 1] < y_grid[iy] - data.y.values)
+
+        data = data.assign(x=x_grid[ix], y=y_grid[iy]).groupby(["y", "x"])[col].sum()
         return data.to_xarray().reindex_like(self.data).fillna(0)
 
     availabilitymatrix = compute_availabilitymatrix
