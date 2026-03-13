@@ -17,23 +17,49 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g. 
    ``pip install git+https://github.com/pypsa/atlite``.
 
+
+`v0.5.0 <https://github.com/PyPSA/atlite/releases/tag/v0.5.0>`__ (13th March 2026)
+=======================================================================================   
+   
 **Breaking**
-* Set `add_cutout_windspeed = True` as default for `get_windturbineconfig` to ensure that the cutout wind speed is always added to the turbine configuration (`GH #316 <https://github.com/PyPSA/atlite/pull/316>`_);
-  removed the `DeprecationWarning`.
- 
+
+* Default ``add_cutout_windspeed`` to ``True`` in ``get_windturbineconfig``, meaning power curves
+  without an explicit cut-out wind speed now automatically get zero power appended at the highest
+  listed wind speed. This may change wind power output for affected turbine configurations.
+  The ``DeprecationWarning`` from v0.2.12 has been removed
+  (https://github.com/PyPSA/atlite/pull/316).
+* Updated minimum geopandas requirement to ``>=0.10.0`` (https://github.com/PyPSA/atlite/pull/444).
+
 **Features**
-* Add new onshore turbine models: eno 126 3.5 MW, eno 126 4 MW, and eno 126 4.8 MW . (turbines that match more closely the PyPSA/technologydata cost assumptions)
-* Document per-cell capacity factor extraction via ``capacity_factor_timeseries=True`` without aggregation arguments; add structured return value docs to ``convert_and_aggregate`` and usage examples to ``wind()``/``pv()`` (`#481 <https://github.com/PyPSA/atlite/pull/481>`_).
+
+* Add new onshore turbine models: eno 126 3.5 MW, eno 126 4 MW, and eno 126 4.8 MW
+  (turbines that match more closely the PyPSA/technologydata cost assumptions)
+  (https://github.com/PyPSA/atlite/pull/446).
+* Document per-cell capacity factor extraction via ``capacity_factor_timeseries=True`` without
+  aggregation arguments; add structured return value docs to ``convert_and_aggregate`` and usage
+  examples to ``wind()``/``pv()`` (https://github.com/PyPSA/atlite/pull/481).
 
 **Bug fixes**
-* Fix `atlite.Cutout()` to be able to handle the `bounds` argument to be a `DataFrame` in accordance to the docstring (https://github.com/PyPSA/atlite/pull/445).
-* Raise a `FileNotFoundError` if the `temp_dir` explicitly specified for cutout preparation does not exist instead of failing with an obfuscated error message (https://github.com/PyPSA/atlite/pull/445).
-* Addressed `rasterio` DeprecationWarning on `crs.is_valid`.
-* Fix calls to `cdsapi` for ERA5 to be compliant with current API syntax (https://github.com/PyPSA/atlite/pull/414 and https://github.com/PyPSA/atlite/pull/454).
-* Fix `reproject_shapes()` to preserve coordinate order by enforcing (x=lon, y=lat) with `always_xy=True` when transforming from one CRS to another (https://github.com/PyPSA/atlite/pull/462). 
-* Fix example notebooks to work with latest geopandas version (https://github.com/PyPSA/atlite/pull/482).
-* Updated pre-commit package versions
-* Fix a performance issue where xarray searches all combinations in `layout_from_capacity_list` (https://github.com/PyPSA/atlite/pull/483).
+
+* Fix incorrect surface azimuth calculation for 1-axis horizontal and 1-axis tilted horizontal
+  solar tracking, and fix azimuth wrapping logic in ``SurfaceOrientation``
+  (https://github.com/PyPSA/atlite/pull/467).
+* Fix ``reproject_shapes()`` to preserve coordinate order by enforcing (x=lon, y=lat) with
+  ``always_xy=True`` when transforming from one CRS to another
+  (https://github.com/PyPSA/atlite/pull/462).
+* Fix ``atlite.Cutout()`` to be able to handle the ``bounds`` argument as a ``DataFrame`` in
+  accordance with the docstring (https://github.com/PyPSA/atlite/pull/445).
+* Raise a ``FileNotFoundError`` if the ``temp_dir`` explicitly specified for cutout preparation
+  does not exist instead of failing with an obfuscated error message
+  (https://github.com/PyPSA/atlite/pull/445).
+* Fix calls to ``cdsapi`` for ERA5 to be compliant with current API syntax
+  (https://github.com/PyPSA/atlite/pull/414 and https://github.com/PyPSA/atlite/pull/454).
+* Fix a performance issue where xarray searches all combinations in
+  ``layout_from_capacity_list`` (https://github.com/PyPSA/atlite/pull/483).
+* Addressed ``rasterio`` DeprecationWarning on ``crs.is_valid``
+  (https://github.com/PyPSA/atlite/pull/453).
+* Fix example notebooks to work with latest geopandas version
+  (https://github.com/PyPSA/atlite/pull/482).
 
 `v0.4.1 <https://github.com/PyPSA/atlite/releases/tag/v0.4.1>`__ (12th May 2025)
 =======================================================================================
