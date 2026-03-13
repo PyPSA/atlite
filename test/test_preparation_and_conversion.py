@@ -58,6 +58,21 @@ def wrong_recreation(cutout):
     with pytest.warns(UserWarning):
         Cutout(path=cutout.path, module="somethingelse")
 
+def capacities_test(cutout):
+    capacities = cutout.grid[["x", "y"]]
+    # distort grid to not match the grid that well
+    capacities["x"] +=0.01
+    capacities["y"] +=0.01
+
+    # set capacity to x coordinate
+    capacities["capacity"] = capacities["x"]
+
+    capacity_cutout = cutout.layout_from_capacity_list(capacities, col="capacity")
+
+    # coordinates should be mapped back to the cell without distortion
+    assert (capacity_cutout[:,0] == capacities["x"][0]).all()
+    # sum should match
+    assert capacity_cutout.sum() == capacities["x"].sum()
 
 def pv_test(cutout, time=TIME, skip_optimal_sum_test=False):
     """
@@ -204,7 +219,6 @@ def pv_tracking_test(cutout):
     assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis_v.mean()
     assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis_h.mean()
     assert cap_factor_tracking_2axis.mean() >= cap_factor_tracking_1axis_th.mean()
-
 
 def csp_test(cutout):
     """
@@ -478,6 +492,10 @@ class TestERA5:
     @staticmethod
     def test_wrong_loading(cutout_era5):
         wrong_recreation(cutout_era5)
+
+    @staticmethod
+    def test_capacities(cutout_era5):
+        return capacities_test(cutout_era5)
 
     @staticmethod
     def test_pv_era5(cutout_era5):
