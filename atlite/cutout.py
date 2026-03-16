@@ -221,7 +221,7 @@ class Cutout:
             data = xr.Dataset(coords=coords, attrs=attrs)
 
         # Check compatibility of CRS
-        modules = atleast_1d(data.attrs.get("module"))  # type: ignore[arg-type]
+        modules = atleast_1d(data.attrs.get("module"))
         crs = {CRS(datamodules[m].crs) for m in modules}
         assert len(crs) == 1, f"CRS of {module} not compatible"
 
@@ -240,7 +240,7 @@ class Cutout:
         """
         Data module of the cutout.
         """
-        return self.data.attrs.get("module")  # type: ignore[no-any-return, return-value]
+        return self.data.attrs.get("module")  # type: ignore[no-any-return]
 
     @property
     def crs(self) -> CRS:
@@ -433,7 +433,8 @@ class Cutout:
         if bounds is not None:
             if buffer > 0:
                 bounds = box(*bounds).buffer(buffer).bounds
-            x1, y1, x2, y2 = bounds  # type: ignore[misc]
+                assert bounds is not None
+            x1, y1, x2, y2 = bounds
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
         return Cutout(path, data=data)
@@ -628,7 +629,7 @@ class Cutout:
         """
         if not isinstance(other, Cutout):
             return NotImplemented  # type: ignore[no-any-return]
-        return self.data.equals(other.data)  # type: ignore[no-any-return]
+        return bool(self.data.equals(other.data))
 
     def layout_from_capacity_list(self, data, col="Capacity"):
         """

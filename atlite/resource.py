@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import pandas as pd
-import requests  # type: ignore[import-untyped]
-import yaml  # type: ignore[import-untyped]
+import requests
+import yaml
 from dask.array import radians
 from scipy.signal import fftconvolve
 
@@ -296,7 +296,7 @@ def windturbine_smooth(
     sigma: float = params.get("sigma", 2.29)
 
     def kernel(v_0: NDArray) -> NDArray:
-        return (  # type: ignore[no-any-return]
+        return (
             1.0
             / np.sqrt(2 * np.pi * sigma * sigma)
             * np.exp(-(v_0 - Delta_v) * (v_0 - Delta_v) / (2 * sigma * sigma))

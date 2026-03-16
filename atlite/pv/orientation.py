@@ -91,21 +91,21 @@ def make_latitude_optimal() -> Callable[
         dict
             Mapping with ``slope`` and ``azimuth``.
         """
-        slope = np.empty_like(lat.values)  # type: ignore[union-attr]
+        slope = np.empty_like(lat.values)
 
-        below_25 = np.abs(lat.values) <= np.radians(25)  # type: ignore[union-attr]
-        below_50 = np.abs(lat.values) <= np.radians(50)  # type: ignore[union-attr]
+        below_25 = np.abs(lat.values) <= np.radians(25)
+        below_50 = np.abs(lat.values) <= np.radians(50)
 
-        slope[below_25] = 0.87 * np.abs(lat.values[below_25])  # type: ignore[union-attr]
+        slope[below_25] = 0.87 * np.abs(lat.values[below_25])
         slope[~below_25 & below_50] = 0.76 * np.abs(
-            lat.values[~below_25 & below_50]  # type: ignore[union-attr]
+            lat.values[~below_25 & below_50]
         ) + np.radians(0.31)
         slope[~below_50] = np.radians(40.0)
 
-        azimuth = np.where(lat.values < 0, 0, pi)  # type: ignore[union-attr]
+        azimuth = np.where(lat.values < 0, 0, pi)
         return {
-            "slope": xr.DataArray(slope, coords=lat.coords),  # type: ignore[union-attr]
-            "azimuth": xr.DataArray(azimuth, coords=lat.coords),  # type: ignore[union-attr]
+            "slope": xr.DataArray(slope, coords=lat.coords),
+            "azimuth": xr.DataArray(azimuth, coords=lat.coords),
         }
 
     return latitude_optimal
@@ -260,10 +260,10 @@ def SurfaceOrientation(
         surface_slope = arccos(cos(rotation) * cos(axis_tilt))
 
         azimuth_difference = sun_azimuth - surface_azimuth
-        azimuth_difference = np.where(  # type: ignore[assignment]
+        azimuth_difference = np.where(
             azimuth_difference > pi, azimuth_difference - 2 * pi, azimuth_difference
         )
-        azimuth_difference = np.where(  # type: ignore[assignment]
+        azimuth_difference = np.where(
             azimuth_difference < -pi, 2 * pi + azimuth_difference, azimuth_difference
         )
         rotation = np.where(
@@ -298,6 +298,14 @@ def SurfaceOrientation(
         raise AssertionError(msg)
 
     cosincidence = cosincidence.clip(min=0)
+
+    return xr.Dataset(
+        {
+            "cosincidence": cosincidence,
+            "slope": surface_slope,
+            "azimuth": surface_azimuth,
+        }
+    )
 
     return xr.Dataset(
         {

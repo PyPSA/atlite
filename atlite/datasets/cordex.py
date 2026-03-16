@@ -152,10 +152,10 @@ def tasks_yearly_cordex(
     model = meta_attrs["model"]
 
     if not isinstance(xs, slice):
-        first, second, last = xs.values[[0, 1, -1]]  # type: ignore[attr-defined]
+        first, second, last = xs.values[[0, 1, -1]]
         xs = slice(first - 0.1 * (second - first), last + 0.1 * (second - first))
     if not isinstance(ys, slice):
-        first, second, last = ys.values[[0, 1, -1]]  # type: ignore[attr-defined]
+        first, second, last = ys.values[[0, 1, -1]]
         ys = slice(first - 0.1 * (second - first), last + 0.1 * (second - first))
 
     return [

@@ -88,7 +88,7 @@ def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset
     # Operations make new DataArray eager; reconvert to lazy dask arrays
     chunks = ds.chunksizes.get("time", "auto")
     if isinstance(chunks, tuple):
-        chunks = chunks[0]  # type: ignore[assignment]
+        chunks = chunks[0]
     n = n.chunk(chunks)
     hour = hour.chunk(chunks)
     minute = minute.chunk(chunks)

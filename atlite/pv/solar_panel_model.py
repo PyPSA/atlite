@@ -46,7 +46,7 @@ def _power_huld(
 
     da = G_ * eff * pc.get("inverter_efficiency", 1.0)
     da.attrs["units"] = "kWh/kWp"
-    return da.rename("specific generation")  # type: ignore[no-any-return]
+    return da.rename("specific generation")
 
 
 def _power_bofinger(
@@ -78,7 +78,7 @@ def _power_bofinger(
     capacity = (pc["A"] + pc["B"] * 1000.0 + pc["C"] * np.log(1000.0)) * 1e3
     power = irradiance * eta * (pc.get("inverter_efficiency", 1.0) / capacity)
     power = power.where(irradiance >= pc["threshold"], 0)
-    return power.rename("AC power")  # type: ignore[no-any-return]
+    return power.rename("AC power")
 
 
 def SolarPanelModel(

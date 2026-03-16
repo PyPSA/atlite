@@ -217,7 +217,7 @@ def convert_and_aggregate(
             )
 
         if isinstance(matrix, xr.DataArray):
-            coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)  # type: ignore[union-attr]
+            coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
             if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
                 raise ValueError(
                     "Matrix spatial coordinates not aligned with cutout spatial "
@@ -324,7 +324,7 @@ def convert_temperature(ds: Dataset) -> DataArray:
 
 
 def temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
-    return cutout.convert_and_aggregate(convert_func=convert_temperature, **params)  # type: ignore[no-any-return]
+    return cutout.convert_and_aggregate(convert_func=convert_temperature, **params)
 
 
 # soil temperature
@@ -351,7 +351,7 @@ def convert_soil_temperature(ds: Dataset) -> DataArray:
 
 
 def soil_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
-    return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)  # type: ignore[no-any-return]
+    return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
 
 
 # dewpoint temperature
@@ -374,7 +374,7 @@ def convert_dewpoint_temperature(ds: Dataset) -> DataArray:
 
 
 def dewpoint_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
-    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
+    return cutout.convert_and_aggregate(
         convert_func=convert_dewpoint_temperature, **params
     )
 
@@ -430,7 +430,7 @@ def convert_coefficient_of_performance(
 
     delta_T = sink_T - source_T
 
-    return c0 + c1 * delta_T + c2 * delta_T**2  # type: ignore[operator]
+    return c0 + c1 * delta_T + c2 * delta_T**2
 
 
 def coefficient_of_performance(
@@ -467,7 +467,7 @@ def coefficient_of_performance(
     Energy & Environmental Science (2012), 5, 9291-9306,
     https://doi.org/10.1039/C2EE22653G.
     """
-    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
+    return cutout.convert_and_aggregate(
         convert_func=convert_coefficient_of_performance,
         source=source,
         sink_T=sink_T,
@@ -572,7 +572,7 @@ def heat_demand(
     documented in the `convert_and_aggregate` function.
 
     """
-    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
+    return cutout.convert_and_aggregate(
         convert_func=convert_heat_demand,
         threshold=threshold,
         a=a,
@@ -679,7 +679,7 @@ def cooling_demand(
     documented in the `convert_and_aggregate` function.
 
     """
-    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
+    return cutout.convert_and_aggregate(
         convert_func=convert_cooling_demand,
         threshold=threshold,
         a=a,
@@ -792,7 +792,7 @@ def solar_thermal(
     if not callable(orientation):
         orientation = get_orientation(orientation)  # type: ignore[assignment]
 
-    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
+    return cutout.convert_and_aggregate(
         convert_func=convert_solar_thermal,
         orientation=orientation,
         trigon_model=trigon_model,
@@ -846,7 +846,7 @@ def convert_wind(
     )
 
     da.attrs["units"] = "MWh/MWp"
-    return da.rename("specific generation")  # type: ignore[no-any-return]
+    return da.rename("specific generation")
 
 
 def wind(
@@ -925,7 +925,7 @@ def wind(
     if smooth:
         turbine_config = windturbine_smooth(turbine_config, params=smooth)
 
-    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
+    return cutout.convert_and_aggregate(
         convert_func=convert_wind,
         turbine=turbine_config,
         interpolation_method=interpolation_method,
@@ -1522,7 +1522,7 @@ def convert_line_rating(
         Position = namedtuple("Position", ["altitude", "azimuth"])
         solar_position = Position(ds["solar_altitude"], ds["solar_azimuth"])
     else:
-        solar_position = SolarPosition(ds)  # type: ignore[assignment]
+        solar_position = SolarPosition(ds)
     Phi_s = arccos(
         cos(solar_position.altitude) * cos((solar_position.azimuth) - radians(psi))
     )
@@ -1660,4 +1660,4 @@ def line_rating(
     else:
         res = compute(res, **dask_kwargs)
 
-    return xr.concat(*res, dim=df.index).assign_attrs(units="A")  # type: ignore[call-overload]
+    return xr.concat(*res, dim=df.index).assign_attrs(units="A")

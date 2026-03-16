@@ -82,7 +82,7 @@ def DiffuseHorizontalIrrad(
     else:
         raise KeyError("`clearsky model` must be chosen from 'simple' and 'enhanced'")
 
-    return (influx * fraction).rename("diffuse horizontal")  # type: ignore[no-any-return]
+    return (influx * fraction).rename("diffuse horizontal")
 
 
 def TiltedDiffuseIrrad(
@@ -143,7 +143,7 @@ def TiltedDiffuseIrrad(
     with np.errstate(invalid="ignore"):
         diffuse_t = diffuse_t.clip(min=0).fillna(0)
 
-    return diffuse_t.rename("diffuse tilted")  # type: ignore[no-any-return]
+    return diffuse_t.rename("diffuse tilted")
 
 
 def TiltedDirectIrrad(
@@ -171,7 +171,7 @@ def TiltedDirectIrrad(
 
     R_b = cosincidence / sinaltitude
 
-    return (R_b * direct).rename("direct tilted")  # type: ignore[no-any-return]
+    return (R_b * direct).rename("direct tilted")
 
 
 def _albedo(ds: Dataset, influx: DataArray) -> DataArray:
@@ -227,7 +227,7 @@ def TiltedGroundIrrad(
     """
     surface_slope = surface_orientation["slope"]
     ground_t = influx * _albedo(ds, influx) * (1.0 - cos(surface_slope)) / 2.0
-    return ground_t.rename("ground tilted")  # type: ignore[no-any-return]
+    return ground_t.rename("ground tilted")
 
 
 def TiltedIrradiation(
@@ -337,4 +337,4 @@ def TiltedIrradiation(
     result = result.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
     result.attrs["units"] = "W m**-2"
 
-    return result  # type: ignore[no-any-return]
+    return result
