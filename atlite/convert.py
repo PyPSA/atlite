@@ -273,7 +273,21 @@ def convert_and_aggregate(
 
 def maybe_progressbar(ds, show_progress, **kwargs):
     """
-    Load a xr.dataset with dask arrays either with or without progressbar.
+    Load a dataset or data array, optionally showing a dask progress bar.
+
+    Parameters
+    ----------
+    ds : xr.Dataset or xr.DataArray
+        Object backed by dask arrays.
+    show_progress : bool
+        Whether to display a progress bar while loading.
+    **kwargs
+        Keyword arguments passed to ``load``.
+
+    Returns
+    -------
+    xr.Dataset or xr.DataArray
+        Loaded object.
     """
     if show_progress:
         with ProgressBar(minimum=2):
@@ -286,8 +300,17 @@ def maybe_progressbar(ds, show_progress, **kwargs):
 # temperature
 def convert_temperature(ds):
     """
-    Return outside temperature (useful for e.g. heat pump T-dependent
-    coefficient of performance).
+    Convert ambient air temperature from Kelvin to degrees Celsius.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing ``temperature``.
+
+    Returns
+    -------
+    xr.DataArray
+        Ambient temperature in degrees Celsius.
     """
     # Temperature is in Kelvin
     return ds["temperature"] - 273.15
@@ -300,8 +323,17 @@ def temperature(cutout, **params):
 # soil temperature
 def convert_soil_temperature(ds):
     """
-    Return soil temperature (useful for e.g. heat pump T-dependent coefficient
-    of performance).
+    Convert soil temperature from Kelvin to degrees Celsius.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing ``soil temperature``.
+
+    Returns
+    -------
+    xr.DataArray
+        Soil temperature in degrees Celsius with missing values filled by zero.
     """
     # Temperature is in Kelvin
 
@@ -318,7 +350,17 @@ def soil_temperature(cutout, **params):
 # dewpoint temperature
 def convert_dewpoint_temperature(ds):
     """
-    Return dewpoint temperature.
+    Convert dew point temperature from Kelvin to degrees Celsius.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing ``dewpoint temperature``.
+
+    Returns
+    -------
+    xr.DataArray
+        Dew point temperature in degrees Celsius.
     """
     # Temperature is in Kelvin
     return ds["dewpoint temperature"] - 273.15
@@ -331,6 +373,26 @@ def dewpoint_temperature(cutout, **params):
 
 
 def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
+    """
+    Convert source temperatures to heat pump COP values.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing the required temperature variables.
+    source : {"air", "soil"}
+        Heat source used for the heat pump.
+    sink_T : float
+        Sink temperature in degrees Celsius.
+    c0, c1, c2 : float or None
+        Quadratic regression coefficients. If ``None``, source-specific
+        defaults are used.
+
+    Returns
+    -------
+    xr.DataArray
+        Coefficient of performance for each time step and grid cell.
+    """
     assert source in ["air", "soil"], NotImplementedError(
         "'source' must be one of  ['air', 'soil']"
     )
@@ -398,6 +460,27 @@ def coefficient_of_performance(
 
 # heat demand
 def convert_heat_demand(ds, threshold, a, constant, hour_shift):
+    """
+    Convert ambient temperature to daily heat demand by degree days.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing ``temperature``.
+    threshold : float
+        Heating threshold temperature in degrees Celsius.
+    a : float
+        Linear scaling factor.
+    constant : float
+        Constant demand component added to the result.
+    hour_shift : float
+        Time shift in hours applied before daily averaging.
+
+    Returns
+    -------
+    xr.DataArray
+        Daily heat demand.
+    """
     # Temperature is in Kelvin; take daily average
     T = ds["temperature"]
     T = T.assign_coords(
@@ -468,6 +551,27 @@ def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **p
 
 # cooling demand
 def convert_cooling_demand(ds, threshold, a, constant, hour_shift):
+    """
+    Convert ambient temperature to daily cooling demand by degree days.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing ``temperature``.
+    threshold : float
+        Cooling threshold temperature in degrees Celsius.
+    a : float
+        Linear scaling factor.
+    constant : float
+        Constant demand component added to the result.
+    hour_shift : float
+        Time shift in hours applied before daily averaging.
+
+    Returns
+    -------
+    xr.DataArray
+        Daily cooling demand.
+    """
     # Temperature is in Kelvin; take daily average
     T = ds["temperature"]
     T = T.assign_coords(
@@ -545,6 +649,29 @@ def cooling_demand(
 def convert_solar_thermal(
     ds, orientation, trigon_model, clearsky_model, c0, c1, t_store
 ):
+    """
+    Convert weather data to solar thermal collector output.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing radiation and temperature variables.
+    orientation : callable
+        Surface orientation callback.
+    trigon_model : str
+        Trigonometric irradiation model.
+    clearsky_model : str or None
+        Clear-sky model used for diffuse irradiation.
+    c0, c1 : float
+        Collector efficiency parameters.
+    t_store : float
+        Storage temperature in degrees Celsius.
+
+    Returns
+    -------
+    xr.DataArray
+        Specific solar thermal output.
+    """
     # convert storage temperature to Kelvin in line with reanalysis data
     t_store += 273.15
 
@@ -632,7 +759,21 @@ def convert_wind(
     interpolation_method: Literal["logarithmic", "power"],
 ) -> xr.DataArray:
     """
-    Convert wind speeds for turbine to wind energy generation.
+    Convert wind speeds to turbine-specific generation.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing wind speed data.
+    turbine : TurbineConfig
+        Turbine configuration with power curve and hub height.
+    interpolation_method : {"logarithmic", "power"}
+        Method used to extrapolate wind speed to hub height.
+
+    Returns
+    -------
+    xr.DataArray
+        Wind power output as specific yield per unit of installed capacity.
     """
     V, POW, hub_height, P = itemgetter("V", "POW", "hub_height", "P")(turbine)
 
@@ -748,6 +889,29 @@ def convert_irradiation(
     trigon_model="simple",
     clearsky_model="simple",
 ):
+    """
+    Convert weather data to irradiation on a tilted surface.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing radiation and meteorological variables.
+    orientation : callable
+        Surface orientation callback.
+    tracking : {None, "horizontal", "tilted_horizontal", "vertical", "dual"}, optional
+        Tracking mode of the surface.
+    irradiation : {"total", "direct", "diffuse", "ground"}, default "total"
+        Irradiation component to return.
+    trigon_model : str, default "simple"
+        Trigonometric irradiation model.
+    clearsky_model : str or None, default "simple"
+        Clear-sky model used for diffuse irradiation.
+
+    Returns
+    -------
+    xr.DataArray
+        Tilted surface irradiation.
+    """
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation, tracking)
     irradiation = TiltedIrradiation(
@@ -835,6 +999,29 @@ def irradiation(
 def convert_pv(
     ds, panel, orientation, tracking, trigon_model="simple", clearsky_model="simple"
 ):
+    """
+    Convert weather data to photovoltaic specific generation.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing radiation and temperature variables.
+    panel : dict
+        Solar panel configuration.
+    orientation : callable
+        Surface orientation callback.
+    tracking : {None, "horizontal", "tilted_horizontal", "vertical", "dual"}
+        Tracking mode of the panel.
+    trigon_model : str, default "simple"
+        Trigonometric irradiation model.
+    clearsky_model : str or None, default "simple"
+        Clear-sky model used for diffuse irradiation.
+
+    Returns
+    -------
+    xr.DataArray
+        PV power output as specific yield per unit of installed capacity.
+    """
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation, tracking)
     irradiation = TiltedIrradiation(
@@ -933,6 +1120,21 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
 
 # solar CSP
 def convert_csp(ds, installation):
+    """
+    Convert direct solar radiation to CSP specific generation.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing direct radiation variables.
+    installation : dict
+        CSP installation configuration.
+
+    Returns
+    -------
+    xr.DataArray
+        CSP output as specific yield per unit of reference capacity.
+    """
     solar_position = SolarPosition(ds)
 
     tech = installation["technology"]
@@ -1021,6 +1223,21 @@ def csp(cutout, installation, technology=None, **params):
 
 # hydro
 def convert_runoff(ds, weight_with_height=True):
+    """
+    Convert runoff data, optionally weighting by surface height.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing ``runoff`` and, if needed, ``height``.
+    weight_with_height : bool, default True
+        Whether to weight runoff by terrain height.
+
+    Returns
+    -------
+    xr.DataArray
+        Runoff field, optionally weighted by surface height.
+    """
     runoff = ds["runoff"]
 
     if weight_with_height:
@@ -1036,6 +1253,40 @@ def runoff(
     normalize_using_yearly=None,
     **params,
 ):
+    """
+    Compute aggregated surface runoff output with optional smoothing,
+    thresholding, and normalization.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout providing weather data with runoff variables.
+    smooth : bool or int, optional
+        If True, apply a rolling mean with the default window of ``24 * 7``
+        hours. If an integer, use it as the rolling window size.
+    lower_threshold_quantile : bool or float, optional
+        If True, use the default quantile ``5e-3``. If a float, set values
+        below that quantile to zero.
+    normalize_using_yearly : pd.Series, optional
+        Annual country totals used to scale ``countries``-indexed results over
+        overlapping full years. One factor per country is derived from the
+        summed reference values across the overlap.
+    **params
+        Additional keyword arguments passed to ``convert_and_aggregate()``,
+        including ``weight_with_height`` for the underlying runoff
+        conversion.
+
+    Returns
+    -------
+    xr.DataArray or tuple[xr.DataArray, xr.DataArray]
+        Runoff output from ``convert_and_aggregate``. Smoothing also supports
+        the tuple return form used with ``return_capacity=True``. Thresholding
+        and normalization are only supported for ``xr.DataArray`` results.
+
+    See Also
+    --------
+    convert_and_aggregate : General conversion/aggregation arguments.
+    """
     result = cutout.convert_and_aggregate(convert_func=convert_runoff, **params)
 
     if smooth is not None:
@@ -1148,45 +1399,31 @@ def convert_line_rating(
     ds, psi, R, D=0.028, Ts=373, epsilon=0.6, alpha=0.6, per_unit=False
 ):
     """
-    Convert the cutout data to dynamic line rating time series.
-
-    The formulation is based on:
-
-    [1]“IEEE Std 738™-2012 (Revision of IEEE Std 738-2006/Incorporates IEEE Std
-        738-2012/Cor 1-2013), IEEE Standard for Calculating the Current-Temperature
-        Relationship of Bare Overhead Conductors,” p. 72.
-
-    The following simplifications/assumptions were made:
-        1. Wind speed are taken at height 100 meters above ground. However, ironmen
-           and transmission lines are typically at 50-60 meters.
-        2. Solar heat influx is set proportionally to solar short wave influx.
-        3. The incidence angle of the solar heat influx is assumed to be 90 degree.
-
+    Convert weather data to dynamic line rating time series.
 
     Parameters
     ----------
     ds : xr.Dataset
-        Subset of the cutout data including all weather cells overlapping with
-        the line.
-    psi : int/float
-        Azimuth angle of the line in degree, that is the incidence angle of the line
-        with a pointer directing north (90 is east, 180 is south, 270 is west).
+        Dataset for the cells intersecting a line.
+    psi : float
+        Line azimuth in degrees clockwise from north.
     R : float
-        Resistance of the conductor in [Ω/m] at maximally allowed temperature Ts.
-    D : float,
-        Conductor diameter.
-    Ts : float
-        Maximally allowed surface temperature (typically 100°C).
-    epsilon : float
+        Conductor resistance in ohm per meter at temperature ``Ts``.
+    D : float, default 0.028
+        Conductor diameter in meters.
+    Ts : float, default 373
+        Maximum conductor surface temperature in Kelvin.
+    epsilon : float, default 0.6
         Conductor emissivity.
-    alpha : float
+    alpha : float, default 0.6
         Conductor absorptivity.
+    per_unit : bool, default False
+        Unused compatibility parameter.
 
     Returns
     -------
-    Imax
-        xr.DataArray giving the maximal current capacity per timestep in Ampere.
-
+    xr.DataArray or numpy.ndarray
+        Maximum current per time step in ampere.
     """
     Ta = ds["temperature"]
     Tfilm = (Ta + Ts) / 2
@@ -1326,13 +1563,26 @@ def line_rating(
     data = cutout.data.stack(spatial=["y", "x"])
 
     def get_azimuth(shape):
+        """
+        Return the line azimuth in degrees from its end points.
+
+        Parameters
+        ----------
+        shape : shapely.geometry.base.BaseGeometry
+            Line geometry.
+
+        Returns
+        -------
+        float
+            Azimuth angle in degrees computed from the line end points.
+        """
         coords = np.array(shape.coords)
         start = coords[0]
         end = coords[-1]
-        return np.arctan2(start[0] - end[0], start[1] - end[1])
+        return np.degrees(np.arctan2(start[0] - end[0], start[1] - end[1]))
 
     azimuth = shapes.apply(get_azimuth)
-    azimuth = azimuth.where(azimuth >= 0, azimuth + np.pi)
+    azimuth = azimuth.where(azimuth >= 0, azimuth + 180.0)
 
     params.setdefault("D", 0.028)
     params.setdefault("Ts", 373)

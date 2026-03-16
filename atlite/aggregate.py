@@ -10,6 +10,23 @@ import xarray as xr
 
 
 def aggregate_matrix(da, matrix, index):
+    """
+    Aggregate spatial data with a sparse matrix.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        DataArray with spatial dimensions ``y`` and ``x``.
+    matrix : scipy.sparse.spmatrix
+        Aggregation matrix mapping flattened spatial cells to ``index``.
+    index : pandas.Index
+        Index defining the aggregated dimension.
+
+    Returns
+    -------
+    xarray.DataArray
+        Aggregated data indexed by ``index`` and, if present, time.
+    """
     if index.name is None:
         index = index.rename("dim_0")
     if isinstance(da.data, dask.array.core.Array):

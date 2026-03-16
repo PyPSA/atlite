@@ -34,10 +34,29 @@ def get_features(
     concurrent_requests=False,
 ):
     """
-    Load the feature data for a given module.
+    Load feature datasets for a cutout module.
 
-    This get the data for a set of features from a module. All modules
-    in `atlite.datasets` are allowed.
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout for which data is retrieved.
+    module : str
+        Name of the dataset module.
+    features : iterable of str
+        Feature names to retrieve from the module.
+    data_format : str
+        Data format requested from the dataset backend.
+    tmpdir : str or pathlib.Path, optional
+        Directory for intermediate files.
+    monthly_requests : bool, optional
+        Whether to split requests into monthly chunks.
+    concurrent_requests : bool, optional
+        Whether to issue monthly requests concurrently.
+
+    Returns
+    -------
+    xarray.Dataset
+        Merged dataset containing the requested features.
     """
     parameters = cutout.data.attrs
     lock = SerializableLock()
@@ -106,13 +125,36 @@ def available_features(module=None):
 
 def non_bool_dict(d):
     """
-    Convert bool to int for netCDF4 storing.
+    Convert boolean dictionary values to integers.
+
+    Parameters
+    ----------
+    d : dict
+        Dictionary to convert.
+
+    Returns
+    -------
+    dict
+        Dictionary with boolean values replaced by ``0`` or ``1``.
     """
     return {k: v if not isinstance(v, bool) else int(v) for k, v in d.items()}
 
 
 def maybe_remove_tmpdir(func):
-    """Use this wrapper to make tempfile deletion compatible with windows machines."""
+    """
+    Wrap a function to manage a temporary directory.
+
+    Parameters
+    ----------
+    func : callable
+        Function accepting a ``tmpdir`` keyword argument.
+
+    Returns
+    -------
+    callable
+        Wrapped function that creates and removes a temporary directory when
+        ``tmpdir`` is not provided.
+    """
 
     @wraps(func)
     def wrapper(*args, **kwargs):

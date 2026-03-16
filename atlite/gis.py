@@ -35,30 +35,29 @@ logger = logging.getLogger(__name__)
 
 def get_coords(x, y, time, dx=0.25, dy=0.25, dt="h", **kwargs):
     """
-    Create an cutout coordinate system on the basis of slices and step sizes.
+    Create cutout coordinates from slices and resolutions.
 
     Parameters
     ----------
     x : slice
-        Numerical slices with lower and upper bound of the x dimension.
+        Bounds of the x dimension.
     y : slice
-        Numerical slices with lower and upper bound of the y dimension.
+        Bounds of the y dimension.
     time : slice
-        Slice with strings with lower and upper bound of the time dimension.
+        Bounds of the time dimension.
     dx : float, optional
-        Step size of the x coordinate. The default is 0.25.
+        Step size of the x coordinate.
     dy : float, optional
-        Step size of the y coordinate. The default is 0.25.
+        Step size of the y coordinate.
     dt : str, optional
-        Frequency of the time coordinate. The default is 'h'. Valid are all
-        pandas offset aliases.
+        Frequency of the time coordinate.
+    **kwargs
+        Unused keyword arguments.
 
     Returns
     -------
-    ds : xarray.Dataset
-        Dataset with x, y and time variables, representing the whole coordinate
-        system.
-
+    xarray.Dataset
+        Dataset containing ``x``, ``y``, and ``time`` coordinates.
     """
     x = slice(*sorted([x.start, x.stop]))
     y = slice(*sorted([y.start, y.stop]))
@@ -77,7 +76,17 @@ def get_coords(x, y, time, dx=0.25, dy=0.25, dt="h", **kwargs):
 
 def spdiag(v):
     """
-    Create a sparse diagonal matrix from a 1-dimensional array.
+    Create a sparse diagonal matrix.
+
+    Parameters
+    ----------
+    v : array-like
+        Values placed on the diagonal.
+
+    Returns
+    -------
+    scipy.sparse.csr_matrix
+        Sparse diagonal matrix with ``v`` on the diagonal.
     """
     N = len(v)
     inds = np.arange(N + 1, dtype=np.int32)
@@ -86,7 +95,21 @@ def spdiag(v):
 
 def reproject_shapes(shapes, crs1, crs2):
     """
-    Project a collection of shapes from one crs to another.
+    Reproject a collection of geometries.
+
+    Parameters
+    ----------
+    shapes : iterable, pandas.Series, or dict
+        Shapes to reproject.
+    crs1 : any
+        Source coordinate reference system.
+    crs2 : any
+        Target coordinate reference system.
+
+    Returns
+    -------
+    iterable, pandas.Series, or collections.OrderedDict
+        Reprojected shapes with the same container type where applicable.
     """
     transformer = Transformer.from_crs(crs1, crs2, always_xy=True)
 
@@ -185,8 +208,19 @@ def compute_intersectionmatrix(orig, dest, orig_crs=4326, dest_crs=4326):
 
 def padded_transform_and_shape(bounds, res):
     """
-    Get the (transform, shape) tuple of a raster with resolution `res` and
-    bounds `bounds`.
+    Return a padded raster transform and shape.
+
+    Parameters
+    ----------
+    bounds : tuple
+        Bounding box as ``(left, bottom, right, top)``.
+    res : float
+        Raster resolution.
+
+    Returns
+    -------
+    tuple
+        Affine transform and raster shape covering the padded bounds.
     """
     left, bottom = ((b // res) * res for b in bounds[:2])
     right, top = ((b // res + 1) * res for b in bounds[2:])
@@ -198,7 +232,29 @@ def projected_mask(
     raster, geom, transform=None, shape=None, crs=None, allow_no_overlap=False, **kwargs
 ):
     """
-    Load a mask and optionally project it to target resolution and shape.
+    Load a raster mask and optionally reproject it.
+
+    Parameters
+    ----------
+    raster : rasterio.DatasetReader
+        Raster source used to build the mask.
+    geom : geopandas.GeoSeries
+        Geometry used for masking.
+    transform : rasterio.Affine, optional
+        Target transform.
+    shape : tuple, optional
+        Target array shape.
+    crs : any, optional
+        Target coordinate reference system.
+    allow_no_overlap : bool, optional
+        Whether to return a nodata mask when geometry and raster do not overlap.
+    **kwargs
+        Additional keyword arguments passed to ``rasterio.mask.mask``.
+
+    Returns
+    -------
+    tuple
+        Masked array and its affine transform.
     """
     nodata = kwargs.get("nodata", 255)
     kwargs.setdefault("indexes", 1)
@@ -232,12 +288,27 @@ def projected_mask(
 
 def pad_extent(src, src_transform, dst_transform, src_crs, dst_crs, **kwargs):
     """
-    Pad the extent of `src` by an equivalent of one cell of the target raster.
+    Pad an array before reprojection.
 
-    This ensures that the array is large enough to not be treated as
-    nodata in all cells of the destination raster. If src.ndim > 2, the
-    function expects the last two dimensions to be y,x. Additional
-    keyword arguments are used in `np.pad()`.
+    Parameters
+    ----------
+    src : numpy.ndarray
+        Source array with spatial axes in the last two dimensions.
+    src_transform : rasterio.Affine
+        Transform of the source array.
+    dst_transform : rasterio.Affine
+        Transform of the destination raster.
+    src_crs : any
+        Source coordinate reference system.
+    dst_crs : any
+        Destination coordinate reference system.
+    **kwargs
+        Keyword arguments passed to ``numpy.pad``.
+
+    Returns
+    -------
+    tuple
+        Padded array and updated affine transform.
     """
     if src.size == 0:
         return src, src_transform
@@ -329,34 +400,25 @@ def shape_availability_reprojected(
     geometry, excluder, dst_transform, dst_crs, dst_shape
 ):
     """
-    Compute and reproject the eligible area of one or more geometries.
+    Compute availability and reproject it to a target raster.
 
-    The function executes `shape_availability` and reprojects the calculated
-    mask onto a new raster defined by (dst_transform, dst_crs, dst_shape).
-    Before reprojecting, the function pads the mask such all non-nodata data
-    points  are projected in full cells of the target raster. The ensures that
-    all data within the mask are projected correclty (GDAL inherent 'problem').
-
+    Parameters
     ----------
-    geometry : geopandas.Series
-        Geometry in which the eligible area is computed. If the series contains
-        more than one geometry, the eligble area of the combined geometries is
-        computed.
+    geometry : geopandas.GeoSeries
+        Geometry for which availability is computed.
     excluder : atlite.gis.ExclusionContainer
-        Container of all meta data or objects which to exclude, i.e.
-        rasters and geometries.
+        Exclusion container defining masked areas.
     dst_transform : rasterio.Affine
         Transform of the target raster.
-    dst_crs : rasterio.CRS/proj.CRS
-        CRS of the target raster.
+    dst_crs : any
+        Coordinate reference system of the target raster.
     dst_shape : tuple
         Shape of the target raster.
 
-    masked : np.array
-        Average share of available area per grid cell. 0 indicates excluded,
-        1 is fully included.
-    transform : rasterio.Affine
-        Affine transform of the mask.
+    Returns
+    -------
+    tuple
+        Reprojected availability array and destination transform.
     """
     masked, transform = shape_availability(geometry, excluder)
     masked, transform = pad_extent(
@@ -759,7 +821,21 @@ def compute_availabilitymatrix(
 
 def maybe_swap_spatial_dims(ds, namex="x", namey="y"):
     """
-    Swap order of spatial dimensions according to atlite concention.
+    Ensure spatial coordinates follow atlite's axis ordering.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset or xarray.DataArray
+        Object with spatial coordinates.
+    namex : str, optional
+        Name of the x dimension.
+    namey : str, optional
+        Name of the y dimension.
+
+    Returns
+    -------
+    xarray.Dataset or xarray.DataArray
+        Input object with spatial dimensions reversed if needed.
     """
     swaps = {}
     lx, rx = ds.indexes[namex][[0, -1]]
@@ -785,26 +861,23 @@ def _as_transform(x, y):
 
 def regrid(ds, dimx, dimy, **kwargs):
     """
-    Interpolate Dataset or DataArray `ds` to a new grid, using rasterio's
-    reproject facility.
-
-    See also: https://mapbox.github.io/rasterio/topics/resampling.html
+    Reproject data to a new spatial grid.
 
     Parameters
     ----------
-    ds : xr.Dataset|xr.DataArray
-      N-dim data on a spatial grid
-    dimx : pd.Index
-      New x-coordinates in destination crs.
-      dimx.name MUST refer to x-coord of ds.
-    dimy : pd.Index
-      New y-coordinates in destination crs.
-      dimy.name MUST refer to y-coord of ds.
-    **kwargs :
-      Arguments passed to rio.wrap.reproject; of note:
-      - resampling is one of gis.Resampling.{average,cubic,bilinear,nearest}
-      - src_crs, dst_crs define the different crs (default: EPSG 4326, ie latlong)
+    ds : xarray.Dataset or xarray.DataArray
+        Data on a spatial grid.
+    dimx : pandas.Index
+        Target x coordinates. ``dimx.name`` must match the source x dimension.
+    dimy : pandas.Index
+        Target y coordinates. ``dimy.name`` must match the source y dimension.
+    **kwargs
+        Keyword arguments passed to ``rasterio.warp.reproject``.
 
+    Returns
+    -------
+    xarray.Dataset or xarray.DataArray
+        Regridded object on the target coordinates.
     """
     namex = dimx.name
     namey = dimy.name

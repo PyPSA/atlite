@@ -11,6 +11,27 @@ logger = logging.getLogger(__name__)
 
 
 def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
+    """
+    Estimate diffuse horizontal irradiation from total horizontal irradiation.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing top-of-atmosphere irradiation and, for the enhanced
+        model, temperature and humidity.
+    solar_position : xarray.Dataset
+        Solar position with an ``altitude`` variable in radians.
+    clearsky_model : str or None
+        Reindl clearsky model to use, either ``"simple"`` or ``"enhanced"``.
+        If None, the model is chosen from the available data.
+    influx : xarray.DataArray
+        Total horizontal irradiation.
+
+    Returns
+    -------
+    xarray.DataArray
+        Diffuse horizontal irradiation.
+    """
     # Clearsky model from Reindl 1990 to split downward radiation into direct
     # and diffuse contributions. Should switch to more up-to-date model, f.ex.
     # Ridley et al. (2010) http://dx.doi.org/10.1016/j.renene.2009.07.018 ,
@@ -74,6 +95,27 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
 
 
 def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse):
+    """
+    Calculate diffuse irradiation on a tilted surface.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing top-of-atmosphere irradiation.
+    solar_position : xarray.Dataset
+        Solar position with an ``altitude`` variable in radians.
+    surface_orientation : xarray.Dataset
+        Surface orientation including ``cosincidence`` and ``slope``.
+    direct : xarray.DataArray
+        Direct horizontal irradiation.
+    diffuse : xarray.DataArray
+        Diffuse horizontal irradiation.
+
+    Returns
+    -------
+    xarray.DataArray
+        Diffuse tilted irradiation.
+    """
     # Hay-Davies Model
 
     sinaltitude = sin(solar_position["altitude"])
@@ -116,6 +158,23 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
 
 
 def TiltedDirectIrrad(solar_position, surface_orientation, direct):
+    """
+    Calculate direct irradiation on a tilted surface.
+
+    Parameters
+    ----------
+    solar_position : xarray.Dataset
+        Solar position with an ``altitude`` variable in radians.
+    surface_orientation : xarray.Dataset
+        Surface orientation including ``cosincidence``.
+    direct : xarray.DataArray
+        Direct horizontal irradiation.
+
+    Returns
+    -------
+    xarray.DataArray
+        Direct tilted irradiation.
+    """
     sinaltitude = sin(solar_position["altitude"])
     cosincidence = surface_orientation["cosincidence"]
 
@@ -126,6 +185,21 @@ def TiltedDirectIrrad(solar_position, surface_orientation, direct):
 
 
 def _albedo(ds, influx):
+    """
+    Retrieve or derive surface albedo from the dataset.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing either ``albedo`` or ``outflux``.
+    influx : xarray.DataArray
+        Downward surface irradiation used when deriving albedo from outflux.
+
+    Returns
+    -------
+    xarray.DataArray
+        Surface albedo.
+    """
     if "albedo" in ds:
         albedo = ds["albedo"]
     elif "outflux" in ds:
@@ -140,6 +214,25 @@ def _albedo(ds, influx):
 
 
 def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
+    """
+    Calculate ground-reflected irradiation on a tilted surface.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing albedo information or reflected outflux.
+    solar_position : xarray.Dataset
+        Solar position dataset.
+    surface_orientation : xarray.Dataset
+        Surface orientation including ``slope``.
+    influx : xarray.DataArray
+        Total horizontal irradiation.
+
+    Returns
+    -------
+    xarray.DataArray
+        Ground-reflected tilted irradiation.
+    """
     surface_slope = surface_orientation["slope"]
     ground_t = influx * _albedo(ds, influx) * (1.0 - cos(surface_slope)) / 2.0
     return ground_t.rename("ground tilted")
@@ -196,6 +289,21 @@ def TiltedIrradiation(
     influx_toa = ds["influx_toa"]
 
     def clip(influx, influx_max):
+        """
+        Clip irradiation to physically admissible bounds.
+
+        Parameters
+        ----------
+        influx : xarray.DataArray
+            Irradiation to clip.
+        influx_max : xarray.DataArray
+            Upper bound for the irradiation.
+
+        Returns
+        -------
+        xarray.DataArray
+            Clipped irradiation.
+        """
         # use .data in clip due to dask-xarray incompatibilities
         return influx.clip(min=0, max=influx_max.transpose(*influx.dims).data)
 

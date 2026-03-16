@@ -21,6 +21,23 @@ Basins = namedtuple("Basins", ["plants", "meta", "shapes"])
 
 
 def find_basin(shapes, lon, lat):
+    """
+    Find the basin containing a point.
+
+    Parameters
+    ----------
+    shapes : geopandas.GeoSeries
+        Basin geometries indexed by basin id.
+    lon : float
+        Longitude of the point.
+    lat : float
+        Latitude of the point.
+
+    Returns
+    -------
+    int
+        Basin id containing the point.
+    """
     hids = shapes.index[shapes.intersects(Point(lon, lat))]
     if len(hids) > 1:
         logger.warning(
@@ -31,6 +48,21 @@ def find_basin(shapes, lon, lat):
 
 
 def find_upstream_basins(meta, hid):
+    """
+    Collect all upstream basins of a basin.
+
+    Parameters
+    ----------
+    meta : pandas.DataFrame
+        Basin metadata with a ``NEXT_DOWN`` column.
+    hid : int
+        Basin id from which to start.
+
+    Returns
+    -------
+    list[int]
+        Basin ids including the selected basin and all upstream basins.
+    """
     hids = [hid]
     i = 0
     while i < len(hids):
@@ -40,6 +72,23 @@ def find_upstream_basins(meta, hid):
 
 
 def determine_basins(plants, hydrobasins, show_progress=False):
+    """
+    Determine local and upstream basins for hydro plants.
+
+    Parameters
+    ----------
+    plants : pandas.DataFrame
+        Plant table with ``lon`` and ``lat`` columns.
+    hydrobasins : str or geopandas.GeoDataFrame
+        HydroBASINS data source or loaded basin geometries.
+    show_progress : bool, default False
+        Whether to show a progress bar.
+
+    Returns
+    -------
+    Basins
+        Basin assignments, metadata, and geometries for the plants.
+    """
     if isinstance(hydrobasins, str):
         hydrobasins = gpd.read_file(hydrobasins)
 
@@ -81,6 +130,25 @@ def determine_basins(plants, hydrobasins, show_progress=False):
 def shift_and_aggregate_runoff_for_plants(
     basins, runoff, flowspeed=1, show_progress=False
 ):
+    """
+    Shift basin runoff in time and aggregate it per plant.
+
+    Parameters
+    ----------
+    basins : Basins
+        Basin mappings and metadata for the plants.
+    runoff : xarray.DataArray
+        Runoff time series indexed by ``hid`` and ``time``.
+    flowspeed : float, default 1
+        Flow speed in m/s used to convert distance to travel time.
+    show_progress : bool, default False
+        Whether to show a progress bar.
+
+    Returns
+    -------
+    xarray.DataArray
+        Plant inflow time series indexed by ``plant`` and ``time``.
+    """
     inflow = xr.DataArray(
         np.zeros((len(basins.plants), runoff.indexes["time"].size)),
         [("plant", basins.plants.index), runoff.coords["time"]],

@@ -12,10 +12,19 @@ from numpy import pi
 
 def get_orientation(name, **params):
     """
-    Definitions:
-    -`slope` is the angle between ground and panel.
-    -`azimuth` is the clockwise angle from North.
-        i.e. azimuth = 180 faces exactly South
+    Return an orientation factory by name.
+
+    Parameters
+    ----------
+    name : str or dict
+        Orientation name or parameter dictionary containing ``name``.
+    **params
+        Parameters passed to the orientation factory.
+
+    Returns
+    -------
+    callable
+        Orientation function returning ``slope`` and ``azimuth``.
     """
     if isinstance(name, dict):
         params = name
@@ -48,6 +57,23 @@ def make_latitude_optimal():
     """
 
     def latitude_optimal(lon, lat, solar_position):
+        """
+        Build an orientation with latitude-dependent optimal tilt.
+
+        Parameters
+        ----------
+        lon : xarray.DataArray
+            Longitudes in radians.
+        lat : xarray.DataArray
+            Latitudes in radians.
+        solar_position : xarray.Dataset
+            Solar position dataset.
+
+        Returns
+        -------
+        dict
+            Mapping with ``slope`` and ``azimuth``.
+        """
         slope = np.empty_like(lat.values)
 
         below_25 = np.abs(lat.values) <= np.radians(25)
@@ -70,19 +96,81 @@ def make_latitude_optimal():
 
 
 def make_constant(slope, azimuth):
+    """
+    Create an orientation function with constant slope and azimuth.
+
+    Parameters
+    ----------
+    slope : float
+        Surface slope in degrees.
+    azimuth : float
+        Surface azimuth in degrees clockwise from north.
+
+    Returns
+    -------
+    callable
+        Orientation function returning constant ``slope`` and ``azimuth``.
+    """
     slope = radians(slope)
     azimuth = radians(azimuth)
 
     def constant(lon, lat, solar_position):
+        """
+        Return the configured constant panel orientation.
+
+        Parameters
+        ----------
+        lon : xarray.DataArray
+            Longitudes in radians.
+        lat : xarray.DataArray
+            Latitudes in radians.
+        solar_position : xarray.Dataset
+            Solar position dataset.
+
+        Returns
+        -------
+        dict
+            Mapping with constant ``slope`` and ``azimuth``.
+        """
         return dict(slope=slope, azimuth=azimuth)
 
     return constant
 
 
 def make_latitude(azimuth=180):
+    """
+    Create an orientation function with slope equal to latitude.
+
+    Parameters
+    ----------
+    azimuth : float, default 180
+        Surface azimuth in degrees clockwise from north.
+
+    Returns
+    -------
+    callable
+        Orientation function using latitude as slope.
+    """
     azimuth = radians(azimuth)
 
     def latitude(lon, lat, solar_position):
+        """
+        Return an orientation with slope equal to latitude.
+
+        Parameters
+        ----------
+        lon : xarray.DataArray
+            Longitudes in radians.
+        lat : xarray.DataArray
+            Latitudes in radians.
+        solar_position : xarray.Dataset
+            Solar position dataset.
+
+        Returns
+        -------
+        dict
+            Mapping with latitude-based ``slope`` and constant ``azimuth``.
+        """
         return dict(slope=lat, azimuth=azimuth)
 
     return latitude

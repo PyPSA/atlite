@@ -75,6 +75,23 @@ def _power_bofinger(irradiance, t_amb, pc):
 
 
 def SolarPanelModel(ds, irradiance, pc):
+    """
+    Compute PV power output for the selected panel model.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing ambient temperature.
+    irradiance : xarray.DataArray
+        Plane-of-array irradiation.
+    pc : dict
+        Panel configuration including the model parameters.
+
+    Returns
+    -------
+    xarray.DataArray
+        Specific PV power output.
+    """
     model = pc.get("model", "huld")
 
     if model == "huld":

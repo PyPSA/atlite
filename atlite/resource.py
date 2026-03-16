@@ -202,6 +202,19 @@ def get_cspinstallationconfig(installation):
 
 
 def solarpanel_rated_capacity_per_unit(panel):
+    """
+    Return the rated capacity per unit of a solar panel configuration.
+
+    Parameters
+    ----------
+    panel : str or pathlib.Path or dict
+        Solar panel configuration or reference to one.
+
+    Returns
+    -------
+    float
+        Rated capacity per unit area or per panel, depending on the model.
+    """
     # unit is m^2 here
 
     if isinstance(panel, (str | Path)):
@@ -218,6 +231,19 @@ def solarpanel_rated_capacity_per_unit(panel):
 
 
 def windturbine_rated_capacity_per_unit(turbine):
+    """
+    Return the rated capacity of a wind turbine configuration.
+
+    Parameters
+    ----------
+    turbine : str or pathlib.Path or dict
+        Wind turbine configuration or reference to one.
+
+    Returns
+    -------
+    float
+        Rated turbine capacity.
+    """
     if isinstance(turbine, (str | Path)):
         turbine = get_windturbineconfig(turbine)
 

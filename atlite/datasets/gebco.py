@@ -21,6 +21,23 @@ features = {"height": ["height"]}
 
 
 def get_data_gebco_height(xs, ys, gebco_path):
+    """
+    Load GEBCO height data for a target grid.
+
+    Parameters
+    ----------
+    xs : xarray.DataArray
+        X coordinates of the target grid.
+    ys : xarray.DataArray
+        Y coordinates of the target grid.
+    gebco_path : str or path-like
+        Path to the GEBCO raster file.
+
+    Returns
+    -------
+    xarray.DataArray
+        Height data on the target grid.
+    """
     x, X = xs.data[[0, -1]]
     y, Y = ys.data[[0, -1]]
 

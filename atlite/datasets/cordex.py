@@ -30,6 +30,20 @@ crs = 4326  # TODO
 
 
 def rename_and_clean_coords(ds):
+    """
+    Rename CORDEX grid coordinates and drop unused metadata.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Input CORDEX dataset.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with ``rlon`` and ``rlat`` renamed to ``x`` and ``y`` and
+        unused coordinates or variables removed.
+    """
     ds = ds.rename({"rlon": "x", "rlat": "y"})
     # drop some coordinates and variables we do not use
     ds = ds.drop(
@@ -39,6 +53,31 @@ def rename_and_clean_coords(ds):
 
 
 def prepare_data_cordex(fn, year, months, oldname, newname, xs, ys):
+    """
+    Prepare time-varying CORDEX data for selected months.
+
+    Parameters
+    ----------
+    fn : str or path-like
+        Source file path.
+    year : int
+        Target year.
+    months : list[int]
+        Months to extract from the file.
+    oldname : str
+        Original variable name in the source dataset.
+    newname : str
+        Target variable name.
+    xs : slice or array-like
+        X-coordinate selection.
+    ys : slice or array-like
+        Y-coordinate selection.
+
+    Yields
+    ------
+    tuple[tuple[int, int], xarray.Dataset]
+        Each requested year-month together with the prepared dataset slice.
+    """
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.rename({oldname: newname})
@@ -61,6 +100,31 @@ def prepare_data_cordex(fn, year, months, oldname, newname, xs, ys):
 
 
 def prepare_static_data_cordex(fn, year, months, oldname, newname, xs, ys):
+    """
+    Prepare static CORDEX data for selected months.
+
+    Parameters
+    ----------
+    fn : str or path-like
+        Source file path.
+    year : int
+        Target year.
+    months : list[int]
+        Months to associate with the static data.
+    oldname : str
+        Original variable name in the source dataset.
+    newname : str
+        Target variable name.
+    xs : slice or array-like
+        X-coordinate selection.
+    ys : slice or array-like
+        Y-coordinate selection.
+
+    Yields
+    ------
+    tuple[tuple[int, int], xarray.Dataset]
+        Each requested year-month together with the static dataset.
+    """
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.rename({oldname: newname})
@@ -71,6 +135,30 @@ def prepare_static_data_cordex(fn, year, months, oldname, newname, xs, ys):
 
 
 def prepare_weather_types_cordex(fn, year, months, oldname, newname, xs, ys):
+    """
+    Prepare monthly CORDEX weather type slices.
+
+    Parameters
+    ----------
+    fn : str or path-like
+        Source file path.
+    year : int
+        Target year.
+    months : list[int]
+        Months to extract from the file.
+    oldname : str
+        Original variable name in the source dataset.
+    newname : str
+        Target variable name.
+    xs, ys : slice or array-like
+        Unused placeholders kept for API compatibility with other CORDEX
+        preparation helpers.
+
+    Yields
+    ------
+    tuple[tuple[int, int], xarray.Dataset]
+        Each requested year-month together with the renamed dataset slice.
+    """
     with xr.open_dataset(fn) as ds:
         ds = ds.rename({oldname: newname})
         for m in months:
@@ -80,6 +168,33 @@ def prepare_weather_types_cordex(fn, year, months, oldname, newname, xs, ys):
 def prepare_meta_cordex(
     xs, ys, year, month, template, height_config, module, model=model
 ):
+    """
+    Prepare CORDEX metadata for a cutout month.
+
+    Parameters
+    ----------
+    xs : slice or array-like
+        X-coordinate selection.
+    ys : slice or array-like
+        Y-coordinate selection.
+    year : int
+        Target year.
+    month : int
+        Target month.
+    template : str
+        File name template for the reference dataset.
+    height_config : dict
+        Height dataset configuration.
+    module : module
+        Dataset module namespace.
+    model : str, default ``model``
+        CORDEX model identifier.
+
+    Returns
+    -------
+    xarray.Dataset
+        Metadata dataset with spatial, temporal, and height information.
+    """
     fn = next(glob.iglob(template.format(year=year, model=model)))
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
@@ -105,6 +220,33 @@ def prepare_meta_cordex(
 def tasks_yearly_cordex(
     xs, ys, yearmonths, prepare_func, template, oldname, newname, meta_attrs
 ):
+    """
+    Create yearly CORDEX preparation task specifications.
+
+    Parameters
+    ----------
+    xs : slice or array-like
+        X-coordinate selection.
+    ys : slice or array-like
+        Y-coordinate selection.
+    yearmonths : list[tuple[int, int]]
+        Requested year-month pairs.
+    prepare_func : callable
+        Preparation function to execute for each task.
+    template : str
+        File name template for yearly input files.
+    oldname : str
+        Original variable name in the source dataset.
+    newname : str
+        Target variable name.
+    meta_attrs : dict
+        Metadata attributes containing the CORDEX model identifier.
+
+    Returns
+    -------
+    list[dict]
+        Task dictionaries grouped by year.
+    """
     model = meta_attrs["model"]
 
     if not isinstance(xs, slice):
