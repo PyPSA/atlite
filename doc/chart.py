@@ -7,6 +7,8 @@ Spyder Editor.
 This is a temporary script file.
 """
 
+from typing import Any
+
 import matplotlib.pyplot as plt
 
 fig, ax = plt.subplots(figsize=(12, 5))
@@ -37,7 +39,11 @@ climatestr = "\n" + "\n\n".join([" ◦ " + s for s in climatedata]) + "\n"
 processedstr = "\n" + "\n\n\n".join([" ◦ " + s for s in processeddata]) + "\n"
 
 # defaults for boxes and arrows
-kwargs = {"verticalalignment": "center", "fontsize": 14, "color": "#545454"}
+kwargs: dict[str, Any] = {
+    "verticalalignment": "center",
+    "fontsize": 14,
+    "color": "#545454",
+}
 arrowkwargs = {
     "head_width": 0.2,
     "width": 0.13,
