@@ -174,8 +174,8 @@ class TestDeprecatedParams:
 class TestInvalidArgs:
     def test_invalid_aggregate_time_value(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
-            convert_and_aggregate(cutout, identity_convert, aggregate_time="invalid")
+            convert_and_aggregate(cutout, identity_convert, aggregate_time="invalid")  # type: ignore[arg-type]
 
     def test_aggregate_time_true_raises(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
-            convert_and_aggregate(cutout, identity_convert, aggregate_time=True)
+            convert_and_aggregate(cutout, identity_convert, aggregate_time=True)  # type: ignore[arg-type]

@@ -264,27 +264,27 @@ def test_regrid():
     fine = np.block([[ones * A, ones * B], [ones * C, ones * D]])
     # add coordinates
     finecoords = np.arange(0.5, 8, 1)
-    fine = xr.DataArray(fine, coords=[("y", finecoords), ("x", finecoords)])
+    fine = xr.DataArray(fine, coords=[("y", finecoords), ("x", finecoords)])  # type: ignore[assignment]
 
     coarsecoords = np.arange(2, 8, 4)
     coarse = xr.DataArray(np.nan, coords=[("y", coarsecoords), ("x", coarsecoords)])
 
     # apply average resampling
-    res = regrid(fine, coarse.x, coarse.y, resampling=5)
+    res = regrid(fine, coarse.x, coarse.y, resampling=5)  # type: ignore[arg-type]
     target = np.array([[A, B], [C, D]])
     assert allclose(res, target)
     assert (coarse.x == res.x).all() and (coarse.y == res.y).all()
 
     # now test multiple layers
 
-    fine = xr.concat([fine] * 10, pd.Index(range(10), name="z"))
-    res = regrid(fine, coarse.x, coarse.y, resampling=5)
+    fine = xr.concat([fine] * 10, pd.Index(range(10), name="z"))  # type: ignore[assignment, list-item]
+    res = regrid(fine, coarse.x, coarse.y, resampling=5)  # type: ignore[arg-type]
     target = np.stack([np.array([[A, B], [C, D]])] * 10)
     assert allclose(res, target)
     assert (coarse.x == res.x).all() and (coarse.y == res.y).all()
 
     # now let the target grid cover a subarea of the original
-    fine = fine.sel(z=0, drop=True)
+    fine = fine.sel(z=0, drop=True)  # type: ignore[attr-defined]
     coarsecoords = np.arange(1, 6, 2)
     coarse = xr.DataArray(np.nan, coords=[("y", coarsecoords), ("x", coarsecoords)])
 
@@ -589,7 +589,7 @@ def test_availability_matrix_rastered(ref, raster):
     ).rename_axis("shape")
     I = np.asarray(ref.indicatormatrix(shapes).todense())
     I = I.reshape(shapes.shape + ref.shape)
-    I = xr.DataArray(I, coords=[shapes.index, ref.coords["y"], ref.coords["x"]])
+    I = xr.DataArray(I, coords=[shapes.index, ref.coords["y"], ref.coords["x"]])  # type: ignore[assignment]
     excluder = ExclusionContainer(ref.crs, res=0.01)
     excluder.add_raster(raster)
     ds = ref.availabilitymatrix(shapes, excluder)
@@ -619,7 +619,7 @@ def test_availability_matrix_rastered_repro(ref, raster_reproject):
     ).rename_axis("shape")
     I = np.asarray(ref.indicatormatrix(shapes).todense())
     I = I.reshape(shapes.shape + ref.shape)
-    I = xr.DataArray(I, coords=[shapes.index, ref.coords["y"], ref.coords["x"]])
+    I = xr.DataArray(I, coords=[shapes.index, ref.coords["y"], ref.coords["x"]])  # type: ignore[assignment]
     excluder = ExclusionContainer()
     excluder.add_raster(raster_reproject)
     ds = ref.availabilitymatrix(shapes, excluder)
@@ -650,7 +650,7 @@ def test_shape_availability_exclude_raster_codes(ref, raster_codes):
 
     # test with a function
     excluder = ExclusionContainer(ref.crs, res=res)
-    excluder.add_raster(raster_codes, codes=lambda x: x < 20, invert=True)
+    excluder.add_raster(raster_codes, codes=lambda x: x < 20, invert=True)  # type: ignore[arg-type, return-value]
     masked, transform = shape_availability(shapes, excluder)
     assert ratio == masked.sum() / masked.size
 

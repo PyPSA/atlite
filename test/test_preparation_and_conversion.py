@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import urllib3
-from dateutil.relativedelta import relativedelta
+from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 from shapely.geometry import LineString as Line
 from shapely.geometry import Point
 

@@ -538,8 +538,12 @@ class ExclusionContainer:
     def add_raster(
         self,
         raster: PathLike | rio.DatasetReader,
-        codes: int | list[int] | Callable[[NDArray], NDArray] | None = None,
-        buffer: int = 0,
+        codes: int
+        | list[int]
+        | Sequence[int]
+        | Callable[[NDArray], NDArray]
+        | None = None,
+        buffer: float = 0,
         invert: bool = False,
         nodata: int = 255,
         allow_no_overlap: bool = False,

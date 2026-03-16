@@ -136,4 +136,4 @@ warn_unused_configs = true
 ignore_missing_imports = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
-exclude = ["test/", ".venv/", "build/"]
+exclude = [".venv/", "build/"]

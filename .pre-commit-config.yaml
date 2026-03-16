@@ -29,7 +29,7 @@ repos:
   hooks:
   - id: mypy
     additional_dependencies: ['types-PyYAML', 'types-requests']
-    exclude: ^(tests?/|docs/|examples/)
+    exclude: ^(docs/|examples/)
 
 # Find common spelling mistakes in comments and docstrings
 - repo: https://github.com/codespell-project/codespell
