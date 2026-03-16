@@ -5,15 +5,17 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import xarray as xr
 from dask.array import arccos, arcsin, arctan, cos, logical_and, radians, sin
 from numpy import pi
 
-from atlite._types import Dataset, NumericArray
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from atlite._types import Dataset, NumericArray
 
 
 def get_orientation(
@@ -101,10 +103,10 @@ def make_latitude_optimal() -> Callable[
         slope[~below_50] = np.radians(40.0)
 
         azimuth = np.where(lat.values < 0, 0, pi)  # type: ignore[union-attr]
-        return dict(
-            slope=xr.DataArray(slope, coords=lat.coords),  # type: ignore[union-attr]
-            azimuth=xr.DataArray(azimuth, coords=lat.coords),  # type: ignore[union-attr]
-        )
+        return {
+            "slope": xr.DataArray(slope, coords=lat.coords),  # type: ignore[union-attr]
+            "azimuth": xr.DataArray(azimuth, coords=lat.coords),  # type: ignore[union-attr]
+        }
 
     return latitude_optimal
 
@@ -150,7 +152,7 @@ def make_constant(
         dict
             Mapping with constant ``slope`` and ``azimuth``.
         """
-        return dict(slope=slope_rad, azimuth=azimuth_rad)
+        return {"slope": slope_rad, "azimuth": azimuth_rad}
 
     return constant
 
@@ -193,7 +195,7 @@ def make_latitude(
         dict
             Mapping with latitude-based ``slope`` and constant ``azimuth``.
         """
-        return dict(slope=lat, azimuth=azimuth_rad)
+        return {"slope": lat, "azimuth": azimuth_rad}
 
     return latitude
 

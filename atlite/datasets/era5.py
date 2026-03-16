@@ -14,9 +14,9 @@ import logging
 import os
 import warnings
 import weakref
-from collections.abc import Callable
+from pathlib import Path
 from tempfile import mkstemp
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import cdsapi
 import numpy as np
@@ -24,12 +24,17 @@ import pandas as pd
 import xarray as xr
 from dask import compute, delayed
 from dask.array import arctan2, sqrt
-from dask.utils import SerializableLock
 from numpy import atleast_1d
 
-from atlite._types import ERA5RetrievalParams, PathLike
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from dask.utils import SerializableLock
+
+    from atlite._types import ERA5RetrievalParams, PathLike
 
 # Null context for running a with statements wihout any context
 try:
@@ -72,8 +77,7 @@ def _add_height(ds: xr.Dataset) -> xr.Dataset:
     if "time" in z.coords:
         z = z.isel(time=0, drop=True)
     ds["height"] = z / g0
-    ds = ds.drop_vars("z")
-    return ds
+    return ds.drop_vars("z")  # type: ignore[no-any-return]
 
 
 def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dataset:
@@ -84,8 +88,7 @@ def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dat
     ds = maybe_swap_spatial_dims(ds)  # type: ignore[assignment]
     if add_lon_lat:
         ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
-    ds = ds.drop_vars(["expver", "number"], errors="ignore")
-    return ds  # type: ignore[return-value]
+    return ds.drop_vars(["expver", "number"], errors="ignore")  # type: ignore[no-any-return]
 
 
 def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
@@ -113,9 +116,7 @@ def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
 
     ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
-    ds = ds.rename({"fsr": "roughness"})
-
-    return ds  # type: ignore[no-any-return]
+    return ds.rename({"fsr": "roughness"})  # type: ignore[no-any-return]
 
 
 def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
@@ -157,9 +158,7 @@ def get_data_influx(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
         sp = SolarPosition(ds, time_shift=time_shift)
     sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
-    ds = xr.merge([ds, sp])
-
-    return ds  # type: ignore[no-any-return]
+    return xr.merge([ds, sp])  # type: ignore[no-any-return]
 
 
 def sanitize_influx(ds: xr.Dataset) -> xr.Dataset:
@@ -179,7 +178,7 @@ def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     )
 
     ds = _rename_and_clean_coords(ds)
-    ds = ds.rename(
+    return ds.rename(  # type: ignore[no-any-return]
         {
             "t2m": "temperature",
             "stl4": "soil temperature",
@@ -187,16 +186,12 @@ def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
         }
     )
 
-    return ds  # type: ignore[no-any-return]
-
 
 def get_data_runoff(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds = retrieve_data(variable=["runoff"], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
-    ds = ds.rename({"ro": "runoff"})
-
-    return ds  # type: ignore[no-any-return]
+    return ds.rename({"ro": "runoff"})  # type: ignore[no-any-return]
 
 
 def sanitize_runoff(ds: xr.Dataset) -> xr.Dataset:
@@ -208,9 +203,7 @@ def get_data_height(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds = retrieve_data(variable="geopotential", **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
-    ds = _add_height(ds)
-
-    return ds
+    return _add_height(ds)
 
 
 def _area(coords: dict[str, xr.DataArray]) -> list[float]:
@@ -257,20 +250,24 @@ def retrieval_times(
 
 
 def noisy_unlink(path: PathLike) -> None:
-    logger.debug(f"Deleting file {path}")
+    logger.debug("Deleting file %s", path)
     try:
-        os.unlink(path)
+        Path(path).unlink()
     except PermissionError:
-        logger.error(f"Unable to delete file {path}, as it is still in use.")
+        logger.error("Unable to delete file %s, as it is still in use.", path)
 
 
 def add_finalizer(ds: xr.Dataset, target: PathLike) -> None:
-    logger.debug(f"Adding finalizer for {target}")
+    logger.debug("Adding finalizer for %s", target)
     weakref.finalize(ds._close.__self__.ds, noisy_unlink, target)  # type: ignore[union-attr]
 
 
 def sanitize_chunks(chunks: Any, **dim_mapping: str) -> Any:
-    dim_mapping = dict(time="valid_time", x="longitude", y="latitude") | dim_mapping
+    dim_mapping = {
+        "time": "valid_time",
+        "x": "longitude",
+        "y": "latitude",
+    } | dim_mapping
     if not isinstance(chunks, dict):
         return chunks
 
@@ -347,10 +344,10 @@ def retrieve_data(
         "Need to specify at least 'variable', 'year' and 'month'"
     )
 
-    logger.debug(f"Requesting {product} with API request: {request}")
+    logger.debug("Requesting %s with API request: %s", product, request)
 
     client = cdsapi.Client(
-        info_callback=logger.debug, debug=logging.DEBUG >= logging.root.level
+        info_callback=logger.debug, debug=logging.root.level <= logging.DEBUG
     )
     result = client.retrieve(product, request)
 
@@ -365,7 +362,7 @@ def retrieve_data(
         timestr = f"{request['year']}-{request['month']}"
         variables = atleast_1d(request["variable"])
         varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
-        logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
+        logger.info("CDS: Downloading variables\n\t%s\n", varstr)
         result.download(target)
 
     if request["data_format"] == "grib":
@@ -409,7 +406,7 @@ def get_data(
         f"sanitize_{feature}"
     )
 
-    logger.info(f"Requesting data for feature {feature}...")
+    logger.info("Requesting data for feature %s...", feature)
 
     def retrieve_once(time: dict[str, Any]) -> xr.Dataset:
         ds = func({**retrieval_params, **time})  # type: ignore[misc, typeddict-item]

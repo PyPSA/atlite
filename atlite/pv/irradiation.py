@@ -5,11 +5,13 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 import numpy as np
 from dask.array import cos, fmax, fmin, radians, sin, sqrt
 
-from atlite._types import DataArray, Dataset
+if TYPE_CHECKING:
+    from atlite._types import DataArray, Dataset
 
 logger = logging.getLogger(__name__)
 
@@ -132,11 +134,11 @@ def TiltedDiffuseIrrad(
         + A * R_b
     ) * diffuse
 
-    if logger.isEnabledFor(logging.WARNING):
-        if ((diffuse_t < 0.0) & (sinaltitude > sin(radians(1.0)))).any():
-            logger.warning(
-                "diffuse_t exhibits negative values above altitude threshold."
-            )
+    if (
+        logger.isEnabledFor(logging.WARNING)
+        and ((diffuse_t < 0.0) & (sinaltitude > sin(radians(1.0)))).any()
+    ):
+        logger.warning("diffuse_t exhibits negative values above altitude threshold.")
 
     with np.errstate(invalid="ignore"):
         diffuse_t = diffuse_t.clip(min=0).fillna(0)
@@ -190,13 +192,12 @@ def _albedo(ds: Dataset, influx: DataArray) -> DataArray:
     """
     if "albedo" in ds:
         return ds["albedo"]
-    elif "outflux" in ds:
+    if "outflux" in ds:
         return (ds["outflux"] / influx.where(influx != 0)).fillna(0).clip(max=1)  # type: ignore[no-any-return]
-    else:
-        raise AssertionError(
-            "Need either albedo or outflux as a variable in the dataset. "
-            "Check your cutout and dataset module."
-        )
+    raise AssertionError(
+        "Need either albedo or outflux as a variable in the dataset. "
+        "Check your cutout and dataset module."
+    )
 
 
 def TiltedGroundIrrad(

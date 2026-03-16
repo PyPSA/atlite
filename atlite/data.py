@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable, Iterable
 from functools import wraps
 from pathlib import Path
 from shutil import rmtree
@@ -25,12 +24,12 @@ from dask.diagnostics import ProgressBar  # type: ignore[attr-defined]
 from dask.utils import SerializableLock
 from numpy import atleast_1d
 
-from atlite._types import DataArray, Dataset, PathLike
 from atlite.datasets import modules as datamodules
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Iterable, Sequence
 
+    from atlite._types import DataArray, Dataset, PathLike
     from atlite.cutout import Cutout
 
 logger = logging.getLogger(__name__)
@@ -172,7 +171,7 @@ def maybe_remove_tmpdir(
 
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        if kwargs.get("tmpdir", None):
+        if kwargs.get("tmpdir"):
             res: Any = func(*args, **kwargs)
         else:
             kwargs["tmpdir"] = mkdtemp()
@@ -270,7 +269,7 @@ def cutout_prepare(
     temp_dir_path: Path = Path(tmpdir)
     if not temp_dir_path.is_dir():
         raise FileNotFoundError(f"The tmpdir: {temp_dir_path} does not exist.")
-    logger.info(f"Storing temporary files in {tmpdir}")
+    logger.info("Storing temporary files in %s", tmpdir)
 
     modules_array: np.ndarray[Any, np.dtype[Any]] = atleast_1d(cutout.module)
     modules_list: list[str] = modules_array.tolist()
@@ -289,7 +288,7 @@ def cutout_prepare(
             missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
         if missing_vars.empty:
             continue
-        logger.info(f"Calculating and writing with module {module}:")
+        logger.info("Calculating and writing with module %s:", module)
         missing_features: np.ndarray[Any, np.dtype[Any]] = missing_vars.index.unique(
             "feature"
         )
@@ -304,7 +303,7 @@ def cutout_prepare(
         )
         prepared |= set(missing_features)
 
-        cutout.data.attrs.update(dict(prepared_features=list(prepared)))
+        cutout.data.attrs.update({"prepared_features": list(prepared)})
         attrs: dict[str, Any] = non_bool_dict(cutout.data.attrs)
         attrs.update(ds.attrs)
 
@@ -332,7 +331,7 @@ def cutout_prepare(
         if cutout.path.exists():
             cutout.data.close()
             cutout.path.unlink()
-        os.rename(tmp, cutout.path)
+        Path(tmp).rename(cutout.path)
 
         cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 

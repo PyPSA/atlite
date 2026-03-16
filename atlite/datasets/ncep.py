@@ -16,14 +16,16 @@ from __future__ import annotations
 
 import glob
 import os
-from collections.abc import Generator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
-from atlite._types import PathLike
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from atlite._types import PathLike
 
 engine: str = "pynio"
 crs: int = 4326
@@ -57,8 +59,7 @@ def convert_lons_lats_ncep(
         ds = ds.sel(lon_0=xs)
 
     ds = ds.rename({"lon_0": "x", "lat_0": "y"})
-    ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
-    return ds
+    return ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])  # type: ignore[no-any-return]
 
 
 def convert_time_hourly_ncep(ds: xr.Dataset, drop_time_vars: bool = True) -> xr.Dataset:
@@ -247,7 +248,7 @@ def prepare_meta_ncep(
     module: Any,
     engine: str = engine,
 ) -> xr.Dataset:
-    fn = next(glob.iglob(template.format(year=year, month=month)))
+    fn = next(glob.iglob(template.format(year=year, month=month)))  # noqa: PTH207
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = ds.coords.to_dataset()
         ds = convert_lons_lats_ncep(ds, xs, ys)
@@ -279,14 +280,14 @@ def tasks_monthly_ncep(
     meta_attrs: dict[str, Any],
 ) -> list[dict[str, Any]]:
     return [
-        dict(
-            prepare_func=prepare_func,
-            xs=xs,
-            ys=ys,
-            fn=next(glob.iglob(template.format(year=ym[0], month=ym[1]))),
-            engine=engine,
-            yearmonth=ym,
-        )
+        {
+            "prepare_func": prepare_func,
+            "xs": xs,
+            "ys": ys,
+            "fn": next(glob.iglob(template.format(year=ym[0], month=ym[1]))),  # noqa: PTH207
+            "engine": engine,
+            "yearmonth": ym,
+        }
         for ym in yearmonths
     ]
 
@@ -306,7 +307,7 @@ def tasks_height_ncep(
             xs=xs,
             ys=ys,
             yearmonths=yearmonths,
-            fn=next(glob.iglob(template)),
+            fn=next(glob.iglob(template)),  # noqa: PTH207
             **extra_args,
         )
     ]
@@ -314,88 +315,88 @@ def tasks_height_ncep(
 
 weather_data_config: dict[str, dict[str, Any]] = {}
 try:
-    from atlite import config  # type: ignore[attr-defined]  # noqa: F401
+    from atlite import config  # type: ignore[attr-defined]
 
     weather_data_config = {
-        "influx": dict(
-            tasks_func=tasks_monthly_ncep,
-            prepare_func=prepare_influx_ncep,
-            template=os.path.join(
-                config.ncep_dir,  # noqa: F821
+        "influx": {
+            "tasks_func": tasks_monthly_ncep,
+            "prepare_func": prepare_influx_ncep,
+            "template": os.path.join(  # noqa: PTH118
+                config.ncep_dir,
                 "{year}{month:0>2}/dswsfc.*.grb2",
             ),
-        ),
-        "outflux": dict(
-            tasks_func=tasks_monthly_ncep,
-            prepare_func=prepare_outflux_ncep,
-            template=os.path.join(
-                config.ncep_dir,  # noqa: F821
+        },
+        "outflux": {
+            "tasks_func": tasks_monthly_ncep,
+            "prepare_func": prepare_outflux_ncep,
+            "template": os.path.join(  # noqa: PTH118
+                config.ncep_dir,
                 "{year}{month:0>2}/uswsfc.*.grb2",
             ),
-        ),
-        "temperature": dict(
-            tasks_func=tasks_monthly_ncep,
-            prepare_func=prepare_temperature_ncep,
-            template=os.path.join(
-                config.ncep_dir,  # noqa: F821
+        },
+        "temperature": {
+            "tasks_func": tasks_monthly_ncep,
+            "prepare_func": prepare_temperature_ncep,
+            "template": os.path.join(  # noqa: PTH118
+                config.ncep_dir,
                 "{year}{month:0>2}/tmp2m.*.grb2",
             ),
-        ),
-        "soil temperature": dict(
-            tasks_func=tasks_monthly_ncep,
-            prepare_func=prepare_soil_temperature_ncep,
-            template=os.path.join(
-                config.ncep_dir,  # noqa: F821
+        },
+        "soil temperature": {
+            "tasks_func": tasks_monthly_ncep,
+            "prepare_func": prepare_soil_temperature_ncep,
+            "template": os.path.join(  # noqa: PTH118
+                config.ncep_dir,
                 "{year}{month:0>2}/soilt1.*.grb2",
             ),
-        ),
-        "wnd10m": dict(
-            tasks_func=tasks_monthly_ncep,
-            prepare_func=prepare_wnd10m_ncep,
-            template=os.path.join(
-                config.ncep_dir,  # noqa: F821
+        },
+        "wnd10m": {
+            "tasks_func": tasks_monthly_ncep,
+            "prepare_func": prepare_wnd10m_ncep,
+            "template": os.path.join(  # noqa: PTH118
+                config.ncep_dir,
                 "{year}{month:0>2}/wnd10m.*.grb2",
             ),
-        ),
-        "runoff": dict(
-            tasks_func=tasks_monthly_ncep,
-            prepare_func=prepare_runoff_ncep,
-            template=os.path.join(
-                config.ncep_dir,  # noqa: F821
+        },
+        "runoff": {
+            "tasks_func": tasks_monthly_ncep,
+            "prepare_func": prepare_runoff_ncep,
+            "template": os.path.join(  # noqa: PTH118
+                config.ncep_dir,
                 "{year}{month:0>2}/runoff.*.grb2",
             ),
-        ),
-        "roughness": dict(
-            tasks_func=tasks_monthly_ncep,
-            prepare_func=prepare_roughness_ncep,
-            template=os.path.join(
-                config.ncep_dir,  # noqa: F821
+        },
+        "roughness": {
+            "tasks_func": tasks_monthly_ncep,
+            "prepare_func": prepare_roughness_ncep,
+            "template": os.path.join(  # noqa: PTH118
+                config.ncep_dir,
                 "{year}{month:0>2}/flxf.gdas.*.grb2",
             ),
-        ),
-        "height": dict(
-            tasks_func=tasks_height_ncep,
-            prepare_func=prepare_height_ncep,
-            template=os.path.join(
-                config.ncep_dir,  # noqa: F821
+        },
+        "height": {
+            "tasks_func": tasks_height_ncep,
+            "prepare_func": prepare_height_ncep,
+            "template": os.path.join(  # noqa: PTH118
+                config.ncep_dir,
                 "height/cdas1.20130101.splgrbanl.grb2",
             ),
-        ),
+        },
     }
 except ImportError:
     pass
 
 meta_data_config: dict[str, Any] = {}
 try:
-    from atlite import config  # type: ignore[attr-defined]  # noqa: F401
+    from atlite import config  # type: ignore[attr-defined]
 
-    meta_data_config = dict(
-        prepare_func=prepare_meta_ncep,
-        template=os.path.join(
-            config.ncep_dir,  # noqa: F821
+    meta_data_config = {
+        "prepare_func": prepare_meta_ncep,
+        "template": os.path.join(  # noqa: PTH118
+            config.ncep_dir,
             "{year}{month:0>2}/tmp2m.*.grb2",
         ),
-        height_config=weather_data_config["height"],
-    )
+        "height_config": weather_data_config["height"],
+    }
 except (ImportError, KeyError):
     pass

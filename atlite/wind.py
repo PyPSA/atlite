@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 import numpy as np
 
-from atlite._types import DataArray, Dataset, NDArray
+if TYPE_CHECKING:
+    from atlite._types import DataArray, Dataset, NDArray
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ def extrapolate_wind_speed(
             raise RuntimeError(
                 "The logarithmic interpolation method requires surface roughness (roughness);\n"
                 "make sure you choose a compatible dataset like ERA5"
-            )
+            ) from None
         wnd_spd: DataArray = ds[from_name] * (
             np.log(to_height / roughness) / np.log(from_height / roughness)
         )
@@ -104,7 +105,7 @@ def extrapolate_wind_speed(
             raise RuntimeError(
                 "The power law interpolation method requires a wind shear exponent (wnd_shear_exp);\n"
                 "make sure you choose a compatible dataset like ERA5 and update your cutout"
-            )
+            ) from None
         wnd_spd = ds[from_name] * (to_height / from_height) ** wnd_shear_exp
         method_desc = "power method with wind shear exponent"
     else:
@@ -122,4 +123,4 @@ def extrapolate_wind_speed(
         }
     )
 
-    return cast(DataArray, wnd_spd.rename(to_name))
+    return cast("DataArray", wnd_spd.rename(to_name))

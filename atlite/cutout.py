@@ -17,7 +17,6 @@ Base class for atlite.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
 from pathlib import Path
 from tempfile import mktemp
 from typing import TYPE_CHECKING, Any
@@ -32,18 +31,20 @@ from numpy import append, atleast_1d
 from pyproj import CRS
 from shapely.geometry import box
 
-from atlite._types import (
-    CrsLike,
-    DataArray,
-    GeoDataFrame,
-    Geometry,
-    NDArray,
-    Number,
-    PathLike,
-    SparseMatrix,
-)
-
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from atlite._types import (
+        CrsLike,
+        DataArray,
+        GeoDataFrame,
+        Geometry,
+        NDArray,
+        Number,
+        PathLike,
+        SparseMatrix,
+    )
+
     pass
 
 from atlite.convert import (
@@ -173,12 +174,13 @@ class Cutout:
             if cutoutparams:
                 warn(
                     f"Arguments {', '.join(cutoutparams)} are ignored, since "
-                    "cutout is already built."
+                    "cutout is already built.",
+                    stacklevel=2,
                 )
         elif "data" in cutoutparams:
             data = cutoutparams.pop("data")
         else:
-            logger.info(f"Building new cutout {path}")
+            logger.info("Building new cutout %s", path)
 
             if "bounds" in cutoutparams:
                 bounds = cutoutparams.pop("bounds")
@@ -220,7 +222,7 @@ class Cutout:
 
         # Check compatibility of CRS
         modules = atleast_1d(data.attrs.get("module"))  # type: ignore[arg-type]
-        crs = set(CRS(datamodules[m].crs) for m in modules)
+        crs = {CRS(datamodules[m].crs) for m in modules}
         assert len(crs) == 1, f"CRS of {module} not compatible"
 
         self.path = path

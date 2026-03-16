@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import multiprocessing as mp
 from collections import OrderedDict
-from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from warnings import catch_warnings, simplefilter
@@ -34,19 +33,21 @@ from shapely.ops import transform
 from shapely.strtree import STRtree
 from tqdm import tqdm
 
-from atlite._types import (
-    CrsLike,
-    DataArray,
-    Dataset,
-    GeoDataFrame,
-    Geometry,
-    GeoSeries,
-    NDArray,
-    PathLike,
-)
-
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable, Sequence
+
     from matplotlib.axes import Axes
+
+    from atlite._types import (
+        CrsLike,
+        DataArray,
+        Dataset,
+        GeoDataFrame,
+        Geometry,
+        GeoSeries,
+        NDArray,
+        PathLike,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ def get_coords(
     )
     ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
     ds = ds.sel(x=x, y=y, time=time)
-    return cast(Dataset, ds)
+    return cast("Dataset", ds)
 
 
 def spdiag(v: NDArray | Sequence[float]) -> sp.sparse.csr_matrix:
@@ -148,10 +149,9 @@ def reproject_shapes(
 
     if isinstance(shapes, pd.Series):
         return shapes.map(_reproject_shape)
-    elif isinstance(shapes, dict):
+    if isinstance(shapes, dict):
         return OrderedDict((k, _reproject_shape(v)) for k, v in shapes.items())
-    else:
-        return list(map(_reproject_shape, shapes))
+    return list(map(_reproject_shape, shapes))
 
 
 def compute_indicatormatrix(
@@ -194,7 +194,7 @@ def compute_indicatormatrix(
     )
     indicator = sp.sparse.lil_matrix((len(dest_list), len(orig_list)), dtype=float)
     tree = STRtree(orig_list)
-    idx = dict((hash(o.wkt), i) for i, o in enumerate(orig_list))
+    idx = {hash(o.wkt): i for i, o in enumerate(orig_list)}
 
     for i, d in enumerate(dest_list):
         for o in tree.query(d):
@@ -245,7 +245,7 @@ def compute_intersectionmatrix(
     )
     intersection = sp.sparse.lil_matrix((len(dest_list), len(orig_list)), dtype=float)
     tree = STRtree(orig_list)
-    idx = dict((hash(o.wkt), i) for i, o in enumerate(orig_list))
+    idx = {hash(o.wkt): i for i, o in enumerate(orig_list)}
 
     for i, d in enumerate(dest_list):
         for o in tree.query(d):
@@ -573,15 +573,15 @@ class ExclusionContainer:
             CRS of the raster. Specify this if the raster has invalid crs.
 
         """
-        d: dict[str, Any] = dict(
-            raster=raster,
-            codes=codes,
-            buffer=buffer,
-            invert=invert,
-            nodata=nodata,
-            allow_no_overlap=allow_no_overlap,
-            crs=crs,
-        )
+        d: dict[str, Any] = {
+            "raster": raster,
+            "codes": codes,
+            "buffer": buffer,
+            "invert": invert,
+            "nodata": nodata,
+            "allow_no_overlap": allow_no_overlap,
+            "crs": crs,
+        }
         self.rasters.append(d)
 
     def add_geometry(
@@ -605,7 +605,7 @@ class ExclusionContainer:
             of the geometries. The default is False.
 
         """
-        d: dict[str, Any] = dict(geometry=geometry, buffer=buffer, invert=invert)
+        d: dict[str, Any] = {"geometry": geometry, "buffer": buffer, "invert": invert}
         self.geometries.append(d)
 
     def open_files(self) -> None:
@@ -724,8 +724,7 @@ class ExclusionContainer:
             return shape_availability_reprojected(
                 geometry, self, dst_transform, dst_crs, dst_shape
             )
-        else:
-            return shape_availability(geometry, self)
+        return shape_availability(geometry, self)
 
     def plot_shape_availability(
         self,
@@ -889,12 +888,12 @@ def compute_availabilitymatrix(
     shapes = shapes.to_crs(excluder.crs)
 
     args = (excluder, cutout.transform_r, cutout.crs, cutout.shape)
-    tqdm_kwargs = dict(
-        ascii=False,
-        unit=" gridcells",
-        total=len(shapes),
-        desc="Compute availability matrix",
-    )
+    tqdm_kwargs = {
+        "ascii": False,
+        "unit": " gridcells",
+        "total": len(shapes),
+        "desc": "Compute availability matrix",
+    }
 
     if nprocesses is None:
         if not disable_progressbar:
@@ -1028,14 +1027,14 @@ def regrid(
 
         if reprojected.ndim != src.ndim:
             reprojected = reprojected.squeeze(axis=0)
-        return cast(NDArray, reprojected)
+        return cast("NDArray", reprojected)
 
     data_vars = ds.data_vars.values() if isinstance(ds, xr.Dataset) else (ds,)
     dtypes = {da.dtype for da in data_vars}
     assert len(dtypes) == 1, "regrid can only reproject datasets with homogeneous dtype"
 
     return cast(
-        Dataset | DataArray,
+        "Dataset | DataArray",
         (
             xr.apply_ufunc(
                 _reproject,
@@ -1043,9 +1042,9 @@ def regrid(
                 input_core_dims=[[namey, namex]],
                 output_core_dims=[["yout", "xout"]],
                 output_dtypes=[dtypes.pop()],
-                dask_gufunc_kwargs=dict(
-                    output_sizes={"yout": dst_shape[0], "xout": dst_shape[1]}
-                ),
+                dask_gufunc_kwargs={
+                    "output_sizes": {"yout": dst_shape[0], "xout": dst_shape[1]}
+                },
                 dask="parallelized",
                 kwargs=kwargs,
             )

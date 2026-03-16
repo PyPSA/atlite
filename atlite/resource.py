@@ -22,7 +22,6 @@ import yaml
 from dask.array import radians
 from scipy.signal import fftconvolve
 
-from atlite._types import DataArray, NDArray, PathLike
 from atlite.utils import arrowdict
 
 logger = logging.getLogger(name=__name__)
@@ -36,6 +35,8 @@ if TYPE_CHECKING:
     from typing import TypedDict
 
     from typing_extensions import NotRequired
+
+    from atlite._types import DataArray, NDArray, PathLike
 
     class TurbineConfig(TypedDict):
         V: NDArray
@@ -100,7 +101,9 @@ def get_windturbineconfig(
         )
 
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
-        conf = cast(dict[str, Any], get_oedb_windturbineconfig(turbine[len("oedb:") :]))
+        conf = cast(
+            "dict[str, Any]", get_oedb_windturbineconfig(turbine[len("oedb:") :])
+        )
 
     elif isinstance(turbine, (str, Path)):
         if isinstance(turbine, str):
@@ -109,20 +112,20 @@ def get_windturbineconfig(
         elif isinstance(turbine, Path):
             turbine_path = turbine
 
-        with open(turbine_path) as f:
+        with Path(turbine_path).open() as f:
             conf = yaml.safe_load(f)
-            conf = dict(
-                V=np.array(conf["V"]),
-                POW=np.array(conf["POW"]),
-                hub_height=conf["HUB_HEIGHT"],
-                P=np.max(conf["POW"]),
-            )
+            conf = {
+                "V": np.array(conf["V"]),
+                "POW": np.array(conf["POW"]),
+                "hub_height": conf["HUB_HEIGHT"],
+                "P": np.max(conf["POW"]),
+            }
 
     elif isinstance(turbine, dict):
         conf = turbine
 
     return _validate_turbine_config_dict(
-        cast(dict[str, Any], conf), add_cutout_windspeed
+        cast("dict[str, Any]", conf), add_cutout_windspeed
     )
 
 
@@ -152,10 +155,8 @@ def get_solarpanelconfig(panel: str | PathLike) -> PanelConfig:
     elif isinstance(panel, Path):
         panel_path = panel
 
-    with open(panel_path) as f:
-        conf = cast(PanelConfig, yaml.safe_load(f))
-
-    return conf
+    with Path(panel_path).open() as f:
+        return cast("PanelConfig", yaml.safe_load(f))
 
 
 def get_cspinstallationconfig(installation: str | PathLike) -> CSPConfig:
@@ -185,8 +186,8 @@ def get_cspinstallationconfig(installation: str | PathLike) -> CSPConfig:
     elif isinstance(installation, Path):
         installation_path = installation
 
-    with open(installation_path) as f:
-        config = cast(dict[str, Any], yaml.safe_load(f))
+    with Path(installation_path).open() as f:
+        config = cast("dict[str, Any]", yaml.safe_load(f))
     config["path"] = installation_path
 
     da = pd.DataFrame(config["efficiency"]).set_index(["altitude", "azimuth"])
@@ -208,7 +209,7 @@ def get_cspinstallationconfig(installation: str | PathLike) -> CSPConfig:
 
     config["efficiency"] = da
 
-    return cast(CSPConfig, config)
+    return cast("CSPConfig", config)
 
 
 def solarpanel_rated_capacity_per_unit(panel: str | PathLike | PanelConfig) -> float:
@@ -230,12 +231,11 @@ def solarpanel_rated_capacity_per_unit(panel: str | PathLike | PanelConfig) -> f
 
     model = panel.get("model", "huld")
     if model == "huld":
-        return cast(float, panel["efficiency"])
-    elif model == "bofinger":
+        return cast("float", panel["efficiency"])
+    if model == "bofinger":
         A, B, C = itemgetter("A", "B", "C")(panel)
-        return cast(float, (A + B * 1000.0 + C * np.log(1000.0)) * 1e3)
-    else:
-        raise ValueError(f"Unknown panel model: {model}")
+        return cast("float", (A + B * 1000.0 + C * np.log(1000.0)) * 1e3)
+    raise ValueError(f"Unknown panel model: {model}")
 
 
 def windturbine_rated_capacity_per_unit(
@@ -290,7 +290,7 @@ def windturbine_smooth(
     if params is None or params is True:
         params = {}
 
-    params = cast(dict[str, float], params)
+    params = cast("dict[str, float]", params)
     eta: float = params.get("eta", 0.95)
     Delta_v: float = params.get("Delta_v", 1.27)
     sigma: float = params.get("sigma", 2.29)
@@ -316,7 +316,7 @@ def windturbine_smooth(
 
     turbine = turbine.copy()
     turbine["V"], turbine["POW"] = smooth(turbine["V"], turbine["POW"])
-    turbine["P"] = cast(float, float(np.max(turbine["POW"])))
+    turbine["P"] = cast("float", float(np.max(turbine["POW"])))
 
     if any(turbine["POW"][np.where(turbine["V"] == 0.0)] > 1e-2):
         logger.warning(
@@ -332,7 +332,7 @@ def windturbine_smooth(
 
 def _max_v_is_zero_pow(turbine: TurbineConfig) -> bool:
     return cast(
-        bool, bool(np.any(turbine["POW"][turbine["V"] == turbine["V"].max()] == 0))
+        "bool", bool(np.any(turbine["POW"][turbine["V"] == turbine["V"].max()] == 0))
     )
 
 
@@ -385,23 +385,23 @@ def _validate_turbine_config_dict(
         raise ValueError(err_msg)
 
     if add_cutout_windspeed is True and not _max_v_is_zero_pow(
-        cast(TurbineConfig, turbine)
+        cast("TurbineConfig", turbine)
     ):
         turbine["V"] = np.pad(turbine["V"], (0, 1), "maximum")
         turbine["POW"] = np.pad(turbine["POW"], (0, 1), "constant", constant_values=0)
         logger.info(
-            "adding a cut-out wind speed to the turbine power curve at "
-            f"V={turbine['V'][-1]} m/s."
+            "adding a cut-out wind speed to the turbine power curve at V=%s m/s.",
+            turbine["V"][-1],
         )
 
-    if not _max_v_is_zero_pow(cast(TurbineConfig, turbine)):
+    if not _max_v_is_zero_pow(cast("TurbineConfig", turbine)):
         logger.warning(
             "The power curve does not have a cut-out wind speed, i.e. the power"
             " output corresponding to the\nhighest wind speed is not zero. You can"
             " either change the power curve manually or set\n"
             "'add_cutout_windspeed=True' in the Cutout.wind conversion method."
         )
-    return cast(TurbineConfig, turbine)
+    return cast("TurbineConfig", turbine)
 
 
 def get_oedb_windturbineconfig(
@@ -460,9 +460,8 @@ def get_oedb_windturbineconfig(
         _oedb_turbines = df[df.has_power_curve]
 
     logger.info(
-        "Searching turbine power curve in OEDB database using "
-        + ", ".join(f"{k}='{v}'" for (k, v) in search_params.items())
-        + "."
+        "Searching turbine power curve in OEDB database using %s.",
+        ", ".join(f"{k}='{v}'" for (k, v) in search_params.items()),
     )
 
     # Working copy
@@ -487,7 +486,7 @@ def get_oedb_windturbineconfig(
 
     if len(df) < 1:
         raise RuntimeError("No turbine found.")
-    elif len(df) > 1:
+    if len(df) > 1:
         raise RuntimeError(
             f"Provided information corresponds to {len(df)} turbines,"
             " use `id` for an unambiguous search.\n"

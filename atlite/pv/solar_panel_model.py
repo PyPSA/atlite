@@ -4,12 +4,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
-import xarray as xr
 
-from atlite._types import DataArray
+if TYPE_CHECKING:
+    import xarray as xr
+
+    from atlite._types import DataArray
 
 
 def _power_huld(
@@ -44,9 +46,7 @@ def _power_huld(
 
     da = G_ * eff * pc.get("inverter_efficiency", 1.0)
     da.attrs["units"] = "kWh/kWp"
-    da = da.rename("specific generation")
-
-    return da  # type: ignore[no-any-return]
+    return da.rename("specific generation")  # type: ignore[no-any-return]
 
 
 def _power_bofinger(
@@ -105,7 +105,6 @@ def SolarPanelModel(
 
     if model == "huld":
         return _power_huld(irradiance, ds["temperature"], pc)
-    elif model == "bofinger":
+    if model == "bofinger":
         return _power_bofinger(irradiance, ds["temperature"], pc)
-    else:
-        raise AssertionError(f"Unknown panel model: {model}")
+    raise AssertionError(f"Unknown panel model: {model}")

@@ -37,16 +37,16 @@ climatestr = "\n" + "\n\n".join([" ◦ " + s for s in climatedata]) + "\n"
 processedstr = "\n" + "\n\n\n".join([" ◦ " + s for s in processeddata]) + "\n"
 
 # defaults for boxes and arrows
-kwargs = dict(verticalalignment="center", fontsize=14, color="#545454")
-arrowkwargs = dict(
-    head_width=0.2,
-    width=0.13,
-    head_length=0.05,
-    edgecolor="white",
-    length_includes_head=True,
-    color="lightgray",
-    alpha=1,
-)
+kwargs = {"verticalalignment": "center", "fontsize": 14, "color": "#545454"}
+arrowkwargs = {
+    "head_width": 0.2,
+    "width": 0.13,
+    "head_length": 0.05,
+    "edgecolor": "white",
+    "length_includes_head": True,
+    "color": "lightgray",
+    "alpha": 1,
+}
 y = 0.5
 
 # First arrow
@@ -61,7 +61,12 @@ ax.text(
     y,
     climatestr,
     **kwargs,
-    bbox=dict(facecolor="indianred", alpha=0.5, edgecolor="None", boxstyle="round"),
+    bbox={
+        "facecolor": "indianred",
+        "alpha": 0.5,
+        "edgecolor": "None",
+        "boxstyle": "round",
+    },
 )
 
 # Second arrow
@@ -74,7 +79,12 @@ ax.text(
     y,
     processedstr,
     **kwargs,
-    bbox=dict(facecolor="olivedrab", alpha=0.5, edgecolor="None", boxstyle="round"),
+    bbox={
+        "facecolor": "olivedrab",
+        "alpha": 0.5,
+        "edgecolor": "None",
+        "boxstyle": "round",
+    },
 )
 
 

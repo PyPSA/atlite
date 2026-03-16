@@ -8,21 +8,22 @@ dataset.
 
 from __future__ import annotations
 
-import glob
 import logging
-import os
 import warnings
 from functools import partial
-from typing import Any
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 from rasterio.warp import Resampling
 
-from atlite._types import PathLike
 from atlite.gis import regrid
 from atlite.pv.solar_position import SolarPosition
+
+if TYPE_CHECKING:
+    from atlite._types import PathLike
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,8 @@ static_features: dict[str, list[str]] = {}
 
 def get_filenames(sarah_dir: str | PathLike, coords: dict[str, Any]) -> pd.DataFrame:
     def _filenames_starting_with(name: str) -> pd.Series[str]:
-        pattern = os.path.join(sarah_dir, "**", f"{name}*.nc")
-        files = pd.Series(glob.glob(pattern, recursive=True))
+        pattern = str(Path(sarah_dir) / "**" / f"{name}*.nc")
+        files = pd.Series([str(f) for f in Path(sarah_dir).rglob(f"{name}*.nc")])
         assert not files.empty, (
             f"No files found at {pattern}. Make sure "
             f"sarah_dir points to the correct directory!"
@@ -56,7 +57,10 @@ def get_filenames(sarah_dir: str | PathLike, coords: dict[str, Any]) -> pd.DataF
         return files.sort_index()
 
     files = pd.concat(
-        dict(sis=_filenames_starting_with("SIS"), sid=_filenames_starting_with("SID")),
+        {
+            "sis": _filenames_starting_with("SIS"),
+            "sid": _filenames_starting_with("SID"),
+        },
         join="inner",
         axis=1,
     )
@@ -66,8 +70,10 @@ def get_filenames(sarah_dir: str | PathLike, coords: dict[str, Any]) -> pd.DataF
 
     if (start < files.index[0]) or (end > files.index[-1]):
         logger.error(
-            f"Files in {sarah_dir} do not cover the whole time span:"
-            f"\t{start} until {end}"
+            "Files in %s do not cover the whole time span:\t%s until %s",
+            sarah_dir,
+            start,
+            end,
         )
 
     return files.loc[(files.index >= start) & (files.index <= end)].sort_index()
@@ -147,7 +153,7 @@ def get_data(
     creation_parameters.setdefault("sarah_interpolate", True)
 
     files = get_filenames(sarah_dir, coords)
-    open_kwargs = dict(chunks=chunks, parallel=creation_parameters["parallel"])
+    open_kwargs = {"chunks": chunks, "parallel": creation_parameters["parallel"]}
     ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)[["SIS"]]
     ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)[["SID"]]
     ds = xr.merge([ds_sis, ds_sid])
@@ -156,18 +162,15 @@ def get_data(
         lon=ds.lon.astype(float).round(4), lat=ds.lat.astype(float).round(4)
     )
 
-    if creation_parameters["sarah_interpolate"]:
-        ds = interpolate(ds)
-    else:
-        ds = ds.fillna(0)
+    ds = interpolate(ds) if creation_parameters["sarah_interpolate"] else ds.fillna(0)
 
     if cutout.dt not in ["30min", "30T"]:
-        ds = hourly_mean(ds)
+        ds = hourly_mean(ds)  # type: ignore[arg-type]
 
     if (cutout.dx != dx) or (cutout.dy != dy):
         ds = regrid(ds, coords["lon"], coords["lat"], resampling=Resampling.average)
 
-    dif_attrs = dict(long_name="Surface Diffuse Shortwave Flux", units="W m-2")
+    dif_attrs = {"long_name": "Surface Diffuse Shortwave Flux", "units": "W m-2"}
     ds["influx_diffuse"] = (ds["SIS"] - ds["SID"]).assign_attrs(**dif_attrs)
     ds = ds.rename({"SID": "influx_direct"}).drop_vars("SIS")
     ds = ds.assign_coords(x=ds.coords["lon"], y=ds.coords["lat"])
@@ -179,6 +182,4 @@ def get_data(
         sp = SolarPosition(ds, time_shift="0H")
     sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
-    ds = xr.merge([ds, sp])
-
-    return ds  # type: ignore[no-any-return]
+    return xr.merge([ds, sp])  # type: ignore[no-any-return]

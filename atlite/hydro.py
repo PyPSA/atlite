@@ -47,8 +47,10 @@ def find_basin(
     hids = shapes.index[shapes.intersects(Point(lon, lat))]
     if len(hids) > 1:
         logger.warning(
-            f"The point ({lon}, {lat}) is in several basins: {hids}. "
-            "Assuming the first one."
+            "The point (%s, %s) is in several basins: %s. Assuming the first one.",
+            lon,
+            lat,
+            hids,
         )
     return int(hids[0])
 
@@ -175,7 +177,7 @@ def shift_and_aggregate_runoff_for_plants(
         disable=not show_progress,
         desc="Shift and aggregate runoff by plant",
     ):
-        inflow_plant: xr.DataArray = inflow.loc[dict(plant=ppl.Index)]
+        inflow_plant: xr.DataArray = inflow.loc[{"plant": ppl.Index}]
         distances: pd.Series = (
             basins.meta.loc[ppl.upstream, "DIST_MAIN"]
             - basins.meta.at[ppl.hid, "DIST_MAIN"]

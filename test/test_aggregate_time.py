@@ -26,12 +26,12 @@ def identity_convert(ds, **kwargs):
 
 @pytest.fixture
 def cutout():
-    np.random.seed(42)
+    rng = np.random.default_rng(42)
     times = xr.date_range("2020-01-01", periods=24, freq="h")
     data = xr.Dataset(
         {
             "var": xr.DataArray(
-                np.random.rand(24, 3, 4),
+                rng.random((24, 3, 4)),
                 dims=["time", "y", "x"],
                 coords={
                     "time": times,

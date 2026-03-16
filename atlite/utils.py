@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 import re
 import textwrap
-from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypeAlias, cast
 
@@ -21,6 +20,8 @@ from atlite.datasets import modules as datamodules
 from atlite.gis import maybe_swap_spatial_dims
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     pass
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,7 @@ def migrate_from_cutout_directory(old_cutout_dir: PathLike, path: PathLike) -> D
             )
             raise
 
-    data = cast(Dataset, maybe_swap_spatial_dims(data))  # type: ignore[no-untyped-call]
+    data = cast("Dataset", maybe_swap_spatial_dims(data))  # type: ignore[no-untyped-call]
     module = data.attrs["module"]
     data.attrs["prepared_features"] = list(datamodules[module].features)
     for v in data:
@@ -84,8 +85,10 @@ def migrate_from_cutout_directory(old_cutout_dir: PathLike, path: PathLike) -> D
 
     path = Path(path).with_suffix(".nc")
     logger.info(
-        f"Writing cutout data to {path}. When done, load it again using"
-        f"\n\n\tatlite.Cutout('{path}')"
+        "Writing cutout data to %s. When done, load it again using"
+        "\n\n\tatlite.Cutout('%s')",
+        path,
+        path,
     )
     data.to_netcdf(path)
     return data
@@ -106,7 +109,7 @@ class arrowdict(dict[str, Any]):
         try:
             return self.__getitem__(item)
         except KeyError as e:
-            raise AttributeError(e.args[0])
+            raise AttributeError(e.args[0]) from e
 
     _re_pattern = re.compile("[a-zA-Z_][a-zA-Z0-9_]*")
 

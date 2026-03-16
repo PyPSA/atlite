@@ -11,7 +11,6 @@ import datetime as dt
 import logging
 import warnings
 from collections import namedtuple
-from collections.abc import Callable
 from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -29,7 +28,6 @@ from scipy.sparse import csr_matrix
 from atlite import csp as cspm
 from atlite import hydro as hydrom
 from atlite import wind as windm
-from atlite._types import DataArray, Dataset, NumericArray
 from atlite.aggregate import aggregate_matrix
 from atlite.gis import spdiag
 from atlite.pv.irradiation import TiltedIrradiation
@@ -46,6 +44,9 @@ from atlite.resource import (
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from atlite._types import DataArray, Dataset, NumericArray
     from atlite.cutout import Cutout
     from atlite.resource import TurbineConfig
 
@@ -64,7 +65,7 @@ def convert_and_aggregate(
     capacity_factor: bool = False,
     capacity_factor_timeseries: bool = False,
     show_progress: bool = False,
-    dask_kwargs: dict[str, Any] = {},
+    dask_kwargs: dict[str, Any] | None = None,
     **convert_kwds: Any,
 ) -> Any:
     """
@@ -150,6 +151,8 @@ def convert_and_aggregate(
     pv : Generate solar PV generation time-series.
 
     """
+    if dask_kwargs is None:
+        dask_kwargs = {}
     if (
         aggregate_time is not None
         and aggregate_time is not False
@@ -186,7 +189,7 @@ def convert_and_aggregate(
             aggregate_time = False
 
     func_name = convert_func.__name__.replace("convert_", "")
-    logger.info(f"Convert and aggregate '{func_name}'.")
+    logger.info("Convert and aggregate '%s'.", func_name)
     da = convert_func(cutout.data, **convert_kwds)
 
     no_args = all(v is None for v in [layout, shapes, matrix])
@@ -270,8 +273,7 @@ def convert_and_aggregate(
 
     if return_capacity:
         return maybe_progressbar(results, show_progress, **dask_kwargs), capacity
-    else:
-        return maybe_progressbar(results, show_progress, **dask_kwargs)
+    return maybe_progressbar(results, show_progress, **dask_kwargs)
 
 
 def maybe_progressbar(
@@ -744,7 +746,7 @@ def convert_solar_thermal(
 
 def solar_thermal(
     cutout: Cutout,
-    orientation: dict[str, float] = {"slope": 45.0, "azimuth": 180.0},
+    orientation: dict[str, float] | None = None,
     trigon_model: str = "simple",
     clearsky_model: str = "simple",
     c0: float = 0.8,
@@ -785,6 +787,8 @@ def solar_thermal(
     (2014) 1003-1018
 
     """
+    if orientation is None:
+        orientation = {"slope": 45.0, "azimuth": 180.0}
     if not callable(orientation):
         orientation = get_orientation(orientation)  # type: ignore[assignment]
 
@@ -842,8 +846,7 @@ def convert_wind(
     )
 
     da.attrs["units"] = "MWh/MWp"
-    da = da.rename("specific generation")
-    return da  # type: ignore[no-any-return]
+    return da.rename("specific generation")  # type: ignore[no-any-return]
 
 
 def wind(
@@ -964,7 +967,7 @@ def convert_irradiation(
     """
     solar_position = SolarPosition(ds)
     surface_orientation = SurfaceOrientation(ds, solar_position, orientation, tracking)
-    irradiation = TiltedIrradiation(
+    return TiltedIrradiation(
         ds,
         solar_position,
         surface_orientation,
@@ -973,7 +976,6 @@ def convert_irradiation(
         tracking=tracking,
         irradiation=irradiation,
     )
-    return irradiation
 
 
 def irradiation(
@@ -1082,8 +1084,7 @@ def convert_pv(
         clearsky_model=clearsky_model,
         tracking=tracking,
     )
-    solar_panel = SolarPanelModel(ds, irradiation, panel)
-    return solar_panel
+    return SolarPanelModel(ds, irradiation, panel)
 
 
 def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params):
@@ -1213,9 +1214,7 @@ def convert_csp(ds, installation):
     da = da.fillna(0.0)
 
     da.attrs["units"] = "kWh/kW_ref"
-    da = da.rename("specific generation")
-
-    return da
+    return da.rename("specific generation")
 
 
 def csp(cutout, installation, technology=None, **params):
@@ -1342,7 +1341,7 @@ def runoff(
     if smooth is not None:
         if smooth is True:
             smooth = 24 * 7
-        if "return_capacity" in params.keys():
+        if "return_capacity" in params:
             result = result[0].rolling(time=smooth, min_periods=1).mean(), result[1]
         else:
             result = result.rolling(time=smooth, min_periods=1).mean()
@@ -1438,7 +1437,7 @@ def hydro(
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3
     # d-1 = m3 h-1 / 24
-    runoff *= xr.DataArray(basins.shapes.to_crs(dict(proj="cea")).area)
+    runoff *= xr.DataArray(basins.shapes.to_crs({"proj": "cea"}).area)
 
     return hydrom.shift_and_aggregate_runoff_for_plants(
         basins, runoff, flowspeed, show_progress
@@ -1535,7 +1534,7 @@ def convert_line_rating(
 
 
 def line_rating(
-    cutout, shapes, line_resistance, show_progress=False, dask_kwargs={}, **params
+    cutout, shapes, line_resistance, show_progress=False, dask_kwargs=None, **params
 ):
     """
     Create a dynamic line rating time series based on the IEEE-738 standard.
@@ -1604,6 +1603,8 @@ def line_rating(
     >>> s = np.sqrt(3) * i * v / 1e3 # in MW
 
     """
+    if dask_kwargs is None:
+        dask_kwargs = {}
     if not isinstance(shapes, gpd.GeoSeries):
         shapes = gpd.GeoSeries(shapes).rename_axis("dim_0")
 

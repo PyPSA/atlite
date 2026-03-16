@@ -12,6 +12,7 @@ Created on Mon May 11 11:15:41 2020.
 import os
 import sys
 from datetime import date
+from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
@@ -365,12 +366,12 @@ def hydro_test(cutout):
         cutout.grid.loc[[0], ["x", "y"]].values, columns=["lon", "lat"]
     )
     basins = gpd.GeoDataFrame(
-        dict(
-            geometry=[cutout.grid.geometry[0]],
-            HYBAS_ID=[0],
-            DIST_MAIN=10,
-            NEXT_DOWN=None,
-        ),
+        {
+            "geometry": [cutout.grid.geometry[0]],
+            "HYBAS_ID": [0],
+            "DIST_MAIN": 10,
+            "NEXT_DOWN": None,
+        },
         index=[0],
         crs=cutout.crs,
     )
@@ -405,7 +406,7 @@ class TestERA5:
         All data variables should have an attribute to which module they
         belong.
         """
-        for v in cutout_era5.data:
+        for _v in cutout_era5.data:
             assert cutout_era5.data.attrs["module"] == "era5"
 
     @staticmethod
@@ -588,7 +589,7 @@ class TestERA5:
 
 
 @pytest.mark.skipif(
-    not os.path.exists(SARAH_DIR), reason="'sarah_dir' is not a valid path"
+    not Path(SARAH_DIR).exists(), reason="'sarah_dir' is not a valid path"
 )
 class TestSarah:
     @staticmethod
@@ -642,7 +643,7 @@ class TestSarah:
 
 
 @pytest.mark.skipif(
-    not os.path.exists(GEBCO_PATH), reason="'gebco_path' is not a valid path"
+    not Path(GEBCO_PATH).exists(), reason="'gebco_path' is not a valid path"
 )
 class TestGebco:
     @staticmethod

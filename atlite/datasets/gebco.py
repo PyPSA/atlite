@@ -10,14 +10,15 @@ Module for loading gebco data.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import rasterio as rio
 import xarray as xr
 from pandas import to_numeric
 from rasterio.warp import Resampling
 
-from atlite._types import PathLike
+if TYPE_CHECKING:
+    from atlite._types import PathLike
 
 logger = logging.getLogger(__name__)
 

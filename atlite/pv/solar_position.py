@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from warnings import warn
 
 import pandas as pd
@@ -11,7 +12,8 @@ import xarray as xr
 from dask.array import arccos, arcsin, arctan2, cos, radians, sin
 from numpy import pi
 
-from atlite._types import Dataset
+if TYPE_CHECKING:
+    from atlite._types import Dataset
 
 
 def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset:
@@ -71,6 +73,7 @@ def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset
             "include the solar position variables into your cutout."
         ),
         DeprecationWarning,
+        stacklevel=2,
     )
 
     # up to h and dec from [1]
@@ -123,6 +126,4 @@ def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset
     az.attrs["units"] = "rad"
 
     vars = {da.name: da for da in [alt, az]}
-    solar_position = xr.Dataset(vars)
-
-    return solar_position  # type: ignore[no-any-return]
+    return xr.Dataset(vars)

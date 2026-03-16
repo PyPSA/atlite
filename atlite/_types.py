@@ -4,9 +4,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any, Literal, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypedDict
 
 import geopandas as gpd
 import numpy as np
@@ -14,6 +13,9 @@ import scipy.sparse as sp
 import xarray as xr
 from pyproj import CRS
 from shapely.geometry.base import BaseGeometry
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
 
 NDArray: TypeAlias = np.ndarray[Any, np.dtype[np.floating[Any]]]
 NDArrayInt: TypeAlias = np.ndarray[Any, np.dtype[np.signedinteger[Any]]]
