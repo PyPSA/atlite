@@ -37,12 +37,12 @@ assert match, f"Could not determine release_version of pypsa: {__version__}"
 release_version = match.group(0)
 
 __all__ = [
-    Cutout,
-    ExclusionContainer,
-    compute_indicatormatrix,
-    regrid,
-    cspinstallations,
-    solarpanels,
-    windturbines,
-    __version__,
+    "Cutout",
+    "ExclusionContainer",
+    "compute_indicatormatrix",
+    "regrid",
+    "cspinstallations",
+    "solarpanels",
+    "windturbines",
+    "__version__",
 ]

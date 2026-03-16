@@ -2,14 +2,21 @@
 #
 # SPDX-License-Identifier: MIT
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Literal
+
 import numpy as np
 
-# Huld model was copied from gsee -- global solar energy estimator
-# by Stefan Pfenninger
-# https://github.com/renewables-ninja/gsee/blob/master/gsee/pv.py
+if TYPE_CHECKING:
+    import xarray as xr
+
+    from atlite._types import DataArray
 
 
-def _power_huld(irradiance, t_amb, pc):
+def _power_huld(
+    irradiance: DataArray, t_amb: DataArray, pc: dict[str, Any]
+) -> DataArray:
     """
     AC power per capacity predicted by Huld model, based on W/m2 irradiance.
 
@@ -39,12 +46,12 @@ def _power_huld(irradiance, t_amb, pc):
 
     da = G_ * eff * pc.get("inverter_efficiency", 1.0)
     da.attrs["units"] = "kWh/kWp"
-    da = da.rename("specific generation")
-
-    return da
+    return da.rename("specific generation")
 
 
-def _power_bofinger(irradiance, t_amb, pc):
+def _power_bofinger(
+    irradiance: DataArray, t_amb: DataArray, pc: dict[str, Any]
+) -> DataArray:
     """
     AC power per capacity predicted by bofinger model, based on W/m2
     irradiance.
@@ -74,12 +81,30 @@ def _power_bofinger(irradiance, t_amb, pc):
     return power.rename("AC power")
 
 
-def SolarPanelModel(ds, irradiance, pc):
-    model = pc.get("model", "huld")
+def SolarPanelModel(
+    ds: xr.Dataset, irradiance: DataArray, pc: dict[str, Any]
+) -> DataArray:
+    """
+    Compute PV power output for the selected panel model.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing ambient temperature.
+    irradiance : xarray.DataArray
+        Plane-of-array irradiation.
+    pc : dict
+        Panel configuration including the model parameters.
+
+    Returns
+    -------
+    xarray.DataArray
+        Specific PV power output.
+    """
+    model: Literal["huld", "bofinger"] = pc.get("model", "huld")
 
     if model == "huld":
         return _power_huld(irradiance, ds["temperature"], pc)
-    elif model == "bofinger":
+    if model == "bofinger":
         return _power_bofinger(irradiance, ds["temperature"], pc)
-    else:
-        AssertionError(f"Unknown panel model: {model}")
+    raise AssertionError(f"Unknown panel model: {model}")

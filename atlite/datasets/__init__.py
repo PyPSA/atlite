@@ -6,6 +6,13 @@
 atlite datasets.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from atlite.datasets import era5, gebco, sarah
 
-modules = {"era5": era5, "sarah": sarah, "gebco": gebco}
+if TYPE_CHECKING:
+    from types import ModuleType
+
+modules: dict[str, ModuleType] = {"era5": era5, "sarah": sarah, "gebco": gebco}

@@ -72,7 +72,8 @@ def raster(tmp_path_factory):
     bounds = (X0, Y0, X1, Y1)  # same as in test_gis.py
     res = 0.01
     transform, shape = padded_transform_and_shape(bounds, res)
-    mask = np.random.rand(*shape) < raster_clip
+    rng = np.random.default_rng(42)
+    mask = rng.random(shape) < raster_clip
     mask = mask.astype(rio.int32)
     path = tmp_path / "raster.tif"
     with rio.open(
@@ -96,7 +97,8 @@ def raster_reproject(tmp_path_factory):
     bounds = rio.warp.transform_bounds(4326, 3035, X0, Y0, X1, Y1)
     res = 1000
     transform, shape = padded_transform_and_shape(bounds, res)
-    mask = np.random.rand(*shape) < raster_clip
+    rng = np.random.default_rng(42)
+    mask = rng.random(shape) < raster_clip
     mask = mask.astype(rio.int32)
     path = tmp_path / "raster_reproject.tif"
     with rio.open(
@@ -120,7 +122,8 @@ def raster_codes(tmp_path_factory):
     bounds = (X0, Y0, X1, Y1)  # same as in test_gis.py
     res = 0.01
     transform, shape = padded_transform_and_shape(bounds, res)
-    mask = (np.random.rand(*shape) * 100).astype(int)
+    rng = np.random.default_rng(42)
+    mask = (rng.random(shape) * 100).astype(int)
     mask = mask.astype(rio.int32)
     path = tmp_path / "raster_codes.tif"
     with rio.open(

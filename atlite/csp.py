@@ -5,17 +5,34 @@
 Functions for use in conjunction with csp data generation.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 import numpy as np
+import xarray as xr
 from dask.array import radians, sin
 
 from atlite.pv.solar_position import SolarPosition
 
+if TYPE_CHECKING:
+    from dask.array import Array
+
 logger = logging.getLogger(__name__)
 
+NDArray: TypeAlias = np.ndarray
+DataArray: TypeAlias = xr.DataArray
+Dataset: TypeAlias = xr.Dataset
+CSPTechnology = Literal["parabolic trough", "solar tower"]
+FieldOrientation = Literal["horizontal", "tilted", "single-axis", "two-axis"]
 
-def calculate_dni(ds, solar_position=None, altitude_threshold=3.75):
+
+def calculate_dni(
+    ds: Dataset,
+    solar_position: Dataset | None = None,
+    altitude_threshold: float = 3.75,
+) -> DataArray:
     """
     Calculate DNI on a perpendicular plane.
 
@@ -24,35 +41,34 @@ def calculate_dni(ds, solar_position=None, altitude_threshold=3.75):
 
     Parameters
     ----------
-    ds : xarray.Dataset
+    ds : xr.Dataset
         Dataset containing the direct influx (influx_direct) into a horizontal plane.
-    solar_position : xarray.Dataset (optional)
-        solar_position containing a solar 'altitude' (in rad, 0 to pi/2) for the 'ds' dataset.
-        Is calculated using atlite.pv.SolarPosition if omitted.
-    altitude_threshold : float (default: 3.75 degrees)
+    solar_position : xr.Dataset | None
+        Dataset containing solar altitude (in rad, 0 to pi/2) for the input dataset.
+        Calculated using atlite.pv.SolarPosition if not provided.
+    altitude_threshold : float
         Threshold for solar altitude in degrees. Values in range (0, altitude_threshold]
-        will be set to the altitude_threshold to avoid numerical issues when dividing by
-        the sine of very low solar altitude.
-        The default values '3.75 deg' corresponds to
-        the solar altitude traversed by the sun within about 15 minutes in a location with
-        maximum solar altitude of 60 deg and 10h day time.
+        are set to altitude_threshold to prevent numerical issues when dividing by
+        the sine of very low solar altitude. Default: 3.75 degrees corresponds to
+        approximately 15 minutes of solar movement at 60 deg maximum altitude.
+
+    Returns
+    -------
+    xr.DataArray
+        Direct Normal Irradiance (DNI) in W/m^2 on a plane perpendicular to solar rays.
 
     """
     if solar_position is None:
         solar_position = SolarPosition(ds)
 
-    # solar altitude expected in rad, convert degrees (easier to specifcy) to match
-    altitude_threshold = radians(altitude_threshold)
+    altitude_threshold_rad: Array = radians(altitude_threshold)
 
-    # Sanitation of altitude values:
-    # Prevent high calculated DNI values during low solar altitudes (sunset / dawn)
-    # where sin(<low altitude>) results in a very low denominator in the DNI calculation
-    altitude = solar_position["altitude"]
+    altitude: DataArray = solar_position["altitude"]
     altitude = altitude.where(lambda x: x > 0, np.nan)
-    altitude = altitude.where(lambda x: x > altitude_threshold, altitude_threshold)
+    altitude = altitude.where(
+        lambda x: x > altitude_threshold_rad, altitude_threshold_rad
+    )
 
-    # Calculate DNI and remove NaNs introduced during altitude sanitation
-    # DNI is determined either by dividing by cos(azimuth) or sin(altitude)
-    dni = ds["influx_direct"] / sin(altitude)
+    dni: DataArray = ds["influx_direct"] / sin(altitude)
 
     return dni

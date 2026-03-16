@@ -58,7 +58,7 @@ Documentation = "https://atlite.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 
-dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff"]
+dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff", "mypy", "types-PyYAML"]
 
 docs = [
     "numpydoc==1.8.0",
@@ -84,15 +84,23 @@ extend-include = ['*.ipynb']
 
 [tool.ruff.lint]
 select = [
-    'F',   # pyflakes
-    'E',   # pycodestyle: Error
-    'W',   # pycodestyle: Warning
-    'I',   # isort
-    'D',   # pydocstyle
-    'UP',  # pyupgrade
-    'TID', # flake8-tidy-imports
-    # 'NPY', # numpy
-    'RUF013', # ruff
+    'F',      # pyflakes
+    'E',      # pycodestyle: Error
+    'W',      # pycodestyle: Warning
+    'I',      # isort
+    'D',      # pydocstyle
+    'UP',     # pyupgrade
+    'TID',    # flake8-tidy-imports
+    'B',      # flake8-bugbear
+    'SIM',    # flake8-simplify
+    'RET',    # flake8-return
+    'C4',     # flake8-comprehensions
+    'TC',     # flake8-type-checking
+    'NPY',    # numpy
+    'G',      # flake8-logging-format
+    'PTH',    # flake8-use-pathlib
+    'RUF013', # ruff: implicit-optional
+    'RUF100', # ruff: unused-noqa
 ]
 
 ignore = [
@@ -120,3 +128,13 @@ ignore = [
     'D417', # Missing argument descriptions in the docstring
 
 ]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+exclude = [".venv/", "build/"]
