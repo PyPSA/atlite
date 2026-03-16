@@ -59,7 +59,7 @@ def convert_lons_lats_ncep(
         ds = ds.sel(lon_0=xs)
 
     ds = ds.rename({"lon_0": "x", "lat_0": "y"})
-    return ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])  # type: ignore[no-any-return]
+    return ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
 
 
 def convert_time_hourly_ncep(ds: xr.Dataset, drop_time_vars: bool = True) -> xr.Dataset:
@@ -81,7 +81,7 @@ def convert_unaverage_ncep(ds: xr.Dataset) -> xr.Dataset:
         y = da * xr.DataArray(
             np.arange(1, len(coords) + 1), dims=[dim], coords={dim: coords}
         )
-        return y - y.shift(**{dim: 1}).fillna(0.0)  # type: ignore[no-any-return, arg-type]
+        return y - y.shift(**{dim: 1}).fillna(0.0)  # type: ignore[arg-type]
 
     for k, da in ds.items():
         assert isinstance(k, str)
@@ -89,12 +89,12 @@ def convert_unaverage_ncep(ds: xr.Dataset) -> xr.Dataset:
             ds[k[: -len("_avg")]] = unaverage(da)
             ds = ds.drop(k)
 
-    return ds  # type: ignore[return-value]
+    return ds
 
 
 def convert_unaccumulate_ncep(ds: xr.Dataset) -> xr.Dataset:
     def unaccumulate(da: xr.DataArray, dim: str = "forecast_time0") -> xr.DataArray:
-        return da - da.shift(**{dim: 1}).fillna(0.0)  # type: ignore[no-any-return, arg-type]
+        return da - da.shift(**{dim: 1}).fillna(0.0)  # type: ignore[arg-type]
 
     for k, da in ds.items():
         assert isinstance(k, str)
@@ -102,7 +102,7 @@ def convert_unaccumulate_ncep(ds: xr.Dataset) -> xr.Dataset:
             ds[k[: -len("_acc")]] = unaccumulate(da)
             ds = ds.drop(k)
 
-    return ds  # type: ignore[return-value]
+    return ds
 
 
 def convert_clip_lower(
@@ -268,7 +268,7 @@ def prepare_meta_ncep(
 
     meta["height"] = ds["height"]
 
-    return meta  # type: ignore[no-any-return]
+    return meta
 
 
 def tasks_monthly_ncep(

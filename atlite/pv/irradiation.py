@@ -193,7 +193,7 @@ def _albedo(ds: Dataset, influx: DataArray) -> DataArray:
     if "albedo" in ds:
         return ds["albedo"]
     if "outflux" in ds:
-        return (ds["outflux"] / influx.where(influx != 0)).fillna(0).clip(max=1)  # type: ignore[no-any-return]
+        return (ds["outflux"] / influx.where(influx != 0)).fillna(0).clip(max=1)
     raise AssertionError(
         "Need either albedo or outflux as a variable in the dataset. "
         "Check your cutout and dataset module."
@@ -282,7 +282,7 @@ def TiltedIrradiation(
     influx_toa = ds["influx_toa"]
 
     def clip(influx: DataArray, influx_max: DataArray) -> DataArray:
-        return influx.clip(min=0, max=influx_max.transpose(*influx.dims).data)  # type: ignore[no-any-return]
+        return influx.clip(min=0, max=influx_max.transpose(*influx.dims).data)
 
     if "influx" in ds:
         influx = clip(ds["influx"], influx_toa)

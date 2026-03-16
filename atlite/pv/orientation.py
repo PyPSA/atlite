@@ -260,10 +260,10 @@ def SurfaceOrientation(
         surface_slope = arccos(cos(rotation) * cos(axis_tilt))
 
         azimuth_difference = sun_azimuth - surface_azimuth
-        azimuth_difference = np.where(
+        azimuth_difference = np.where(  # type: ignore[assignment]
             azimuth_difference > pi, azimuth_difference - 2 * pi, azimuth_difference
         )
-        azimuth_difference = np.where(
+        azimuth_difference = np.where(  # type: ignore[assignment]
             azimuth_difference < -pi, 2 * pi + azimuth_difference, azimuth_difference
         )
         rotation = np.where(

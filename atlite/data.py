@@ -16,11 +16,11 @@ from tempfile import mkdtemp, mkstemp
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 import xarray as xr
-from dask import compute as dask_compute  # type: ignore[attr-defined]
+from dask import compute as dask_compute
 from dask import delayed
-from dask.diagnostics import ProgressBar  # type: ignore[attr-defined]
+from dask.diagnostics import ProgressBar
 from dask.utils import SerializableLock
 from numpy import atleast_1d
 
@@ -87,7 +87,7 @@ def get_features(
         )
         datasets.append(feature_data)
 
-    datasets = dask_compute(*datasets)  # type: ignore[no-untyped-call]
+    datasets = dask_compute(*datasets)
 
     ds: Dataset = xr.merge(datasets, compat="equals")
     for v in ds:
@@ -324,7 +324,7 @@ def cutout_prepare(
         logger.debug("Writing cutout to file...")
         write_job: Any = ds.to_netcdf(tmp, compute=False)
         if show_progress:
-            with ProgressBar(minimum=2):  # type: ignore[no-untyped-call]
+            with ProgressBar(minimum=2):
                 write_job.compute(**dask_kwargs)
         else:
             write_job.compute(**dask_kwargs)

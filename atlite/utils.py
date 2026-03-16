@@ -74,7 +74,7 @@ def migrate_from_cutout_directory(old_cutout_dir: PathLike, path: PathLike) -> D
             )
             raise
 
-    data = cast("Dataset", maybe_swap_spatial_dims(data))  # type: ignore[no-untyped-call]
+    data = cast("Dataset", maybe_swap_spatial_dims(data))
     module = data.attrs["module"]
     data.attrs["prepared_features"] = list(datamodules[module].features)
     for v in data:

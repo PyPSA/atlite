@@ -162,13 +162,13 @@ def get_data(
         lon=ds.lon.astype(float).round(4), lat=ds.lat.astype(float).round(4)
     )
 
-    ds = interpolate(ds) if creation_parameters["sarah_interpolate"] else ds.fillna(0)
+    ds = interpolate(ds) if creation_parameters["sarah_interpolate"] else ds.fillna(0)  # type: ignore[assignment]
 
     if cutout.dt not in ["30min", "30T"]:
-        ds = hourly_mean(ds)  # type: ignore[arg-type]
+        ds = hourly_mean(ds)
 
     if (cutout.dx != dx) or (cutout.dy != dy):
-        ds = regrid(ds, coords["lon"], coords["lat"], resampling=Resampling.average)
+        ds = regrid(ds, coords["lon"], coords["lat"], resampling=Resampling.average)  # type: ignore[assignment]
 
     dif_attrs = {"long_name": "Surface Diffuse Shortwave Flux", "units": "W m-2"}
     ds["influx_diffuse"] = (ds["SIS"] - ds["SID"]).assign_attrs(**dif_attrs)
@@ -182,4 +182,4 @@ def get_data(
         sp = SolarPosition(ds, time_shift="0H")
     sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
-    return xr.merge([ds, sp])  # type: ignore[no-any-return]
+    return xr.merge([ds, sp])

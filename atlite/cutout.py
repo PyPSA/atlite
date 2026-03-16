@@ -432,7 +432,7 @@ class Cutout:
 
         if bounds is not None:
             if buffer > 0:
-                bounds = box(*bounds).buffer(buffer).bounds  # type: ignore[assignment]
+                bounds = box(*bounds).buffer(buffer).bounds
             x1, y1, x2, y2 = bounds  # type: ignore[misc]
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
@@ -620,7 +620,7 @@ class Cutout:
             capacity placed within one grid cell.
 
         """
-        return capacity_density * self.area(crs)  # type: ignore[no-any-return]
+        return capacity_density * self.area(crs)
 
     def equals(self, other: Any) -> bool:
         """

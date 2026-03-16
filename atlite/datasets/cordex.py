@@ -41,7 +41,7 @@ crs = 4326  # TODO
 
 def rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
     ds = ds.rename({"rlon": "x", "rlat": "y"})
-    return ds.drop(  # type: ignore[no-any-return]
+    return ds.drop(
         (set(ds.coords) | set(ds.data_vars)) & {"bnds", "height", "rotated_pole"}
     )
 
@@ -136,7 +136,7 @@ def prepare_meta_cordex(
 
     meta["height"] = ds["height"]
 
-    return meta  # type: ignore[no-any-return]
+    return meta
 
 
 def tasks_yearly_cordex(

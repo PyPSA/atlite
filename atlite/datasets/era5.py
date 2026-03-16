@@ -44,7 +44,7 @@ except ImportError:
     import contextlib
 
     @contextlib.contextmanager  # type: ignore[no-redef]
-    def nullcontext():  # type: ignore[misc]
+    def nullcontext():
         yield
 
 
@@ -77,7 +77,7 @@ def _add_height(ds: xr.Dataset) -> xr.Dataset:
     if "time" in z.coords:
         z = z.isel(time=0, drop=True)
     ds["height"] = z / g0
-    return ds.drop_vars("z")  # type: ignore[no-any-return]
+    return ds.drop_vars("z")
 
 
 def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dataset:
@@ -88,7 +88,7 @@ def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dat
     ds = maybe_swap_spatial_dims(ds)  # type: ignore[assignment]
     if add_lon_lat:
         ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
-    return ds.drop_vars(["expver", "number"], errors="ignore")  # type: ignore[no-any-return]
+    return ds.drop_vars(["expver", "number"], errors="ignore")
 
 
 def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
@@ -116,7 +116,7 @@ def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
 
     ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
-    return ds.rename({"fsr": "roughness"})  # type: ignore[no-any-return]
+    return ds.rename({"fsr": "roughness"})
 
 
 def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
@@ -158,7 +158,7 @@ def get_data_influx(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
         sp = SolarPosition(ds, time_shift=time_shift)
     sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
-    return xr.merge([ds, sp])  # type: ignore[no-any-return]
+    return xr.merge([ds, sp])
 
 
 def sanitize_influx(ds: xr.Dataset) -> xr.Dataset:
@@ -178,7 +178,7 @@ def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     )
 
     ds = _rename_and_clean_coords(ds)
-    return ds.rename(  # type: ignore[no-any-return]
+    return ds.rename(
         {
             "t2m": "temperature",
             "stl4": "soil temperature",
@@ -191,7 +191,7 @@ def get_data_runoff(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds = retrieve_data(variable=["runoff"], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
-    return ds.rename({"ro": "runoff"})  # type: ignore[no-any-return]
+    return ds.rename({"ro": "runoff"})
 
 
 def sanitize_runoff(ds: xr.Dataset) -> xr.Dataset:
@@ -417,7 +417,7 @@ def get_data(
     if feature in static_features:
         static_times = retrieval_times(coords, static=True)
         assert isinstance(static_times, dict)
-        return retrieve_once(static_times).squeeze()  # type: ignore[no-any-return]
+        return retrieve_once(static_times).squeeze()
 
     time_chunks = retrieval_times(coords, monthly_requests=monthly_requests)
     assert isinstance(time_chunks, list)

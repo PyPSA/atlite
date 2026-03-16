@@ -63,7 +63,7 @@ def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset
     }
 
     if rvs.issubset(set(ds.data_vars)):
-        return ds[rvs].rename({v: v.replace("solar_", "") for v in rvs})  # type: ignore[no-any-return]
+        return ds[rvs].rename({v: v.replace("solar_", "") for v in rvs})
 
     warn(
         (

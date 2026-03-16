@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import pandas as pd
-import requests
-import yaml
+import requests  # type: ignore[import-untyped]
+import yaml  # type: ignore[import-untyped]
 from dask.array import radians
 from scipy.signal import fftconvolve
 

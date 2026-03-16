@@ -320,7 +320,7 @@ def convert_temperature(ds: Dataset) -> DataArray:
         Ambient temperature in degrees Celsius.
     """
     # Temperature is in Kelvin
-    return ds["temperature"] - 273.15  # type: ignore[no-any-return]
+    return ds["temperature"] - 273.15
 
 
 def temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
@@ -347,7 +347,7 @@ def convert_soil_temperature(ds: Dataset) -> DataArray:
     # There are nans where there is sea; by setting them
     # to zero we guarantee they do not contribute when multiplied
     # by matrix in atlite/aggregate.py
-    return (ds["soil temperature"] - 273.15).fillna(0.0)  # type: ignore[no-any-return]
+    return (ds["soil temperature"] - 273.15).fillna(0.0)
 
 
 def soil_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
@@ -370,7 +370,7 @@ def convert_dewpoint_temperature(ds: Dataset) -> DataArray:
         Dew point temperature in degrees Celsius.
     """
     # Temperature is in Kelvin
-    return ds["dewpoint temperature"] - 273.15  # type: ignore[no-any-return]
+    return ds["dewpoint temperature"] - 273.15
 
 
 def dewpoint_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
@@ -430,7 +430,7 @@ def convert_coefficient_of_performance(
 
     delta_T = sink_T - source_T
 
-    return c0 + c1 * delta_T + c2 * delta_T**2  # type: ignore[no-any-return]
+    return c0 + c1 * delta_T + c2 * delta_T**2  # type: ignore[operator]
 
 
 def coefficient_of_performance(
@@ -519,7 +519,7 @@ def convert_heat_demand(
 
     heat_demand = heat_demand.clip(min=0.0)
 
-    return (constant + heat_demand).rename("heat_demand")  # type: ignore[no-any-return]
+    return (constant + heat_demand).rename("heat_demand")
 
 
 def heat_demand(
@@ -623,7 +623,7 @@ def convert_cooling_demand(
 
     cooling_demand = cooling_demand.clip(min=0.0)
 
-    return (constant + cooling_demand).rename("cooling_demand")  # type: ignore[no-any-return]
+    return (constant + cooling_demand).rename("cooling_demand")
 
 
 def cooling_demand(
@@ -741,7 +741,7 @@ def convert_solar_thermal(
 
     output = irradiation * eta
 
-    return output.where(output > 0.0, 0.0)  # type: ignore[no-any-return]
+    return output.where(output > 0.0, 0.0)
 
 
 def solar_thermal(
@@ -925,7 +925,7 @@ def wind(
     if smooth:
         turbine_config = windturbine_smooth(turbine_config, params=smooth)
 
-    return cutout.convert_and_aggregate(  # type: ignore[no-any-return, return-value]
+    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
         convert_func=convert_wind,
         turbine=turbine_config,
         interpolation_method=interpolation_method,
@@ -1520,7 +1520,7 @@ def convert_line_rating(
 
     if isinstance(ds, dict):
         Position = namedtuple("Position", ["altitude", "azimuth"])
-        solar_position = Position(ds["solar_altitude"], ds["solar_azimuth"])  # type: ignore[assignment]
+        solar_position = Position(ds["solar_altitude"], ds["solar_azimuth"])
     else:
         solar_position = SolarPosition(ds)  # type: ignore[assignment]
     Phi_s = arccos(

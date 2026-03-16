@@ -596,7 +596,7 @@ def test_availability_matrix_rastered(ref, raster):
     eligible_share = 1 - raster_clip
 
     assert isclose(I.sum() * eligible_share, ds.sum(), atol=5)
-    assert_allclose(I.sum(["x", "y"]) * eligible_share, ds.sum(["x", "y"]), atol=5)
+    assert_allclose(I.sum(["x", "y"]) * eligible_share, ds.sum(["x", "y"]), atol=5)  # type: ignore[list-item]
 
     excluder = ExclusionContainer(ref.crs, res=0.01)
     excluder.add_raster(raster)
@@ -626,7 +626,7 @@ def test_availability_matrix_rastered_repro(ref, raster_reproject):
     eligible_share = 1 - raster_clip
 
     assert isclose(I.sum() * eligible_share, ds.sum(), atol=5)
-    assert_allclose(I.sum(["x", "y"]) * eligible_share, ds.sum(["x", "y"]), atol=5)
+    assert_allclose(I.sum(["x", "y"]) * eligible_share, ds.sum(["x", "y"]), atol=5)  # type: ignore[list-item]
 
 
 def test_shape_availability_exclude_raster_codes(ref, raster_codes):
