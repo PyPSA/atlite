@@ -9,24 +9,21 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import Literal, cast
 
 import numpy as np
-import xarray as xr
+
+from atlite._types import DataArray, Dataset, NDArray
 
 logger = logging.getLogger(__name__)
 
 
-if TYPE_CHECKING:
-    from typing import Literal
-
-
 def extrapolate_wind_speed(
-    ds: xr.Dataset,
+    ds: Dataset,
     to_height: int | float,
     from_height: int | None = None,
     method: Literal["logarithmic", "power"] = "logarithmic",
-) -> xr.DataArray:
+) -> DataArray:
     """
     Extrapolate the wind speed from a given height above ground to another.
 
@@ -72,37 +69,37 @@ def extrapolate_wind_speed(
        Wind Resource Assessment: A Comparison against Tall Towers'
        https://doi.org/10.3390/en14144169 .
     """
-    # Fast lane
-    to_name = f"wnd{int(to_height):0d}m"
+    to_name: str = f"wnd{int(to_height):0d}m"
     if to_name in ds:
         return ds[to_name]
 
     if from_height is None:
-        # Determine closest height to to_name
-        heights = np.asarray([int(s[3:-1]) for s in ds if re.match(r"wnd\d+m", s)])
+        heights: NDArray = np.asarray(
+            [int(str(s)[3:-1]) for s in ds if re.match(r"wnd\d+m", str(s))]
+        )
 
         if len(heights) == 0:
             raise AssertionError("Wind speed is not in dataset")
 
-        from_height = heights[np.argmin(np.abs(heights - to_height))]
+        from_height = int(heights[np.argmin(np.abs(heights - to_height))])
 
-    from_name = f"wnd{int(from_height):0d}m"
+    from_name: str = f"wnd{int(from_height):0d}m"
 
     if method == "logarithmic":
         try:
-            roughness = ds["roughness"]
+            roughness: DataArray = ds["roughness"]
         except KeyError:
             raise RuntimeError(
                 "The logarithmic interpolation method requires surface roughness (roughness);\n"
                 "make sure you choose a compatible dataset like ERA5"
             )
-        wnd_spd = ds[from_name] * (
+        wnd_spd: DataArray = ds[from_name] * (
             np.log(to_height / roughness) / np.log(from_height / roughness)
         )
-        method_desc = "logarithmic method with roughness"
+        method_desc: str = "logarithmic method with roughness"
     elif method == "power":
         try:
-            wnd_shear_exp = ds["wnd_shear_exp"]
+            wnd_shear_exp: DataArray = ds["wnd_shear_exp"]
         except KeyError:
             raise RuntimeError(
                 "The power law interpolation method requires a wind shear exponent (wnd_shear_exp);\n"
@@ -125,4 +122,4 @@ def extrapolate_wind_speed(
         }
     )
 
-    return wnd_spd.rename(to_name)
+    return cast(DataArray, wnd_spd.rename(to_name))

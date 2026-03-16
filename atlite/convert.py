@@ -11,9 +11,10 @@ import datetime as dt
 import logging
 import warnings
 from collections import namedtuple
+from collections.abc import Callable
 from operator import itemgetter
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import geopandas as gpd
 import numpy as np
@@ -28,6 +29,7 @@ from scipy.sparse import csr_matrix
 from atlite import csp as cspm
 from atlite import hydro as hydrom
 from atlite import wind as windm
+from atlite._types import DataArray, Dataset, NumericArray
 from atlite.aggregate import aggregate_matrix
 from atlite.gis import spdiag
 from atlite.pv.irradiation import TiltedIrradiation
@@ -44,26 +46,27 @@ from atlite.resource import (
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
+    from atlite.cutout import Cutout
     from atlite.resource import TurbineConfig
 
 
 def convert_and_aggregate(
-    cutout,
-    convert_func,
-    matrix=None,
-    index=None,
-    layout=None,
-    shapes=None,
-    shapes_crs=4326,
-    per_unit=False,
-    return_capacity=False,
+    cutout: Cutout,
+    convert_func: Callable[..., Any],
+    matrix: Any = None,
+    index: Any = None,
+    layout: Any = None,
+    shapes: Any = None,
+    shapes_crs: int = 4326,
+    per_unit: bool = False,
+    return_capacity: bool = False,
     aggregate_time: Literal["sum", "mean", False] | None = None,
-    capacity_factor=False,
-    capacity_factor_timeseries=False,
-    show_progress=False,
-    dask_kwargs={},
-    **convert_kwds,
-):
+    capacity_factor: bool = False,
+    capacity_factor_timeseries: bool = False,
+    show_progress: bool = False,
+    dask_kwargs: dict[str, Any] = {},
+    **convert_kwds: Any,
+) -> Any:
     """
     Convert and aggregate a weather-based renewable generation time-series.
 
@@ -211,7 +214,7 @@ def convert_and_aggregate(
             )
 
         if isinstance(matrix, xr.DataArray):
-            coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
+            coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)  # type: ignore[union-attr]
             if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
                 raise ValueError(
                     "Matrix spatial coordinates not aligned with cutout spatial "
@@ -271,7 +274,9 @@ def convert_and_aggregate(
         return maybe_progressbar(results, show_progress, **dask_kwargs)
 
 
-def maybe_progressbar(ds, show_progress, **kwargs):
+def maybe_progressbar(
+    ds: Dataset | DataArray, show_progress: bool, **kwargs: Any
+) -> Dataset | DataArray:
     """
     Load a dataset or data array, optionally showing a dask progress bar.
 
@@ -298,7 +303,7 @@ def maybe_progressbar(ds, show_progress, **kwargs):
 
 
 # temperature
-def convert_temperature(ds):
+def convert_temperature(ds: Dataset) -> DataArray:
     """
     Convert ambient air temperature from Kelvin to degrees Celsius.
 
@@ -313,15 +318,15 @@ def convert_temperature(ds):
         Ambient temperature in degrees Celsius.
     """
     # Temperature is in Kelvin
-    return ds["temperature"] - 273.15
+    return ds["temperature"] - 273.15  # type: ignore[no-any-return]
 
 
-def temperature(cutout, **params):
-    return cutout.convert_and_aggregate(convert_func=convert_temperature, **params)
+def temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
+    return cutout.convert_and_aggregate(convert_func=convert_temperature, **params)  # type: ignore[no-any-return]
 
 
 # soil temperature
-def convert_soil_temperature(ds):
+def convert_soil_temperature(ds: Dataset) -> DataArray:
     """
     Convert soil temperature from Kelvin to degrees Celsius.
 
@@ -340,15 +345,15 @@ def convert_soil_temperature(ds):
     # There are nans where there is sea; by setting them
     # to zero we guarantee they do not contribute when multiplied
     # by matrix in atlite/aggregate.py
-    return (ds["soil temperature"] - 273.15).fillna(0.0)
+    return (ds["soil temperature"] - 273.15).fillna(0.0)  # type: ignore[no-any-return]
 
 
-def soil_temperature(cutout, **params):
-    return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
+def soil_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
+    return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)  # type: ignore[no-any-return]
 
 
 # dewpoint temperature
-def convert_dewpoint_temperature(ds):
+def convert_dewpoint_temperature(ds: Dataset) -> DataArray:
     """
     Convert dew point temperature from Kelvin to degrees Celsius.
 
@@ -363,16 +368,23 @@ def convert_dewpoint_temperature(ds):
         Dew point temperature in degrees Celsius.
     """
     # Temperature is in Kelvin
-    return ds["dewpoint temperature"] - 273.15
+    return ds["dewpoint temperature"] - 273.15  # type: ignore[no-any-return]
 
 
-def dewpoint_temperature(cutout, **params):
-    return cutout.convert_and_aggregate(
+def dewpoint_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
+    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
         convert_func=convert_dewpoint_temperature, **params
     )
 
 
-def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
+def convert_coefficient_of_performance(
+    ds: Dataset,
+    source: str,
+    sink_T: float,
+    c0: float | None,
+    c1: float | None,
+    c2: float | None,
+) -> DataArray:
     """
     Convert source temperatures to heat pump COP values.
 
@@ -416,12 +428,18 @@ def convert_coefficient_of_performance(ds, source, sink_T, c0, c1, c2):
 
     delta_T = sink_T - source_T
 
-    return c0 + c1 * delta_T + c2 * delta_T**2
+    return c0 + c1 * delta_T + c2 * delta_T**2  # type: ignore[no-any-return]
 
 
 def coefficient_of_performance(
-    cutout, source="air", sink_T=55.0, c0=None, c1=None, c2=None, **params
-):
+    cutout: Cutout,
+    source: str = "air",
+    sink_T: float = 55.0,
+    c0: float | None = None,
+    c1: float | None = None,
+    c2: float | None = None,
+    **params: Any,
+) -> DataArray | NumericArray:
     """
     Convert ambient or soil temperature to coefficient of performance (COP) of
     air- or ground-sourced heat pumps. The COP is a function of temperature
@@ -447,7 +465,7 @@ def coefficient_of_performance(
     Energy & Environmental Science (2012), 5, 9291-9306,
     https://doi.org/10.1039/C2EE22653G.
     """
-    return cutout.convert_and_aggregate(
+    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
         convert_func=convert_coefficient_of_performance,
         source=source,
         sink_T=sink_T,
@@ -459,7 +477,13 @@ def coefficient_of_performance(
 
 
 # heat demand
-def convert_heat_demand(ds, threshold, a, constant, hour_shift):
+def convert_heat_demand(
+    ds: Dataset,
+    threshold: float,
+    a: float,
+    constant: float,
+    hour_shift: float,
+) -> DataArray:
     """
     Convert ambient temperature to daily heat demand by degree days.
 
@@ -493,10 +517,17 @@ def convert_heat_demand(ds, threshold, a, constant, hour_shift):
 
     heat_demand = heat_demand.clip(min=0.0)
 
-    return (constant + heat_demand).rename("heat_demand")
+    return (constant + heat_demand).rename("heat_demand")  # type: ignore[no-any-return]
 
 
-def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **params):
+def heat_demand(
+    cutout: Cutout,
+    threshold: float = 15.0,
+    a: float = 1.0,
+    constant: float = 0.0,
+    hour_shift: float = 0.0,
+    **params: Any,
+) -> DataArray | NumericArray:
     """
     Convert outside temperature into daily heat demand using the degree-day
     approximation.
@@ -539,7 +570,7 @@ def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **p
     documented in the `convert_and_aggregate` function.
 
     """
-    return cutout.convert_and_aggregate(
+    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
         convert_func=convert_heat_demand,
         threshold=threshold,
         a=a,
@@ -550,7 +581,13 @@ def heat_demand(cutout, threshold=15.0, a=1.0, constant=0.0, hour_shift=0.0, **p
 
 
 # cooling demand
-def convert_cooling_demand(ds, threshold, a, constant, hour_shift):
+def convert_cooling_demand(
+    ds: Dataset,
+    threshold: float,
+    a: float,
+    constant: float,
+    hour_shift: float,
+) -> DataArray:
     """
     Convert ambient temperature to daily cooling demand by degree days.
 
@@ -584,12 +621,17 @@ def convert_cooling_demand(ds, threshold, a, constant, hour_shift):
 
     cooling_demand = cooling_demand.clip(min=0.0)
 
-    return (constant + cooling_demand).rename("cooling_demand")
+    return (constant + cooling_demand).rename("cooling_demand")  # type: ignore[no-any-return]
 
 
 def cooling_demand(
-    cutout, threshold=23.0, a=1.0, constant=0.0, hour_shift=0.0, **params
-):
+    cutout: Cutout,
+    threshold: float = 23.0,
+    a: float = 1.0,
+    constant: float = 0.0,
+    hour_shift: float = 0.0,
+    **params: Any,
+) -> DataArray | NumericArray:
     """
     Convert outside temperature into daily cooling demand using the degree-day
     approximation.
@@ -635,7 +677,7 @@ def cooling_demand(
     documented in the `convert_and_aggregate` function.
 
     """
-    return cutout.convert_and_aggregate(
+    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
         convert_func=convert_cooling_demand,
         threshold=threshold,
         a=a,
@@ -647,8 +689,14 @@ def cooling_demand(
 
 # solar thermal collectors
 def convert_solar_thermal(
-    ds, orientation, trigon_model, clearsky_model, c0, c1, t_store
-):
+    ds: Dataset,
+    orientation: Callable,
+    trigon_model: str,
+    clearsky_model: str | None,
+    c0: float,
+    c1: float,
+    t_store: float,
+) -> DataArray:
     """
     Convert weather data to solar thermal collector output.
 
@@ -691,19 +739,19 @@ def convert_solar_thermal(
 
     output = irradiation * eta
 
-    return output.where(output > 0.0, 0.0)
+    return output.where(output > 0.0, 0.0)  # type: ignore[no-any-return]
 
 
 def solar_thermal(
-    cutout,
-    orientation={"slope": 45.0, "azimuth": 180.0},
-    trigon_model="simple",
-    clearsky_model="simple",
-    c0=0.8,
-    c1=3.0,
-    t_store=80.0,
-    **params,
-):
+    cutout: Cutout,
+    orientation: dict[str, float] = {"slope": 45.0, "azimuth": 180.0},
+    trigon_model: str = "simple",
+    clearsky_model: str = "simple",
+    c0: float = 0.8,
+    c1: float = 3.0,
+    t_store: float = 80.0,
+    **params: Any,
+) -> DataArray | NumericArray:
     """
     Convert downward short-wave radiation flux and outside temperature into
     time series for solar thermal collectors.
@@ -738,9 +786,9 @@ def solar_thermal(
 
     """
     if not callable(orientation):
-        orientation = get_orientation(orientation)
+        orientation = get_orientation(orientation)  # type: ignore[assignment]
 
-    return cutout.convert_and_aggregate(
+    return cutout.convert_and_aggregate(  # type: ignore[no-any-return]
         convert_func=convert_solar_thermal,
         orientation=orientation,
         trigon_model=trigon_model,
@@ -795,16 +843,16 @@ def convert_wind(
 
     da.attrs["units"] = "MWh/MWp"
     da = da.rename("specific generation")
-    return da
+    return da  # type: ignore[no-any-return]
 
 
 def wind(
-    cutout,
-    turbine: str | Path | dict,
-    smooth: bool | dict = False,
+    cutout: Cutout,
+    turbine: str | Path | dict[str, Any],
+    smooth: bool | dict[str, Any] = False,
     add_cutout_windspeed: bool = False,
     interpolation_method: Literal["logarithmic", "power"] = "logarithmic",
-    **params,
+    **params: Any,
 ) -> xr.DataArray:
     """
     Generate wind generation time-series.
@@ -867,14 +915,16 @@ def wind(
        1074 – 1088. doi:10.1016/j.energy.2015.09.071
 
     """
-    turbine = get_windturbineconfig(turbine, add_cutout_windspeed=add_cutout_windspeed)
+    turbine_config = get_windturbineconfig(
+        turbine, add_cutout_windspeed=add_cutout_windspeed
+    )
 
     if smooth:
-        turbine = windturbine_smooth(turbine, params=smooth)
+        turbine_config = windturbine_smooth(turbine_config, params=smooth)
 
-    return cutout.convert_and_aggregate(
+    return cutout.convert_and_aggregate(  # type: ignore[no-any-return, return-value]
         convert_func=convert_wind,
-        turbine=turbine,
+        turbine=turbine_config,
         interpolation_method=interpolation_method,
         **params,
     )
@@ -1470,10 +1520,10 @@ def convert_line_rating(
     A = D * 1  # projected area of conductor in square meters
 
     if isinstance(ds, dict):
-        Position = namedtuple("solarposition", ["altitude", "azimuth"])
-        solar_position = Position(ds["solar_altitude"], ds["solar_azimuth"])
+        Position = namedtuple("Position", ["altitude", "azimuth"])
+        solar_position = Position(ds["solar_altitude"], ds["solar_azimuth"])  # type: ignore[assignment]
     else:
-        solar_position = SolarPosition(ds)
+        solar_position = SolarPosition(ds)  # type: ignore[assignment]
     Phi_s = arccos(
         cos(solar_position.altitude) * cos((solar_position.azimuth) - radians(psi))
     )
@@ -1609,4 +1659,4 @@ def line_rating(
     else:
         res = compute(res, **dask_kwargs)
 
-    return xr.concat(*res, dim=df.index).assign_attrs(units="A")
+    return xr.concat(*res, dim=df.index).assign_attrs(units="A")  # type: ignore[call-overload]

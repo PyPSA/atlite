@@ -7,12 +7,17 @@
 Module for loading gebco data.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import Any
 
 import rasterio as rio
 import xarray as xr
 from pandas import to_numeric
 from rasterio.warp import Resampling
+
+from atlite._types import PathLike
 
 logger = logging.getLogger(__name__)
 
@@ -20,24 +25,9 @@ crs = 4326
 features = {"height": ["height"]}
 
 
-def get_data_gebco_height(xs, ys, gebco_path):
-    """
-    Load GEBCO height data for a target grid.
-
-    Parameters
-    ----------
-    xs : xarray.DataArray
-        X coordinates of the target grid.
-    ys : xarray.DataArray
-        Y coordinates of the target grid.
-    gebco_path : str or path-like
-        Path to the GEBCO raster file.
-
-    Returns
-    -------
-    xarray.DataArray
-        Height data on the target grid.
-    """
+def get_data_gebco_height(
+    xs: xr.DataArray, ys: xr.DataArray, gebco_path: PathLike
+) -> xr.DataArray:
     x, X = xs.data[[0, -1]]
     y, Y = ys.data[[0, -1]]
 
@@ -52,7 +42,7 @@ def get_data_gebco_height(xs, ys, gebco_path):
             out_shape=(len(ys), len(xs)),
             resampling=Resampling.average,
         )
-        gebco = gebco[::-1]  # change inversed y-axis
+        gebco = gebco[::-1]
         tags = dataset.tags(bidx=1)
         tags = {k: to_numeric(v, errors="ignore") for k, v in tags.items()}
 
@@ -62,42 +52,19 @@ def get_data_gebco_height(xs, ys, gebco_path):
 
 
 def get_data(
-    cutout,
-    feature,
-    tmpdir,
-    monthly_requests=False,
-    concurrent_requests=False,
-    **creation_parameters,
-):
-    """
-    Get the gebco height data.
-
-    Parameters
-    ----------
-    cutout : atlite.Cutout
-    feature : str
-        Takes no effect, only here for consistency with other dataset modules.
-    tmpdir : str
-        Takes no effect, only here for consistency with other dataset modules.
-    monthly_requests : bool
-        Takes no effect, only here for consistency with other dataset modules.
-    concurrent_requests : bool
-        Takes no effect, only here for consistency with other dataset modules.
-    **creation_parameters :
-        Must include `gebco_path`.
-
-    Returns
-    -------
-    xr.Dataset
-
-    """
+    cutout: Any,
+    feature: str,
+    tmpdir: PathLike,
+    monthly_requests: bool = False,
+    concurrent_requests: bool = False,
+    **creation_parameters: Any,
+) -> xr.Dataset:
     if "gebco_path" not in creation_parameters:
         logger.error('Argument "gebco_path" not defined')
     path = creation_parameters["gebco_path"]
 
     coords = cutout.coords
-    # assign time dimension even if not used
-    return (
+    return (  # type: ignore[no-any-return]
         get_data_gebco_height(coords["x"], coords["y"], path)
         .to_dataset()
         .assign_coords(cutout.coords)

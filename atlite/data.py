@@ -5,34 +5,46 @@
 Management of data retrieval and structure.
 """
 
+from __future__ import annotations
+
 import logging
 import os
+from collections.abc import Callable, Iterable
 from functools import wraps
 from pathlib import Path
 from shutil import rmtree
 from tempfile import mkdtemp, mkstemp
+from typing import TYPE_CHECKING, Any
 
-import pandas as pd
+import numpy as np
+import pandas as pd  # type: ignore[import-untyped]
 import xarray as xr
-from dask import compute, delayed
-from dask.diagnostics import ProgressBar
+from dask import compute as dask_compute  # type: ignore[attr-defined]
+from dask import delayed
+from dask.diagnostics import ProgressBar  # type: ignore[attr-defined]
 from dask.utils import SerializableLock
 from numpy import atleast_1d
 
+from atlite._types import DataArray, Dataset, PathLike
 from atlite.datasets import modules as datamodules
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from atlite.cutout import Cutout
 
 logger = logging.getLogger(__name__)
 
 
 def get_features(
-    cutout,
-    module,
-    features,
-    data_format,
-    tmpdir=None,
-    monthly_requests=False,
-    concurrent_requests=False,
-):
+    cutout: Cutout,
+    module: str,
+    features: Iterable[str],
+    data_format: str,
+    tmpdir: PathLike | None = None,
+    monthly_requests: bool = False,
+    concurrent_requests: bool = False,
+) -> Dataset:
     """
     Load feature datasets for a cutout module.
 
@@ -58,13 +70,13 @@ def get_features(
     xarray.Dataset
         Merged dataset containing the requested features.
     """
-    parameters = cutout.data.attrs
-    lock = SerializableLock()
-    datasets = []
-    get_data = datamodules[module].get_data
+    parameters: dict[str, Any] = cutout.data.attrs
+    lock: SerializableLock = SerializableLock()
+    datasets: list[Any] = []
+    get_data: Callable[..., Any] = datamodules[module].get_data
 
     for feature in features:
-        feature_data = delayed(get_data)(
+        feature_data: Any = delayed(get_data)(
             cutout,
             feature,
             tmpdir=tmpdir,
@@ -76,23 +88,23 @@ def get_features(
         )
         datasets.append(feature_data)
 
-    datasets = compute(*datasets)
+    datasets = dask_compute(*datasets)  # type: ignore[no-untyped-call]
 
-    ds = xr.merge(datasets, compat="equals")
+    ds: Dataset = xr.merge(datasets, compat="equals")
     for v in ds:
-        da = ds[v]
+        da: DataArray = ds[v]
         da.attrs["module"] = module
-        fd = datamodules[module].features.items()
+        fd: Iterable[tuple[str, Any]] = datamodules[module].features.items()
         da.attrs["feature"] = [k for k, l in fd if v in l].pop()
 
         if da.chunks is not None:
-            chunksizes = [c[0] for c in da.chunks]
+            chunksizes: list[int] = [c[0] for c in da.chunks]
             da.encoding["chunksizes"] = chunksizes
 
     return ds
 
 
-def available_features(module=None):
+def available_features(module: str | Sequence[str] | None = None) -> pd.Series[str]:
     """
     Inspect the available features of all or a selection of modules.
 
@@ -110,8 +122,8 @@ def available_features(module=None):
         obtained.
 
     """
-    features = {name: m.features for name, m in datamodules.items()}
-    features = (
+    features: dict[str, Any] = {name: m.features for name, m in datamodules.items()}
+    features_frame: pd.Series[Any] = (
         pd.DataFrame(features)
         .unstack()
         .dropna()
@@ -119,11 +131,11 @@ def available_features(module=None):
         .rename("variables")
     )
     if module is not None:
-        features = features.reindex(atleast_1d(module), level="module")
-    return features.explode()
+        features_frame = features_frame.reindex(atleast_1d(module), level="module")
+    return features_frame.explode()
 
 
-def non_bool_dict(d):
+def non_bool_dict(d: dict[str, Any]) -> dict[str, Any]:
     """
     Convert boolean dictionary values to integers.
 
@@ -140,7 +152,9 @@ def non_bool_dict(d):
     return {k: v if not isinstance(v, bool) else int(v) for k, v in d.items()}
 
 
-def maybe_remove_tmpdir(func):
+def maybe_remove_tmpdir(
+    func: Callable[..., Any],
+) -> Callable[..., Any]:
     """
     Wrap a function to manage a temporary directory.
 
@@ -157,9 +171,9 @@ def maybe_remove_tmpdir(func):
     """
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         if kwargs.get("tmpdir", None):
-            res = func(*args, **kwargs)
+            res: Any = func(*args, **kwargs)
         else:
             kwargs["tmpdir"] = mkdtemp()
             try:
@@ -173,17 +187,17 @@ def maybe_remove_tmpdir(func):
 
 @maybe_remove_tmpdir
 def cutout_prepare(
-    cutout,
-    features=None,
-    tmpdir=None,
-    data_format="grib",
-    overwrite=False,
-    compression={"zlib": True, "complevel": 9, "shuffle": True},
-    show_progress=False,
-    dask_kwargs=None,
-    monthly_requests=False,
-    concurrent_requests=False,
-):
+    cutout: Cutout,
+    features: str | Sequence[str] | None = None,
+    tmpdir: PathLike | None = None,
+    data_format: str = "grib",
+    overwrite: bool = False,
+    compression: dict[str, Any] | None = None,
+    show_progress: bool = False,
+    dask_kwargs: dict[str, Any] | None = None,
+    monthly_requests: bool = False,
+    concurrent_requests: bool = False,
+) -> Cutout:
     """
     Prepare all or a selection of features in a cutout.
 
@@ -244,65 +258,74 @@ def cutout_prepare(
     if dask_kwargs is None:
         dask_kwargs = {}
 
+    if compression is None:
+        compression = {"zlib": True, "complevel": 9, "shuffle": True}
+
     if cutout.prepared and not overwrite:
         logger.info("Cutout already prepared.")
         return cutout
 
-    # ensure that the tmpdir actually exists
-    temp_dir_path = Path(tmpdir)
+    if tmpdir is None:
+        raise ValueError("tmpdir cannot be None")
+    temp_dir_path: Path = Path(tmpdir)
     if not temp_dir_path.is_dir():
         raise FileNotFoundError(f"The tmpdir: {temp_dir_path} does not exist.")
     logger.info(f"Storing temporary files in {tmpdir}")
 
-    modules = atleast_1d(cutout.module)
-    features = atleast_1d(features) if features else slice(None)
-    prepared = set(atleast_1d(cutout.data.attrs["prepared_features"]))
+    modules_array: np.ndarray[Any, np.dtype[Any]] = atleast_1d(cutout.module)
+    modules_list: list[str] = modules_array.tolist()
+    features_normalized: np.ndarray[Any, np.dtype[Any]] | slice = (
+        atleast_1d(features) if features else slice(None)
+    )
+    prepared: set[str] = set(atleast_1d(cutout.data.attrs["prepared_features"]))
 
-    # target is series of all available variables for given module and features
-    target = available_features(modules).loc[:, features].drop_duplicates()
+    target: pd.Series[str] = (
+        available_features(modules_list).loc[:, features_normalized].drop_duplicates()
+    )
 
     for module in target.index.unique("module"):
-        missing_vars = target[module]
+        missing_vars: pd.Series[str] = target[module]
         if not overwrite:
             missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
         if missing_vars.empty:
             continue
         logger.info(f"Calculating and writing with module {module}:")
-        missing_features = missing_vars.index.unique("feature")
-        ds = get_features(
+        missing_features: np.ndarray[Any, np.dtype[Any]] = missing_vars.index.unique(
+            "feature"
+        )
+        ds: Dataset = get_features(
             cutout,
             module,
             missing_features,
-            tmpdir=tmpdir,
             data_format=data_format,
+            tmpdir=tmpdir,
             monthly_requests=monthly_requests,
             concurrent_requests=concurrent_requests,
         )
         prepared |= set(missing_features)
 
         cutout.data.attrs.update(dict(prepared_features=list(prepared)))
-        attrs = non_bool_dict(cutout.data.attrs)
+        attrs: dict[str, Any] = non_bool_dict(cutout.data.attrs)
         attrs.update(ds.attrs)
 
-        # Add optional compression to the newly prepared features
         if compression:
             for v in missing_vars:
                 ds[v].encoding.update(compression)
 
         ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
 
-        # write data to tmp file, copy it to original data, this is much safer
-        # than appending variables
+        directory: str
+        filename: str
         directory, filename = os.path.split(str(cutout.path))
+        fd: int
+        tmp: str
         fd, tmp = mkstemp(suffix=filename, dir=directory)
         os.close(fd)
 
         logger.debug("Writing cutout to file...")
-        # Delayed writing for large cutout
-        # cf. https://stackoverflow.com/questions/69810367/python-how-to-write-large-netcdf-with-xarray
-        write_job = ds.to_netcdf(tmp, compute=False)
+        write_job: Any = ds.to_netcdf(tmp, compute=False)
         if show_progress:
-            with ProgressBar(minimum=2):
+            with ProgressBar(minimum=2):  # type: ignore[no-untyped-call]
                 write_job.compute(**dask_kwargs)
         else:
             write_job.compute(**dask_kwargs)

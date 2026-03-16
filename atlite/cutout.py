@@ -14,9 +14,13 @@ Base class for atlite.
 # https://github.com/pydata/xarray/issues/2535,
 # https://github.com/rasterio/rasterio-wheels/issues/12
 
+from __future__ import annotations
+
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 from tempfile import mktemp
+from typing import TYPE_CHECKING, Any
 from warnings import warn
 
 import geopandas as gpd
@@ -27,6 +31,20 @@ import xarray as xr
 from numpy import append, atleast_1d
 from pyproj import CRS
 from shapely.geometry import box
+
+from atlite._types import (
+    CrsLike,
+    DataArray,
+    GeoDataFrame,
+    Geometry,
+    NDArray,
+    Number,
+    PathLike,
+    SparseMatrix,
+)
+
+if TYPE_CHECKING:
+    pass
 
 from atlite.convert import (
     coefficient_of_performance,
@@ -66,7 +84,7 @@ class Cutout:
     functionalities.
     """
 
-    def __init__(self, path, **cutoutparams):
+    def __init__(self, path: PathLike, **cutoutparams: Any) -> None:
         """
         Provide an atlite cutout object.
 
@@ -201,7 +219,7 @@ class Cutout:
             data = xr.Dataset(coords=coords, attrs=attrs)
 
         # Check compatibility of CRS
-        modules = atleast_1d(data.attrs.get("module"))
+        modules = atleast_1d(data.attrs.get("module"))  # type: ignore[arg-type]
         crs = set(CRS(datamodules[m].crs) for m in modules)
         assert len(crs) == 1, f"CRS of {module} not compatible"
 
@@ -209,35 +227,35 @@ class Cutout:
         self.data = data
 
     @property
-    def name(self):
+    def name(self) -> str:
         """
         Name of the cutout.
         """
         return self.path.stem
 
     @property
-    def module(self):
+    def module(self) -> str | list[str]:
         """
         Data module of the cutout.
         """
-        return self.data.attrs.get("module")
+        return self.data.attrs.get("module")  # type: ignore[no-any-return, return-value]
 
     @property
-    def crs(self):
+    def crs(self) -> CRS:
         """
         Coordinate Reference System of the cutout.
         """
         return CRS(datamodules[atleast_1d(self.module)[0]].crs)
 
     @property
-    def available_features(self):
+    def available_features(self) -> pd.Index:
         """
         List of available weather data features for the cutout.
         """
         return available_features(self.module)
 
     @property
-    def chunks(self):
+    def chunks(self) -> dict[str, int] | None:
         """
         Chunking of the cutout data used by dask.
         """
@@ -249,21 +267,21 @@ class Cutout:
         return None if chunks == {} else chunks
 
     @property
-    def coords(self):
+    def coords(self) -> xr.Coordinates:
         """
         Geographic coordinates of the cutout.
         """
         return self.data.coords
 
     @property
-    def shape(self):
+    def shape(self) -> tuple[int, int]:
         """
         Size of spatial dimensions (y, x) of the cutout data.
         """
         return len(self.coords["y"]), len(self.coords["x"])
 
     @property
-    def extent(self):
+    def extent(self) -> NDArray:
         """
         Total extent of the area covered by the cutout (x, X, y, Y).
         """
@@ -274,14 +292,14 @@ class Cutout:
         )
 
     @property
-    def bounds(self):
+    def bounds(self) -> NDArray:
         """
         Total bounds of the area covered by the cutout (x, y, X, Y).
         """
         return self.extent[[0, 2, 1, 3]]
 
     @property
-    def transform(self):
+    def transform(self) -> rio.Affine:
         """
         Get the affine transform of the cutout.
         """
@@ -295,7 +313,7 @@ class Cutout:
         )
 
     @property
-    def transform_r(self):
+    def transform_r(self) -> rio.Affine:
         """
         Get the affine transform of the cutout with reverse y-order.
         """
@@ -309,39 +327,39 @@ class Cutout:
         )
 
     @property
-    def dx(self):
+    def dx(self) -> float:
         """
         Spatial resolution on the x coordinates.
         """
         x = self.coords["x"]
-        return round((x[-1] - x[0]).item() / (x.size - 1), 8)
+        return round((x[-1] - x[0]).item() / (x.size - 1), 8)  # type: ignore[no-any-return]
 
     @property
-    def dy(self):
+    def dy(self) -> float:
         """
         Spatial resolution on the y coordinates.
         """
         y = self.coords["y"]
-        return round((y[-1] - y[0]).item() / (y.size - 1), 8)
+        return round((y[-1] - y[0]).item() / (y.size - 1), 8)  # type: ignore[no-any-return]
 
     @property
-    def dt(self):
+    def dt(self) -> str | None:
         """
         Time resolution of the cutout.
         """
-        return pd.infer_freq(self.coords["time"].to_index())
+        return pd.infer_freq(self.coords["time"].to_index())  # type: ignore[no-any-return]
 
     @property
-    def prepared(self):
+    def prepared(self) -> bool:
         """
         Boolean indicating whether all available features are prepared.
         """
-        return self.prepared_features.sort_index().equals(
+        return self.prepared_features.sort_index().equals(  # type: ignore[no-any-return]
             self.available_features.sort_index()
         )
 
     @property
-    def prepared_features(self):
+    def prepared_features(self) -> pd.Series[Any]:
         """
         Get the list of prepared features in the cutout.
         """
@@ -353,7 +371,7 @@ class Cutout:
         return pd.Series(list(self.data), index, dtype=object)
 
     @CachedAttribute
-    def grid(self):
+    def grid(self) -> GeoDataFrame:
         """
         Cutout grid with coordinates and geometries.
 
@@ -375,7 +393,13 @@ class Cutout:
             crs=self.crs,
         )
 
-    def sel(self, path=None, bounds=None, buffer=0, **kwargs):
+    def sel(
+        self,
+        path: PathLike | None = None,
+        bounds: Sequence[float] | None = None,
+        buffer: float = 0,
+        **kwargs: Any,
+    ) -> Cutout:
         """
         Select parts of the cutout.
 
@@ -406,13 +430,15 @@ class Cutout:
 
         if bounds is not None:
             if buffer > 0:
-                bounds = box(*bounds).buffer(buffer).bounds
-            x1, y1, x2, y2 = bounds
+                bounds = box(*bounds).buffer(buffer).bounds  # type: ignore[assignment]
+            x1, y1, x2, y2 = bounds  # type: ignore[misc]
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
         return Cutout(path, data=data)
 
-    def merge(self, other, path=None, **kwargs):
+    def merge(
+        self, other: Cutout, path: PathLike | None = None, **kwargs: Any
+    ) -> Cutout:
         """
         Merge two cutouts into a single cutout.
 
@@ -450,7 +476,7 @@ class Cutout:
 
         return Cutout(path, data=data)
 
-    def to_file(self, fn=None):
+    def to_file(self, fn: PathLike | None = None) -> None:
         """
         Save cutout to a NetCDF file.
 
@@ -464,7 +490,7 @@ class Cutout:
             fn = self.path
         self.data.to_netcdf(fn)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         start = np.datetime_as_string(self.coords["time"].values[0], unit="D")
         end = np.datetime_as_string(self.coords["time"].values[-1], unit="D")
         return (
@@ -489,7 +515,9 @@ class Cutout:
             )
         )
 
-    def indicatormatrix(self, shapes, shapes_crs=4326):
+    def indicatormatrix(
+        self, shapes: Sequence[Geometry], shapes_crs: CrsLike = 4326
+    ) -> SparseMatrix:
         """
         Compute the indicatormatrix.
 
@@ -514,7 +542,9 @@ class Cutout:
         """
         return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
 
-    def intersectionmatrix(self, shapes, shapes_crs=4326):
+    def intersectionmatrix(
+        self, shapes: Sequence[Geometry], shapes_crs: CrsLike = 4326
+    ) -> SparseMatrix:
         """
         Compute the intersectionmatrix.
 
@@ -536,7 +566,7 @@ class Cutout:
         """
         return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
 
-    def area(self, crs=None):
+    def area(self, crs: CrsLike = None) -> DataArray:
         """
         Get the area per grid cell as a DataArray with coords (x,y).
 
@@ -561,13 +591,15 @@ class Cutout:
             [self.coords["y"], self.coords["x"]],
         )
 
-    def uniform_layout(self):
+    def uniform_layout(self) -> DataArray:
         """
         Get a uniform capacity layout for all grid cells.
         """
         return xr.DataArray(1, [self.coords["y"], self.coords["x"]])
 
-    def uniform_density_layout(self, capacity_density, crs=None):
+    def uniform_density_layout(
+        self, capacity_density: Number, crs: CrsLike = None
+    ) -> DataArray:
         """
         Get a capacity layout from a uniform capacity density.
 
@@ -586,16 +618,15 @@ class Cutout:
             capacity placed within one grid cell.
 
         """
-        return capacity_density * self.area(crs)
+        return capacity_density * self.area(crs)  # type: ignore[no-any-return]
 
-    def equals(self, other):
+    def equals(self, other: Any) -> bool:
         """
         It overrides xarray.Dataset.equals and ignores the path attribute in the comparison
         """
         if not isinstance(other, Cutout):
-            return NotImplemented
-        # Compare cutouts data attributes
-        return self.data.equals(other.data)
+            return NotImplemented  # type: ignore[no-any-return]
+        return self.data.equals(other.data)  # type: ignore[no-any-return]
 
     def layout_from_capacity_list(self, data, col="Capacity"):
         """

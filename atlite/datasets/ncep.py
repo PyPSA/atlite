@@ -12,36 +12,26 @@ The ncep dataset module has not been ported to atlite v0.2, yet. Use atlite v0.0
 for the time being!
 """
 
+from __future__ import annotations
+
 import glob
 import os
+from collections.abc import Generator
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 
-engine = "pynio"
-crs = 4326
+from atlite._types import PathLike
+
+engine: str = "pynio"
+crs: int = 4326
 
 
-def convert_lons_lats_ncep(ds, xs, ys):
-    """
-    Subset and rename NCEP longitude and latitude coordinates.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Input dataset with ``lon_0`` and ``lat_0`` coordinates.
-    xs : slice or array-like
-        Longitude selection in degrees east.
-    ys : slice or array-like
-        Latitude selection in degrees north.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset restricted to the requested area with coordinates renamed to
-        ``x`` and ``y`` and duplicated as ``lon`` and ``lat``.
-    """
+def convert_lons_lats_ncep(
+    ds: xr.Dataset, xs: slice | np.ndarray[Any, Any], ys: slice | np.ndarray[Any, Any]
+) -> xr.Dataset:
     if not isinstance(xs, slice):
         first, second, last = np.asarray(xs)[[0, 1, -1]]
         xs = slice(first - 0.1 * (second - first), last + 0.1 * (second - first))
@@ -51,7 +41,6 @@ def convert_lons_lats_ncep(ds, xs, ys):
 
     ds = ds.sel(lat_0=ys)
 
-    # Lons should go from -180. to +180.
     if len(ds.coords["lon_0"].sel(lon_0=slice(xs.start + 360.0, xs.stop + 360.0))):
         ds = xr.concat(
             [ds.sel(lon_0=slice(xs.start + 360.0, xs.stop + 360.0)), ds.sel(lon_0=xs)],
@@ -72,23 +61,7 @@ def convert_lons_lats_ncep(ds, xs, ys):
     return ds
 
 
-def convert_time_hourly_ncep(ds, drop_time_vars=True):
-    """
-    Convert NCEP time coordinates to a single hourly time index.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Input dataset with ``initial_time0_hours`` and ``forecast_time0``.
-    drop_time_vars : bool, default True
-        Whether to drop auxiliary initial time variables after stacking.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset with a stacked ``time`` coordinate.
-    """
-    # Combine initial_time0 and forecast_time0
+def convert_time_hourly_ncep(ds: xr.Dataset, drop_time_vars: bool = True) -> xr.Dataset:
     ds = ds.stack(time=("initial_time0_hours", "forecast_time0")).assign_coords(
         time=np.ravel(
             ds.coords["initial_time0_hours"]
@@ -101,106 +74,50 @@ def convert_time_hourly_ncep(ds, drop_time_vars=True):
     return ds
 
 
-def convert_unaverage_ncep(ds):
-    """
-    Convert averaged NCEP variables to per-step values.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Dataset containing variables with names ending in ``_avg``.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset with unaveraged variables stored without the ``_avg`` suffix.
-    """
-    # the fields ending in _avg contain averages which have to be unaveraged by using
-    # \begin{equation}
-    # \tilde x_1 = x_1 \quad \tilde x_i = i \cdot x_i - (i - 1) \cdot x_{i-1} \quad \forall i > 1
-    # \end{equation}
-
-    def unaverage(da, dim="forecast_time0"):
+def convert_unaverage_ncep(ds: xr.Dataset) -> xr.Dataset:
+    def unaverage(da: xr.DataArray, dim: str = "forecast_time0") -> xr.DataArray:
         coords = da.coords[dim]
         y = da * xr.DataArray(
             np.arange(1, len(coords) + 1), dims=[dim], coords={dim: coords}
         )
-        return y - y.shift(**{dim: 1}).fillna(0.0)
+        return y - y.shift(**{dim: 1}).fillna(0.0)  # type: ignore[no-any-return, arg-type]
 
     for k, da in ds.items():
+        assert isinstance(k, str)
         if k.endswith("_avg"):
             ds[k[: -len("_avg")]] = unaverage(da)
             ds = ds.drop(k)
 
-    return ds
+    return ds  # type: ignore[return-value]
 
 
-def convert_unaccumulate_ncep(ds):
-    """
-    Convert accumulated NCEP variables to incremental values.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Dataset containing variables with names ending in ``_acc``.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset with unaccumulated variables stored without the ``_acc`` suffix.
-    """
-    # the fields ending in _acc contain values that are accumulated over the
-    # forecast_time which have to be unaccumulated by using:
-    # \begin{equation}
-    # \tilde x_1 = x_1
-    # \tilde x_i = x_i - x_{i-1} \forall 1 < i <= 6
-    # \end{equation}
-    # Source:
-    # http://rda.ucar.edu/datasets/ds094.1/#docs/FAQs_hrly_timeseries.html
-
-    def unaccumulate(da, dim="forecast_time0"):
-        return da - da.shift(**{dim: 1}).fillna(0.0)
+def convert_unaccumulate_ncep(ds: xr.Dataset) -> xr.Dataset:
+    def unaccumulate(da: xr.DataArray, dim: str = "forecast_time0") -> xr.DataArray:
+        return da - da.shift(**{dim: 1}).fillna(0.0)  # type: ignore[no-any-return, arg-type]
 
     for k, da in ds.items():
+        assert isinstance(k, str)
         if k.endswith("_acc"):
             ds[k[: -len("_acc")]] = unaccumulate(da)
             ds = ds.drop(k)
 
-    return ds
+    return ds  # type: ignore[return-value]
 
 
-def convert_clip_lower(ds, variable, a_min, value):
-    """
-    Set values of `variable` that are below `a_min` to `value`.
-
-    Similar to `numpy.clip`.
-    """
+def convert_clip_lower(
+    ds: xr.Dataset, variable: str, a_min: float, value: float
+) -> xr.Dataset:
     ds[variable] = ds[variable].where(ds[variable] > a_min).fillna(value)
     return ds
 
 
-def prepare_wnd10m_ncep(fn, yearmonth, xs, ys, engine=engine):
-    """
-    Prepare monthly 10 m wind speed data from NCEP.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    yearmonth : tuple[int, int]
-        Target year and month.
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    engine : str, default ``engine``
-        Xarray backend engine.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        The selected month together with a dataset containing ``wnd10m``.
-    """
+def prepare_wnd10m_ncep(
+    fn: PathLike,
+    yearmonth: tuple[int, int],
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    engine: str = engine,
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = convert_time_hourly_ncep(ds)
@@ -211,94 +128,47 @@ def prepare_wnd10m_ncep(fn, yearmonth, xs, ys, engine=engine):
         yield yearmonth, ds
 
 
-def prepare_influx_ncep(fn, yearmonth, xs, ys, engine=engine):
-    """
-    Prepare monthly downward shortwave flux data from NCEP.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    yearmonth : tuple[int, int]
-        Target year and month.
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    engine : str, default ``engine``
-        Xarray backend engine.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        The selected month together with a dataset containing ``influx``.
-    """
+def prepare_influx_ncep(
+    fn: PathLike,
+    yearmonth: tuple[int, int],
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    engine: str = engine,
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = convert_unaverage_ncep(ds)
         ds = convert_time_hourly_ncep(ds)
 
         ds = ds.rename({"DSWRF_P8_L1_GGA0": "influx"})
-        # clipping random fluctuations around zero
         ds = convert_clip_lower(ds, "influx", a_min=0.1, value=0.0)
         yield yearmonth, ds
 
 
-def prepare_outflux_ncep(fn, yearmonth, xs, ys, engine=engine):
-    """
-    Prepare monthly upward shortwave flux data from NCEP.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    yearmonth : tuple[int, int]
-        Target year and month.
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    engine : str, default ``engine``
-        Xarray backend engine.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        The selected month together with a dataset containing ``outflux``.
-    """
+def prepare_outflux_ncep(
+    fn: PathLike,
+    yearmonth: tuple[int, int],
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    engine: str = engine,
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = convert_unaverage_ncep(ds)
         ds = convert_time_hourly_ncep(ds)
 
         ds = ds.rename({"USWRF_P8_L1_GGA0": "outflux"})
-        # clipping random fluctuations around zero
         ds = convert_clip_lower(ds, "outflux", a_min=3.0, value=0.0)
         yield yearmonth, ds
 
 
-def prepare_temperature_ncep(fn, yearmonth, xs, ys, engine=engine):
-    """
-    Prepare monthly near-surface temperature data from NCEP.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    yearmonth : tuple[int, int]
-        Target year and month.
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    engine : str, default ``engine``
-        Xarray backend engine.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        The selected month together with a dataset containing ``temperature``.
-    """
+def prepare_temperature_ncep(
+    fn: PathLike,
+    yearmonth: tuple[int, int],
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    engine: str = engine,
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = convert_time_hourly_ncep(ds)
@@ -307,29 +177,13 @@ def prepare_temperature_ncep(fn, yearmonth, xs, ys, engine=engine):
         yield yearmonth, ds
 
 
-def prepare_soil_temperature_ncep(fn, yearmonth, xs, ys, engine=engine):
-    """
-    Prepare monthly soil temperature data from NCEP.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    yearmonth : tuple[int, int]
-        Target year and month.
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    engine : str, default ``engine``
-        Xarray backend engine.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        The selected month together with a dataset containing
-        ``soil temperature``.
-    """
+def prepare_soil_temperature_ncep(
+    fn: PathLike,
+    yearmonth: tuple[int, int],
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    engine: str = engine,
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = convert_time_hourly_ncep(ds)
@@ -338,31 +192,15 @@ def prepare_soil_temperature_ncep(fn, yearmonth, xs, ys, engine=engine):
         yield yearmonth, ds
 
 
-def prepare_runoff_ncep(fn, yearmonth, xs, ys, engine=engine):
-    """
-    Prepare monthly runoff data from NCEP.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    yearmonth : tuple[int, int]
-        Target year and month.
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    engine : str, default ``engine``
-        Xarray backend engine.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        The selected month together with a dataset containing ``runoff``.
-    """
+def prepare_runoff_ncep(
+    fn: PathLike,
+    yearmonth: tuple[int, int],
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    engine: str = engine,
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
-        # runoff has missing values: set nans to 0
         ds = ds.fillna(0.0)
         ds = convert_unaccumulate_ncep(ds)
         ds = convert_time_hourly_ncep(ds)
@@ -371,28 +209,13 @@ def prepare_runoff_ncep(fn, yearmonth, xs, ys, engine=engine):
         yield yearmonth, ds
 
 
-def prepare_height_ncep(fn, xs, ys, yearmonths, engine=engine):
-    """
-    Prepare static height data from NCEP for multiple months.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    yearmonths : list[tuple[int, int]]
-        Year-month pairs to attach to the static dataset.
-    engine : str, default ``engine``
-        Xarray backend engine.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        Each requested year-month together with a dataset containing ``height``.
-    """
+def prepare_height_ncep(
+    fn: PathLike,
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    yearmonths: list[tuple[int, int]],
+    engine: str = engine,
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = ds.rename({"HGT_P0_L105_GGA0": "height"})
@@ -400,28 +223,13 @@ def prepare_height_ncep(fn, xs, ys, yearmonths, engine=engine):
             yield ym, ds
 
 
-def prepare_roughness_ncep(fn, yearmonth, xs, ys, engine=engine):
-    """
-    Prepare monthly surface roughness data from NCEP.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    yearmonth : tuple[int, int]
-        Target year and month.
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    engine : str, default ``engine``
-        Xarray backend engine.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        The selected month together with a dataset containing ``roughness``.
-    """
+def prepare_roughness_ncep(
+    fn: PathLike,
+    yearmonth: tuple[int, int],
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    engine: str = engine,
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
         ds = ds.rename({"SFCR_P8_L1_GGA0": "roughness"})
@@ -430,35 +238,15 @@ def prepare_roughness_ncep(fn, yearmonth, xs, ys, engine=engine):
 
 
 def prepare_meta_ncep(
-    xs, ys, year, month, template, height_config, module, engine=engine
-):
-    """
-    Prepare NCEP metadata for a cutout month.
-
-    Parameters
-    ----------
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    year : int
-        Target year.
-    month : int
-        Target month.
-    template : str
-        File name template for the reference dataset.
-    height_config : dict
-        Height dataset configuration.
-    module : module
-        Dataset module namespace.
-    engine : str, default ``engine``
-        Xarray backend engine.
-
-    Returns
-    -------
-    xarray.Dataset
-        Metadata dataset with spatial, temporal, and height information.
-    """
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    year: int,
+    month: int,
+    template: str,
+    height_config: dict[str, Any],
+    module: Any,
+    engine: str = engine,
+) -> xr.Dataset:
     fn = next(glob.iglob(template.format(year=year, month=month)))
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = ds.coords.to_dataset()
@@ -479,33 +267,17 @@ def prepare_meta_ncep(
 
     meta["height"] = ds["height"]
 
-    return meta
+    return meta  # type: ignore[no-any-return]
 
 
-def tasks_monthly_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs):
-    """
-    Create monthly NCEP preparation task specifications.
-
-    Parameters
-    ----------
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    yearmonths : list[tuple[int, int]]
-        Requested year-month pairs.
-    prepare_func : callable
-        Preparation function to execute for each task.
-    template : str
-        File name template for monthly input files.
-    meta_attrs : dict
-        Unused metadata attributes.
-
-    Returns
-    -------
-    list[dict]
-        Task dictionaries for monthly data preparation.
-    """
+def tasks_monthly_ncep(
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    yearmonths: list[tuple[int, int]],
+    prepare_func: Any,
+    template: str,
+    meta_attrs: dict[str, Any],
+) -> list[dict[str, Any]]:
     return [
         dict(
             prepare_func=prepare_func,
@@ -520,33 +292,14 @@ def tasks_monthly_ncep(xs, ys, yearmonths, prepare_func, template, meta_attrs):
 
 
 def tasks_height_ncep(
-    xs, ys, yearmonths, prepare_func, template, meta_attrs, **extra_args
-):
-    """
-    Create NCEP task specifications for static height data.
-
-    Parameters
-    ----------
-    xs : slice or array-like
-        Longitude selection.
-    ys : slice or array-like
-        Latitude selection.
-    yearmonths : list[tuple[int, int]]
-        Requested year-month pairs.
-    prepare_func : callable
-        Preparation function to execute.
-    template : str
-        File name template for the static height file.
-    meta_attrs : dict
-        Unused metadata attributes.
-    **extra_args
-        Additional keyword arguments passed to ``prepare_func``.
-
-    Returns
-    -------
-    list[dict]
-        A single task dictionary covering all requested months.
-    """
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    yearmonths: list[tuple[int, int]],
+    prepare_func: Any,
+    template: str,
+    meta_attrs: dict[str, Any],
+    **extra_args: Any,
+) -> list[dict[str, Any]]:
     return [
         dict(
             prepare_func=prepare_func,
@@ -559,78 +312,90 @@ def tasks_height_ncep(
     ]
 
 
-weather_data_config = {
-    "influx": dict(
-        tasks_func=tasks_monthly_ncep,
-        prepare_func=prepare_influx_ncep,
-        template=os.path.join(
-            config.ncep_dir,  # noqa: F821
-            "{year}{month:0>2}/dswsfc.*.grb2",
+weather_data_config: dict[str, dict[str, Any]] = {}
+try:
+    from atlite import config  # type: ignore[attr-defined]  # noqa: F401
+
+    weather_data_config = {
+        "influx": dict(
+            tasks_func=tasks_monthly_ncep,
+            prepare_func=prepare_influx_ncep,
+            template=os.path.join(
+                config.ncep_dir,  # noqa: F821
+                "{year}{month:0>2}/dswsfc.*.grb2",
+            ),
         ),
-    ),
-    "outflux": dict(
-        tasks_func=tasks_monthly_ncep,
-        prepare_func=prepare_outflux_ncep,
-        template=os.path.join(
-            config.ncep_dir,  # noqa: F821
-            "{year}{month:0>2}/uswsfc.*.grb2",
+        "outflux": dict(
+            tasks_func=tasks_monthly_ncep,
+            prepare_func=prepare_outflux_ncep,
+            template=os.path.join(
+                config.ncep_dir,  # noqa: F821
+                "{year}{month:0>2}/uswsfc.*.grb2",
+            ),
         ),
-    ),
-    "temperature": dict(
-        tasks_func=tasks_monthly_ncep,
-        prepare_func=prepare_temperature_ncep,
+        "temperature": dict(
+            tasks_func=tasks_monthly_ncep,
+            prepare_func=prepare_temperature_ncep,
+            template=os.path.join(
+                config.ncep_dir,  # noqa: F821
+                "{year}{month:0>2}/tmp2m.*.grb2",
+            ),
+        ),
+        "soil temperature": dict(
+            tasks_func=tasks_monthly_ncep,
+            prepare_func=prepare_soil_temperature_ncep,
+            template=os.path.join(
+                config.ncep_dir,  # noqa: F821
+                "{year}{month:0>2}/soilt1.*.grb2",
+            ),
+        ),
+        "wnd10m": dict(
+            tasks_func=tasks_monthly_ncep,
+            prepare_func=prepare_wnd10m_ncep,
+            template=os.path.join(
+                config.ncep_dir,  # noqa: F821
+                "{year}{month:0>2}/wnd10m.*.grb2",
+            ),
+        ),
+        "runoff": dict(
+            tasks_func=tasks_monthly_ncep,
+            prepare_func=prepare_runoff_ncep,
+            template=os.path.join(
+                config.ncep_dir,  # noqa: F821
+                "{year}{month:0>2}/runoff.*.grb2",
+            ),
+        ),
+        "roughness": dict(
+            tasks_func=tasks_monthly_ncep,
+            prepare_func=prepare_roughness_ncep,
+            template=os.path.join(
+                config.ncep_dir,  # noqa: F821
+                "{year}{month:0>2}/flxf.gdas.*.grb2",
+            ),
+        ),
+        "height": dict(
+            tasks_func=tasks_height_ncep,
+            prepare_func=prepare_height_ncep,
+            template=os.path.join(
+                config.ncep_dir,  # noqa: F821
+                "height/cdas1.20130101.splgrbanl.grb2",
+            ),
+        ),
+    }
+except ImportError:
+    pass
+
+meta_data_config: dict[str, Any] = {}
+try:
+    from atlite import config  # type: ignore[attr-defined]  # noqa: F401
+
+    meta_data_config = dict(
+        prepare_func=prepare_meta_ncep,
         template=os.path.join(
             config.ncep_dir,  # noqa: F821
             "{year}{month:0>2}/tmp2m.*.grb2",
         ),
-    ),
-    "soil temperature": dict(
-        tasks_func=tasks_monthly_ncep,
-        prepare_func=prepare_soil_temperature_ncep,
-        template=os.path.join(
-            config.ncep_dir,  # noqa: F821
-            "{year}{month:0>2}/soilt1.*.grb2",
-        ),
-    ),
-    "wnd10m": dict(
-        tasks_func=tasks_monthly_ncep,
-        prepare_func=prepare_wnd10m_ncep,
-        template=os.path.join(
-            config.ncep_dir,  # noqa: F821
-            "{year}{month:0>2}/wnd10m.*.grb2",
-        ),
-    ),
-    "runoff": dict(
-        tasks_func=tasks_monthly_ncep,
-        prepare_func=prepare_runoff_ncep,
-        template=os.path.join(
-            config.ncep_dir,  # noqa: F821
-            "{year}{month:0>2}/runoff.*.grb2",
-        ),
-    ),
-    "roughness": dict(
-        tasks_func=tasks_monthly_ncep,
-        prepare_func=prepare_roughness_ncep,
-        template=os.path.join(
-            config.ncep_dir,  # noqa: F821
-            "{year}{month:0>2}/flxf.gdas.*.grb2",
-        ),
-    ),
-    "height": dict(
-        tasks_func=tasks_height_ncep,
-        prepare_func=prepare_height_ncep,
-        template=os.path.join(
-            config.ncep_dir,  # noqa: F821
-            "height/cdas1.20130101.splgrbanl.grb2",
-        ),
-    ),
-}
-
-meta_data_config = dict(
-    prepare_func=prepare_meta_ncep,
-    template=os.path.join(
-        config.ncep_dir,  # noqa: F821
-        "{year}{month:0>2}/tmp2m.*.grb2",
-    ),
-    height_config=weather_data_config["height"],
-)
+        height_config=weather_data_config["height"],
+    )
+except (ImportError, KeyError):
+    pass

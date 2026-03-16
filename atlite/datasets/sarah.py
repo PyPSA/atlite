@@ -6,17 +6,21 @@ Module containing specific operations for creating cutouts from the SARAH2
 dataset.
 """
 
+from __future__ import annotations
+
 import glob
 import logging
 import os
 import warnings
 from functools import partial
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import xarray as xr
 from rasterio.warp import Resampling
 
+from atlite._types import PathLike
 from atlite.gis import regrid
 from atlite.pv.solar_position import SolarPosition
 
@@ -36,29 +40,11 @@ features = {
         "solar_azimuth",
     ],
 }
-static_features = {}
+static_features: dict[str, list[str]] = {}
 
 
-def get_filenames(sarah_dir, coords):
-    """
-    Get all files in directory `sarah_dir` relevent for coordinates `coords`.
-
-    This function parses all files in the sarah directory which lay in the time
-    span of the coordinates.
-
-    Parameters
-    ----------
-    sarah_dir : str
-    coords : atlite.Cutout.coords
-
-    Returns
-    -------
-    pd.DataFrame with two columns `sis` and `sid` for and timeindex for all
-    relevant files.
-
-    """
-
-    def _filenames_starting_with(name):
+def get_filenames(sarah_dir: str | PathLike, coords: dict[str, Any]) -> pd.DataFrame:
+    def _filenames_starting_with(name: str) -> pd.Series[str]:
         pattern = os.path.join(sarah_dir, "**", f"{name}*.nc")
         files = pd.Series(glob.glob(pattern, recursive=True))
         assert not files.empty, (
@@ -75,7 +61,6 @@ def get_filenames(sarah_dir, coords):
         axis=1,
     )
 
-    # SARAH files are named based on day, need to .floor("D") to compare correctly
     start = coords["time"].to_index()[0].floor("D")
     end = coords["time"].to_index()[-1].floor("D")
 
@@ -88,30 +73,24 @@ def get_filenames(sarah_dir, coords):
     return files.loc[(files.index >= start) & (files.index <= end)].sort_index()
 
 
-def interpolate(ds, dim="time"):
-    """
-    Interpolate NaNs in a dataset along a chunked dimension.
-
-    This function is similar to xr.Dataset.interpolate_na but can be
-    used for interpolating along a chunked dimensions (default 'time'').
-    As the sarah data has mulitple NaN's in the areas of dawn and
-    nightfall and the data is per default chunked along the time axis,
-    use this function to interpolate.
-    """
-
-    def _interpolate1d(y):
+def interpolate(
+    ds: xr.Dataset | xr.DataArray, dim: str = "time"
+) -> xr.Dataset | xr.DataArray:
+    def _interpolate1d(
+        y: np.ndarray[Any, np.dtype[np.floating[Any]]],
+    ) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
         nan = np.isnan(y)
         if nan.all() or not nan.any():
             return y
 
-        def x(z):
+        def x(z: np.ndarray[Any, np.dtype[Any]]) -> np.ndarray[Any, np.dtype[np.intp]]:
             return z.nonzero()[0]
 
         y = np.array(y)
         y[nan] = np.interp(x(nan), x(~nan), y[~nan])
         return y
 
-    def _interpolate(a):
+    def _interpolate(a: Any) -> Any:
         return a.map_blocks(
             partial(np.apply_along_axis, _interpolate1d, -1), dtype=a.dtype
         )
@@ -120,7 +99,7 @@ def interpolate(ds, dim="time"):
     dtypes = {da.dtype for da in data_vars}
     assert len(dtypes) == 1, "interpolate only supports datasets with homogeneous dtype"
 
-    return xr.apply_ufunc(
+    return xr.apply_ufunc(  # type: ignore[no-any-return]
         _interpolate,
         ds,
         input_core_dims=[[dim]],
@@ -132,23 +111,14 @@ def interpolate(ds, dim="time"):
     )
 
 
-def as_slice(bounds, pad=True):
-    """
-    Convert coordinate bounds to slice and pad by 0.01.
-    """
+def as_slice(bounds: slice | tuple[float, float], pad: bool = True) -> slice:
     if not isinstance(bounds, slice):
-        bounds = bounds + (-0.01, 0.01)
+        bounds = bounds + (-0.01, 0.01)  # type: ignore[assignment]
         bounds = slice(*bounds)
     return bounds
 
 
-def hourly_mean(ds):
-    """
-    Resample time data to one hour frequency.
-
-    In contrast to the standard xarray resample function this preserves
-    chunks sizes along the time dimension.
-    """
+def hourly_mean(ds: xr.Dataset) -> xr.Dataset:
     ds1 = ds.isel(time=slice(None, None, 2))
     ds2 = ds.isel(time=slice(1, None, 2))
     ds2 = ds2.assign_coords(time=ds2.indexes["time"] - pd.Timedelta(30, "m"))
@@ -160,40 +130,13 @@ def hourly_mean(ds):
 
 
 def get_data(
-    cutout, feature, tmpdir, lock=None, monthly_requests=False, **creation_parameters
-):
-    """
-    Load stored SARAH data and reformat to matching the given cutout.
-
-    This function loads and resamples the stored SARAH data for a given
-    `atlite.Cutout`.
-
-    Parameters
-    ----------
-    cutout : atlite.Cutout
-    feature : str
-        Name of the feature data to retrieve. Must be in
-        `atlite.datasets.sarah.features`
-    monthly_requests : bool
-        Takes no effect, only here for consistency with other dataset modules.
-    concurrent_requests : bool
-        Takes no effect, only here for consistency with other dataset modules.
-    **creation_parameters :
-        Mandatory arguments are:
-            * 'sarah_dir', str. Directory of the stored SARAH data.
-        Possible arguments are:
-            * 'parallel', bool. Whether to load stored files in parallel
-            mode. Default is False.
-            * 'sarah_interpolate', bool. Whether to interpolate areas of dawn
-            and nightfall. This might slow down the loading process if only
-            a few cores are available. Default is True.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset of dask arrays of the retrieved variables.
-
-    """
+    cutout: Any,
+    feature: str,
+    tmpdir: PathLike,
+    lock: Any = None,
+    monthly_requests: bool = False,
+    **creation_parameters: Any,
+) -> xr.Dataset:
     assert cutout.dt in ("30min", "30T", "h", "1h")
 
     coords = cutout.coords
@@ -209,12 +152,10 @@ def get_data(
     ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)[["SID"]]
     ds = xr.merge([ds_sis, ds_sid])
     ds = ds.sel(lon=as_slice(cutout.extent[:2]), lat=as_slice(cutout.extent[2:]))
-    # fix float (im)precission
     ds = ds.assign_coords(
         lon=ds.lon.astype(float).round(4), lat=ds.lat.astype(float).round(4)
     )
 
-    # Interpolate, resample and possible regrid
     if creation_parameters["sarah_interpolate"]:
         ds = interpolate(ds)
     else:
@@ -233,7 +174,6 @@ def get_data(
 
     ds = ds.swap_dims({"lon": "x", "lat": "y"})
 
-    # Do not show DeprecationWarning from new SolarPosition calculation (#199)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         sp = SolarPosition(ds, time_shift="0H")
@@ -241,4 +181,4 @@ def get_data(
 
     ds = xr.merge([ds, sp])
 
-    return ds
+    return ds  # type: ignore[no-any-return]

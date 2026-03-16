@@ -2,14 +2,19 @@
 #
 # SPDX-License-Identifier: MIT
 
+from __future__ import annotations
+
+from typing import Any, Literal
+
 import numpy as np
+import xarray as xr
 
-# Huld model was copied from gsee -- global solar energy estimator
-# by Stefan Pfenninger
-# https://github.com/renewables-ninja/gsee/blob/master/gsee/pv.py
+from atlite._types import DataArray
 
 
-def _power_huld(irradiance, t_amb, pc):
+def _power_huld(
+    irradiance: DataArray, t_amb: DataArray, pc: dict[str, Any]
+) -> DataArray:
     """
     AC power per capacity predicted by Huld model, based on W/m2 irradiance.
 
@@ -41,10 +46,12 @@ def _power_huld(irradiance, t_amb, pc):
     da.attrs["units"] = "kWh/kWp"
     da = da.rename("specific generation")
 
-    return da
+    return da  # type: ignore[no-any-return]
 
 
-def _power_bofinger(irradiance, t_amb, pc):
+def _power_bofinger(
+    irradiance: DataArray, t_amb: DataArray, pc: dict[str, Any]
+) -> DataArray:
     """
     AC power per capacity predicted by bofinger model, based on W/m2
     irradiance.
@@ -71,10 +78,12 @@ def _power_bofinger(irradiance, t_amb, pc):
     capacity = (pc["A"] + pc["B"] * 1000.0 + pc["C"] * np.log(1000.0)) * 1e3
     power = irradiance * eta * (pc.get("inverter_efficiency", 1.0) / capacity)
     power = power.where(irradiance >= pc["threshold"], 0)
-    return power.rename("AC power")
+    return power.rename("AC power")  # type: ignore[no-any-return]
 
 
-def SolarPanelModel(ds, irradiance, pc):
+def SolarPanelModel(
+    ds: xr.Dataset, irradiance: DataArray, pc: dict[str, Any]
+) -> DataArray:
     """
     Compute PV power output for the selected panel model.
 
@@ -92,11 +101,11 @@ def SolarPanelModel(ds, irradiance, pc):
     xarray.DataArray
         Specific PV power output.
     """
-    model = pc.get("model", "huld")
+    model: Literal["huld", "bofinger"] = pc.get("model", "huld")
 
     if model == "huld":
         return _power_huld(irradiance, ds["temperature"], pc)
     elif model == "bofinger":
         return _power_bofinger(irradiance, ds["temperature"], pc)
     else:
-        AssertionError(f"Unknown panel model: {model}")
+        raise AssertionError(f"Unknown panel model: {model}")

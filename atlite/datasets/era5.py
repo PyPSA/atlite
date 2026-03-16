@@ -8,12 +8,15 @@ For further reference see
 https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import warnings
 import weakref
-from pathlib import Path
+from collections.abc import Callable
 from tempfile import mkstemp
+from typing import Any, Literal
 
 import cdsapi
 import numpy as np
@@ -24,6 +27,7 @@ from dask.array import arctan2, sqrt
 from dask.utils import SerializableLock
 from numpy import atleast_1d
 
+from atlite._types import ERA5RetrievalParams, PathLike
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
 
@@ -34,8 +38,8 @@ except ImportError:
     # for Python verions < 3.7:
     import contextlib
 
-    @contextlib.contextmanager
-    def nullcontext():
+    @contextlib.contextmanager  # type: ignore[no-redef]
+    def nullcontext():  # type: ignore[misc]
         yield
 
 
@@ -62,16 +66,7 @@ features = {
 static_features = {"height"}
 
 
-def _add_height(ds):
-    """
-    Convert geopotential 'z' to geopotential height following [1].
-
-    References
-    ----------
-    [1] ERA5: surface elevation and orography, retrieved: 10.02.2019
-    https://confluence.ecmwf.int/display/CKB/ERA5%3A+surface+elevation+and+orography
-
-    """
+def _add_height(ds: xr.Dataset) -> xr.Dataset:
     g0 = 9.80665
     z = ds["z"]
     if "time" in z.coords:
@@ -81,40 +76,19 @@ def _add_height(ds):
     return ds
 
 
-def _rename_and_clean_coords(ds, add_lon_lat=True):
-    """
-    Rename 'longitude' and 'latitude' columns to 'x' and 'y' and fix roundings.
-
-    Optionally (add_lon_lat, default:True) preserves latitude and
-    longitude columns as 'lat' and 'lon'.
-    """
+def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dataset:
     ds = ds.rename({"longitude": "x", "latitude": "y", "valid_time": "time"})
-    # round coords since cds coords are float32 which would lead to mismatches
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
     )
-    ds = maybe_swap_spatial_dims(ds)
+    ds = maybe_swap_spatial_dims(ds)  # type: ignore[assignment]
     if add_lon_lat:
         ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
     ds = ds.drop_vars(["expver", "number"], errors="ignore")
+    return ds  # type: ignore[return-value]
 
-    return ds
 
-
-def get_data_wind(retrieval_params):
-    """
-    Retrieve and derive wind variables from ERA5 data.
-
-    Parameters
-    ----------
-    retrieval_params : dict
-        Parameters passed to :func:`retrieve_data`.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset containing wind speed, shear exponent, azimuth, and roughness.
-    """
+def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds = retrieve_data(
         variable=[
             "10m_u_component_of_wind",
@@ -135,49 +109,21 @@ def get_data_wind(retrieval_params):
         np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
     ).assign_attrs(units="", long_name="wind shear exponent")
 
-    # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
     azimuth = arctan2(ds["u100"], ds["v100"])
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
 
     ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
     ds = ds.rename({"fsr": "roughness"})
 
-    return ds
+    return ds  # type: ignore[no-any-return]
 
 
-def sanitize_wind(ds):
-    """
-    Sanitize wind data variables.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Retrieved wind dataset.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset with non-physical roughness values replaced.
-    """
+def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
     ds["roughness"] = ds["roughness"].where(ds["roughness"] >= 0.0, 2e-4)
     return ds
 
 
-def get_data_influx(retrieval_params):
-    """
-    Retrieve and derive solar influx variables from ERA5 data.
-
-    Parameters
-    ----------
-    retrieval_params : dict
-        Parameters passed to :func:`retrieve_data`.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset containing direct, diffuse, and top-of-atmosphere influx,
-        albedo, and solar position variables.
-    """
+def get_data_influx(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds = retrieve_data(
         variable=[
             "surface_net_solar_radiation",
@@ -201,15 +147,10 @@ def get_data_influx(retrieval_params):
     )
     ds = ds.drop_vars(["ssrd", "ssr"])
 
-    # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
         ds[a] = ds[a] / (60.0 * 60.0)
         ds[a].attrs["units"] = "W m**-2"
 
-    # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00 are labelled as "14:00"
-    # account by calculating the SolarPosition for the center of the interval for aggregation happens
-    # see https://github.com/PyPSA/atlite/issues/158
-    # Do not show DeprecationWarning from new SolarPosition calculation (#199)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         time_shift = pd.to_timedelta("-30 minutes")
@@ -218,42 +159,16 @@ def get_data_influx(retrieval_params):
 
     ds = xr.merge([ds, sp])
 
-    return ds
+    return ds  # type: ignore[no-any-return]
 
 
-def sanitize_influx(ds):
-    """
-    Sanitize solar influx data.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Retrieved influx dataset.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset with negative influx values clipped to zero.
-    """
+def sanitize_influx(ds: xr.Dataset) -> xr.Dataset:
     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
         ds[a] = ds[a].clip(min=0.0)
     return ds
 
 
-def get_data_temperature(retrieval_params):
-    """
-    Retrieve temperature-related ERA5 variables.
-
-    Parameters
-    ----------
-    retrieval_params : dict
-        Parameters passed to :func:`retrieve_data`.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset containing air, soil, and dewpoint temperature variables.
-    """
+def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds = retrieve_data(
         variable=[
             "2m_temperature",
@@ -272,63 +187,24 @@ def get_data_temperature(retrieval_params):
         }
     )
 
-    return ds
+    return ds  # type: ignore[no-any-return]
 
 
-def get_data_runoff(retrieval_params):
-    """
-    Retrieve runoff data from ERA5.
-
-    Parameters
-    ----------
-    retrieval_params : dict
-        Parameters passed to :func:`retrieve_data`.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset containing runoff values.
-    """
+def get_data_runoff(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds = retrieve_data(variable=["runoff"], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
     ds = ds.rename({"ro": "runoff"})
 
-    return ds
+    return ds  # type: ignore[no-any-return]
 
 
-def sanitize_runoff(ds):
-    """
-    Sanitize runoff data.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Retrieved runoff dataset.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset with negative runoff values clipped to zero.
-    """
+def sanitize_runoff(ds: xr.Dataset) -> xr.Dataset:
     ds["runoff"] = ds["runoff"].clip(min=0.0)
     return ds
 
 
-def get_data_height(retrieval_params):
-    """
-    Retrieve geopotential height data from ERA5.
-
-    Parameters
-    ----------
-    retrieval_params : dict
-        Parameters passed to :func:`retrieve_data`.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset containing surface height derived from geopotential.
-    """
+def get_data_height(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     ds = retrieve_data(variable="geopotential", **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
@@ -337,37 +213,17 @@ def get_data_height(retrieval_params):
     return ds
 
 
-def _area(coords):
-    # North, West, South, East. Default: global
+def _area(coords: dict[str, xr.DataArray]) -> list[float]:
     x0, x1 = coords["x"].min().item(), coords["x"].max().item()
     y0, y1 = coords["y"].min().item(), coords["y"].max().item()
     return [y1, x0, y0, x1]
 
 
-def retrieval_times(coords, static=False, monthly_requests=False):
-    """
-    Get list of retrieval cdsapi arguments for time dimension in coordinates.
-
-    If static is False, this function creates a query for each month and year
-    in the time axis in coords. This ensures not running into size query limits
-    of the cdsapi even with very (spatially) large cutouts.
-    If static is True, the function return only one set of parameters
-    for the very first time point.
-
-    Parameters
-    ----------
-    coords : atlite.Cutout.coords
-    static : bool, optional
-    monthly_requests : bool, optional
-        If True, the data is requested on a monthly basis. This is useful for
-        large cutouts, where the data is requested in smaller chunks. The
-        default is False
-
-    Returns
-    -------
-    list of dicts witht retrieval arguments
-
-    """
+def retrieval_times(
+    coords: dict[str, xr.DataArray],
+    static: bool = False,
+    monthly_requests: bool = False,
+) -> dict[str, Any] | list[dict[str, Any]]:
     time = coords["time"].to_index()
     if static:
         return {
@@ -377,8 +233,7 @@ def retrieval_times(coords, static=False, monthly_requests=False):
             "time": time[0].strftime("%H:00"),
         }
 
-    # Prepare request for all months and years
-    times = []
+    times: list[dict[str, Any]] = []
     for year in time.year.unique():
         t = time[time.year == year]
         if monthly_requests:
@@ -401,19 +256,7 @@ def retrieval_times(coords, static=False, monthly_requests=False):
     return times
 
 
-def noisy_unlink(path):
-    """
-    Delete a file and log failures.
-
-    Parameters
-    ----------
-    path : str | Path
-        File path to delete.
-
-    Returns
-    -------
-    None
-    """
+def noisy_unlink(path: PathLike) -> None:
     logger.debug(f"Deleting file {path}")
     try:
         os.unlink(path)
@@ -421,45 +264,14 @@ def noisy_unlink(path):
         logger.error(f"Unable to delete file {path}, as it is still in use.")
 
 
-def add_finalizer(ds: xr.Dataset, target: str | Path):
-    """
-    Register deletion of a temporary file when a dataset is closed.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Dataset associated with the temporary file.
-    target : str | Path
-        Path to the temporary file.
-
-    Returns
-    -------
-    None
-    """
+def add_finalizer(ds: xr.Dataset, target: PathLike) -> None:
     logger.debug(f"Adding finalizer for {target}")
-    weakref.finalize(ds._close.__self__.ds, noisy_unlink, target)
+    weakref.finalize(ds._close.__self__.ds, noisy_unlink, target)  # type: ignore[union-attr]
 
 
-def sanitize_chunks(chunks, **dim_mapping):
-    """
-    Map internal chunk dimension names to ERA5 dataset dimensions.
-
-    Parameters
-    ----------
-    chunks : dict or Any
-        Chunk specification passed to xarray.
-    **dim_mapping
-        Additional mappings from internal to external dimension names.
-
-    Returns
-    -------
-    dict or Any
-        Chunk mapping with renamed dimensions, or the original value if no
-        mapping is needed.
-    """
+def sanitize_chunks(chunks: Any, **dim_mapping: str) -> Any:
     dim_mapping = dict(time="valid_time", x="longitude", y="latitude") | dim_mapping
     if not isinstance(chunks, dict):
-        # preserve "auto" or None
         return chunks
 
     return {
@@ -470,38 +282,15 @@ def sanitize_chunks(chunks, **dim_mapping):
 
 
 def open_with_grib_conventions(
-    grib_file: str | Path, chunks=None, tmpdir: str | Path | None = None
+    grib_file: PathLike,
+    chunks: dict[str, int] | None = None,
+    tmpdir: PathLike | None = None,
 ) -> xr.Dataset:
-    """
-    Open a CDS GRIB file using ERA5-compatible conventions.
-
-    Parameters
-    ----------
-    grib_file : str | Path
-        Path to the GRIB file.
-    chunks : dict, optional
-        Chunk specification passed to xarray.
-    tmpdir : str | Path, optional
-        Temporary directory. If ``None``, the source file is removed when the
-        dataset is closed.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset with renamed variables and expanded dimensions matching CDS
-        netCDF conventions.
-    """
-    #
-    # Open grib file as dataset
-    # Options to open different datasets into a datasets of consistent hypercubes which are compatible netCDF
-    # There are options that might be relevant for e.g. for wave model data, that have been removed here
-    # to keep the code cleaner and shorter
     ds = xr.open_dataset(
         grib_file,
         engine="cfgrib",
         time_dims=["valid_time"],
         ignore_keys=["edition"],
-        # extra_coords={"expver": "valid_time"},
         coords_as_attributes=[
             "surface",
             "depthBelowLandLayer",
@@ -515,21 +304,6 @@ def open_with_grib_conventions(
         add_finalizer(ds, grib_file)
 
     def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
-        """
-        Expand missing dimensions while preserving dimension order.
-
-        Parameters
-        ----------
-        dataset : xarray.Dataset
-            Dataset to expand.
-        expand_dims : list of str
-            Dimensions that should exist in the dataset.
-
-        Returns
-        -------
-        xarray.Dataset
-            Dataset with missing dimensions inserted in a stable order.
-        """
         dims_required = [
             c for c in dataset.coords if c in expand_dims + list(dataset.dims)
         ]
@@ -542,7 +316,6 @@ def open_with_grib_conventions(
         return dataset
 
     logger.debug("Converting grib file to netcdf format")
-    # Variables and dimensions to rename if they exist in the dataset
     rename_vars = {
         "time": "forecast_reference_time",
         "step": "forecast_period",
@@ -552,7 +325,6 @@ def open_with_grib_conventions(
     rename_vars = {k: v for k, v in rename_vars.items() if k in ds}
     ds = ds.rename(rename_vars)
 
-    # safely expand dimensions in an xarray dataset to ensure that data for the new dimensions are in the dataset
     ds = safely_expand_dims(ds, ["valid_time", "pressure_level", "model_level"])
 
     return ds
@@ -561,33 +333,14 @@ def open_with_grib_conventions(
 def retrieve_data(
     product: str,
     chunks: dict[str, int] | None = None,
-    tmpdir: str | Path | None = None,
+    tmpdir: PathLike | None = None,
     lock: SerializableLock | None = None,
-    **updates,
+    **updates: Any,
 ) -> xr.Dataset:
-    """
-    Retrieve ERA5 data from the Climate Data Store.
-
-    Parameters
-    ----------
-    product : str
-        CDS product name.
-    chunks : dict, optional
-        Chunk specification passed to xarray.
-    tmpdir : str | Path, optional
-        Directory used for temporary downloads.
-    lock : dask.utils.SerializableLock, optional
-        Lock used while writing downloaded files.
-    **updates
-        Additional CDS request parameters. Must include ``year``, ``month``,
-        and ``variable``.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset containing the requested variables.
-    """
-    request = {"product_type": ["reanalysis"], "download_format": "unarchived"}
+    request: dict[str, Any] = {
+        "product_type": ["reanalysis"],
+        "download_format": "unarchived",
+    }
     request.update(updates)
 
     assert {"year", "month", "variable"}.issubset(request), (
@@ -602,73 +355,44 @@ def retrieve_data(
     result = client.retrieve(product, request)
 
     if lock is None:
-        lock = nullcontext()
+        lock = nullcontext()  # type: ignore[assignment]
 
-    suffix = f".{request['data_format']}"  # .netcdf or .grib
-    with lock:
+    suffix = f".{request['data_format']}"
+    with lock:  # type: ignore[union-attr]
         fd, target = mkstemp(suffix=suffix, dir=tmpdir)
         os.close(fd)
 
-        # Inform user about data being downloaded as "* variable (year-month)"
         timestr = f"{request['year']}-{request['month']}"
         variables = atleast_1d(request["variable"])
         varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
         logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
         result.download(target)
 
-    # Convert from grib to netcdf locally, same conversion as in CDS backend
     if request["data_format"] == "grib":
         ds = open_with_grib_conventions(target, chunks=chunks, tmpdir=tmpdir)
     else:
         ds = xr.open_dataset(target, chunks=sanitize_chunks(chunks))
         if tmpdir is None:
-            add_finalizer(target)
+            add_finalizer(ds, target)
 
     return ds
 
 
 def get_data(
-    cutout,
-    feature,
-    tmpdir,
-    lock=None,
-    data_format="grib",
-    monthly_requests=False,
-    concurrent_requests=False,
-    **creation_parameters,
-):
-    """
-    Retrieve and format ERA5 data for a cutout feature.
-
-    Parameters
-    ----------
-    cutout : atlite.Cutout
-        Cutout defining the requested spatiotemporal domain.
-    feature : str
-        Feature name defined in :data:`atlite.datasets.era5.features`.
-    tmpdir : str | Path
-        Directory used for temporary files.
-    lock : dask.utils.SerializableLock, optional
-        Lock used while writing downloaded files.
-    data_format : str, optional
-        Download format, typically ``"grib"`` or ``"netcdf"``.
-    monthly_requests : bool, optional
-        Whether to split requests by month.
-    concurrent_requests : bool, optional
-        Whether monthly requests should be submitted concurrently.
-    **creation_parameters
-        Additional creation options. Supports ``sanitize``.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset containing the requested feature variables.
-    """
+    cutout: Any,
+    feature: str,
+    tmpdir: PathLike,
+    lock: SerializableLock | None = None,
+    data_format: Literal["grib", "netcdf"] = "grib",
+    monthly_requests: bool = False,
+    concurrent_requests: bool = False,
+    **creation_parameters: Any,
+) -> xr.Dataset:
     coords = cutout.coords
 
     sanitize = creation_parameters.get("sanitize", True)
 
-    retrieval_params = {
+    retrieval_params: ERA5RetrievalParams = {
         "product": "reanalysis-era5-single-levels",
         "area": _area(coords),
         "chunks": cutout.chunks,
@@ -678,38 +402,32 @@ def get_data(
         "data_format": data_format,
     }
 
-    func = globals().get(f"get_data_{feature}")
-    sanitize_func = globals().get(f"sanitize_{feature}")
+    func: Callable[[ERA5RetrievalParams], xr.Dataset] | None = globals().get(
+        f"get_data_{feature}"
+    )
+    sanitize_func: Callable[[xr.Dataset], xr.Dataset] | None = globals().get(
+        f"sanitize_{feature}"
+    )
 
     logger.info(f"Requesting data for feature {feature}...")
 
-    def retrieve_once(time):
-        """
-        Retrieve and optionally sanitize one temporal ERA5 request.
-
-        Parameters
-        ----------
-        time : dict
-            Time selection arguments for a single CDS request.
-
-        Returns
-        -------
-        xarray.Dataset
-            Retrieved dataset for the requested time slice.
-        """
-        ds = func({**retrieval_params, **time})
+    def retrieve_once(time: dict[str, Any]) -> xr.Dataset:
+        ds = func({**retrieval_params, **time})  # type: ignore[misc, typeddict-item]
         if sanitize and sanitize_func is not None:
             ds = sanitize_func(ds)
         return ds
 
     if feature in static_features:
-        return retrieve_once(retrieval_times(coords, static=True)).squeeze()
+        static_times = retrieval_times(coords, static=True)
+        assert isinstance(static_times, dict)
+        return retrieve_once(static_times).squeeze()  # type: ignore[no-any-return]
 
     time_chunks = retrieval_times(coords, monthly_requests=monthly_requests)
+    assert isinstance(time_chunks, list)
     if concurrent_requests:
         delayed_datasets = [delayed(retrieve_once)(chunk) for chunk in time_chunks]
         datasets = compute(*delayed_datasets)
     else:
         datasets = map(retrieve_once, time_chunks)
 
-    return xr.concat(datasets, dim="time").sel(time=coords["time"])
+    return xr.concat(datasets, dim="time").sel(time=coords["time"])  # type: ignore[no-any-return]

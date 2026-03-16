@@ -12,13 +12,20 @@ The cordex dataset module has not been ported to atlite v0.2, yet. Use atlite v0
 for the time being!
 """
 
+from __future__ import annotations
+
 import glob
 import os
+from collections.abc import Generator
 from itertools import groupby
 from operator import itemgetter
+from typing import Any
 
+import numpy as np
 import pandas as pd
 import xarray as xr
+
+from atlite._types import PathLike
 
 # Model and CRS Settings
 model = "MPI-M-MPI-ESM-LR"
@@ -29,69 +36,35 @@ crs = 4326  # TODO
 # RotProj(dict(proj='ob_tran', o_proj='latlong', lon_0=180, o_lon_p=-162, o_lat_p=39.25))
 
 
-def rename_and_clean_coords(ds):
-    """
-    Rename CORDEX grid coordinates and drop unused metadata.
-
-    Parameters
-    ----------
-    ds : xarray.Dataset
-        Input CORDEX dataset.
-
-    Returns
-    -------
-    xarray.Dataset
-        Dataset with ``rlon`` and ``rlat`` renamed to ``x`` and ``y`` and
-        unused coordinates or variables removed.
-    """
+def rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
     ds = ds.rename({"rlon": "x", "rlat": "y"})
-    # drop some coordinates and variables we do not use
     ds = ds.drop(
         (set(ds.coords) | set(ds.data_vars)) & {"bnds", "height", "rotated_pole"}
     )
     return ds
 
 
-def prepare_data_cordex(fn, year, months, oldname, newname, xs, ys):
-    """
-    Prepare time-varying CORDEX data for selected months.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    year : int
-        Target year.
-    months : list[int]
-        Months to extract from the file.
-    oldname : str
-        Original variable name in the source dataset.
-    newname : str
-        Target variable name.
-    xs : slice or array-like
-        X-coordinate selection.
-    ys : slice or array-like
-        Y-coordinate selection.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        Each requested year-month together with the prepared dataset slice.
-    """
+def prepare_data_cordex(
+    fn: PathLike,
+    year: int,
+    months: list[int],
+    oldname: str,
+    newname: str,
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.rename({oldname: newname})
         ds = ds.sel(x=xs, y=ys)
 
         if newname in {"influx", "outflux"}:
-            # shift averaged data to beginning of bin
             ds = ds.assign_coords(
                 time=(
                     pd.to_datetime(ds.coords["time"].values) - pd.Timedelta(hours=1.5)
                 )
             )
         elif newname in {"runoff"}:
-            # shift and fill 6hr average data to beginning of 3hr bins
             t = pd.to_datetime(ds.coords["time"].values)
             ds = ds.reindex(method="bfill", time=(t - pd.Timedelta(hours=3.0)).union(t))
 
@@ -99,32 +72,15 @@ def prepare_data_cordex(fn, year, months, oldname, newname, xs, ys):
             yield (year, m), ds.sel(time=f"{year}-{m}")
 
 
-def prepare_static_data_cordex(fn, year, months, oldname, newname, xs, ys):
-    """
-    Prepare static CORDEX data for selected months.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    year : int
-        Target year.
-    months : list[int]
-        Months to associate with the static data.
-    oldname : str
-        Original variable name in the source dataset.
-    newname : str
-        Target variable name.
-    xs : slice or array-like
-        X-coordinate selection.
-    ys : slice or array-like
-        Y-coordinate selection.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        Each requested year-month together with the static dataset.
-    """
+def prepare_static_data_cordex(
+    fn: PathLike,
+    year: int,
+    months: list[int],
+    oldname: str,
+    newname: str,
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.rename({oldname: newname})
@@ -134,31 +90,15 @@ def prepare_static_data_cordex(fn, year, months, oldname, newname, xs, ys):
             yield (year, m), ds
 
 
-def prepare_weather_types_cordex(fn, year, months, oldname, newname, xs, ys):
-    """
-    Prepare monthly CORDEX weather type slices.
-
-    Parameters
-    ----------
-    fn : str or path-like
-        Source file path.
-    year : int
-        Target year.
-    months : list[int]
-        Months to extract from the file.
-    oldname : str
-        Original variable name in the source dataset.
-    newname : str
-        Target variable name.
-    xs, ys : slice or array-like
-        Unused placeholders kept for API compatibility with other CORDEX
-        preparation helpers.
-
-    Yields
-    ------
-    tuple[tuple[int, int], xarray.Dataset]
-        Each requested year-month together with the renamed dataset slice.
-    """
+def prepare_weather_types_cordex(
+    fn: PathLike,
+    year: int,
+    months: list[int],
+    oldname: str,
+    newname: str,
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
     with xr.open_dataset(fn) as ds:
         ds = ds.rename({oldname: newname})
         for m in months:
@@ -166,35 +106,15 @@ def prepare_weather_types_cordex(fn, year, months, oldname, newname, xs, ys):
 
 
 def prepare_meta_cordex(
-    xs, ys, year, month, template, height_config, module, model=model
-):
-    """
-    Prepare CORDEX metadata for a cutout month.
-
-    Parameters
-    ----------
-    xs : slice or array-like
-        X-coordinate selection.
-    ys : slice or array-like
-        Y-coordinate selection.
-    year : int
-        Target year.
-    month : int
-        Target month.
-    template : str
-        File name template for the reference dataset.
-    height_config : dict
-        Height dataset configuration.
-    module : module
-        Dataset module namespace.
-    model : str, default ``model``
-        CORDEX model identifier.
-
-    Returns
-    -------
-    xarray.Dataset
-        Metadata dataset with spatial, temporal, and height information.
-    """
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    year: int,
+    month: int,
+    template: str,
+    height_config: dict[str, Any],
+    module: Any,
+    model: str = "MPI-M-MPI-ESM-LR",
+) -> xr.Dataset:
     fn = next(glob.iglob(template.format(year=year, model=model)))
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
@@ -214,46 +134,26 @@ def prepare_meta_cordex(
 
     meta["height"] = ds["height"]
 
-    return meta
+    return meta  # type: ignore[no-any-return]
 
 
 def tasks_yearly_cordex(
-    xs, ys, yearmonths, prepare_func, template, oldname, newname, meta_attrs
-):
-    """
-    Create yearly CORDEX preparation task specifications.
-
-    Parameters
-    ----------
-    xs : slice or array-like
-        X-coordinate selection.
-    ys : slice or array-like
-        Y-coordinate selection.
-    yearmonths : list[tuple[int, int]]
-        Requested year-month pairs.
-    prepare_func : callable
-        Preparation function to execute for each task.
-    template : str
-        File name template for yearly input files.
-    oldname : str
-        Original variable name in the source dataset.
-    newname : str
-        Target variable name.
-    meta_attrs : dict
-        Metadata attributes containing the CORDEX model identifier.
-
-    Returns
-    -------
-    list[dict]
-        Task dictionaries grouped by year.
-    """
+    xs: slice | np.ndarray[Any, Any],
+    ys: slice | np.ndarray[Any, Any],
+    yearmonths: list[tuple[int, int]],
+    prepare_func: Any,
+    template: str,
+    oldname: str,
+    newname: str,
+    meta_attrs: dict[str, Any],
+) -> list[dict[str, Any]]:
     model = meta_attrs["model"]
 
     if not isinstance(xs, slice):
-        first, second, last = xs.values[[0, 1, -1]]
+        first, second, last = xs.values[[0, 1, -1]]  # type: ignore[attr-defined]
         xs = slice(first - 0.1 * (second - first), last + 0.1 * (second - first))
     if not isinstance(ys, slice):
-        first, second, last = ys.values[[0, 1, -1]]
+        first, second, last = ys.values[[0, 1, -1]]  # type: ignore[attr-defined]
         ys = slice(first - 0.1 * (second - first), last + 0.1 * (second - first))
 
     return [
@@ -271,124 +171,136 @@ def tasks_yearly_cordex(
     ]
 
 
-weather_data_config = {
-    "influx": dict(
-        tasks_func=tasks_yearly_cordex,
-        prepare_func=prepare_data_cordex,
-        oldname="rsds",
-        newname="influx",
-        template=os.path.join(
-            config.cordex_dir,  # noqa: F821
-            "{model}",
-            "influx",
-            "rsds_*_{year}*.nc",
+weather_data_config: dict[str, dict[str, Any]] = {}
+try:
+    from atlite import config  # type: ignore[attr-defined]  # noqa: F401
+
+    weather_data_config = {
+        "influx": dict(
+            tasks_func=tasks_yearly_cordex,
+            prepare_func=prepare_data_cordex,
+            oldname="rsds",
+            newname="influx",
+            template=os.path.join(
+                config.cordex_dir,  # noqa: F821
+                "{model}",
+                "influx",
+                "rsds_*_{year}*.nc",
+            ),
         ),
-    ),
-    "outflux": dict(
-        tasks_func=tasks_yearly_cordex,
-        prepare_func=prepare_data_cordex,
-        oldname="rsus",
-        newname="outflux",
-        template=os.path.join(
-            config.cordex_dir,  # noqa: F821
-            "{model}",
-            "outflux",
-            "rsus_*_{year}*.nc",
+        "outflux": dict(
+            tasks_func=tasks_yearly_cordex,
+            prepare_func=prepare_data_cordex,
+            oldname="rsus",
+            newname="outflux",
+            template=os.path.join(
+                config.cordex_dir,  # noqa: F821
+                "{model}",
+                "outflux",
+                "rsus_*_{year}*.nc",
+            ),
         ),
-    ),
-    "temperature": dict(
-        tasks_func=tasks_yearly_cordex,
-        prepare_func=prepare_data_cordex,
-        oldname="tas",
-        newname="temperature",
+        "temperature": dict(
+            tasks_func=tasks_yearly_cordex,
+            prepare_func=prepare_data_cordex,
+            oldname="tas",
+            newname="temperature",
+            template=os.path.join(
+                config.cordex_dir,  # noqa: F821
+                "{model}",
+                "temperature",
+                "tas_*_{year}*.nc",
+            ),
+        ),
+        "humidity": dict(
+            tasks_func=tasks_yearly_cordex,
+            prepare_func=prepare_data_cordex,
+            oldname="hurs",
+            newname="humidity",
+            template=os.path.join(
+                config.cordex_dir,  # noqa: F821
+                "{model}",
+                "humidity",
+                "hurs_*_{year}*.nc",
+            ),
+        ),
+        "wnd10m": dict(
+            tasks_func=tasks_yearly_cordex,
+            prepare_func=prepare_data_cordex,
+            oldname="sfcWind",
+            newname="wnd10m",
+            template=os.path.join(
+                config.cordex_dir,  # noqa: F821
+                "{model}",
+                "wind",
+                "sfcWind_*_{year}*.nc",
+            ),
+        ),
+        "roughness": dict(
+            tasks_func=tasks_yearly_cordex,
+            prepare_func=prepare_static_data_cordex,
+            oldname="rlst",
+            newname="roughness",
+            template=os.path.join(
+                config.cordex_dir,  # noqa: F821
+                "{model}",
+                "roughness",
+                "rlst_*.nc",
+            ),
+        ),
+        "runoff": dict(
+            tasks_func=tasks_yearly_cordex,
+            prepare_func=prepare_data_cordex,
+            oldname="mrro",
+            newname="runoff",
+            template=os.path.join(
+                config.cordex_dir,  # noqa: F821
+                "{model}",
+                "runoff",
+                "mrro_*_{year}*.nc",
+            ),
+        ),
+        "height": dict(
+            tasks_func=tasks_yearly_cordex,
+            prepare_func=prepare_static_data_cordex,
+            oldname="orog",
+            newname="height",
+            template=os.path.join(
+                config.cordex_dir,  # noqa: F821
+                "{model}",
+                "altitude",
+                "orog_*.nc",
+            ),
+        ),
+        "CWT": dict(
+            tasks_func=tasks_yearly_cordex,
+            prepare_func=prepare_weather_types_cordex,
+            oldname="CWT",
+            newname="CWT",
+            template=os.path.join(
+                config.cordex_dir,  # noqa: F821
+                "{model}",
+                "weather_types",
+                "CWT_*_{year}*.nc",
+            ),
+        ),
+    }
+except ImportError:
+    pass
+
+meta_data_config: dict[str, Any] = {}
+try:
+    from atlite import config  # type: ignore[attr-defined]  # noqa: F401
+
+    meta_data_config = dict(
+        prepare_func=prepare_meta_cordex,
         template=os.path.join(
             config.cordex_dir,  # noqa: F821
             "{model}",
             "temperature",
             "tas_*_{year}*.nc",
         ),
-    ),
-    "humidity": dict(
-        tasks_func=tasks_yearly_cordex,
-        prepare_func=prepare_data_cordex,
-        oldname="hurs",
-        newname="humidity",
-        template=os.path.join(
-            config.cordex_dir,  # noqa: F821
-            "{model}",
-            "humidity",
-            "hurs_*_{year}*.nc",
-        ),
-    ),
-    "wnd10m": dict(
-        tasks_func=tasks_yearly_cordex,
-        prepare_func=prepare_data_cordex,
-        oldname="sfcWind",
-        newname="wnd10m",
-        template=os.path.join(
-            config.cordex_dir,  # noqa: F821
-            "{model}",
-            "wind",
-            "sfcWind_*_{year}*.nc",
-        ),
-    ),
-    "roughness": dict(
-        tasks_func=tasks_yearly_cordex,
-        prepare_func=prepare_static_data_cordex,
-        oldname="rlst",
-        newname="roughness",
-        template=os.path.join(
-            config.cordex_dir,  # noqa: F821
-            "{model}",
-            "roughness",
-            "rlst_*.nc",
-        ),
-    ),
-    "runoff": dict(
-        tasks_func=tasks_yearly_cordex,
-        prepare_func=prepare_data_cordex,
-        oldname="mrro",
-        newname="runoff",
-        template=os.path.join(
-            config.cordex_dir,  # noqa: F821
-            "{model}",
-            "runoff",
-            "mrro_*_{year}*.nc",
-        ),
-    ),
-    "height": dict(
-        tasks_func=tasks_yearly_cordex,
-        prepare_func=prepare_static_data_cordex,
-        oldname="orog",
-        newname="height",
-        template=os.path.join(
-            config.cordex_dir,  # noqa: F821
-            "{model}",
-            "altitude",
-            "orog_*.nc",
-        ),
-    ),
-    "CWT": dict(
-        tasks_func=tasks_yearly_cordex,
-        prepare_func=prepare_weather_types_cordex,
-        oldname="CWT",
-        newname="CWT",
-        template=os.path.join(
-            config.cordex_dir,  # noqa: F821
-            "{model}",
-            "weather_types",
-            "CWT_*_{year}*.nc",
-        ),
-    ),
-}
-
-meta_data_config = dict(
-    prepare_func=prepare_meta_cordex,
-    template=os.path.join(
-        config.cordex_dir,  # noqa: F821
-        "{model}",
-        "temperature",
-        "tas_*_{year}*.nc",
-    ),
-    height_config=weather_data_config["height"],
-)
+        height_config=weather_data_config["height"],
+    )
+except (ImportError, KeyError):
+    pass

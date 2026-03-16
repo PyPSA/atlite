@@ -58,7 +58,7 @@ Documentation = "https://atlite.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 
-dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff"]
+dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff", "mypy", "types-PyYAML"]
 
 docs = [
     "numpydoc==1.8.0",
@@ -120,3 +120,12 @@ ignore = [
     'D417', # Missing argument descriptions in the docstring
 
 ]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+exclude = ["test/", ".venv/", "build/"]

@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+from __future__ import annotations
+
 from warnings import warn
 
 import pandas as pd
@@ -9,8 +11,10 @@ import xarray as xr
 from dask.array import arccos, arcsin, arctan2, cos, radians, sin
 from numpy import pi
 
+from atlite._types import Dataset
 
-def SolarPosition(ds, time_shift="0H"):
+
+def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset:
     """
     Compute solar azimuth and altitude.
 
@@ -57,12 +61,15 @@ def SolarPosition(ds, time_shift="0H"):
     }
 
     if rvs.issubset(set(ds.data_vars)):
-        return ds[rvs].rename({v: v.replace("solar_", "") for v in rvs})
+        return ds[rvs].rename({v: v.replace("solar_", "") for v in rvs})  # type: ignore[no-any-return]
 
     warn(
-        """The calculation method and handling of solar position variables will change.
-    The solar position will in the future be a permanent variables of a cutout.
-    Recreate your cutout to remove this warning and permanently include the solar position variables into your cutout.""",
+        (
+            "The calculation method and handling of solar position variables will "
+            "change. The solar position will in the future be a permanent variable of "
+            "a cutout. Recreate your cutout to remove this warning and permanently "
+            "include the solar position variables into your cutout."
+        ),
         DeprecationWarning,
     )
 
@@ -78,7 +85,7 @@ def SolarPosition(ds, time_shift="0H"):
     # Operations make new DataArray eager; reconvert to lazy dask arrays
     chunks = ds.chunksizes.get("time", "auto")
     if isinstance(chunks, tuple):
-        chunks = chunks[0]
+        chunks = chunks[0]  # type: ignore[assignment]
     n = n.chunk(chunks)
     hour = hour.chunk(chunks)
     minute = minute.chunk(chunks)
@@ -118,4 +125,4 @@ def SolarPosition(ds, time_shift="0H"):
     vars = {da.name: da for da in [alt, az]}
     solar_position = xr.Dataset(vars)
 
-    return solar_position
+    return solar_position  # type: ignore[no-any-return]

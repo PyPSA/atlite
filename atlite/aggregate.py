@@ -5,11 +5,25 @@
 Functions for aggregating results.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, cast
+
 import dask
+import pandas as pd
 import xarray as xr
 
+from atlite._types import DataArray
 
-def aggregate_matrix(da, matrix, index):
+if TYPE_CHECKING:
+    from scipy.sparse import spmatrix
+
+
+def aggregate_matrix(
+    da: DataArray,
+    matrix: spmatrix,
+    index: pd.Index,
+) -> DataArray:
     """
     Aggregate spatial data with a sparse matrix.
 
@@ -32,7 +46,7 @@ def aggregate_matrix(da, matrix, index):
     if isinstance(da.data, dask.array.core.Array):
         da = da.stack(spatial=("y", "x"))
         da = da.chunk(dict(spatial=-1))
-        return xr.apply_ufunc(
+        result = xr.apply_ufunc(
             lambda da: da * matrix.T,
             da,
             input_core_dims=[["spatial"]],
@@ -41,6 +55,7 @@ def aggregate_matrix(da, matrix, index):
             output_dtypes=[da.dtype],
             dask_gufunc_kwargs=dict(output_sizes={index.name: index.size}),
         ).assign_coords(**{index.name: index})
+        return cast(DataArray, result)
     else:
         da = da.stack(spatial=("y", "x")).transpose("spatial", "time")
         return xr.DataArray(matrix * da, [index, da.coords["time"]])
