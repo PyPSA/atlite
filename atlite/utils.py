@@ -35,6 +35,16 @@ Dataset: TypeAlias = xr.Dataset
 def migrate_from_cutout_directory(old_cutout_dir: PathLike, path: PathLike) -> Dataset:
     """
     Convert an old style cutout directory to new style netcdf file.
+
+    Returns
+    -------
+    xarray.Dataset
+        The migrated cutout data.
+
+    Raises
+    ------
+    MergeError
+        If automatic migration of multi-file datasets fails.
     """
     old_cutout_dir = Path(old_cutout_dir)
     with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:

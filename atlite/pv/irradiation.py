@@ -39,6 +39,11 @@ def DiffuseHorizontalIrrad(
     -------
     xarray.DataArray
         Diffuse horizontal irradiation.
+
+    Raises
+    ------
+    KeyError
+        If ``clearsky_model`` is not ``'simple'`` or ``'enhanced'``.
     """
     sinaltitude = sin(solar_position["altitude"])
     influx_toa = ds["influx_toa"]
@@ -189,6 +194,11 @@ def _albedo(ds: Dataset, influx: DataArray) -> DataArray:
     -------
     xarray.DataArray
         Surface albedo.
+
+    Raises
+    ------
+    AssertionError
+        If the dataset lacks both ``albedo`` and ``outflux`` variables.
     """
     if "albedo" in ds:
         return ds["albedo"]
@@ -262,6 +272,8 @@ def TiltedIrradiation(
         incorporates ambient air temperature and relative humidity.
         NOTE: this option is only used if the used climate dataset
         doesn't provide direct and diffuse irradiation separately!
+    tracking : int or str, default 0
+        Type of solar tracking. 0 for fixed, other values for tracking modes.
     altitude_threshold : float
         Threshold for solar altitude in degrees. Values in range (0, altitude_threshold]
         will be set to zero. Default value equals 1.0 degrees.
@@ -278,6 +290,12 @@ def TiltedIrradiation(
     result : xarray.DataArray
         The desired irradiation quantity on the tilted surface.
 
+    Raises
+    ------
+    AssertionError
+        If the dataset lacks required irradiation variables.
+    ValueError
+        If ``irradiation`` is not a recognized type.
     """
     influx_toa = ds["influx_toa"]
 

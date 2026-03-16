@@ -64,11 +64,10 @@ def make_latitude_optimal() -> Callable[
     [2] http://dx.doi.org/10.1016/j.solener.2010.12.014
     [3] https://github.com/renewables-ninja/gsee/blob/master/gsee/pv.py
 
-    Parameters
-    ----------
-    lat : float
-        Latitude in degrees.
-
+    Returns
+    -------
+    callable
+        Orientation function returning latitude-optimal ``slope`` and ``azimuth``.
     """
 
     def latitude_optimal(
@@ -211,6 +210,16 @@ def SurfaceOrientation(
     """
     Compute cos(incidence) for slope and panel azimuth.
 
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with ``cosincidence``, ``slope``, and ``azimuth``.
+
+    Raises
+    ------
+    AssertionError
+        If ``tracking`` is not a recognized tracking type.
+
     References
     ----------
     [1] Sproul, A. B., Derivation of the solar geometric relationships using
@@ -299,18 +308,8 @@ def SurfaceOrientation(
 
     cosincidence = cosincidence.clip(min=0)
 
-    return xr.Dataset(
-        {
-            "cosincidence": cosincidence,
-            "slope": surface_slope,
-            "azimuth": surface_azimuth,
-        }
-    )
-
-    return xr.Dataset(
-        {
-            "cosincidence": cosincidence,
-            "slope": surface_slope,
-            "azimuth": surface_azimuth,
-        }
-    )
+    return xr.Dataset({
+        "cosincidence": cosincidence,
+        "slope": surface_slope,
+        "azimuth": surface_azimuth,
+    })

@@ -25,6 +25,11 @@ def _power_huld(
     [1] Huld, T. et al., 2010. Mapping the performance of PV modules,
     effects of module type and data averaging. Solar Energy, 84(2),
     p.324-338. DOI: 10.1016/j.solener.2009.12.002
+
+    Returns
+    -------
+    xr.DataArray
+        Specific generation in kWh/kWp.
     """
     # normalized module temperature
     T_ = (pc["c_temp_amb"] * t_amb + pc["c_temp_irrad"] * irradiance) - pc["r_tmod"]
@@ -61,6 +66,11 @@ def _power_bofinger(
     [2] Hans Beyer, Gerd Heilscher and Stefan Bofinger, 2004. A robust
     model for the MPP performance of different types of PV-modules
     applied for the performance check of grid connected systems.
+
+    Returns
+    -------
+    xr.DataArray
+        Specific generation in kWh/kWp.
     """
     fraction = (pc["NOCT"] - pc["Tamb"]) / pc["Intc"]
 
@@ -100,6 +110,11 @@ def SolarPanelModel(
     -------
     xarray.DataArray
         Specific PV power output.
+
+    Raises
+    ------
+    AssertionError
+        If the panel model is unknown.
     """
     model: Literal["huld", "bofinger"] = pc.get("model", "huld")
 

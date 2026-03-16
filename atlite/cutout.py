@@ -137,6 +137,8 @@ class Cutout:
         data : xr.Dataset
             User provided cutout data. Save the cutout using `Cutout.to_file()`
             afterwards.
+        **cutoutparams
+            Additional keyword arguments. See Other Parameters below.
 
         Other Parameters
         ----------------
@@ -150,12 +152,19 @@ class Cutout:
             Whether to interpolate NaN's in the SARAH data. This takes effect for
             sarah data which has missing data for areas where dawn and
             nightfall happens (ca. 30 min gap).
-        gebco_path: str
+        gebco_path : str
             Path to find the gebco NetCDF file. Only necessary when including
             the gebco module.
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.
+
+        Raises
+        ------
+        TypeError
+            If required arguments are missing when building a new cutout.
+        ValueError
+            If ``bounds`` has an invalid format.
 
         """
         path = Path(path).with_suffix(".nc")
@@ -289,9 +298,12 @@ class Cutout:
         """
         xs, ys = self.coords["x"].values, self.coords["y"].values
         dx, dy = self.dx, self.dy
-        return np.array(
-            [xs[0] - dx / 2, xs[-1] + dx / 2, ys[0] - dy / 2, ys[-1] + dy / 2]
-        )
+        return np.array([
+            xs[0] - dx / 2,
+            xs[-1] + dx / 2,
+            ys[0] - dy / 2,
+            ys[-1] + dy / 2,
+        ])
 
     @property
     def bounds(self) -> NDArray:
@@ -536,6 +548,9 @@ class Cutout:
         Parameters
         ----------
         shapes : Collection of shapely polygons
+            Shapes to compute the indicator matrix for.
+        shapes_crs : int or CRS, default 4326
+            CRS of the shapes.
 
         Returns
         -------
@@ -558,8 +573,10 @@ class Cutout:
 
         Parameters
         ----------
-        orig : Collection of shapely polygons
-        dest : Collection of shapely polygons
+        shapes : Collection of shapely polygons
+            Shapes to compute the intersection matrix for.
+        shapes_crs : int or CRS, default 4326
+            CRS of the shapes.
 
         Returns
         -------
@@ -597,6 +614,11 @@ class Cutout:
     def uniform_layout(self) -> DataArray:
         """
         Get a uniform capacity layout for all grid cells.
+
+        Returns
+        -------
+        xr.DataArray
+            Layout with value 1 for all grid cells.
         """
         return xr.DataArray(1, [self.coords["y"], self.coords["x"]])
 
@@ -625,7 +647,12 @@ class Cutout:
 
     def equals(self, other: Any) -> bool:
         """
-        It overrides xarray.Dataset.equals and ignores the path attribute in the comparison
+        It overrides xarray.Dataset.equals and ignores the path attribute in the comparison.
+
+        Returns
+        -------
+        bool
+            Whether the two cutouts are equal.
         """
         if not isinstance(other, Cutout):
             return NotImplemented  # type: ignore[no-any-return]

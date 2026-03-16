@@ -89,13 +89,11 @@ def get_coords(
     x = slice(*sorted([x.start, x.stop]))
     y = slice(*sorted([y.start, y.stop]))
 
-    ds = xr.Dataset(
-        {
-            "x": np.round(np.arange(-180, 180, dx), 9),
-            "y": np.round(np.arange(-90, 90, dy), 9),
-            "time": pd.date_range(start="1940", end="now", freq=dt),
-        }
-    )
+    ds = xr.Dataset({
+        "x": np.round(np.arange(-180, 180, dx), 9),
+        "y": np.round(np.arange(-90, 90, dy), 9),
+        "time": pd.date_range(start="1940", end="now", freq=dt),
+    })
     ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
     ds = ds.sel(x=x, y=y, time=time)
     return cast("Dataset", ds)
@@ -175,7 +173,13 @@ def compute_indicatormatrix(
     Parameters
     ----------
     orig : Collection of shapely polygons
+        Origin polygons.
     dest : Collection of shapely polygons
+        Destination polygons.
+    orig_crs : int or CRS, default 4326
+        CRS of the origin polygons.
+    dest_crs : int or CRS, default 4326
+        CRS of the destination polygons.
 
     Returns
     -------
@@ -226,7 +230,13 @@ def compute_intersectionmatrix(
     Parameters
     ----------
     orig : Collection of shapely polygons
+        Origin polygons.
     dest : Collection of shapely polygons
+        Destination polygons.
+    orig_crs : int or CRS, default 4326
+        CRS of the origin polygons.
+    dest_crs : int or CRS, default 4326
+        CRS of the destination polygons.
 
     Returns
     -------
@@ -566,6 +576,8 @@ class ExclusionContainer:
             Buffer around the excluded areas in units of ExclusionContainer.crs.
             Use this to create a buffer around the excluded/included area.
             The default is 0.
+        nodata : int, optional
+            Value to use for nodata pixels. The default is 255.
         invert : bool, optional
             Whether to exclude (False) or include (True) the specified areas
             of the raster. The default is False.
@@ -615,6 +627,11 @@ class ExclusionContainer:
     def open_files(self) -> None:
         """
         Open rasters and load geometries.
+
+        Raises
+        ------
+        ValueError
+            If a raster has an invalid CRS and none is provided.
         """
         for d in self.rasters:
             raster = d["raster"]
@@ -705,6 +722,11 @@ class ExclusionContainer:
         transform : rasterion.Affine
             Affine transform of the mask.
 
+        Raises
+        ------
+        ValueError
+            If only some of ``dst_transform``, ``dst_crs``, ``dst_shape`` are given.
+
         """
         if isinstance(geometry, gpd.GeoDataFrame):
             geometry = geometry.geometry
@@ -756,8 +778,9 @@ class ExclusionContainer:
             Geometry of which the eligible area is computed. If the series contains
             more than one geometry, the eligble area of the combined geometries is
             computed.
-        ax : matplotlib Axis, optional
-        set_title: boolean, optional
+        ax : matplotlib.axes.Axes, optional
+            Axes to plot on. If None, a new figure is created.
+        set_title : boolean, optional
             Whether to set the title with additional information on the share of
             eligible land.
         dst_transform : rasterio.Affine
@@ -1040,7 +1063,8 @@ def regrid(
     return cast(
         "Dataset | DataArray",
         (
-            xr.apply_ufunc(
+            xr
+            .apply_ufunc(
                 _reproject,
                 ds,
                 input_core_dims=[[namey, namex]],
@@ -1053,12 +1077,10 @@ def regrid(
                 kwargs=kwargs,
             )
             .rename({"yout": namey, "xout": namex})
-            .assign_coords(
-                **{
-                    namey: (namey, dimy.data, ds.coords[namey].attrs),
-                    namex: (namex, dimx.data, ds.coords[namex].attrs),
-                }
-            )
+            .assign_coords(**{
+                namey: (namey, dimy.data, ds.coords[namey].attrs),
+                namex: (namex, dimx.data, ds.coords[namex].attrs),
+            })
             .assign_attrs(**ds.attrs)
         ),
     )

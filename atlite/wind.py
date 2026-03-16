@@ -57,8 +57,12 @@ def extrapolate_wind_speed(
 
     Raises
     ------
+    AssertionError
+        If no wind speed variables are found in the dataset.
     RuntimeError
-        If the cutout is missing the data for the chosen `method`
+        If the cutout is missing the data for the chosen `method`.
+    ValueError
+        If ``method`` is not ``'logarithmic'`` or ``'power'``.
 
     References
     ----------
@@ -75,9 +79,9 @@ def extrapolate_wind_speed(
         return ds[to_name]
 
     if from_height is None:
-        heights: NDArray = np.asarray(
-            [int(str(s)[3:-1]) for s in ds if re.match(r"wnd\d+m", str(s))]
-        )
+        heights: NDArray = np.asarray([
+            int(str(s)[3:-1]) for s in ds if re.match(r"wnd\d+m", str(s))
+        ])
 
         if len(heights) == 0:
             raise AssertionError("Wind speed is not in dataset")
@@ -113,14 +117,12 @@ def extrapolate_wind_speed(
             f"Interpolation method must be 'logarithmic' or 'power',  but is: {method}"
         )
 
-    wnd_spd.attrs.update(
-        {
-            "long name": (
-                f"extrapolated {to_height} m wind speed using {method_desc} "
-                f" and {from_height} m wind speed"
-            ),
-            "units": "m s**-1",
-        }
-    )
+    wnd_spd.attrs.update({
+        "long name": (
+            f"extrapolated {to_height} m wind speed using {method_desc} "
+            f" and {from_height} m wind speed"
+        ),
+        "units": "m s**-1",
+    })
 
     return cast("DataArray", wnd_spd.rename(to_name))

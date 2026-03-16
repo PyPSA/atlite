@@ -77,6 +77,10 @@ def convert_and_aggregate(
 
     Parameters
     ----------
+    cutout : atlite.Cutout
+        The cutout to process.
+    convert_func : callable
+        Callback like convert_wind, convert_pv.
     matrix : N x S - xr.DataArray or sp.sparse.csr_matrix or None
         If given, it is used to aggregate the grid cells to buses.
         N is the number of buses, S the number of spatial coordinates, in the
@@ -112,11 +116,8 @@ def convert_and_aggregate(
         Whether to show a progress bar.
     dask_kwargs : dict, default {}
         Dict with keyword arguments passed to ``dask.compute``.
-
-    Other Parameters
-    ----------------
-    convert_func : Function
-        Callback like convert_wind, convert_pv
+    **convert_kwds : Any
+        Additional keyword arguments passed to ``convert_func``.
 
     Returns
     -------
@@ -144,6 +145,11 @@ def convert_and_aggregate(
     units : xr.DataArray (optional)
         The installed units per bus in MW corresponding to ``layout``
         (only if ``return_capacity`` is True).
+
+    Raises
+    ------
+    ValueError
+        If deprecated parameters conflict or invalid arguments are provided.
 
     See Also
     --------
@@ -448,8 +454,10 @@ def coefficient_of_performance(
     difference from source to sink. The defaults for either source (c0, c1, c2)
     are based on a quadratic regression in [1].
 
-    Paramterers
-    -----------
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        The cutout to process.
     source : str
         The heat source. Can be 'air' or 'soil'.
     sink_T : float
@@ -460,6 +468,13 @@ def coefficient_of_performance(
         The linear regression coefficient for the temperature difference.
     c2 : float
         The quadratic regression coefficient for the temperature difference.
+    **params
+        Additional keyword arguments passed to `convert_and_aggregate`.
+
+    Returns
+    -------
+    xr.DataArray
+        Coefficient of performance time-series.
 
     Reference
     ---------
@@ -555,6 +570,8 @@ def heat_demand(
 
     Parameters
     ----------
+    cutout : atlite.Cutout
+        The cutout to process.
     threshold : float
         Outside temperature in degrees Celsius above which there is no
         heat demand.
@@ -565,6 +582,13 @@ def heat_demand(
         temperature (e.g. due to water heating).
     hour_shift : float
         Time shift relative to UTC for taking daily average
+    **params : Any
+        Additional keyword arguments passed to `convert_and_aggregate`.
+
+    Returns
+    -------
+    xr.DataArray
+        Heat demand time-series.
 
     Note
     ----
@@ -659,6 +683,8 @@ def cooling_demand(
 
     Parameters
     ----------
+    cutout : atlite.Cutout
+        The cutout to process.
     threshold : float
         Outside temperature in degrees Celsius below which there is no
         cooling demand. The default 23C is taken as a more liberal
@@ -672,6 +698,13 @@ def cooling_demand(
         temperature (e.g. due to ventilation).
     hour_shift : float
         Time shift relative to UTC for taking daily average
+    **params : Any
+        Additional keyword arguments passed to `convert_and_aggregate`.
+
+    Returns
+    -------
+    xr.DataArray
+        Cooling demand time-series.
 
     Note
     ----
@@ -762,7 +795,8 @@ def solar_thermal(
 
     Parameters
     ----------
-    cutout : cutout
+    cutout : atlite.Cutout
+        The cutout to process.
     orientation : dict or str or function
         Panel orientation with slope and azimuth (units of degrees), or
         'latitude_optimal'.
@@ -775,6 +809,13 @@ def solar_thermal(
         Parameters for model in [1] (defaults to 0.8 and 3., respectively)
     t_store : float
         Store temperature in degree Celsius
+    **params : Any
+        Additional keyword arguments passed to `convert_and_aggregate`.
+
+    Returns
+    -------
+    xr.DataArray
+        Solar thermal generation time-series.
 
     Note
     ----
@@ -865,6 +906,8 @@ def wind(
 
     Parameters
     ----------
+    cutout : atlite.Cutout
+        The cutout to process.
     turbine : str or dict
         A turbineconfig dictionary with the keys 'hub_height' for the
         hub height and 'V', 'POW' defining the power curve.
@@ -885,6 +928,8 @@ def wind(
     interpolation_method : {"logarithmic", "power"}
         Law to interpolate wind speed to turbine hub height. Refer to
         :py:func:`atlite.wind.extrapolate_wind_speed`.
+    **params : Any
+        Additional keyword arguments passed to `convert_and_aggregate`.
 
     Returns
     -------
@@ -896,6 +941,11 @@ def wind(
     ----
     You can also specify all of the general conversion arguments
     documented in the :py:func:`convert_and_aggregate` function.
+
+    References
+    ----------
+    .. [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
+       1074 – 1088. doi:10.1016/j.energy.2015.09.071
 
     Examples
     --------
@@ -911,11 +961,6 @@ def wind(
     >>> cf.dims
     ('time', 'y', 'x')
     >>> location_cf = cf.sel(x=6.9, y=53.1, method="nearest")
-
-    References
-    ----------
-    .. [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
-       1074 – 1088. doi:10.1016/j.energy.2015.09.071
 
     """
     turbine_config = get_windturbineconfig(
@@ -992,6 +1037,8 @@ def irradiation(
 
     Parameters
     ----------
+    cutout : atlite.Cutout
+        The cutout to process.
     orientation : str, dict or callback
         Panel orientation can be chosen from either
         'latitude_optimal', a constant orientation {'slope': 0.0,
@@ -1016,6 +1063,8 @@ def irradiation(
         model. The default choice of None will choose dependending on
         data availability, since the 'enhanced' model also
         incorporates ambient air temperature and relative humidity.
+    **params : Any
+        Additional keyword arguments passed to `convert_and_aggregate`.
 
     Returns
     -------
@@ -1094,6 +1143,8 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
 
     Parameters
     ----------
+    cutout : atlite.Cutout
+        The cutout to process.
     panel : str or dict
         Panel config dictionary with the parameters for the electrical
         model in [3]. Alternatively, name of yaml file stored in
@@ -1115,6 +1166,8 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
         model. The default choice of None will choose dependending on
         data availability, since the 'enhanced' model also
         incorporates ambient air temperature and relative humidity.
+    **params : Any
+        Additional keyword arguments passed to `convert_and_aggregate`.
 
     Returns
     -------
@@ -1126,19 +1179,6 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     ----
     You can also specify all of the general conversion arguments
     documented in the :py:func:`convert_and_aggregate` function.
-
-    Examples
-    --------
-    Aggregate PV generation to bus regions:
-
-    >>> pv = cutout.pv(panel="CSi", orientation="latitude_optimal",
-    ...                matrix=matrix, index=buses, per_unit=True)
-
-    Get per-cell capacity factor time series (no aggregation):
-
-    >>> cf = cutout.pv(panel="CSi", orientation="latitude_optimal",
-    ...                aggregate_time=False)
-    >>> location_cf = cf.sel(x=6.9, y=53.1, method="nearest")
 
     References
     ----------
@@ -1152,6 +1192,19 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
     for the MPP Performance of Different Types of PV-Modules Applied for
     the Performance Check of Grid Connected Systems, Freiburg, June 2004.
     Eurosun (ISES Europe Solar Congress).
+
+    Examples
+    --------
+    Aggregate PV generation to bus regions:
+
+    >>> pv = cutout.pv(panel="CSi", orientation="latitude_optimal",
+    ...                matrix=matrix, index=buses, per_unit=True)
+
+    Get per-cell capacity factor time series (no aggregation):
+
+    >>> cf = cutout.pv(panel="CSi", orientation="latitude_optimal",
+    ...                aggregate_time=False)
+    >>> location_cf = cf.sel(x=6.9, y=53.1, method="nearest")
 
     """
     if isinstance(panel, (str | Path)):
@@ -1185,6 +1238,11 @@ def convert_csp(ds, installation):
     -------
     xr.DataArray
         CSP output as specific yield per unit of reference capacity.
+
+    Raises
+    ------
+    ValueError
+        If the CSP technology option is not recognized.
     """
     solar_position = SolarPosition(ds)
 
@@ -1224,6 +1282,8 @@ def csp(cutout, installation, technology=None, **params):
 
     Parameters
     ----------
+    cutout : atlite.Cutout
+        The cutout to process.
     installation: str or xr.DataArray
         CSP installation details determining the solar field efficiency dependent on
         the local solar position. Can be either the name of one of the standard
@@ -1234,6 +1294,8 @@ def csp(cutout, installation, technology=None, **params):
         Overwrite CSP technology from the installation configuration. The technology
         affects which direct radiation is considered. Either 'parabolic trough' (DHI)
         or 'solar tower' (DNI).
+    **params
+        Additional keyword arguments passed to `convert_and_aggregate`.
 
     Returns
     -------
@@ -1362,7 +1424,8 @@ def runoff(
             normalize_using_yearly_i = normalize_using_yearly_i.astype(int)
 
         years = (
-            pd.Series(pd.to_datetime(result.coords["time"].values).year)
+            pd
+            .Series(pd.to_datetime(result.coords["time"].values).year)
             .value_counts()
             .loc[lambda x: x > 8700]
             .index.intersection(normalize_using_yearly_i)
@@ -1394,6 +1457,8 @@ def hydro(
 
     Parameters
     ----------
+    cutout : atlite.Cutout
+        The cutout to process.
     plants : pd.DataFrame
         Run-of-river plants or dams with lon, lat columns.
     hydrobasins : str|gpd.GeoDataFrame
@@ -1406,6 +1471,13 @@ def hydro(
         better for coarser resolution).
     show_progress : bool
         Whether to display progressbars.
+    **kwargs
+        Additional keyword arguments passed to `convert_and_aggregate`.
+
+    Returns
+    -------
+    xr.DataArray
+        Inflow time-series for each plant.
 
     References
     ----------
@@ -1555,6 +1627,7 @@ def line_rating(
     Parameters
     ----------
     cutout : atlite.Cutout
+        The cutout to process.
     shapes : geopandas.GeoSeries
         Line shapes of the lines.
     line_resistance : float/series

@@ -33,16 +33,18 @@ def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset
         instantenous data (e.g. SARAH). Must be parseable by pandas.to_timedelta().
         Default: "0H"
 
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with ``altitude`` and ``azimuth`` in radians.
+
     References
     ----------
-    [1] Michalsky, J. J., The astronomical almanac’s algorithm for approximate
+    [1] Michalsky, J. J., The astronomical almanac's algorithm for approximate
     solar position (1950–2050), Solar Energy, 40(3), 227–235 (1988).
     [2] Sproul, A. B., Derivation of the solar geometric relationships using
     vector analysis, Renewable Energy, 32(7), 1187–1205 (2007).
     [3] Kalogirou, Solar Energy Engineering (2009).
-
-    More accurate algorithms would be
-    ---------------------------------
     [4] I. Reda and A. Andreas, Solar position algorithm for solar
     radiation applications. Solar Energy, vol. 76, no. 5, pp. 577-589, 2004.
     [5] I. Reda and A. Andreas, Corrigendum to Solar position algorithm for
@@ -50,11 +52,6 @@ def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset
     [6] Blanc, P., & Wald, L., The SG2 algorithm for a fast and accurate
     computation of the position of the sun for multi-decadal time period, Solar
     Energy, 86(10), 3072–3083 (2012).
-
-    The unfortunately quite computationally intensive SPA algorithm [4,5] has
-    been implemented using numba or plain numpy for a single location at
-    https://github.com/pvlib/pvlib-python/blob/master/pvlib/spa.py.
-
     """
     # Act like a getter if these return variables are already in ds
     rvs = {

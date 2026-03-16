@@ -81,6 +81,7 @@ include = ["atlite"]
 
 [tool.ruff]
 extend-include = ['*.ipynb']
+preview = true
 
 [tool.ruff.lint]
 select = [
@@ -99,6 +100,7 @@ select = [
     'NPY',    # numpy
     'G',      # flake8-logging-format
     'PTH',    # flake8-use-pathlib
+    'DOC',    # pydoclint: docstring-signature alignment
     'RUF013', # ruff: implicit-optional
     'RUF100', # ruff: unused-noqa
 ]
@@ -125,9 +127,10 @@ ignore = [
     'D205', # 1 blank line required between summary line and description
     'D400', # First line should end with a period
     'D415', # First line should end with a period, question mark, or exclamation point
-    'D417', # Missing argument descriptions in the docstring
-
 ]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
 [tool.mypy]
 python_version = "3.11"

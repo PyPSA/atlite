@@ -123,7 +123,8 @@ def available_features(module: str | Sequence[str] | None = None) -> pd.Series[s
     """
     features: dict[str, Any] = {name: m.features for name, m in datamodules.items()}
     features_frame: pd.Series[Any] = (
-        pd.DataFrame(features)
+        pd
+        .DataFrame(features)
         .unstack()
         .dropna()
         .rename_axis(index=["module", "feature"])
@@ -211,6 +212,7 @@ def cutout_prepare(
     Parameters
     ----------
     cutout : atlite.Cutout
+        The cutout to process.
     features : str/list, optional
         Feature(s) to be prepared. The default slice(None) results in all
         available features.
@@ -250,8 +252,10 @@ def cutout_prepare(
 
     Raises
     ------
-    NotADirectoryError
-        The argument `tmpdir` is not a valid path.
+    ValueError
+        If ``tmpdir`` is None.
+    FileNotFoundError
+        If ``tmpdir`` does not exist.
 
     """
     if dask_kwargs is None:

@@ -94,6 +94,11 @@ def get_windturbineconfig(
     config : dict
         Config with details on the turbine
 
+    Raises
+    ------
+    KeyError
+        If ``turbine`` is not a str, Path, or dict.
+
     """
     if not isinstance(turbine, (str, Path, dict)):
         raise KeyError(
@@ -195,12 +200,10 @@ def get_cspinstallationconfig(installation: str | PathLike) -> CSPConfig:
     da = da.to_xarray()["value"]
 
     da = da.rename({"azimuth": "azimuth [deg]", "altitude": "altitude [deg]"})
-    da = da.assign_coords(
-        {
-            "altitude": radians(da["altitude [deg]"]),
-            "azimuth": radians(da["azimuth [deg]"]),
-        }
-    )
+    da = da.assign_coords({
+        "altitude": radians(da["altitude [deg]"]),
+        "azimuth": radians(da["azimuth [deg]"]),
+    })
     da = da.swap_dims({"altitude [deg]": "altitude", "azimuth [deg]": "azimuth"})
 
     da = da.chunk("auto")
@@ -225,6 +228,11 @@ def solarpanel_rated_capacity_per_unit(panel: str | PathLike | PanelConfig) -> f
     -------
     float
         Rated capacity per unit area or per panel, depending on the model.
+
+    Raises
+    ------
+    ValueError
+        If the panel model is unknown.
     """
     if isinstance(panel, (str, Path)):
         panel = get_solarpanelconfig(panel)
@@ -357,6 +365,11 @@ def _validate_turbine_config_dict(
     dict
         validated and potentially modified turbine config dict
 
+    Raises
+    ------
+    ValueError
+        If the turbine config dict is missing required keys or has invalid values.
+
     """
     if not all(key in turbine for key in ("POW", "V", "P", "hub_height")):
         err_msg = (
@@ -438,6 +451,10 @@ def get_oedb_windturbineconfig(
     >>> get_oedb_windturbineconfig(name="E-53/800", manufacturer="Enercon")
     {'V': ..., 'POW': ..., ...}
 
+    Raises
+    ------
+    RuntimeError
+        If no turbine or multiple turbines match the search.
     """
     # Parse information of different allowed 'turbine' values
     if isinstance(search, int):
@@ -544,6 +561,6 @@ def get_oedb_windturbineconfig(
 _oedb_turbines = None
 windturbines = arrowdict({p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
 solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
-cspinstallations = arrowdict(
-    {p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.yaml")}
-)
+cspinstallations = arrowdict({
+    p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.yaml")
+})

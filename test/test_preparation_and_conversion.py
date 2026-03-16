@@ -107,7 +107,8 @@ def pv_test(cutout, time=TIME, skip_optimal_sum_test=False):
         return_capacity=True,
     )
     cap_per_region = (
-        cells.assign(cap_factor=cap_factor.stack(spatial=["y", "x"]).values)
+        cells
+        .assign(cap_factor=cap_factor.stack(spatial=["y", "x"]).values)
         .groupby("regions")
         .cap_factor.sum()
     )
@@ -229,7 +230,7 @@ def csp_test(cutout):
     Test the atlite.Cutout.csp function with different for different settings
     and technologies.
     """
-    ## Test technology = "solar tower"
+    # Test technology = "solar tower"
     st = cutout.csp(atlite.cspinstallations.SAM_solar_tower, capacity_factor=True)
 
     assert st.notnull().all()
@@ -241,7 +242,7 @@ def csp_test(cutout):
     ll = cutout.csp(atlite.cspinstallations.lossless_installation)
     assert (st <= ll).all()
 
-    ## Test technology = "parabolic trough"
+    # Test technology = "parabolic trough"
     pt = cutout.csp(atlite.cspinstallations.SAM_parabolic_trough, capacity_factor=True)
 
     assert pt.notnull().all()
@@ -511,9 +512,7 @@ class TestERA5:
 
     @staticmethod
     def test_pv_era5_2days_crossing_months(cutout_era5_2days_crossing_months):
-        """
-        See https://github.com/PyPSA/atlite/issues/256.
-        """
+        """See https://github.com/PyPSA/atlite/issues/256."""  # noqa: DOC201
         return pv_test(cutout_era5_2days_crossing_months, time="2013-03-01")
 
     @staticmethod
@@ -533,6 +532,11 @@ class TestERA5:
         Note: the above page says that ERA5 data are made available with a *3* month delay,
         but experience shows that it's with a *2* month delay. Hence the test with previous
         vs. second-previous month.
+
+        Returns
+        -------
+        object
+            PV test result.
         """
         today = date.today()
         first_day_this_month = today.replace(day=1)
