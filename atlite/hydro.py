@@ -112,9 +112,12 @@ def determine_basins(
         f"but received `type(hydrobasins) = {type(hydrobasins)}`"
     )
 
-    missing_columns = pd.Index(
-        ["HYBAS_ID", "DIST_MAIN", "NEXT_DOWN", "geometry"]
-    ).difference(hydrobasins.columns)
+    missing_columns = pd.Index([
+        "HYBAS_ID",
+        "DIST_MAIN",
+        "NEXT_DOWN",
+        "geometry",
+    ]).difference(hydrobasins.columns)
     assert missing_columns.empty, (
         "Couldn't find the column(s) {} in the hydrobasins dataset.".format(
             ", ".join(missing_columns)

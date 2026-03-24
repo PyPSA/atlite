@@ -178,13 +178,11 @@ def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     )
 
     ds = _rename_and_clean_coords(ds)
-    return ds.rename(
-        {
-            "t2m": "temperature",
-            "stl4": "soil temperature",
-            "d2m": "dewpoint temperature",
-        }
-    )
+    return ds.rename({
+        "t2m": "temperature",
+        "stl4": "soil temperature",
+        "d2m": "dewpoint temperature",
+    })
 
 
 def get_data_runoff(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
