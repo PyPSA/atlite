@@ -2,9 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
-import warnings
-
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 
@@ -15,8 +14,6 @@ class MockCutout:
     def __init__(self, data):
         self.data = data
         grid_coords = np.array([(x, y) for y in data.y.values for x in data.x.values])
-        import pandas as pd
-
         self.grid = pd.DataFrame(grid_coords, columns=["x", "y"])
 
 
@@ -28,25 +25,23 @@ def identity_convert(ds, **kwargs):
 def cutout():
     rng = np.random.default_rng(42)
     times = xr.date_range("2020-01-01", periods=24, freq="h")
-    data = xr.Dataset(
-        {
-            "var": xr.DataArray(
-                rng.random((24, 3, 4)),
-                dims=["time", "y", "x"],
-                coords={
-                    "time": times,
-                    "y": [50.0, 51.0, 52.0],
-                    "x": [5.0, 6.0, 7.0, 8.0],
-                },
-            )
-        }
-    )
+    data = xr.Dataset({
+        "var": xr.DataArray(
+            rng.random((24, 3, 4)),
+            dims=["time", "y", "x"],
+            coords={
+                "time": times,
+                "y": [50.0, 51.0, 52.0],
+                "x": [5.0, 6.0, 7.0, 8.0],
+            },
+        )
+    })
     return MockCutout(data)
 
 
 class TestAggregateTimeNoSpatial:
-    def test_aggregate_time_false_returns_timeseries(self, cutout):
-        result = convert_and_aggregate(cutout, identity_convert, aggregate_time=False)
+    def test_aggregate_time_none_returns_timeseries(self, cutout):
+        result = convert_and_aggregate(cutout, identity_convert, aggregate_time=None)
         assert "time" in result.dims
 
     def test_aggregate_time_mean(self, cutout):
@@ -61,56 +56,50 @@ class TestAggregateTimeNoSpatial:
         expected = cutout.data["var"].sum("time")
         np.testing.assert_allclose(result.values, expected.values)
 
-    def test_default_no_spatial_aggregates_over_time(self, cutout):
-        result = convert_and_aggregate(cutout, identity_convert)
+    def test_legacy_default_no_spatial_sums_over_time(self, cutout):
+        with pytest.warns(FutureWarning, match="aggregate_time='legacy'"):
+            result = convert_and_aggregate(cutout, identity_convert)
         expected = cutout.data["var"].sum("time")
         assert "time" not in result.dims
         xr.testing.assert_identical(result, expected)
 
 
+@pytest.fixture
+def layout(cutout):
+    return xr.DataArray(
+        np.ones((3, 4)),
+        dims=["y", "x"],
+        coords={"y": cutout.data.y, "x": cutout.data.x},
+    )
+
+
+@pytest.fixture
+def result_ts(cutout, layout):
+    return convert_and_aggregate(
+        cutout, identity_convert, layout=layout, aggregate_time=None
+    )
+
+
 class TestAggregateTimeWithSpatial:
-    def test_aggregate_time_mean_with_layout(self, cutout):
-        layout = xr.DataArray(
-            np.ones((3, 4)),
-            dims=["y", "x"],
-            coords={"y": cutout.data.y, "x": cutout.data.x},
-        )
-        result_ts = convert_and_aggregate(
-            cutout,
-            identity_convert,
-            layout=layout,
-            aggregate_time=False,
-        )
+    def test_aggregate_time_mean_with_layout(self, cutout, layout, result_ts):
         result_mean = convert_and_aggregate(
-            cutout,
-            identity_convert,
-            layout=layout,
-            aggregate_time="mean",
+            cutout, identity_convert, layout=layout, aggregate_time="mean"
         )
         assert "time" in result_ts.dims
         assert "time" not in result_mean.dims
         np.testing.assert_allclose(result_mean.values, result_ts.mean("time").values)
 
-    def test_aggregate_time_sum_with_layout(self, cutout):
-        layout = xr.DataArray(
-            np.ones((3, 4)),
-            dims=["y", "x"],
-            coords={"y": cutout.data.y, "x": cutout.data.x},
-        )
-        result_ts = convert_and_aggregate(
-            cutout,
-            identity_convert,
-            layout=layout,
-            aggregate_time=False,
-        )
+    def test_aggregate_time_sum_with_layout(self, cutout, layout, result_ts):
         result_sum = convert_and_aggregate(
-            cutout,
-            identity_convert,
-            layout=layout,
-            aggregate_time="sum",
+            cutout, identity_convert, layout=layout, aggregate_time="sum"
         )
         assert "time" not in result_sum.dims
         np.testing.assert_allclose(result_sum.values, result_ts.sum("time").values)
+
+    def test_legacy_default_with_layout_returns_timeseries(self, cutout, layout):
+        with pytest.warns(FutureWarning, match="aggregate_time='legacy'"):
+            result = convert_and_aggregate(cutout, identity_convert, layout=layout)
+        assert "time" in result.dims
 
     def test_aggregate_time_with_per_unit(self, cutout):
         layout = xr.DataArray(
@@ -132,32 +121,25 @@ class TestAggregateTimeWithSpatial:
             identity_convert,
             layout=layout,
             per_unit=True,
-            aggregate_time=False,
+            aggregate_time=None,
         )
         np.testing.assert_allclose(result_pu.values, result_pu_ts.mean("time").values)
 
 
 class TestDeprecatedParams:
     def test_capacity_factor_warns(self, cutout):
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with pytest.warns(FutureWarning, match="capacity_factor is deprecated"):
             result = convert_and_aggregate(
                 cutout, identity_convert, capacity_factor=True
-            )
-            assert any(
-                "capacity_factor is deprecated" in str(warning.message) for warning in w
             )
         assert "time" not in result.dims
 
     def test_capacity_factor_timeseries_warns(self, cutout):
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with pytest.warns(
+            FutureWarning, match="capacity_factor_timeseries is deprecated"
+        ):
             result = convert_and_aggregate(
                 cutout, identity_convert, capacity_factor_timeseries=True
-            )
-            assert any(
-                "capacity_factor_timeseries is deprecated" in str(warning.message)
-                for warning in w
             )
         assert "time" in result.dims
 
@@ -175,6 +157,10 @@ class TestInvalidArgs:
     def test_invalid_aggregate_time_value(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
             convert_and_aggregate(cutout, identity_convert, aggregate_time="invalid")  # type: ignore[arg-type]
+
+    def test_aggregate_time_false_raises(self, cutout):
+        with pytest.raises(ValueError, match="aggregate_time must be"):
+            convert_and_aggregate(cutout, identity_convert, aggregate_time=False)  # type: ignore[arg-type]
 
     def test_aggregate_time_true_raises(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
