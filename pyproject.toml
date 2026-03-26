@@ -129,6 +129,10 @@ ignore = [
     'D415', # First line should end with a period, question mark, or exclamation point
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"test/**" = ["D103"]
+"examples/**" = ["D103"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 

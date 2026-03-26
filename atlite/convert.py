@@ -71,14 +71,6 @@ def _aggregate_time(
     return da
 
 
-def _aggregate_time(da: xr.DataArray, method: str | None) -> xr.DataArray:
-    if method == "sum":
-        return da.sum("time", keep_attrs=True)
-    if method == "mean":
-        return da.mean("time", keep_attrs=True)
-    return da
-
-
 def convert_and_aggregate(
     cutout: Cutout,
     convert_func: Callable[..., Any],
