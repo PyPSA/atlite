@@ -29,7 +29,7 @@ from atlite.datasets import modules as datamodules
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
-    from atlite._types import DataArray, Dataset, PathLike
+    from atlite._types import DataArray, DataFormat, Dataset, PathLike
     from atlite.cutout import Cutout
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def get_features(
     cutout: Cutout,
     module: str,
     features: Iterable[str],
-    data_format: str,
+    data_format: DataFormat,
     tmpdir: PathLike | None = None,
     monthly_requests: bool = False,
     concurrent_requests: bool = False,
@@ -190,7 +190,7 @@ def cutout_prepare(
     cutout: Cutout,
     features: str | Sequence[str] | None = None,
     tmpdir: PathLike | None = None,
-    data_format: str = "grib",
+    data_format: DataFormat = "grib",
     overwrite: bool = False,
     compression: dict[str, Any] | None = None,
     show_progress: bool = False,

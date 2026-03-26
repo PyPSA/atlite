@@ -59,6 +59,7 @@ if TYPE_CHECKING:
     class CSPConfig(TypedDict):
         efficiency: DataArray
         path: PathLike
+        technology: NotRequired[str]
         name: NotRequired[str]
         source: NotRequired[str]
 

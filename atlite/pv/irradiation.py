@@ -11,13 +11,23 @@ import numpy as np
 from dask.array import cos, fmax, fmin, radians, sin, sqrt
 
 if TYPE_CHECKING:
-    from atlite._types import DataArray, Dataset
+    from atlite._types import (
+        ClearskyModel,
+        DataArray,
+        Dataset,
+        IrradiationType,
+        TrackingType,
+        TrigonModel,
+    )
 
 logger = logging.getLogger(__name__)
 
 
 def DiffuseHorizontalIrrad(
-    ds: Dataset, solar_position: Dataset, clearsky_model: str | None, influx: DataArray
+    ds: Dataset,
+    solar_position: Dataset,
+    clearsky_model: ClearskyModel | None,
+    influx: DataArray,
 ) -> DataArray:
     """
     Estimate diffuse horizontal irradiation from total horizontal irradiation.
@@ -244,11 +254,11 @@ def TiltedIrradiation(
     ds: Dataset,
     solar_position: Dataset,
     surface_orientation: Dataset,
-    trigon_model: str,
-    clearsky_model: str | None,
-    tracking: int | str = 0,
+    trigon_model: TrigonModel,
+    clearsky_model: ClearskyModel | None,
+    tracking: TrackingType | int = 0,
     altitude_threshold: float = 1.0,
-    irradiation: str = "total",
+    irradiation: IrradiationType = "total",
 ) -> DataArray:
     """
     Calculate the irradiation on a tilted surface.

@@ -72,6 +72,19 @@ static_features = {"height"}
 
 
 def _add_height(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Convert geopotential to height and replace the 'z' variable.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing geopotential variable 'z'.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with 'height' variable in meters, 'z' removed.
+    """
     g0 = 9.80665
     z = ds["z"]
     if "time" in z.coords:
@@ -81,6 +94,24 @@ def _add_height(ds: xr.Dataset) -> xr.Dataset:
 
 
 def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dataset:
+    """
+    Standardize coordinate names and clean up auxiliary variables.
+
+    Renames longitude/latitude/valid_time to x/y/time, rounds spatial
+    coordinates, and drops 'expver'/'number' if present.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Raw ERA5 dataset with original coordinate names.
+    add_lon_lat : bool, optional
+        Whether to add 'lon'/'lat' as coordinate aliases. Default True.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with standardized coordinates.
+    """
     ds = ds.rename({"longitude": "x", "latitude": "y", "valid_time": "time"})
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
@@ -92,6 +123,22 @@ def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dat
 
 
 def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+    """
+    Retrieve and compute wind speed variables from ERA5.
+
+    Downloads u/v wind components at 10m and 100m, computes wind speed,
+    shear exponent, azimuth angle, and surface roughness.
+
+    Parameters
+    ----------
+    retrieval_params : ERA5RetrievalParams
+        CDS API retrieval parameters including area, time, and format.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variables: wnd100m, wnd_shear_exp, wnd_azimuth, roughness.
+    """
     ds = retrieve_data(
         variable=[
             "10m_u_component_of_wind",
@@ -120,11 +167,41 @@ def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
 
 
 def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Clip negative roughness values to a minimum of 2e-4.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Wind dataset containing 'roughness' variable.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with corrected roughness values.
+    """
     ds["roughness"] = ds["roughness"].where(ds["roughness"] >= 0.0, 2e-4)
     return ds
 
 
 def get_data_influx(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+    """
+    Retrieve and compute solar radiation variables from ERA5.
+
+    Downloads radiation components, converts from J/m² to W/m², computes
+    albedo, diffuse radiation, and solar position (altitude/azimuth).
+
+    Parameters
+    ----------
+    retrieval_params : ERA5RetrievalParams
+        CDS API retrieval parameters including area, time, and format.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variables: influx_toa, influx_direct, influx_diffuse,
+        albedo, solar_altitude, solar_azimuth.
+    """
     ds = retrieve_data(
         variable=[
             "surface_net_solar_radiation",
@@ -162,12 +239,40 @@ def get_data_influx(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
 
 
 def sanitize_influx(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Clip negative radiation values to zero.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Influx dataset with influx_direct, influx_diffuse, influx_toa.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with non-negative radiation values.
+    """
     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
         ds[a] = ds[a].clip(min=0.0)
     return ds
 
 
 def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+    """
+    Retrieve temperature variables from ERA5.
+
+    Downloads 2m temperature, soil temperature (level 4), and 2m dewpoint.
+
+    Parameters
+    ----------
+    retrieval_params : ERA5RetrievalParams
+        CDS API retrieval parameters including area, time, and format.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variables: temperature, soil temperature, dewpoint temperature.
+    """
     ds = retrieve_data(
         variable=[
             "2m_temperature",
@@ -186,6 +291,19 @@ def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
 
 
 def get_data_runoff(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+    """
+    Retrieve runoff data from ERA5.
+
+    Parameters
+    ----------
+    retrieval_params : ERA5RetrievalParams
+        CDS API retrieval parameters including area, time, and format.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with 'runoff' variable.
+    """
     ds = retrieve_data(variable=["runoff"], **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
@@ -193,11 +311,37 @@ def get_data_runoff(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
 
 
 def sanitize_runoff(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Clip negative runoff values to zero.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Runoff dataset containing 'runoff' variable.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with non-negative runoff values.
+    """
     ds["runoff"] = ds["runoff"].clip(min=0.0)
     return ds
 
 
 def get_data_height(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+    """
+    Retrieve geopotential and convert to terrain height.
+
+    Parameters
+    ----------
+    retrieval_params : ERA5RetrievalParams
+        CDS API retrieval parameters including area, time, and format.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with 'height' variable in meters.
+    """
     ds = retrieve_data(variable="geopotential", **retrieval_params)
 
     ds = _rename_and_clean_coords(ds)
@@ -205,6 +349,19 @@ def get_data_height(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
 
 
 def _area(coords: dict[str, xr.DataArray]) -> list[float]:
+    """
+    Extract CDS API bounding box from coordinates.
+
+    Parameters
+    ----------
+    coords : dict[str, xr.DataArray]
+        Coordinate arrays with 'x' (longitude) and 'y' (latitude).
+
+    Returns
+    -------
+    list[float]
+        Bounding box as [north, west, south, east].
+    """
     x0, x1 = coords["x"].min().item(), coords["x"].max().item()
     y0, y1 = coords["y"].min().item(), coords["y"].max().item()
     return [y1, x0, y0, x1]
@@ -215,6 +372,27 @@ def retrieval_times(
     static: bool = False,
     monthly_requests: bool = False,
 ) -> dict[str, Any] | list[dict[str, Any]]:
+    """
+    Generate time parameter chunks for CDS API requests.
+
+    Splits the time coordinate into year-based (or year-month-based) chunks
+    suitable for the CDS API query format.
+
+    Parameters
+    ----------
+    coords : dict[str, xr.DataArray]
+        Coordinate arrays with 'time' dimension.
+    static : bool, optional
+        If True, return a single time point (for time-invariant fields).
+    monthly_requests : bool, optional
+        If True, split requests by month within each year.
+
+    Returns
+    -------
+    dict[str, Any] or list[dict[str, Any]]
+        Single dict if static, otherwise list of dicts with
+        'year', 'month', 'day', 'time' keys.
+    """
     time = coords["time"].to_index()
     if static:
         return {
@@ -248,6 +426,14 @@ def retrieval_times(
 
 
 def noisy_unlink(path: PathLike) -> None:
+    """
+    Remove a file with debug logging, handling PermissionError gracefully.
+
+    Parameters
+    ----------
+    path : PathLike
+        Path to the file to delete.
+    """
     logger.debug("Deleting file %s", path)
     try:
         Path(path).unlink()
@@ -256,11 +442,40 @@ def noisy_unlink(path: PathLike) -> None:
 
 
 def add_finalizer(ds: xr.Dataset, target: PathLike) -> None:
+    """
+    Register a weak-reference callback to delete a temp file when the dataset
+    is garbage collected.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset whose lifetime controls the temp file.
+    target : PathLike
+        Path to the temporary file to clean up.
+    """
     logger.debug("Adding finalizer for %s", target)
     weakref.finalize(ds._close.__self__.ds, noisy_unlink, target)
 
 
 def sanitize_chunks(chunks: Any, **dim_mapping: str) -> Any:
+    """
+    Remap internal dimension names to ERA5/CDS dimension names in chunk specs.
+
+    Translates atlite dimension names (time, x, y) to the corresponding
+    ERA5 names (valid_time, longitude, latitude).
+
+    Parameters
+    ----------
+    chunks : Any
+        Chunk specification. If not a dict, returned as-is.
+    **dim_mapping : str
+        Additional or override dimension name mappings.
+
+    Returns
+    -------
+    Any
+        Remapped chunk dict, or original value if not a dict.
+    """
     dim_mapping = {
         "time": "valid_time",
         "x": "longitude",
@@ -281,6 +496,26 @@ def open_with_grib_conventions(
     chunks: dict[str, int] | None = None,
     tmpdir: PathLike | None = None,
 ) -> xr.Dataset:
+    """
+    Open a GRIB file using cfgrib with standardized coordinate conventions.
+
+    Renames forecast/pressure/model dimensions and expands missing dimensions.
+    If ``tmpdir`` is None, registers a finalizer to delete the file on GC.
+
+    Parameters
+    ----------
+    grib_file : PathLike
+        Path to the GRIB file.
+    chunks : dict[str, int] or None, optional
+        Dask chunk specification for lazy loading.
+    tmpdir : PathLike or None, optional
+        If set, the file is kept (managed externally).
+
+    Returns
+    -------
+    xr.Dataset
+        Opened dataset with standardized dimensions.
+    """
     ds = xr.open_dataset(
         grib_file,
         engine="cfgrib",
@@ -332,6 +567,30 @@ def retrieve_data(
     lock: SerializableLock | None = None,
     **updates: Any,
 ) -> xr.Dataset:
+    """
+    Download ERA5 data from the CDS API and return as an xarray Dataset.
+
+    Parameters
+    ----------
+    product : str
+        CDS product name (e.g. 'reanalysis-era5-single-levels').
+    chunks : dict[str, int] or None, optional
+        Dask chunk specification for lazy loading.
+    tmpdir : PathLike or None, optional
+        Directory for temporary download files. If None, files are
+        cleaned up via finalizer on GC.
+    lock : SerializableLock or None, optional
+        Lock for thread-safe file creation.
+    **updates : Any
+        Additional CDS API request parameters. Must include at least
+        'variable', 'year', and 'month'.
+
+    Returns
+    -------
+    xr.Dataset
+        Downloaded ERA5 data.
+
+    """
     request: dict[str, Any] = {
         "product_type": ["reanalysis"],
         "download_format": "unarchived",
@@ -383,6 +642,38 @@ def get_data(
     concurrent_requests: bool = False,
     **creation_parameters: Any,
 ) -> xr.Dataset:
+    """
+    Main entry point for downloading ERA5 data for a given feature.
+
+    Dispatches to feature-specific ``get_data_{feature}`` functions,
+    optionally applies ``sanitize_{feature}``, and concatenates time chunks.
+
+    Parameters
+    ----------
+    cutout : Cutout
+        Cutout object defining the spatial and temporal extent.
+    feature : str
+        Feature to retrieve (e.g. 'wind', 'influx', 'temperature',
+        'runoff', 'height').
+    tmpdir : PathLike
+        Directory for temporary download files.
+    lock : SerializableLock or None, optional
+        Lock for thread-safe file creation.
+    data_format : {{'grib', 'netcdf'}}, optional
+        Download format. Default 'grib'.
+    monthly_requests : bool, optional
+        If True, split API requests by month. Default False.
+    concurrent_requests : bool, optional
+        If True, use dask.delayed for parallel downloads. Default False.
+    **creation_parameters : Any
+        Additional parameters; 'sanitize' (bool, default True) controls
+        whether post-processing is applied.
+
+    Returns
+    -------
+    xr.Dataset
+        ERA5 data for the requested feature, aligned to cutout coordinates.
+    """
     coords = cutout.coords
 
     sanitize = creation_parameters.get("sanitize", True)

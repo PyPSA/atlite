@@ -419,7 +419,7 @@ def shape_availability(
     ----------
     geometry : geopandas.Series
         Geometry of which the eligible area is computed. If the series contains
-        more than one geometry, the eligble area of the combined geometries is
+        more than one geometry, the eligible area of the combined geometries is
         computed.
     excluder : atlite.gis.ExclusionContainer
         Container of all meta data or objects which to exclude, i.e.
@@ -429,7 +429,7 @@ def shape_availability(
     -------
     masked : np.array
         Mask whith eligible raster cells indicated by 1 and excluded cells by 0.
-    transform : rasterion.Affine
+    transform : rasterio.Affine
         Affine transform of the mask.
 
     """
@@ -703,7 +703,7 @@ class ExclusionContainer:
         ----------
         geometry : geopandas.Series
             Geometry of which the eligible area is computed. If the series contains
-            more than one geometry, the eligble area of the combined geometries is
+            more than one geometry, the eligible area of the combined geometries is
             computed.
         dst_transform : rasterio.Affine
             Transform of the target raster. Define if the availability
@@ -719,7 +719,7 @@ class ExclusionContainer:
         -------
         masked : np.array
             Mask whith eligible raster cells indicated by 1 and excluded cells by 0.
-        transform : rasterion.Affine
+        transform : rasterio.Affine
             Affine transform of the mask.
 
         Raises
@@ -769,14 +769,14 @@ class ExclusionContainer:
 
         This function uses its own default values for ``rasterio.plot.show`` and
         ``geopandas.GeoSeries.plot``. Therefore eligible land is drawn in green
-        Note that this funtion will likely fail if another CRS than the one of the
+        Note that this function will likely fail if another CRS than the one of the
         ExclusionContainer is used in the axis (e.g. cartopy projections).
 
         Parameters
         ----------
         geometry : geopandas.Series
             Geometry of which the eligible area is computed. If the series contains
-            more than one geometry, the eligble area of the combined geometries is
+            more than one geometry, the eligible area of the combined geometries is
             computed.
         ax : matplotlib.axes.Axes, optional
             Axes to plot on. If None, a new figure is created.
@@ -799,8 +799,8 @@ class ExclusionContainer:
 
         Returns
         -------
-        _type_
-            _description_
+        matplotlib.axes.Axes
+            Axes with the plotted availability.
 
         """
         if show_kwargs is None:

@@ -15,11 +15,11 @@ from numpy import pi
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from atlite._types import Dataset, NumericArray
+    from atlite._types import Dataset, NumericArray, OrientationName, TrackingType
 
 
 def get_orientation(
-    name: str | dict[str, Any], **params: Any
+    name: OrientationName | dict[str, Any], **params: Any
 ) -> Callable[[NumericArray, NumericArray, Dataset], dict[str, NumericArray]]:
     """
     Return an orientation factory by name.
@@ -205,10 +205,27 @@ def SurfaceOrientation(
     orientation: Callable[
         [NumericArray, NumericArray, Dataset], dict[str, NumericArray]
     ],
-    tracking: str | None = None,
+    tracking: TrackingType = None,
 ) -> Dataset:
     """
     Compute cos(incidence) for slope and panel azimuth.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Weather dataset containing ``lon`` and ``lat`` coordinates in degrees.
+    solar_position : xarray.Dataset
+        Dataset with solar position variables ``altitude`` and ``azimuth``
+        in radians.
+    orientation : callable
+        Function returning a dict with ``slope`` and ``azimuth`` (in radians)
+        given ``(lon, lat, solar_position)``. Typically produced by
+        :func:`get_orientation`.
+    tracking : {None, 'horizontal', 'tilted_horizontal', 'vertical', 'dual'}, optional
+        Tracking type. ``None`` for fixed panels, ``'horizontal'`` for 1-axis
+        horizontal tracking, ``'tilted_horizontal'`` for 1-axis horizontal
+        tracking of a tilted panel, ``'vertical'`` for 1-axis vertical
+        tracking, or ``'dual'`` for 2-axis tracking.
 
     Returns
     -------

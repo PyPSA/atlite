@@ -34,17 +34,25 @@ Dataset: TypeAlias = xr.Dataset
 
 def migrate_from_cutout_directory(old_cutout_dir: PathLike, path: PathLike) -> Dataset:
     """
-    Convert an old style cutout directory to new style netcdf file.
+    Convert an old-style cutout directory to a new-style netCDF file.
+
+    Parameters
+    ----------
+    old_cutout_dir : str or Path
+        Path to the legacy cutout directory containing ``meta.nc``.
+    path : str or Path
+        Output path for the migrated ``.nc`` file.
 
     Returns
     -------
-    xarray.Dataset
+    xr.Dataset
         The migrated cutout data.
 
     Raises
     ------
     MergeError
         If automatic migration of multi-file datasets fails.
+
     """
     old_cutout_dir = Path(old_cutout_dir)
     with xr.open_dataset(old_cutout_dir / "meta.nc") as meta:
@@ -105,17 +113,30 @@ def migrate_from_cutout_directory(old_cutout_dir: PathLike, path: PathLike) -> D
 
 
 def timeindex_from_slice(timeslice: Any) -> pd.DatetimeIndex:
+    """
+    Create an hourly DatetimeIndex from a slice with start/end month strings.
+
+    Parameters
+    ----------
+    timeslice : slice
+        Slice with start and end as month strings (e.g. ``"2013-01"``).
+
+    Returns
+    -------
+    pd.DatetimeIndex
+        Hourly index spanning the given months.
+    """
     end = pd.Timestamp(timeslice.end) + pd.offsets.DateOffset(months=1)
     return pd.date_range(timeslice.start, end, freq="1h", closed="left")
 
 
 class arrowdict(dict[str, Any]):
     """
-    A subclass of dict, which allows you to get items in the dict using the
-    attribute syntax!
+    Dict subclass enabling attribute-style access to items.
     """
 
     def __getattr__(self, item: str) -> Any:
+        """Retrieve a dict value as an attribute, raising AttributeError on missing keys."""  # noqa: DOC201, DOC501
         try:
             return self.__getitem__(item)
         except KeyError as e:
@@ -124,6 +145,7 @@ class arrowdict(dict[str, Any]):
     _re_pattern = re.compile("[a-zA-Z_][a-zA-Z0-9_]*")
 
     def __dir__(self) -> list[str]:
+        """List keys that are valid Python identifiers for tab-completion."""  # noqa: DOC201
         dict_keys: list[str] = []
         for k in self.keys():
             if isinstance(k, str):
@@ -135,11 +157,9 @@ class arrowdict(dict[str, Any]):
 
 class CachedAttribute:
     """
-    Computes attribute value and caches it in the instance.
+    Descriptor that computes an attribute value once and caches it on the instance.
 
-    From the Python Cookbook (Denis Otkidach) This decorator allows you
-    to create a property which can be computed once and accessed many
-    times. Sort of like memoization.
+    Based on the Python Cookbook recipe by Denis Otkidach.
     """
 
     method: Callable[[Any], Any]
@@ -152,11 +172,24 @@ class CachedAttribute:
         name: str | None = None,
         doc: str | None = None,
     ) -> None:
+        """
+        Initialize the cached attribute descriptor.
+
+        Parameters
+        ----------
+        method : callable
+            Method whose return value will be cached.
+        name : str, optional
+            Attribute name for caching. Defaults to ``method.__name__``.
+        doc : str, optional
+            Docstring override. Defaults to ``method.__doc__``.
+        """
         self.method = method
         self.name = name or method.__name__
         self.__doc__ = doc or method.__doc__
 
     def __get__(self, inst: Any, cls: type[Any] | None) -> Any:
+        """Compute on first access, cache the result, and return it."""  # noqa: DOC201
         if inst is None:
             return self
         result = self.method(inst)
