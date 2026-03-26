@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Shared pytest fixtures for atlite tests."""
+
 import os
 from datetime import date
 from pathlib import Path

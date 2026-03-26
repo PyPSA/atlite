@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Solar irradiation decomposition and transposition models."""
+
 from __future__ import annotations
 
 import logging

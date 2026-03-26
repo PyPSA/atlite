@@ -2,9 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""
-atlite datasets.
-"""
+"""atlite datasets."""
 
 from __future__ import annotations
 

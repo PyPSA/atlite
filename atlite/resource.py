@@ -1,10 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Module for providing access to external ressources, like windturbine or pv
-panel configurations.
-"""
+"""Module for accessing external resources like wind turbine and PV panel configurations."""
 
 from __future__ import annotations
 
@@ -39,6 +36,8 @@ if TYPE_CHECKING:
     from atlite._types import DataArray, NDArray, PathLike
 
     class TurbineConfig(TypedDict):
+        """Wind turbine configuration dictionary."""
+
         V: NDArray
         POW: NDArray
         P: float
@@ -48,6 +47,8 @@ if TYPE_CHECKING:
         source: NotRequired[str]
 
     class PanelConfig(TypedDict):
+        """Solar panel configuration dictionary."""
+
         model: NotRequired[Literal["huld", "bofinger"]]
         efficiency: NotRequired[float]
         A: NotRequired[float]
@@ -57,6 +58,8 @@ if TYPE_CHECKING:
         source: NotRequired[str]
 
     class CSPConfig(TypedDict):
+        """CSP installation configuration dictionary."""
+
         efficiency: DataArray
         path: PathLike
         technology: NotRequired[str]
@@ -167,8 +170,7 @@ def get_solarpanelconfig(panel: str | PathLike) -> PanelConfig:
 
 def get_cspinstallationconfig(installation: str | PathLike) -> CSPConfig:
     """
-    Load the 'installation'.yaml file from local disk to provide the system
-    efficiencies.
+    Load a CSP installation configuration from a YAML file.
 
     Parameters
     ----------
@@ -349,7 +351,7 @@ def _validate_turbine_config_dict(
     turbine: dict[str, Any], add_cutout_windspeed: bool
 ) -> TurbineConfig:
     """
-    Checks the turbine config dict format and power curve.
+    Check the turbine config dict format and power curve.
 
     Parameters
     ----------

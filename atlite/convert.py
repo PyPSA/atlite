@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-All functions for converting weather data into energy system model data.
-"""
+"""All functions for converting weather data into energy system model data."""
 
 from __future__ import annotations
 
@@ -528,8 +526,7 @@ def coefficient_of_performance(
     **params: Any,
 ) -> DataArray | NumericArray:
     """
-    Convert ambient or soil temperature to coefficient of performance (COP) of
-    air- or ground-sourced heat pumps.
+    Convert temperature to heat pump coefficient of performance (COP).
 
     The COP is modelled as a quadratic function of the temperature difference
     ``dT = sink_T - source_T``: ``COP = c0 + c1 * dT + c2 * dT**2``.
@@ -644,8 +641,7 @@ def heat_demand(
     **params: Any,
 ) -> DataArray | NumericArray:
     """
-    Convert outside temperature into daily heat demand using the degree-day
-    approximation.
+    Convert outside temperature into daily heat demand using degree-day approximation.
 
     The formula is ``max(0, a * (threshold - T_daily_mean)) + constant``
     where ``T_daily_mean`` is the daily-averaged temperature. Output is in
@@ -762,8 +758,7 @@ def cooling_demand(
     **params: Any,
 ) -> DataArray | NumericArray:
     """
-    Convert outside temperature into daily cooling demand using the degree-day
-    approximation.
+    Convert outside temperature into daily cooling demand using degree-day approximation.
 
     The formula is ``max(0, a * (T_daily_mean - threshold)) + constant``
     where ``T_daily_mean`` is the daily-averaged temperature. Output is in
@@ -895,8 +890,7 @@ def solar_thermal(
     **params: Any,
 ) -> DataArray | NumericArray:
     """
-    Convert downward short-wave radiation flux and outside temperature into
-    time series for solar thermal collectors.
+    Convert radiation and temperature into solar thermal collector time series.
 
     Collector efficiency is ``eta = c0 - c1 * (T_store - T_amb) / G``.
     Mathematical model and defaults for *c0*, *c1* based on [1].
@@ -1155,8 +1149,7 @@ def irradiation(
     **params: Any,
 ) -> DataArray | NumericArray:
     """
-    Calculate the total, direct, diffuse, or ground irradiation on a tilted
-    surface.
+    Calculate irradiation on a tilted surface.
 
     Parameters
     ----------
@@ -1280,8 +1273,7 @@ def pv(
     **params: Any,
 ) -> DataArray | NumericArray:
     """
-    Convert downward-shortwave, upward-shortwave radiation flux and ambient
-    temperature into a pv generation time-series.
+    Convert radiation and temperature into PV generation time series.
 
     Parameters
     ----------
@@ -1431,8 +1423,7 @@ def csp(
     **params: Any,
 ) -> DataArray | NumericArray:
     """
-    Convert downward shortwave direct radiation into a csp generation time-
-    series.
+    Convert direct radiation into CSP generation time series.
 
     Parameters
     ----------
@@ -1520,8 +1511,7 @@ def runoff(
     **params,
 ):
     """
-    Compute aggregated surface runoff output with optional smoothing,
-    thresholding, and normalization.
+    Compute aggregated surface runoff with optional smoothing and normalization.
 
     Parameters
     ----------
@@ -1609,8 +1599,7 @@ def hydro(
     **kwargs,
 ):
     """
-    Compute inflow time-series for `plants` by aggregating over catchment
-    basins from `hydrobasins`
+    Compute inflow time series for plants by aggregating over catchment basins.
 
     Parameters
     ----------

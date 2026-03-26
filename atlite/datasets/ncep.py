@@ -2,8 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 """
-Module containing specific operations for creating cutouts from the NCEP
-dataset.
+Module for creating cutouts from the NCEP dataset.
 
 DEPRECATED
 ----------

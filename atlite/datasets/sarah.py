@@ -1,10 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Module containing specific operations for creating cutouts from the SARAH2
-dataset.
-"""
+"""Module for creating cutouts from the SARAH2 dataset."""
 
 from __future__ import annotations
 

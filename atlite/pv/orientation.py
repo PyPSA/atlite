@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Panel orientation and tilt angle utilities."""
+
 from __future__ import annotations
 
 import sys
@@ -49,8 +51,7 @@ def make_latitude_optimal() -> Callable[
     [NumericArray, NumericArray, Dataset], dict[str, xr.DataArray]
 ]:
     """
-    Returns an optimal tilt angle for the given ``lat``, assuming that the
-    panel is facing towards the equator, using a simple method from [1].
+    Return an optimal tilt angle assuming the panel faces the equator.
 
     This method only works for latitudes between 0 and 50. For higher
     latitudes, a static 40 degree angle is returned.

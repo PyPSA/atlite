@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-General utility functions for internal use.
-"""
+"""General utility functions for internal use."""
 
 from __future__ import annotations
 
@@ -131,9 +129,7 @@ def timeindex_from_slice(timeslice: Any) -> pd.DatetimeIndex:
 
 
 class arrowdict(dict[str, Any]):
-    """
-    Dict subclass enabling attribute-style access to items.
-    """
+    """Dict subclass enabling attribute-style access to items."""
 
     def __getattr__(self, item: str) -> Any:
         """Retrieve a dict value as an attribute, raising AttributeError on missing keys."""  # noqa: DOC201, DOC501

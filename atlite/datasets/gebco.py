@@ -3,9 +3,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Module for loading gebco data.
-"""
+"""Module for loading gebco data."""
 
 from __future__ import annotations
 

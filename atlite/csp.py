@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Functions for use in conjunction with csp data generation.
-"""
+"""Functions for use in conjunction with csp data generation."""
 
 from __future__ import annotations
 

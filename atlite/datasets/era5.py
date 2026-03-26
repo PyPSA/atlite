@@ -443,8 +443,7 @@ def noisy_unlink(path: PathLike) -> None:
 
 def add_finalizer(ds: xr.Dataset, target: PathLike) -> None:
     """
-    Register a weak-reference callback to delete a temp file when the dataset
-    is garbage collected.
+    Register a weak-reference callback to delete a temp file on garbage collection.
 
     Parameters
     ----------
@@ -643,7 +642,7 @@ def get_data(
     **creation_parameters: Any,
 ) -> xr.Dataset:
     """
-    Main entry point for downloading ERA5 data for a given feature.
+    Download ERA5 data for a given feature.
 
     Dispatches to feature-specific ``get_data_{feature}`` functions,
     optionally applies ``sanitize_{feature}``, and concatenates time chunks.

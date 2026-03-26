@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Sphinx configuration for atlite documentation."""
+
 #
 # atlite documentation build configuration file, created by
 # sphinx-quickstart on Tue Jan 5 10:04:42 2016.
@@ -14,7 +16,6 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
-
 
 from importlib.metadata import version as get_version
 

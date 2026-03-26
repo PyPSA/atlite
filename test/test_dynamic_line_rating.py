@@ -103,9 +103,7 @@ def test_suedkabel_sample_case():
 
 
 def test_right_angle_in_different_configuration():
-    """
-    Test different configurations of angle difference of 90 degree.
-    """
+    """Test different configurations of angle difference of 90 degree."""
     ds = {
         "temperature": 313,
         "wnd100m": 0.61,
@@ -149,9 +147,7 @@ def test_right_angle_in_different_configuration():
 
 
 def test_angle_increase():
-    """
-    Test an increasing angle which should lead to an increasing capacity.
-    """
+    """Test an increasing angle which should lead to an increasing capacity."""
     ds = {
         "temperature": 313,
         "wnd100m": 0.61,

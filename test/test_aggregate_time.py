@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Tests for time aggregation functionality."""
+
 import numpy as np
 import pandas as pd
 import pytest

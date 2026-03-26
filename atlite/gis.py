@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Functions for Geographic Information System.
-"""
+"""Functions for Geographic Information System."""
 
 from __future__ import annotations
 
@@ -520,9 +518,7 @@ def shape_availability_reprojected(
 
 
 class ExclusionContainer:
-    """
-    Container for exclusion objects and meta data.
-    """
+    """Container for exclusion objects and meta data."""
 
     def __init__(self, crs: CrsLike = 3035, res: float = 100) -> None:
         """
@@ -664,23 +660,26 @@ class ExclusionContainer:
 
     @property
     def all_closed(self) -> bool:
-        """
-        Check whether all files in the raster container are closed.
-        """
+        """Check whether all files in the raster container are closed."""
         return all(isinstance(d["raster"], (str | Path)) for d in self.rasters) and all(
             isinstance(d["geometry"], (str | Path)) for d in self.geometries
         )
 
     @property
     def all_open(self) -> bool:
-        """
-        Check whether all files in the raster container are open.
-        """
+        """Check whether all files in the raster container are open."""
         return all(
             isinstance(d["raster"], rio.DatasetReader) for d in self.rasters
         ) and all(isinstance(d["geometry"], gpd.GeoSeries) for d in self.geometries)
 
     def __repr__(self) -> str:
+        """Return string representation of the exclusion container.
+
+        Returns
+        -------
+        str
+            Human-readable summary of the exclusion container.
+        """
         return (
             f"Exclusion Container"
             f"\n registered rasters: {len(self.rasters)} "
@@ -696,8 +695,7 @@ class ExclusionContainer:
         dst_shape: tuple[int, int] | None = None,
     ) -> tuple[NDArray, rio.Affine]:
         """
-        Compute the eligible area in one or more geometries and optionally
-        reproject.
+        Compute the eligible area in one or more geometries.
 
         Parameters
         ----------
@@ -764,8 +762,7 @@ class ExclusionContainer:
         plot_kwargs: dict[str, Any] | None = None,
     ) -> Axes:
         """
-        Plot the eligible area for one or more geometries and optionally
-        reproject.
+        Plot the eligible area for one or more geometries.
 
         This function uses its own default values for ``rasterio.plot.show`` and
         ``geopandas.GeoSeries.plot``. Therefore eligible land is drawn in green

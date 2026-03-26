@@ -37,16 +37,12 @@ GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 
 
 def all_notnull_test(cutout):
-    """
-    Test if no nan's in the prepared data occur.
-    """
+    """Test if no nan's in the prepared data occur."""
     assert cutout.data.notnull().all()
 
 
 def prepared_features_test(cutout):
-    """
-    The prepared features series should contain all variables in cutout.data.
-    """
+    """Verify that prepared features contain all variables in cutout.data."""
     assert set(cutout.prepared_features) == set(cutout.data)
 
 
@@ -256,27 +252,21 @@ def csp_test(cutout):
 
 
 def solar_thermal_test(cutout):
-    """
-    Test the atlite.Cutout.solar_thermal function with different settings.
-    """
+    """Test the atlite.Cutout.solar_thermal function with different settings."""
     cap_factor = cutout.solar_thermal()
     assert cap_factor.notnull().all()
     assert cap_factor.sum() > 0
 
 
 def heat_demand_test(cutout):
-    """
-    Test the atlite.Cutout.heat_demand function with different settings.
-    """
+    """Test the atlite.Cutout.heat_demand function with different settings."""
     demand = cutout.heat_demand()
     assert demand.notnull().all()
     assert demand.sum() > 0
 
 
 def soil_temperature_test(cutout):
-    """
-    Test the atlite.Cutout.soil_temperature function with different settings.
-    """
+    """Test the atlite.Cutout.soil_temperature function with different settings."""
     demand = cutout.soil_temperature()
     assert demand.notnull().all()
     assert demand.sum() > 0
@@ -360,9 +350,7 @@ def runoff_test(cutout):
 
 
 def hydro_test(cutout):
-    """
-    Test the atlite.Cutout.hydro function.
-    """
+    """Test the atlite.Cutout.hydro function."""
     plants = pd.DataFrame(
         cutout.grid.loc[[0], ["x", "y"]].values, columns=["lon", "lat"]
     )
@@ -388,9 +376,7 @@ def line_rating_test(cutout):
 
 
 def coefficient_of_performance_test(cutout):
-    """
-    Test the coefficient_of_performance function.
-    """
+    """Test the coefficient_of_performance function."""
     cap_factor = cutout.coefficient_of_performance(source="air")
     assert cap_factor.notnull().all()
     assert cap_factor.sum() > 0
@@ -412,16 +398,12 @@ class TestERA5:
 
     @staticmethod
     def test_all_non_na_era5(cutout_era5):
-        """
-        Every cells should have data.
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_era5.data).all()
 
     @staticmethod
     def test_all_non_na_era5_coarse(cutout_era5_coarse):
-        """
-        Every cells should have data.
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_era5_coarse.data).all()
 
     @staticmethod
@@ -430,24 +412,18 @@ class TestERA5:
         reason="This test breaks on windows machine on CI due to unknown reasons.",
     )
     def test_all_non_na_era5_weird_resolution(cutout_era5_weird_resolution):
-        """
-        Every cells should have data.
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_era5_weird_resolution.data).all()
 
     @staticmethod
     def test_dx_dy_preservation_era5(cutout_era5):
-        """
-        The coordinates should be the same after preparation.
-        """
+        """The coordinates should be the same after preparation."""
         assert np.allclose(np.diff(cutout_era5.data.x), 0.25)
         assert np.allclose(np.diff(cutout_era5.data.y), 0.25)
 
     @staticmethod
     def test_dx_dy_preservation_era5_coarse(cutout_era5_coarse):
-        """
-        The coordinates should be the same after preparation.
-        """
+        """The coordinates should be the same after preparation."""
         assert np.allclose(
             np.diff(cutout_era5_coarse.data.x), cutout_era5_coarse.data.attrs["dx"]
         )
@@ -461,9 +437,7 @@ class TestERA5:
         reason="This test breaks on windows machine on CI due to unknown reasons.",
     )
     def test_dx_dy_preservation_era5_weird_resolution(cutout_era5_weird_resolution):
-        """
-        The coordinates should be the same after preparation.
-        """
+        """The coordinates should be the same after preparation."""
         assert np.allclose(
             np.diff(cutout_era5_weird_resolution.data.x),
             cutout_era5_weird_resolution.data.attrs["dx"],
@@ -598,30 +572,22 @@ class TestERA5:
 class TestSarah:
     @staticmethod
     def test_all_non_na_sarah(cutout_sarah):
-        """
-        Every cells should have data.
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_sarah.data).all()
 
     @staticmethod
     def test_all_non_na_sarah_fine(cutout_sarah_fine):
-        """
-        Every cells should have data.
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_sarah_fine.data).all()
 
     @staticmethod
     def test_all_non_na_sarah_weird_resolution(cutout_sarah_weird_resolution):
-        """
-        Every cells should have data.
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_sarah_weird_resolution.data).all()
 
     @staticmethod
     def test_dx_dy_preservation_sarah(cutout_sarah):
-        """
-        The coordinates should be the same after preparation.
-        """
+        """The coordinates should be the same after preparation."""
         assert np.allclose(np.diff(cutout_sarah.data.x), 0.25)
         assert np.allclose(np.diff(cutout_sarah.data.y), 0.25)
 
@@ -652,7 +618,5 @@ class TestSarah:
 class TestGebco:
     @staticmethod
     def test_all_non_na_gebco(cutout_gebco):
-        """
-        Every cells should have data.
-        """
+        """Every cells should have data."""
         assert np.isfinite(cutout_gebco.data).all()

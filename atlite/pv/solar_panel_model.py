@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Solar panel electrical performance models."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
@@ -58,8 +60,7 @@ def _power_bofinger(
     irradiance: DataArray, t_amb: DataArray, pc: dict[str, Any]
 ) -> DataArray:
     """
-    AC power per capacity predicted by bofinger model, based on W/m2
-    irradiance.
+    Predict AC power per capacity using the Bofinger model.
 
     Maximum power point tracking is assumed.
 

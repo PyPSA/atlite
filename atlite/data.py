@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Management of data retrieval and structure.
-"""
+"""Management of data retrieval and structure."""
 
 from __future__ import annotations
 

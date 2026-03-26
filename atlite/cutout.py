@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Base class for atlite.
-"""
+"""Base class for atlite."""
 
 # There is a binary incompatibility between the pip wheels of netCDF4 and
 # rasterio, which leads to the first one to work correctly while the second
@@ -239,37 +237,27 @@ class Cutout:
 
     @property
     def name(self) -> str:
-        """
-        Name of the cutout.
-        """
+        """Name of the cutout."""
         return self.path.stem
 
     @property
     def module(self) -> str | list[str]:
-        """
-        Data module of the cutout.
-        """
+        """Data module of the cutout."""
         return self.data.attrs.get("module")  # type: ignore[no-any-return]
 
     @property
     def crs(self) -> CRS:
-        """
-        Coordinate Reference System of the cutout.
-        """
+        """Coordinate Reference System of the cutout."""
         return CRS(datamodules[atleast_1d(self.module)[0]].crs)
 
     @property
     def available_features(self) -> pd.Index:
-        """
-        List of available weather data features for the cutout.
-        """
+        """List of available weather data features for the cutout."""
         return available_features(self.module)
 
     @property
     def chunks(self) -> dict[str, int] | None:
-        """
-        Chunking of the cutout data used by dask.
-        """
+        """Chunking of the cutout data used by dask."""
         chunks = {
             k.lstrip("chunksize_"): v
             for k, v in self.data.attrs.items()
@@ -279,23 +267,17 @@ class Cutout:
 
     @property
     def coords(self) -> xr.Coordinates:
-        """
-        Geographic coordinates of the cutout.
-        """
+        """Geographic coordinates of the cutout."""
         return self.data.coords
 
     @property
     def shape(self) -> tuple[int, int]:
-        """
-        Size of spatial dimensions (y, x) of the cutout data.
-        """
+        """Size of spatial dimensions (y, x) of the cutout data."""
         return len(self.coords["y"]), len(self.coords["x"])
 
     @property
     def extent(self) -> NDArray:
-        """
-        Total extent of the area covered by the cutout (x, X, y, Y).
-        """
+        """Total extent of the area covered by the cutout (x, X, y, Y)."""
         xs, ys = self.coords["x"].values, self.coords["y"].values
         dx, dy = self.dx, self.dy
         return np.array([
@@ -307,16 +289,12 @@ class Cutout:
 
     @property
     def bounds(self) -> NDArray:
-        """
-        Total bounds of the area covered by the cutout (x, y, X, Y).
-        """
+        """Total bounds of the area covered by the cutout (x, y, X, Y)."""
         return self.extent[[0, 2, 1, 3]]
 
     @property
     def transform(self) -> rio.Affine:
-        """
-        Get the affine transform of the cutout.
-        """
+        """Get the affine transform of the cutout."""
         return rio.Affine(
             self.dx,
             0,
@@ -328,9 +306,7 @@ class Cutout:
 
     @property
     def transform_r(self) -> rio.Affine:
-        """
-        Get the affine transform of the cutout with reverse y-order.
-        """
+        """Get the affine transform of the cutout with reverse y-order."""
         return rio.Affine(
             self.dx,
             0,
@@ -342,41 +318,31 @@ class Cutout:
 
     @property
     def dx(self) -> float:
-        """
-        Spatial resolution on the x coordinates.
-        """
+        """Spatial resolution on the x coordinates."""
         x = self.coords["x"]
         return round((x[-1] - x[0]).item() / (x.size - 1), 8)  # type: ignore[no-any-return]
 
     @property
     def dy(self) -> float:
-        """
-        Spatial resolution on the y coordinates.
-        """
+        """Spatial resolution on the y coordinates."""
         y = self.coords["y"]
         return round((y[-1] - y[0]).item() / (y.size - 1), 8)  # type: ignore[no-any-return]
 
     @property
     def dt(self) -> str | None:
-        """
-        Time resolution of the cutout.
-        """
+        """Time resolution of the cutout."""
         return pd.infer_freq(self.coords["time"].to_index())  # type: ignore[no-any-return]
 
     @property
     def prepared(self) -> bool:
-        """
-        Boolean indicating whether all available features are prepared.
-        """
+        """Boolean indicating whether all available features are prepared."""
         return self.prepared_features.sort_index().equals(  # type: ignore[no-any-return]
             self.available_features.sort_index()
         )
 
     @property
     def prepared_features(self) -> pd.Series[Any]:
-        """
-        Get the list of prepared features in the cutout.
-        """
+        """Get the list of prepared features in the cutout."""
         index = [
             (self.data[v].attrs["module"], self.data[v].attrs["feature"])
             for v in self.data
@@ -506,6 +472,13 @@ class Cutout:
         self.data.to_netcdf(fn)
 
     def __repr__(self) -> str:
+        """Return string representation of the cutout.
+
+        Returns
+        -------
+        str
+            Human-readable summary of the cutout.
+        """
         start = np.datetime_as_string(self.coords["time"].values[0], unit="D")
         end = np.datetime_as_string(self.coords["time"].values[-1], unit="D")
         return (
@@ -647,7 +620,7 @@ class Cutout:
 
     def equals(self, other: Any) -> bool:
         """
-        It overrides xarray.Dataset.equals and ignores the path attribute in the comparison.
+        Compare equality with another cutout, ignoring the path attribute.
 
         Returns
         -------
@@ -693,7 +666,6 @@ class Cutout:
         >>> pv.plot()
 
         """
-
         x_grid = self.data.x.values
         y_grid = self.data.y.values
 

@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Module involving hydro operations in atlite.
-"""
+"""Module involving hydro operations in atlite."""
 
 from __future__ import annotations
 

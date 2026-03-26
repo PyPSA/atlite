@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Functions for aggregating results.
-"""
+"""Functions for aggregating results."""
 
 from __future__ import annotations
 
