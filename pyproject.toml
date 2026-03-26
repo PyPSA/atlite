@@ -58,7 +58,7 @@ Documentation = "https://atlite.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 
-dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff"]
+dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff", "mypy", "types-PyYAML"]
 
 docs = [
     "numpydoc==1.8.0",
@@ -81,42 +81,48 @@ include = ["atlite"]
 
 [tool.ruff]
 extend-include = ['*.ipynb']
+preview = true
 
 [tool.ruff.lint]
 select = [
-    'F',   # pyflakes
-    'E',   # pycodestyle: Error
-    'W',   # pycodestyle: Warning
-    'I',   # isort
-    'D',   # pydocstyle
-    'UP',  # pyupgrade
-    'TID', # flake8-tidy-imports
-    # 'NPY', # numpy
-    'RUF013', # ruff
+    'F',      # pyflakes
+    'E',      # pycodestyle: Error
+    'W',      # pycodestyle: Warning
+    'I',      # isort
+    'D',      # pydocstyle
+    'UP',     # pyupgrade
+    'TID',    # flake8-tidy-imports
+    'B',      # flake8-bugbear
+    'SIM',    # flake8-simplify
+    'RET',    # flake8-return
+    'C4',     # flake8-comprehensions
+    'TC',     # flake8-type-checking
+    'NPY',    # numpy
+    'G',      # flake8-logging-format
+    'PTH',    # flake8-use-pathlib
+    'DOC',    # pydoclint: docstring-signature alignment
+    'RUF013', # ruff: implicit-optional
+    'RUF100', # ruff: unused-noqa
 ]
 
 ignore = [
     'E501', # line too long
     'E741', # ambiguous variable names
-    'D105', # Missing docstring in magic method
-    'D212', # Multi-line docstring summary should start at the second line
-    'D200', # One-line docstring should fit on one line with quotes
-    'D401', # First line should be in imperative mood
-    'D404', # First word of the docstring should not be "This
-    'D413', # Missing blank line after last section
-
-    # # pydocstyle ignores, which could be enabled in future when existing
-    # # issues are fixed
-    'D100', # Missing docstring in public module
-    'D101', # Missing docstring in public class
-    'D102', # Missing docstring in public method
-    'D103', # Missing docstring in public function
-    'D107', # Missing docstring in __init__
-    'D202', # No blank lines allowed after function docstring
-    'D203', # 1 blank line required before class docstring
-    'D205', # 1 blank line required between summary line and description
-    'D400', # First line should end with a period
-    'D415', # First line should end with a period, question mark, or exclamation point
-    'D417', # Missing argument descriptions in the docstring
-
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"test/**" = ["D101", "D102", "D103", "D205"]
+"examples/**" = ["D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+exclude = [".venv/", "build/"]

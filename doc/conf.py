@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Sphinx configuration for atlite documentation."""
+
 #
 # atlite documentation build configuration file, created by
 # sphinx-quickstart on Tue Jan 5 10:04:42 2016.
@@ -14,7 +16,6 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
-
 
 from importlib.metadata import version as get_version
 
@@ -33,7 +34,7 @@ from importlib.metadata import version as get_version
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    #'sphinx.ext.autosummary',
+    # 'sphinx.ext.autosummary',
     "sphinx.ext.intersphinx",
     "sphinx.ext.todo",
     "sphinx.ext.mathjax",
@@ -41,8 +42,8 @@ extensions = [
     "nbsphinx",
     "nbsphinx_link",
     # 'sphinx.ext.pngmath',
-    #'sphinxcontrib.tikz',
-    #'rinoh.frontend.sphinx',
+    # 'sphinxcontrib.tikz',
+    # 'rinoh.frontend.sphinx',
     "sphinx.ext.imgconverter",  # for SVG conversion
 ]
 
@@ -253,15 +254,15 @@ htmlhelp_basename = "atlitedoc"
 
 # -- Options for LaTeX output ---------------------------------------------
 
-latex_elements = {
+latex_elements: dict[str, str] = {
     # The paper size ('letterpaper' or 'a4paper').
-    #'papersize': 'letterpaper',
+    # 'papersize': 'letterpaper',
     # The font size ('10pt', '11pt' or '12pt').
-    #'pointsize': '10pt',
+    # 'pointsize': '10pt',
     # Additional stuff for the LaTeX preamble.
-    #'preamble': '',
+    # 'preamble': '',
     # Latex figure (float) alignment
-    #'figure_align': 'htbp',
+    # 'figure_align': 'htbp',
 }
 
 # Grouping the document tree into LaTeX files. List of tuples
