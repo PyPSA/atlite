@@ -44,7 +44,7 @@ except ImportError:
     import contextlib
 
     @contextlib.contextmanager  # type: ignore[no-redef]
-    def nullcontext():
+    def nullcontext():  # noqa: D103
         yield
 
 

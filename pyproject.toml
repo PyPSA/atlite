@@ -120,7 +120,7 @@ ignore = [
     'D100', # Missing docstring in public module
     'D101', # Missing docstring in public class
     'D102', # Missing docstring in public method
-    'D103', # Missing docstring in public function
+    # 'D103', # Missing docstring in public function — enforced, per-file ignores below
     'D107', # Missing docstring in __init__
     'D202', # No blank lines allowed after function docstring
     'D203', # 1 blank line required before class docstring
@@ -128,6 +128,13 @@ ignore = [
     'D400', # First line should end with a period
     'D415', # First line should end with a period, question mark, or exclamation point
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# TODO: add docstrings to these modules
+"atlite/datasets/cordex.py" = ["D103"]
+"atlite/datasets/ncep.py" = ["D103"]
+"atlite/datasets/sarah.py" = ["D103"]
+"atlite/datasets/gebco.py" = ["D103"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
