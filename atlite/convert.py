@@ -74,7 +74,7 @@ def _aggregate_time(
 def _aggregate_time(da: xr.DataArray, method: str | None) -> xr.DataArray:
     if method == "sum":
         return da.sum("time", keep_attrs=True)
-    elif method == "mean":
+    if method == "mean":
         return da.mean("time", keep_attrs=True)
     return da
 
