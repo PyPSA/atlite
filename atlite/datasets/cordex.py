@@ -40,6 +40,19 @@ crs = 4326  # TODO
 
 
 def rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
+    """Rename rotated coordinates and drop auxiliary variables.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        CORDEX dataset with rotated lon/lat coordinates.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with ``rlon``/``rlat`` renamed to ``x``/``y`` and
+        ``bnds``, ``height``, ``rotated_pole`` removed if present.
+    """
     ds = ds.rename({"rlon": "x", "rlat": "y"})
     return ds.drop(
         (set(ds.coords) | set(ds.data_vars)) & {"bnds", "height", "rotated_pole"}
@@ -55,6 +68,30 @@ def prepare_data_cordex(
     xs: slice | np.ndarray[Any, Any],
     ys: slice | np.ndarray[Any, Any],
 ) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
+    """Load and prepare time-varying CORDEX data, yielding per-month slices.
+
+    Parameters
+    ----------
+    fn : PathLike
+        Path to the NetCDF file.
+    year : int
+        Year to extract.
+    months : list of int
+        Months to extract.
+    oldname : str
+        Original variable name in the dataset.
+    newname : str
+        Target variable name after renaming.
+    xs : slice or np.ndarray
+        Spatial selection along x.
+    ys : slice or np.ndarray
+        Spatial selection along y.
+
+    Yields
+    ------
+    tuple of ((int, int), xr.Dataset)
+        ``(year, month)`` key and the corresponding monthly dataset slice.
+    """
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.rename({oldname: newname})
@@ -83,6 +120,30 @@ def prepare_static_data_cordex(
     xs: slice | np.ndarray[Any, Any],
     ys: slice | np.ndarray[Any, Any],
 ) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
+    """Load and prepare static (time-invariant) CORDEX data.
+
+    Parameters
+    ----------
+    fn : PathLike
+        Path to the NetCDF file.
+    year : int
+        Year key for the yielded tuples.
+    months : list of int
+        Months to yield entries for.
+    oldname : str
+        Original variable name in the dataset.
+    newname : str
+        Target variable name after renaming.
+    xs : slice or np.ndarray
+        Spatial selection along x.
+    ys : slice or np.ndarray
+        Spatial selection along y.
+
+    Yields
+    ------
+    tuple of ((int, int), xr.Dataset)
+        ``(year, month)`` key and the static dataset (same for each month).
+    """
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
         ds = ds.rename({oldname: newname})
@@ -101,6 +162,30 @@ def prepare_weather_types_cordex(
     xs: slice | np.ndarray[Any, Any],
     ys: slice | np.ndarray[Any, Any],
 ) -> Generator[tuple[tuple[int, int], xr.Dataset], None, None]:
+    """Load and prepare CORDEX weather type classification data.
+
+    Parameters
+    ----------
+    fn : PathLike
+        Path to the NetCDF file.
+    year : int
+        Year to extract.
+    months : list of int
+        Months to extract.
+    oldname : str
+        Original variable name in the dataset.
+    newname : str
+        Target variable name after renaming.
+    xs : slice or np.ndarray
+        Unused, kept for interface consistency.
+    ys : slice or np.ndarray
+        Unused, kept for interface consistency.
+
+    Yields
+    ------
+    tuple of ((int, int), xr.Dataset)
+        ``(year, month)`` key and the corresponding monthly dataset slice.
+    """
     with xr.open_dataset(fn) as ds:
         ds = ds.rename({oldname: newname})
         for m in months:
@@ -117,6 +202,32 @@ def prepare_meta_cordex(
     module: Any,
     model: str = "MPI-M-MPI-ESM-LR",
 ) -> xr.Dataset:
+    """Build metadata dataset for a CORDEX cutout including height.
+
+    Parameters
+    ----------
+    xs : slice or np.ndarray
+        Spatial selection along x.
+    ys : slice or np.ndarray
+        Spatial selection along y.
+    year : int
+        Reference year.
+    month : int
+        Reference month.
+    template : str
+        Glob template for locating NetCDF files.
+    height_config : dict
+        Configuration for height data retrieval.
+    module : Any
+        Dataset module reference.
+    model : str, optional
+        Climate model identifier.
+
+    Returns
+    -------
+    xr.Dataset
+        Coordinate metadata dataset with height variable.
+    """
     fn = next(glob.iglob(template.format(year=year, model=model)))  # noqa: PTH207
     with xr.open_dataset(fn) as ds:
         ds = rename_and_clean_coords(ds)
@@ -149,6 +260,32 @@ def tasks_yearly_cordex(
     newname: str,
     meta_attrs: dict[str, Any],
 ) -> list[dict[str, Any]]:
+    """Create yearly preparation task dicts for CORDEX data retrieval.
+
+    Parameters
+    ----------
+    xs : slice or np.ndarray
+        Spatial selection along x.
+    ys : slice or np.ndarray
+        Spatial selection along y.
+    yearmonths : list of (int, int)
+        ``(year, month)`` pairs to process.
+    prepare_func : callable
+        Function to call for data preparation.
+    template : str
+        Glob template for locating NetCDF files.
+    oldname : str
+        Original variable name in the dataset.
+    newname : str
+        Target variable name after renaming.
+    meta_attrs : dict
+        Cutout metadata attributes; must contain ``"model"`` key.
+
+    Returns
+    -------
+    list of dict
+        One task dict per year with keys needed by ``prepare_func``.
+    """
     model = meta_attrs["model"]
 
     if not isinstance(xs, slice):

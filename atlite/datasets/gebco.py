@@ -29,6 +29,22 @@ features = {"height": ["height"]}
 def get_data_gebco_height(
     xs: xr.DataArray, ys: xr.DataArray, gebco_path: PathLike
 ) -> xr.DataArray:
+    """Read and resample GEBCO bathymetry/elevation to the target grid.
+
+    Parameters
+    ----------
+    xs : xr.DataArray
+        Target x (longitude) coordinates.
+    ys : xr.DataArray
+        Target y (latitude) coordinates.
+    gebco_path : PathLike
+        Path to the GEBCO GeoTIFF or NetCDF file.
+
+    Returns
+    -------
+    xr.DataArray
+        Height data resampled to the target grid with dimensions ``(y, x)``.
+    """
     x, X = xs.data[[0, -1]]
     y, Y = ys.data[[0, -1]]
 
@@ -60,6 +76,28 @@ def get_data(
     concurrent_requests: bool = False,
     **creation_parameters: Any,
 ) -> xr.Dataset:
+    """Retrieve GEBCO height data for a cutout.
+
+    Parameters
+    ----------
+    cutout : Any
+        Cutout instance providing target coordinates.
+    feature : str
+        Feature name (expected ``"height"``).
+    tmpdir : PathLike
+        Temporary directory (unused, kept for interface consistency).
+    monthly_requests : bool, optional
+        Unused, kept for interface consistency.
+    concurrent_requests : bool, optional
+        Unused, kept for interface consistency.
+    **creation_parameters : Any
+        Must include ``"gebco_path"`` pointing to the GEBCO data file.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with height variable on the cutout grid.
+    """
     if "gebco_path" not in creation_parameters:
         logger.error('Argument "gebco_path" not defined')
     path = creation_parameters["gebco_path"]

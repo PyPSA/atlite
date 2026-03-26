@@ -45,6 +45,23 @@ static_features: dict[str, list[str]] = {}
 
 
 def get_filenames(sarah_dir: str | PathLike, coords: dict[str, Any]) -> pd.DataFrame:
+    """
+    Build a DataFrame of SIS and SID file paths for the requested time range.
+
+    Parameters
+    ----------
+    sarah_dir : str or PathLike
+        Root directory containing SARAH NetCDF files.
+    coords : dict
+        Coordinate mapping with a ``"time"`` key whose index defines the
+        requested temporal range.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns ``"sis"`` and ``"sid"`` indexed by date.
+    """
+
     def _filenames_starting_with(name: str) -> pd.Series[str]:
         pattern = str(Path(sarah_dir) / "**" / f"{name}*.nc")
         files = pd.Series([str(f) for f in Path(sarah_dir).rglob(f"{name}*.nc")])
@@ -82,6 +99,22 @@ def get_filenames(sarah_dir: str | PathLike, coords: dict[str, Any]) -> pd.DataF
 def interpolate(
     ds: xr.Dataset | xr.DataArray, dim: str = "time"
 ) -> xr.Dataset | xr.DataArray:
+    """
+    Linearly interpolate NaN values along a dimension.
+
+    Parameters
+    ----------
+    ds : xr.Dataset or xr.DataArray
+        Input data with potential NaN gaps.
+    dim : str, default "time"
+        Dimension along which to interpolate.
+
+    Returns
+    -------
+    xr.Dataset or xr.DataArray
+        Data with NaN values filled by linear interpolation.
+    """
+
     def _interpolate1d(
         y: np.ndarray[Any, np.dtype[np.floating[Any]]],
     ) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
@@ -118,6 +151,21 @@ def interpolate(
 
 
 def as_slice(bounds: slice | tuple[float, float], pad: bool = True) -> slice:
+    """
+    Convert coordinate bounds to a slice, optionally with small padding.
+
+    Parameters
+    ----------
+    bounds : slice or tuple of float
+        Existing slice or ``(start, stop)`` tuple.
+    pad : bool, default True
+        If *bounds* is a tuple, add ±0.01 padding.
+
+    Returns
+    -------
+    slice
+        Slice suitable for ``.sel()`` indexing.
+    """
     if not isinstance(bounds, slice):
         bounds = bounds + (-0.01, 0.01)  # type: ignore[assignment]
         bounds = slice(*bounds)
@@ -125,6 +173,19 @@ def as_slice(bounds: slice | tuple[float, float], pad: bool = True) -> slice:
 
 
 def hourly_mean(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Compute hourly means from 30-minute data by averaging consecutive pairs.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset with 30-minute temporal resolution.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset resampled to hourly resolution.
+    """
     ds1 = ds.isel(time=slice(None, None, 2))
     ds2 = ds.isel(time=slice(1, None, 2))
     ds2 = ds2.assign_coords(time=ds2.indexes["time"] - pd.Timedelta(30, "m"))
@@ -143,6 +204,31 @@ def get_data(
     monthly_requests: bool = False,
     **creation_parameters: Any,
 ) -> xr.Dataset:
+    """
+    Retrieve and process SARAH solar irradiance data for a cutout.
+
+    Parameters
+    ----------
+    cutout : Cutout
+        Target cutout defining the spatial and temporal extent.
+    feature : str
+        Feature name (e.g. ``"influx"``).
+    tmpdir : PathLike
+        Temporary directory for intermediate files.
+    lock : lock-like, optional
+        Lock for thread-safe file access.
+    monthly_requests : bool, default False
+        Whether to split requests by month.
+    **creation_parameters
+        Must include ``sarah_dir``. Optional keys: ``parallel`` (bool),
+        ``sarah_interpolate`` (bool).
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with ``influx_direct``, ``influx_diffuse``,
+        ``solar_altitude``, and ``solar_azimuth`` variables.
+    """
     assert cutout.dt in ("30min", "30T", "h", "1h")
 
     coords = cutout.coords

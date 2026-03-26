@@ -129,13 +129,6 @@ ignore = [
     'D415', # First line should end with a period, question mark, or exclamation point
 ]
 
-[tool.ruff.lint.per-file-ignores]
-# TODO: add docstrings to these modules
-"atlite/datasets/cordex.py" = ["D103"]
-"atlite/datasets/ncep.py" = ["D103"]
-"atlite/datasets/sarah.py" = ["D103"]
-"atlite/datasets/gebco.py" = ["D103"]
-
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
 
