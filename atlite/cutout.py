@@ -75,6 +75,20 @@ from atlite.utils import CachedAttribute
 logger = logging.getLogger(__name__)
 
 
+def _storage_aligned_chunks(ds: xr.Dataset) -> dict[str, int] | None:
+    for var in ds.data_vars.values():
+        chunksizes = var.encoding.get("chunksizes")
+        if not chunksizes:
+            continue
+        dims = var.dims[: len(chunksizes)]
+        chunks = {
+            dim: size for dim, size in zip(dims, chunksizes, strict=False) if dim == "time"
+        }
+        if chunks:
+            return chunks
+    return None
+
+
 class Cutout:
     """
     Cutout base class.
@@ -166,17 +180,20 @@ class Cutout:
 
         """
         path = Path(path).with_suffix(".nc")
-        chunks = cutoutparams.pop("chunks", {"time": 100})
-        if isinstance(chunks, dict):
-            storable_chunks = {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
-        else:
-            storable_chunks = {}
+        default_chunks = object()
+        chunks = cutoutparams.pop("chunks", default_chunks)
 
         # Three cases. First, cutout exists -> take the data.
         # Second, data is given -> take it. Third, else -> build a new cutout
         if path.is_file():
             data = xr.open_dataset(str(path))
-            data = data.chunk(chunks)
+            if chunks is default_chunks:
+                chunks = _storage_aligned_chunks(data) or {"time": 100}
+            if chunks is not None:
+                data = data.chunk(chunks)
+            storable_chunks = {
+                f"chunksize_{k}": v for k, v in (chunks or {}).items()
+            } if isinstance(chunks, dict) else {}
             data.attrs.update(storable_chunks)
             if cutoutparams:
                 warn(
@@ -185,8 +202,18 @@ class Cutout:
                     stacklevel=2,
                 )
         elif "data" in cutoutparams:
+            if chunks is default_chunks:
+                chunks = {"time": 100}
+            storable_chunks = {
+                f"chunksize_{k}": v for k, v in (chunks or {}).items()
+            } if isinstance(chunks, dict) else {}
             data = cutoutparams.pop("data")
         else:
+            if chunks is default_chunks:
+                chunks = {"time": 100}
+            storable_chunks = {
+                f"chunksize_{k}": v for k, v in (chunks or {}).items()
+            } if isinstance(chunks, dict) else {}
             logger.info("Building new cutout %s", path)
 
             if "bounds" in cutoutparams:

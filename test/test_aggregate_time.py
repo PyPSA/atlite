@@ -167,3 +167,20 @@ class TestInvalidArgs:
     def test_aggregate_time_true_raises(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
             convert_and_aggregate(cutout, identity_convert, aggregate_time=True)  # type: ignore[arg-type]
+
+    def test_invalid_backend_raises(self, cutout):
+        with pytest.raises(ValueError, match="backend must be"):
+            convert_and_aggregate(cutout, identity_convert, backend="invalid")  # type: ignore[arg-type]
+
+    def test_dask_kwargs_require_dask_backend(self, cutout):
+        with pytest.raises(ValueError, match="dask_kwargs require backend='dask'"):
+            convert_and_aggregate(
+                cutout,
+                identity_convert,
+                backend="auto",
+                dask_kwargs={"scheduler": "threads"},
+            )
+
+    def test_streaming_backend_requires_streamable_cutout(self, cutout):
+        with pytest.raises(ValueError, match="backend='streaming' requires"):
+            convert_and_aggregate(cutout, identity_convert, backend="streaming")

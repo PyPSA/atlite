@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-import warnings
 from collections import namedtuple
 from operator import itemgetter
 from pathlib import Path
@@ -21,13 +20,17 @@ from dask import compute, delayed
 from dask.array import absolute, arccos, cos, maximum, mod, radians, sin, sqrt
 from dask.diagnostics import ProgressBar
 from numpy import pi
-from scipy.sparse import csr_matrix
 
 from atlite import csp as cspm
 from atlite import hydro as hydrom
 from atlite import wind as windm
-from atlite.aggregate import aggregate_matrix
-from atlite.gis import spdiag
+from atlite.aggregate import (
+    aggregate_matrix,
+    reduce_time,
+    finalize_aggregated_result,
+    normalize_aggregate_time,
+    resolve_matrix,
+)
 from atlite.pv.irradiation import TiltedIrradiation
 from atlite.pv.orientation import SurfaceOrientation, get_orientation
 from atlite.pv.solar_panel_model import SolarPanelModel
@@ -38,8 +41,6 @@ from atlite.resource import (
     get_windturbineconfig,
     windturbine_smooth,
 )
-
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -59,14 +60,8 @@ if TYPE_CHECKING:
     from atlite.resource import CSPConfig, PanelConfig, TurbineConfig
 
 
-def _aggregate_time(
-    da: xr.DataArray, method: Literal["sum", "mean"] | None
-) -> xr.DataArray:
-    if method == "sum":
-        return da.sum("time", keep_attrs=True)
-    if method == "mean":
-        return da.mean("time", keep_attrs=True)
-    return da
+
+logger = logging.getLogger(__name__)
 
 
 def convert_and_aggregate(
@@ -84,6 +79,7 @@ def convert_and_aggregate(
     capacity_factor_timeseries: bool = False,
     show_progress: bool = False,
     dask_kwargs: dict[str, Any] | None = None,
+    backend: Literal["auto", "dask", "streaming"] = "auto",
     **convert_kwds: Any,
 ) -> Any:
     """
@@ -134,7 +130,13 @@ def convert_and_aggregate(
     show_progress : boolean, default False
         Whether to show a progress bar.
     dask_kwargs : dict, default {}
-        Dict with keyword arguments passed to ``dask.compute``.
+        Dict with keyword arguments passed to ``load`` when using
+        ``backend="dask"``.
+    backend : "auto", "dask", or "streaming", default "auto"
+        Execution backend. ``"auto"`` prefers streaming when available and
+        otherwise uses dask-backed xarray loading. ``"dask"`` always uses the
+        dask-backed path. ``"streaming"`` requires a file-backed cutout that
+        supports streaming.
     **convert_kwds : Any
         Additional keyword arguments passed to ``convert_func``.
 
@@ -176,121 +178,80 @@ def convert_and_aggregate(
     pv : Generate solar PV generation time-series.
 
     """
-    if aggregate_time not in ("sum", "mean", "legacy", None):
+    if backend not in ("auto", "dask", "streaming"):
         raise ValueError(
-            f"aggregate_time must be 'sum', 'mean', 'legacy', or None, "
-            f"got {aggregate_time!r}"
+            f"backend must be 'auto', 'dask', or 'streaming', got {backend!r}"
         )
 
-    if aggregate_time == "legacy":
-        warnings.warn(
-            "aggregate_time='legacy' is deprecated and will be removed in a "
-            "future release. Pass 'sum', 'mean', or None explicitly.",
-            FutureWarning,
-            stacklevel=2,
-        )
+    no_args = all(v is None for v in [layout, shapes, matrix])
+    agg = normalize_aggregate_time(
+        aggregate_time, no_args, capacity_factor, capacity_factor_timeseries
+    )
 
-    if capacity_factor or capacity_factor_timeseries:
-        if aggregate_time != "legacy":
-            raise ValueError(
-                "Cannot use 'aggregate_time' together with deprecated "
-                "'capacity_factor' or 'capacity_factor_timeseries'."
-            )
-        if capacity_factor:
-            warnings.warn(
-                "capacity_factor is deprecated. Use aggregate_time='mean' instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            aggregate_time = "mean"
-        if capacity_factor_timeseries:
-            warnings.warn(
-                "capacity_factor_timeseries is deprecated. "
-                "Use aggregate_time=None instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            aggregate_time = None
+    if no_args and (per_unit or return_capacity):
+        raise ValueError(
+            "One of `matrix`, `shapes` and `layout` must be "
+            "given for `per_unit` or `return_capacity`"
+        )
 
     func_name = convert_func.__name__.replace("convert_", "")
     logger.info("Convert and aggregate '%s'.", func_name)
-    da = convert_func(cutout.data, **convert_kwds)
 
     dask_kwargs = dask_kwargs or {}
-    no_args = all(v is None for v in [layout, shapes, matrix])
+    if dask_kwargs and backend != "dask":
+        raise ValueError("dask_kwargs require backend='dask'.")
+
+    matrix, index = resolve_matrix(
+        cutout, matrix, index, shapes, shapes_crs, layout
+    )
+
+    if backend != "dask":
+        from atlite.streaming import can_stream, stream_conversion
+
+        stream_supported = can_stream(cutout)
+        if backend == "streaming" and not stream_supported:
+            raise ValueError("backend='streaming' requires a streamable cutout.")
+
+        if stream_supported:
+            result = stream_conversion(
+                cutout,
+                convert_func,
+                matrix=matrix,
+                index=index,
+                per_unit=per_unit,
+                return_capacity=return_capacity,
+                aggregate_time=agg,
+                show_progress=show_progress,
+                convert_kwds=convert_kwds,
+            )
+            if result is not None:
+                return result
+            if backend == "streaming":
+                raise ValueError(
+                    f"backend='streaming' is not supported for {func_name!r}."
+                )
+            logger.debug("Streaming fallback to dask for '%s'.", func_name)
+
+    da = convert_func(cutout.data, **convert_kwds)
 
     if no_args:
-        if per_unit or return_capacity:
-            raise ValueError(
-                "One of `matrix`, `shapes` and `layout` must be "
-                "given for `per_unit` or `return_capacity`"
-            )
-
-        agg = "sum" if aggregate_time == "legacy" else aggregate_time
-        res = _aggregate_time(da, agg)
+        res = reduce_time(da, agg)
         return maybe_progressbar(res, show_progress, **dask_kwargs)
 
-    if matrix is not None:
-        if shapes is not None:
-            raise ValueError(
-                "Passing matrix and shapes is ambiguous. Pass only one of them."
-            )
-
-        if isinstance(matrix, xr.DataArray):
-            coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
-            if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
-                raise ValueError(
-                    "Matrix spatial coordinates not aligned with cutout spatial "
-                    "coordinates."
-                )
-
-            if index is None:
-                index = matrix
-
-        if not matrix.ndim == 2:
-            raise ValueError("Matrix not 2-dimensional.")
-
-        matrix = csr_matrix(matrix)
-
-    if shapes is not None:
-        geoseries_like = (pd.Series, gpd.GeoDataFrame, gpd.GeoSeries)
-        if isinstance(shapes, geoseries_like) and index is None:
-            index = shapes.index
-
-        matrix = cutout.indicatormatrix(shapes, shapes_crs)
-
-    if layout is not None:
-        assert isinstance(layout, xr.DataArray)
-        layout = layout.reindex_like(cutout.data).stack(spatial=["y", "x"])
-
-        if matrix is None:
-            matrix = csr_matrix(layout.expand_dims("new"))
-        else:
-            matrix = csr_matrix(matrix) * spdiag(layout)
-
-    # From here on, matrix is defined and ensured to be a csr matrix.
-    if index is None:
-        index = pd.RangeIndex(matrix.shape[0])
-
     results = aggregate_matrix(da, matrix=matrix, index=index)
-
-    if per_unit or return_capacity:
-        caps = matrix.sum(-1)
-        capacity = xr.DataArray(np.asarray(caps).flatten(), [index])
-        capacity.attrs["units"] = "MW"
-
-    if per_unit:
-        results = (results / capacity.where(capacity != 0)).fillna(0.0)
-        results.attrs["units"] = "p.u."
-    else:
-        results.attrs["units"] = "MW"
-
-    if aggregate_time != "legacy":
-        results = _aggregate_time(results, aggregate_time)
+    finalized = finalize_aggregated_result(
+        results,
+        matrix,
+        index,
+        per_unit,
+        return_capacity,
+        agg,
+    )
 
     if return_capacity:
-        return maybe_progressbar(results, show_progress, **dask_kwargs), capacity
-    return maybe_progressbar(results, show_progress, **dask_kwargs)
+        result, capacity = finalized
+        return maybe_progressbar(result, show_progress, **dask_kwargs), capacity
+    return maybe_progressbar(finalized, show_progress, **dask_kwargs)
 
 
 def maybe_progressbar(
