@@ -28,10 +28,14 @@ from xarray.testing import assert_allclose, assert_equal
 from atlite import Cutout
 from atlite.gis import (
     ExclusionContainer,
+    RasterCache,
+    fast_dilation,
+    fast_isin,
     pad_extent,
     padded_transform_and_shape,
     regrid,
     shape_availability,
+    shape_availability_cached,
 )
 
 TIME = "2013-01-01"
@@ -633,6 +637,111 @@ def test_shape_availability_exclude_raster_codes(ref, raster_codes):
     excluder.add_raster(raster_codes, codes=lambda x: x < 20, invert=True)
     masked, transform = shape_availability(shapes, excluder)
     assert ratio == masked.sum() / masked.size
+
+
+@pytest.mark.parametrize(
+    "codes,expected_ratio",
+    [
+        (range(20), 0.8),
+        (range(50), 0.5),
+        ([99], 0.99),
+    ],
+)
+def test_fast_isin(codes, expected_ratio):
+    rng = np.random.default_rng(42)
+    arr = rng.integers(0, 100, size=(100, 100), dtype=np.uint8)
+    result = fast_isin(arr, list(codes))
+    assert result.dtype == bool
+    assert np.array_equal(result, np.isin(arr, list(codes)))
+
+
+def test_fast_isin_float_fallback():
+    arr = np.array([0.5, 1.5, 2.5])
+    result = fast_isin(arr, [1, 2])
+    assert np.array_equal(result, np.isin(arr, [1, 2]))
+
+
+@pytest.mark.parametrize("iterations", [1, 3, 5, 11])
+def test_fast_dilation(iterations):
+    rng = np.random.default_rng(42)
+    mask = rng.random((200, 200)) < 0.05
+    from scipy.ndimage import binary_dilation, generate_binary_structure
+
+    struct = generate_binary_structure(2, 1)
+    expected = binary_dilation(mask, structure=struct, iterations=iterations)
+    result = fast_dilation(mask, iterations)
+    assert np.array_equal(result, expected)
+
+
+def test_fast_dilation_zero_iterations():
+    mask = np.array([[True, False], [False, True]])
+    assert np.array_equal(fast_dilation(mask, 0), mask)
+
+
+def test_raster_cache_deduplicates(raster):
+    excluder = ExclusionContainer(crs=4326, res=0.01)
+    excluder.add_raster(raster)
+    excluder.add_raster(raster, codes=[1], invert=True)
+    excluder.open_files()
+    cache = RasterCache(excluder)
+    assert len(cache._data) == 1
+
+
+def test_raster_cache_no_overlap(raster):
+    excluder = ExclusionContainer(crs=4326, res=0.01)
+    excluder.add_raster(raster, allow_no_overlap=True)
+    excluder.open_files()
+    cache = RasterCache(excluder)
+    far_away = gpd.GeoSeries([box(90, 90, 91, 91)], crs=4326)
+    transform, shape = padded_transform_and_shape(far_away.total_bounds, 0.01)
+    result, _ = cache.window_read(
+        excluder.rasters[0]["raster"],
+        far_away,
+        transform,
+        shape,
+        crs=4326,
+        allow_no_overlap=True,
+    )
+    assert (result == 255).all()
+
+
+def test_shape_availability_cached_matches_original(ref, raster):
+    shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
+    res = 0.01
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster)
+    excluder.add_raster(raster, codes=[1], invert=True)
+    excluder.open_files()
+
+    shapes_proj = shapes.to_crs(excluder.crs)
+    cache = RasterCache(excluder)
+    cached, trans_c = shape_availability_cached(shapes_proj, excluder, cache)
+    orig, trans_o = shape_availability(shapes_proj, excluder)
+    assert trans_c == trans_o
+    assert np.array_equal(cached, orig)
+
+
+def test_availability_matrix_threaded_with_geometry(ref, raster):
+    shapes = gpd.GeoSeries(
+        [
+            box(X0 + 1, Y0 + 1, X1 - 1, Y0 / 2 + Y1 / 2),
+            box(X0 + 1, Y0 / 2 + Y1 / 2, X1 - 1, Y1 - 1),
+        ],
+        crs=ref.crs,
+    ).rename_axis("shape")
+    exclude = gpd.GeoSeries(
+        [box(X0 / 2 + X1 / 2, Y0 / 2 + Y1 / 2, X1, Y1)], crs=ref.crs
+    )
+    excluder_s = ExclusionContainer(ref.crs, res=0.01)
+    excluder_s.add_raster(raster)
+    excluder_s.add_geometry(exclude)
+    ds_serial = ref.availabilitymatrix(shapes, excluder_s)
+
+    excluder_p = ExclusionContainer(ref.crs, res=0.01)
+    excluder_p.add_raster(raster)
+    excluder_p.add_geometry(exclude)
+    ds_parallel = ref.availabilitymatrix(shapes, excluder_p, nprocesses=2)
+    assert np.allclose(ds_serial, ds_parallel)
 
 
 def test_plot_shape_availability(ref, raster):

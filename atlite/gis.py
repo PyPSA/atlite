@@ -6,11 +6,11 @@
 from __future__ import annotations
 
 import logging
-import multiprocessing as mp
 from collections import OrderedDict
 from pathlib import Path
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, cast
-from warnings import catch_warnings, simplefilter
 
 import geopandas as gpd
 import numpy as np
@@ -27,6 +27,7 @@ from rasterio.mask import mask
 from rasterio.plot import show
 from rasterio.warp import transform_bounds
 from scipy.ndimage import binary_dilation as dilation
+from scipy.ndimage import distance_transform_cdt, generate_binary_structure
 from shapely.ops import transform
 from shapely.strtree import STRtree
 from tqdm import tqdm
@@ -451,25 +452,11 @@ def shape_availability(
             masked, transform = projected_mask(
                 d["raster"], geometry, transform, shape, excluder.crs, **kwargs
             )
-        if d["codes"]:
-            if callable(d["codes"]):
-                masked_ = d["codes"](masked).astype(bool)
-            else:
-                masked_ = isin(masked, d["codes"])
-        else:
-            masked_ = masked.astype(bool)
-
-        if d["invert"]:
-            masked_ = ~masked_
-        if d["buffer"]:
-            iterations = int(d["buffer"] / excluder.res) + 1
-            masked_ = dilation(masked_, iterations=iterations)
-
-        exclusions = exclusions | masked_
+        exclusions |= apply_exclusion_entry(d, masked, excluder.res)
 
     for d in excluder.geometries:
         masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
-        exclusions = exclusions | masked
+        exclusions |= masked
 
     return ~exclusions, transform
 
@@ -636,12 +623,13 @@ class ExclusionContainer:
             else:
                 assert isinstance(raster, rio.DatasetReader)
 
-            # Check if the raster has a valid CRS
             if not raster.crs:
                 if d["crs"]:
                     raster._crs = CRS(d["crs"])
                 else:
                     raise ValueError(f"CRS of {raster} is invalid, please provide it.")
+            elif d["crs"]:
+                raster._crs = CRS(d["crs"])
             d["raster"] = raster
 
         for d in self.geometries:
@@ -830,36 +818,6 @@ class ExclusionContainer:
         return ax
 
 
-_mp_shapes: GeoSeries
-_mp_excluder: ExclusionContainer
-_mp_dst_transform: rio.Affine
-_mp_dst_crs: CrsLike
-_mp_dst_shapes: tuple[int, int]
-
-
-def _init_process(
-    shapes_: GeoSeries,
-    excluder_: ExclusionContainer,
-    dst_transform_: rio.Affine,
-    dst_crs_: CrsLike,
-    dst_shapes_: tuple[int, int],
-) -> None:
-    global _mp_shapes, _mp_excluder, _mp_dst_transform, _mp_dst_crs, _mp_dst_shapes
-    _mp_shapes, _mp_excluder = shapes_, excluder_
-    _mp_dst_transform, _mp_dst_crs, _mp_dst_shapes = (
-        dst_transform_,
-        dst_crs_,
-        dst_shapes_,
-    )
-
-
-def _process_func(i: Any) -> NDArray:
-    args = (_mp_excluder, _mp_dst_transform, _mp_dst_crs, _mp_dst_shapes)
-    with catch_warnings():
-        simplefilter("ignore")
-        return shape_availability_reprojected(_mp_shapes.loc[[i]], *args)[0]
-
-
 def compute_availabilitymatrix(
     cutout: Any,
     shapes: GeoDataFrame | GeoSeries,
@@ -870,9 +828,9 @@ def compute_availabilitymatrix(
     """
     Compute the eligible share within cutout cells in the overlap with shapes.
 
-    For parallel calculation (nprocesses not None) the excluder must not be
-    initialized and all raster references must be strings. Otherwise processes
-    are colliding when reading from one common rasterio.DatasetReader.
+    When ``nprocesses`` is set, raster data is pre-read into memory and
+    per-shape processing runs in parallel using threads. Each thread gets
+    its own rasterio file handles, so there is no file-handle sharing issue.
 
     Parameters
     ----------
@@ -884,12 +842,10 @@ def compute_availabilitymatrix(
         Container of all meta data or objects which to exclude, i.e.
         rasters and geometries.
     nprocesses : int, optional
-        Number of processes to use for calculating the matrix. The paralle-
-        lization can heavily boost the calculation speed. The default is None.
+        Number of threads for parallel calculation. The default is None
+        (serial).
     disable_progressbar: bool, optional
-        Disable the progressbar if nprocesses is not None. Then the `map`
-        function instead of the `imap` function is used for the multiprocessing
-        pool. This speeds up the calculation.
+        Disable the progressbar. The default is True.
 
     Returns
     -------
@@ -911,7 +867,10 @@ def compute_availabilitymatrix(
     shapes = shapes.geometry if isinstance(shapes, gpd.GeoDataFrame) else shapes
     shapes = shapes.to_crs(excluder.crs)
 
-    args = (excluder, cutout.transform_r, cutout.crs, cutout.shape)
+    dst_transform = cutout.transform_r
+    dst_crs = cutout.crs
+    dst_shape = cutout.shape
+
     tqdm_kwargs = {
         "ascii": False,
         "unit": " gridcells",
@@ -919,39 +878,493 @@ def compute_availabilitymatrix(
         "desc": "Compute availability matrix",
     }
 
+    if not excluder.all_open:
+        excluder.open_files()
+
+    cache = RasterCache(excluder)
+
     if nprocesses is None:
         if not disable_progressbar:
             iterator = tqdm(shapes.index, **tqdm_kwargs)
         else:
             iterator = shapes.index
-        with catch_warnings():
-            simplefilter("ignore")
-            availability = []
-            for i in iterator:
-                _ = shape_availability_reprojected(shapes.loc[[i]], *args)[0]
-                availability.append(_)
+        availability = [
+            reproject_cached_availability(
+                shapes.loc[[i]],
+                excluder,
+                cache,
+                dst_transform,
+                dst_crs,
+                dst_shape,
+            )
+            for i in iterator
+        ]
     else:
-        assert excluder.all_closed, (
-            "For parallelization all raster files in excluder must be closed"
+        availability = compute_availability_threaded(
+            shapes,
+            excluder,
+            cache,
+            dst_transform,
+            dst_crs,
+            dst_shape,
+            nprocesses,
+            disable_progressbar,
+            tqdm_kwargs,
         )
-        with mp.get_context("spawn").Pool(
-            processes=nprocesses,
-            initializer=_init_process,
-            initargs=(shapes, *args),
-            maxtasksperchild=20,
-        ) as pool:
-            if disable_progressbar:
-                availability = list(pool.map(_process_func, shapes.index))
-            else:
-                availability = list(
-                    tqdm(pool.imap(_process_func, shapes.index), **tqdm_kwargs)
-                )
 
     availability_arr = np.stack(availability)[:, ::-1]  # flip axis, see Notes
     if availability_arr.ndim == 4:
         availability_arr = availability_arr.squeeze(axis=1)
     coords = [(shapes.index), ("y", cutout.data.y.data), ("x", cutout.data.x.data)]
     return xr.DataArray(availability_arr, coords=coords)
+
+
+def reproject_cached_availability(
+    geometry: GeoSeries,
+    excluder: ExclusionContainer,
+    cache: RasterCache,
+    dst_transform: rio.Affine,
+    dst_crs: CrsLike,
+    dst_shape: tuple[int, int],
+) -> NDArray:
+    """
+    Compute cached availability for a geometry and reproject to a cutout grid.
+
+    Combines :func:`shape_availability_cached`, :func:`pad_extent`, and
+    ``rasterio.warp.reproject`` into a single call.
+
+    Parameters
+    ----------
+    geometry : geopandas.GeoSeries
+        Geometry for which availability is computed.
+    excluder : ExclusionContainer
+        Exclusion container with rasters and geometries to exclude.
+    cache : RasterCache
+        Pre-loaded raster cache built from *excluder*.
+    dst_transform : rasterio.Affine
+        Target grid affine transform.
+    dst_crs : CRS-like
+        Target coordinate reference system.
+    dst_shape : tuple of int
+        Target grid shape ``(rows, cols)``.
+
+    Returns
+    -------
+    numpy.ndarray
+        Reprojected availability matrix with values in ``[0, 1]``.
+
+    """
+    avail, trans = shape_availability_cached(geometry, excluder, cache)
+    padded, pt = pad_extent(avail, trans, dst_transform, excluder.crs, dst_crs)
+    return rio.warp.reproject(
+        padded.astype(np.uint8),
+        empty(dst_shape),
+        resampling=rio.warp.Resampling.average,
+        src_transform=pt,
+        dst_transform=dst_transform,
+        src_crs=excluder.crs,
+        dst_crs=dst_crs,
+    )[0]
+
+
+def compute_availability_threaded(
+    shapes: GeoSeries,
+    excluder: ExclusionContainer,
+    cache: RasterCache,
+    dst_transform: rio.Affine,
+    dst_crs: CrsLike,
+    dst_shape: tuple[int, int],
+    nprocesses: int,
+    disable_progressbar: bool,
+    tqdm_kwargs: dict[str, Any],
+) -> list[NDArray]:
+    """
+    Process shapes in parallel threads with per-thread file handles.
+
+    Each worker thread gets its own :class:`ExclusionContainer` with
+    independent rasterio file handles while sharing the read-only *cache*.
+    All thread-local file handles are closed when the pool shuts down.
+
+    Parameters
+    ----------
+    shapes : geopandas.GeoSeries
+        Geometries to process, indexed by shape identifier.
+    excluder : ExclusionContainer
+        Template exclusion container (replicated per thread).
+    cache : RasterCache
+        Pre-loaded raster cache shared across threads.
+    dst_transform : rasterio.Affine
+        Target grid affine transform.
+    dst_crs : CRS-like
+        Target coordinate reference system.
+    dst_shape : tuple of int
+        Target grid shape ``(rows, cols)``.
+    nprocesses : int
+        Number of worker threads.
+    disable_progressbar : bool
+        Whether to suppress the progress bar.
+    tqdm_kwargs : dict
+        Extra keyword arguments forwarded to :func:`tqdm.tqdm`.
+
+    Returns
+    -------
+    list of numpy.ndarray
+        Reprojected availability arrays, one per shape.
+
+    """
+
+    tls = threading.local()
+    raster_paths = [
+        (
+            d["raster"].name
+            if isinstance(d["raster"], rio.DatasetReader)
+            else d["raster"]
+        )
+        for d in excluder.rasters
+    ]
+    geometry_data = [
+        (
+            d["geometry"].copy(),
+            d.get("buffer", 0),
+            d.get("invert", False),
+            d.get("_buffered", False),
+        )
+        for d in excluder.geometries
+    ]
+    raster_entries = [
+        {k: v for k, v in d.items() if k not in ("raster", "geometry")}
+        for d in excluder.rasters
+    ]
+
+    thread_excluders: list[ExclusionContainer] = []
+    lock = threading.Lock()
+
+    def _get_thread_excluder() -> ExclusionContainer:
+        if getattr(tls, "excluder", None) is None:
+            exc = ExclusionContainer(crs=excluder.crs, res=excluder.res)
+            for path, entry in zip(raster_paths, raster_entries, strict=True):
+                exc.add_raster(path, **entry)
+            for geom_data, buffer, invert, buffered in geometry_data:
+                exc.add_geometry(geom_data, buffer=buffer, invert=invert)
+                if buffered:
+                    exc.geometries[-1]["_buffered"] = True
+            exc.open_files()
+            tls.excluder = exc
+            with lock:
+                thread_excluders.append(exc)
+        return tls.excluder
+
+    def _process(i: Any) -> NDArray:
+        thread_excluder = _get_thread_excluder()
+        return reproject_cached_availability(
+            shapes.loc[[i]],
+            thread_excluder,
+            cache,
+            dst_transform,
+            dst_crs,
+            dst_shape,
+        )
+
+    try:
+        with ThreadPoolExecutor(max_workers=nprocesses) as pool:
+            if disable_progressbar:
+                return list(pool.map(_process, shapes.index))
+            return list(tqdm(pool.map(_process, shapes.index), **tqdm_kwargs))
+    finally:
+        for exc in thread_excluders:
+            for d in exc.rasters:
+                r = d["raster"]
+                if isinstance(r, rio.DatasetReader) and not r.closed:
+                    r.close()
+
+
+def fast_isin(arr: NDArray, codes: Sequence[int]) -> NDArray:
+    """
+    Test element membership using a lookup table for small-integer arrays.
+
+    For ``uint8`` arrays or integer arrays with max value below 65 536,
+    builds a boolean LUT for O(1) per-element lookup. Falls back to
+    :func:`numpy.isin` for other dtypes.
+
+    Parameters
+    ----------
+    arr : numpy.ndarray
+        Input array to test.
+    codes : sequence of int
+        Values to test for membership.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean array of the same shape as *arr*.
+
+    """
+    if arr.dtype == np.uint8 or (arr.dtype.kind in "iu" and arr.max() < 65536):
+        lut = np.zeros(max(int(arr.max()) + 1, max(codes) + 1), dtype=bool)
+        lut[list(codes)] = True
+        return lut[arr]
+    return isin(arr, codes)
+
+
+def fast_dilation(mask: NDArray, iterations: int) -> NDArray:
+    """
+    Binary dilation using distance transform for large iteration counts.
+
+    For ``iterations > 3``, uses :func:`scipy.ndimage.distance_transform_cdt`
+    with cityblock metric, which is equivalent to iterative cross-shaped
+    dilation but significantly faster.
+
+    Parameters
+    ----------
+    mask : numpy.ndarray
+        Boolean 2-D mask to dilate.
+    iterations : int
+        Number of dilation iterations. If 0, *mask* is returned unchanged.
+
+    Returns
+    -------
+    numpy.ndarray
+        Dilated boolean mask.
+
+    """
+    if iterations <= 0:
+        return mask
+    struct = generate_binary_structure(2, 1)
+    if iterations > 3:
+        dist = distance_transform_cdt(~mask, metric="cityblock")
+        return dist <= iterations
+    return dilation(mask, structure=struct, iterations=iterations)
+
+
+def apply_exclusion_entry(
+    d: dict[str, Any],
+    masked: NDArray,
+    res: float,
+) -> NDArray:
+    """
+    Apply codes filter, inversion, and buffer dilation to a raster mask.
+
+    Processes a single exclusion-container raster entry: filters by
+    land-use codes (or a callable), optionally inverts, and dilates by
+    the buffer distance.
+
+    Parameters
+    ----------
+    d : dict
+        Raster entry dict with keys ``"codes"``, ``"invert"``, ``"buffer"``.
+    masked : numpy.ndarray
+        Raster data array to filter.
+    res : float
+        Spatial resolution in the exclusion CRS, used to convert buffer
+        distance to dilation iterations.
+
+    Returns
+    -------
+    numpy.ndarray
+        Boolean exclusion mask (``True`` = excluded).
+
+    """
+    if d["codes"]:
+        if callable(d["codes"]):
+            masked_ = d["codes"](masked).astype(bool)
+        else:
+            masked_ = fast_isin(masked, d["codes"])
+    else:
+        masked_ = masked.astype(bool)
+
+    if d["invert"]:
+        masked_ = ~masked_
+    if d["buffer"]:
+        iterations = int(d["buffer"] / res) + 1
+        masked_ = fast_dilation(masked_, iterations)
+    return masked_
+
+
+class RasterCache:
+    """
+    In-memory cache of raster data read from an ExclusionContainer.
+
+    Reads each unique raster file once via ``raster.read(1)`` and stores
+    the full array, its affine transform, and CRS.  Subsequent per-shape
+    reads are served by numpy slicing, avoiding repeated disk I/O.
+
+    Parameters
+    ----------
+    excluder : ExclusionContainer
+        Container whose raster files are pre-loaded.  Files are opened
+        automatically if not already open.
+
+    """
+
+    def __init__(self, excluder: ExclusionContainer) -> None:
+        if not excluder.all_open:
+            excluder.open_files()
+
+        self._data: dict[str, tuple[NDArray, rio.Affine, CrsLike]] = {}
+        for d in excluder.rasters:
+            raster = d["raster"]
+            key = raster.name
+            if key in self._data:
+                continue
+            data = raster.read(1)
+            self._data[key] = (data, raster.transform, raster.crs)
+
+    def window_read(
+        self,
+        raster: rio.DatasetReader,
+        geom: GeoSeries,
+        transform: rio.Affine | None,
+        shape: tuple[int, int] | None,
+        crs: CrsLike,
+        nodata: int = 255,
+        allow_no_overlap: bool = False,
+    ) -> tuple[NDArray, rio.Affine]:
+        """
+        Read a geometry-bounded window from cached raster data.
+
+        Computes the pixel window covering *geom*, slices it from the
+        in-memory array, and reprojects to the target grid when the
+        native transform/shape differ from *transform*/*shape*.
+
+        Parameters
+        ----------
+        raster : rasterio.DatasetReader
+            Open raster whose ``name`` is the cache lookup key.
+        geom : geopandas.GeoSeries
+            Geometry defining the spatial extent to read.
+        transform : rasterio.Affine or None
+            Target affine transform.  ``None`` returns the native window
+            transform.
+        shape : tuple of int or None
+            Target array shape ``(rows, cols)``.  ``None`` uses the
+            native window shape.
+        crs : CRS-like
+            Target CRS for reprojection.
+        nodata : int
+            Fill value for areas outside the raster extent.
+        allow_no_overlap : bool
+            Return a nodata-filled array when the geometry does not
+            overlap the raster instead of raising.
+
+        Returns
+        -------
+        data : numpy.ndarray
+            Raster values for the requested window.
+        transform : rasterio.Affine
+            Affine transform of the returned array.
+
+        Raises
+        ------
+        ValueError
+            If the geometry does not overlap the raster and
+            *allow_no_overlap* is ``False``.
+
+        """
+        key = raster.name
+        data, src_transform, src_crs = self._data[key]
+
+        if geom.crs != src_crs:
+            geom = geom.to_crs(src_crs)
+
+        bounds_arr = geom.total_bounds
+        res_x, res_y = abs(src_transform.a), abs(src_transform.e)
+        col_off = int((bounds_arr[0] - src_transform.c) / src_transform.a)
+        row_off = int((src_transform.f - bounds_arr[3]) / res_y)
+        col_end = int(np.ceil((bounds_arr[2] - src_transform.c) / src_transform.a))
+        row_end = int(np.ceil((src_transform.f - bounds_arr[1]) / res_y))
+
+        h, w = data.shape
+        if col_off >= w or row_off >= h or col_end <= 0 or row_end <= 0:
+            if allow_no_overlap:
+                if transform is not None and shape is not None:
+                    return np.full(shape, nodata, dtype=data.dtype), transform
+                fallback_t, fallback_s = padded_transform_and_shape(bounds_arr, res_x)
+                return np.full(fallback_s, nodata, dtype=data.dtype), fallback_t
+            raise ValueError("Input shapes do not overlap raster.")
+
+        col_off = max(0, col_off)
+        row_off = max(0, row_off)
+        col_end = min(w, col_end)
+        row_end = min(h, row_end)
+
+        window_data = data[row_off:row_end, col_off:col_end]
+        window_transform = rio.Affine(
+            src_transform.a,
+            0,
+            src_transform.c + col_off * src_transform.a,
+            0,
+            src_transform.e,
+            src_transform.f + row_off * src_transform.e,
+        )
+
+        if transform is None or (
+            window_transform == transform and window_data.shape == shape
+        ):
+            return window_data, window_transform
+
+        assert shape is not None and crs is not None
+        dtype = data.dtype if data.dtype.kind in "iu" else np.float64
+        dst = np.empty(shape, dtype=dtype)
+        return rio.warp.reproject(
+            window_data,
+            dst,
+            src_crs=src_crs,
+            dst_crs=crs,
+            src_transform=window_transform,
+            dst_transform=transform,
+            dst_nodata=nodata,
+        )
+
+
+def shape_availability_cached(
+    geometry: GeoSeries,
+    excluder: ExclusionContainer,
+    cache: RasterCache,
+) -> tuple[NDArray, rio.Affine]:
+    """
+    Compute eligible area using pre-loaded raster data.
+
+    Equivalent to :func:`shape_availability` but reads raster data from
+    *cache* instead of disk, avoiding per-shape I/O overhead.
+
+    Parameters
+    ----------
+    geometry : geopandas.GeoSeries
+        Geometry of which the eligible area is computed.
+    excluder : ExclusionContainer
+        Container of exclusion rasters and geometries.
+    cache : RasterCache
+        Pre-loaded raster cache built from *excluder*.
+
+    Returns
+    -------
+    masked : numpy.ndarray
+        Boolean mask where ``True`` indicates eligible cells.
+    transform : rasterio.Affine
+        Affine transform of the mask.
+
+    """
+    bounds = rio.features.bounds(geometry)
+    transform, shape = padded_transform_and_shape(bounds, res=excluder.res)
+    exclusions = geometry_mask(geometry, shape, transform)
+
+    raster_name: str | None = None
+    for d in excluder.rasters:
+        name = d["raster"].name
+        if name != raster_name:
+            raster_name = name
+            kwargs_keys = ["allow_no_overlap", "nodata"]
+            kwargs = {k: v for k, v in d.items() if k in kwargs_keys}
+            masked, transform = cache.window_read(
+                d["raster"], geometry, transform, shape, excluder.crs, **kwargs
+            )
+        exclusions |= apply_exclusion_entry(d, masked, excluder.res)
+
+    for d in excluder.geometries:
+        masked = ~geometry_mask(d["geometry"], shape, transform, invert=d["invert"])
+        exclusions |= masked
+
+    return ~exclusions, transform
 
 
 def maybe_swap_spatial_dims(
