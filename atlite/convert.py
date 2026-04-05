@@ -26,9 +26,9 @@ from atlite import hydro as hydrom
 from atlite import wind as windm
 from atlite.aggregate import (
     aggregate_matrix,
-    reduce_time,
     finalize_aggregated_result,
     normalize_aggregate_time,
+    reduce_time,
     resolve_matrix,
 )
 from atlite.pv.irradiation import TiltedIrradiation
@@ -58,7 +58,6 @@ if TYPE_CHECKING:
     )
     from atlite.cutout import Cutout
     from atlite.resource import CSPConfig, PanelConfig, TurbineConfig
-
 
 
 logger = logging.getLogger(__name__)
@@ -201,9 +200,7 @@ def convert_and_aggregate(
     if dask_kwargs and backend != "dask":
         raise ValueError("dask_kwargs require backend='dask'.")
 
-    matrix, index = resolve_matrix(
-        cutout, matrix, index, shapes, shapes_crs, layout
-    )
+    matrix, index = resolve_matrix(cutout, matrix, index, shapes, shapes_crs, layout)
 
     if backend != "dask":
         from atlite.streaming import can_stream, stream_conversion

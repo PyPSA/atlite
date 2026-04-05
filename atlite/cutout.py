@@ -82,7 +82,9 @@ def _storage_aligned_chunks(ds: xr.Dataset) -> dict[str, int] | None:
             continue
         dims = var.dims[: len(chunksizes)]
         chunks = {
-            dim: size for dim, size in zip(dims, chunksizes, strict=False) if dim == "time"
+            dim: size
+            for dim, size in zip(dims, chunksizes, strict=False)
+            if dim == "time"
         }
         if chunks:
             return chunks
@@ -191,9 +193,11 @@ class Cutout:
                 chunks = _storage_aligned_chunks(data) or {"time": 100}
             if chunks is not None:
                 data = data.chunk(chunks)
-            storable_chunks = {
-                f"chunksize_{k}": v for k, v in (chunks or {}).items()
-            } if isinstance(chunks, dict) else {}
+            storable_chunks = (
+                {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
+                if isinstance(chunks, dict)
+                else {}
+            )
             data.attrs.update(storable_chunks)
             if cutoutparams:
                 warn(
@@ -204,16 +208,20 @@ class Cutout:
         elif "data" in cutoutparams:
             if chunks is default_chunks:
                 chunks = {"time": 100}
-            storable_chunks = {
-                f"chunksize_{k}": v for k, v in (chunks or {}).items()
-            } if isinstance(chunks, dict) else {}
+            storable_chunks = (
+                {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
+                if isinstance(chunks, dict)
+                else {}
+            )
             data = cutoutparams.pop("data")
         else:
             if chunks is default_chunks:
                 chunks = {"time": 100}
-            storable_chunks = {
-                f"chunksize_{k}": v for k, v in (chunks or {}).items()
-            } if isinstance(chunks, dict) else {}
+            storable_chunks = (
+                {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
+                if isinstance(chunks, dict)
+                else {}
+            )
             logger.info("Building new cutout %s", path)
 
             if "bounds" in cutoutparams:

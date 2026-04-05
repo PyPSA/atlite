@@ -22,7 +22,6 @@ import xarray as xr
 
 from atlite.aggregate import (
     finalize_aggregated_result,
-    reduce_time,
     wrap_matrix_result,
 )
 
@@ -299,7 +298,12 @@ def stream_inner(
 
     if matrix is not None:
         return finalize_matrix(
-            spec, result_data, matrix, index,
-            per_unit, return_capacity, aggregate_time_method,
+            spec,
+            result_data,
+            matrix,
+            index,
+            per_unit,
+            return_capacity,
+            aggregate_time_method,
         )
     return finalize_grid(spec, accum, aggregate_time_method)

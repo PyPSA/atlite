@@ -17,8 +17,6 @@ from scipy.sparse import csr_matrix
 from atlite.gis import spdiag
 
 if TYPE_CHECKING:
-    import dask.array
-
     from scipy.sparse import spmatrix
 
     from atlite._types import DataArray
