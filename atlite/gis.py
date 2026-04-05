@@ -6,10 +6,10 @@
 from __future__ import annotations
 
 import logging
-from collections import OrderedDict
-from pathlib import Path
 import threading
+from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import geopandas as gpd
@@ -1012,7 +1012,6 @@ def compute_availability_threaded(
         Reprojected availability arrays, one per shape.
 
     """
-
     tls = threading.local()
     raster_paths = [
         (
