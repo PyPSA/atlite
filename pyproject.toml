@@ -60,6 +60,8 @@ Documentation = "https://atlite.readthedocs.io/en/latest/"
 
 dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff", "mypy", "types-PyYAML"]
 
+benchmark = ["dask[distributed]", "pyyaml", "geopandas", "shapely"]
+
 docs = [
     "numpydoc==1.8.0",
     "sphinx==8.0.2",
@@ -75,7 +77,7 @@ docs = [
 version_scheme = "no-guess-dev"
 
 [tool.setuptools.packages.find]
-include = ["atlite"]
+include = ["atlite", "atlite.*"]
 
 # Formatter and linter settings
 

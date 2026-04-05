@@ -14,6 +14,7 @@ Created on Wed May  6 15:23:13 2020.
 import numpy as np
 import pytest
 import rasterio as rio
+import xarray as xr
 from xarray.testing import assert_equal
 
 from atlite import Cutout
@@ -124,6 +125,27 @@ def test_auto_chunking(ref):
         chunks="auto",
     )
     assert_equal(cutout.coords.to_dataset(), ref.coords.to_dataset())
+
+
+def test_storage_aligned_time_chunking(tmp_path):
+    path = tmp_path / "storage_aligned.nc"
+    ds = xr.Dataset(
+        {
+            "temperature": xr.DataArray(
+                np.zeros((6, 2, 3)),
+                dims=["time", "y", "x"],
+                coords={"time": range(6), "y": range(2), "x": range(3)},
+            )
+        },
+        attrs={"module": "era5", "prepared_features": []},
+    )
+    ds.to_netcdf(path, encoding={"temperature": {"chunksizes": (4, 2, 3)}})
+
+    cutout = Cutout(path)
+
+    assert cutout.chunks == {"time": 4}
+    assert cutout.data.chunks is not None
+    assert cutout.data.chunksizes["time"] == (4, 2)
 
 
 def test_dx_dy_dt():

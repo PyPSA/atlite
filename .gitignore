@@ -15,6 +15,7 @@ atlite.egg-info/
 test/*.nc
 dev-scripts/
 dev/
+benchmarks/
 examples/*.nc
 examples/*.csv
 examples/*.zip
