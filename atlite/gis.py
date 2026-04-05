@@ -1304,15 +1304,21 @@ class RasterCache:
         assert shape is not None and crs is not None
         dtype = data.dtype if data.dtype.kind in "iu" else np.float64
         dst = np.empty(shape, dtype=dtype)
-        return rio.warp.reproject(
-            window_data,
-            dst,
-            src_crs=src_crs,
-            dst_crs=crs,
-            src_transform=window_transform,
-            dst_transform=transform,
-            dst_nodata=nodata,
-        )
+        gdal_logger = logging.getLogger("rasterio._err")
+        prev_level = gdal_logger.level
+        gdal_logger.setLevel(logging.ERROR)
+        try:
+            return rio.warp.reproject(
+                window_data,
+                dst,
+                src_crs=src_crs,
+                dst_crs=crs,
+                src_transform=window_transform,
+                dst_transform=transform,
+                dst_nodata=nodata,
+            )
+        finally:
+            gdal_logger.setLevel(prev_level)
 
 
 def shape_availability_cached(
