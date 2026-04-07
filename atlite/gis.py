@@ -1286,7 +1286,7 @@ class RasterCache:
         col_end = min(w, col_end)
         row_end = min(h, row_end)
 
-        window_data = data[row_off:row_end, col_off:col_end]
+        window_data = data[row_off:row_end, col_off:col_end].copy()
         window_transform = rio.Affine(
             src_transform.a,
             0,
@@ -1295,6 +1295,11 @@ class RasterCache:
             src_transform.e,
             src_transform.f + row_off * src_transform.e,
         )
+
+        outside = geometry_mask(
+            geom, window_data.shape, window_transform, invert=False
+        )
+        window_data[outside] = nodata
 
         if transform is None or (
             window_transform == transform and window_data.shape == shape
@@ -1315,6 +1320,7 @@ class RasterCache:
                 dst_crs=crs,
                 src_transform=window_transform,
                 dst_transform=transform,
+                src_nodata=nodata,
                 dst_nodata=nodata,
             )
         finally:
