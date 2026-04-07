@@ -1296,9 +1296,7 @@ class RasterCache:
             src_transform.f + row_off * src_transform.e,
         )
 
-        outside = geometry_mask(
-            geom, window_data.shape, window_transform, invert=False
-        )
+        outside = geometry_mask(geom, window_data.shape, window_transform, invert=False)
         window_data[outside] = nodata
 
         if transform is None or (
