@@ -1,9 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Base class for atlite.
-"""
+"""Base class for atlite."""
 
 # There is a binary incompatibility between the pip wheels of netCDF4 and
 # rasterio, which leads to the first one to work correctly while the second
@@ -14,9 +12,12 @@ Base class for atlite.
 # https://github.com/pydata/xarray/issues/2535,
 # https://github.com/rasterio/rasterio-wheels/issues/12
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from tempfile import mktemp
+from typing import TYPE_CHECKING, Any
 from warnings import warn
 
 import geopandas as gpd
@@ -27,6 +28,22 @@ import xarray as xr
 from numpy import append, atleast_1d
 from pyproj import CRS
 from shapely.geometry import box
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from atlite._types import (
+        CrsLike,
+        DataArray,
+        GeoDataFrame,
+        Geometry,
+        NDArray,
+        Number,
+        PathLike,
+        SparseMatrix,
+    )
+
+    pass
 
 from atlite.convert import (
     coefficient_of_performance,
@@ -66,7 +83,7 @@ class Cutout:
     functionalities.
     """
 
-    def __init__(self, path, **cutoutparams):
+    def __init__(self, path: PathLike, **cutoutparams: Any) -> None:
         """
         Provide an atlite cutout object.
 
@@ -118,6 +135,8 @@ class Cutout:
         data : xr.Dataset
             User provided cutout data. Save the cutout using `Cutout.to_file()`
             afterwards.
+        **cutoutparams
+            Additional keyword arguments. See Other Parameters below.
 
         Other Parameters
         ----------------
@@ -131,12 +150,19 @@ class Cutout:
             Whether to interpolate NaN's in the SARAH data. This takes effect for
             sarah data which has missing data for areas where dawn and
             nightfall happens (ca. 30 min gap).
-        gebco_path: str
+        gebco_path : str
             Path to find the gebco NetCDF file. Only necessary when including
             the gebco module.
         parallel : bool, default False
             Whether to open dataset in parallel mode. Take effect for all
             xr.open_mfdataset usages.
+
+        Raises
+        ------
+        TypeError
+            If required arguments are missing when building a new cutout.
+        ValueError
+            If ``bounds`` has an invalid format.
 
         """
         path = Path(path).with_suffix(".nc")
@@ -155,12 +181,13 @@ class Cutout:
             if cutoutparams:
                 warn(
                     f"Arguments {', '.join(cutoutparams)} are ignored, since "
-                    "cutout is already built."
+                    "cutout is already built.",
+                    stacklevel=2,
                 )
         elif "data" in cutoutparams:
             data = cutoutparams.pop("data")
         else:
-            logger.info(f"Building new cutout {path}")
+            logger.info("Building new cutout %s", path)
 
             if "bounds" in cutoutparams:
                 bounds = cutoutparams.pop("bounds")
@@ -202,45 +229,35 @@ class Cutout:
 
         # Check compatibility of CRS
         modules = atleast_1d(data.attrs.get("module"))
-        crs = set(CRS(datamodules[m].crs) for m in modules)
+        crs = {CRS(datamodules[m].crs) for m in modules}
         assert len(crs) == 1, f"CRS of {module} not compatible"
 
         self.path = path
         self.data = data
 
     @property
-    def name(self):
-        """
-        Name of the cutout.
-        """
+    def name(self) -> str:
+        """Name of the cutout."""
         return self.path.stem
 
     @property
-    def module(self):
-        """
-        Data module of the cutout.
-        """
-        return self.data.attrs.get("module")
+    def module(self) -> str | list[str]:
+        """Data module of the cutout."""
+        return self.data.attrs.get("module")  # type: ignore[no-any-return]
 
     @property
-    def crs(self):
-        """
-        Coordinate Reference System of the cutout.
-        """
+    def crs(self) -> CRS:
+        """Coordinate Reference System of the cutout."""
         return CRS(datamodules[atleast_1d(self.module)[0]].crs)
 
     @property
-    def available_features(self):
-        """
-        List of available weather data features for the cutout.
-        """
+    def available_features(self) -> pd.Index:
+        """List of available weather data features for the cutout."""
         return available_features(self.module)
 
     @property
-    def chunks(self):
-        """
-        Chunking of the cutout data used by dask.
-        """
+    def chunks(self) -> dict[str, int] | None:
+        """Chunking of the cutout data used by dask."""
         chunks = {
             k.lstrip("chunksize_"): v
             for k, v in self.data.attrs.items()
@@ -249,42 +266,35 @@ class Cutout:
         return None if chunks == {} else chunks
 
     @property
-    def coords(self):
-        """
-        Geographic coordinates of the cutout.
-        """
+    def coords(self) -> xr.Coordinates:
+        """Geographic coordinates of the cutout."""
         return self.data.coords
 
     @property
-    def shape(self):
-        """
-        Size of spatial dimensions (y, x) of the cutout data.
-        """
+    def shape(self) -> tuple[int, int]:
+        """Size of spatial dimensions (y, x) of the cutout data."""
         return len(self.coords["y"]), len(self.coords["x"])
 
     @property
-    def extent(self):
-        """
-        Total extent of the area covered by the cutout (x, X, y, Y).
-        """
+    def extent(self) -> NDArray:
+        """Total extent of the area covered by the cutout (x, X, y, Y)."""
         xs, ys = self.coords["x"].values, self.coords["y"].values
         dx, dy = self.dx, self.dy
-        return np.array(
-            [xs[0] - dx / 2, xs[-1] + dx / 2, ys[0] - dy / 2, ys[-1] + dy / 2]
-        )
+        return np.array([
+            xs[0] - dx / 2,
+            xs[-1] + dx / 2,
+            ys[0] - dy / 2,
+            ys[-1] + dy / 2,
+        ])
 
     @property
-    def bounds(self):
-        """
-        Total bounds of the area covered by the cutout (x, y, X, Y).
-        """
+    def bounds(self) -> NDArray:
+        """Total bounds of the area covered by the cutout (x, y, X, Y)."""
         return self.extent[[0, 2, 1, 3]]
 
     @property
-    def transform(self):
-        """
-        Get the affine transform of the cutout.
-        """
+    def transform(self) -> rio.Affine:
+        """Get the affine transform of the cutout."""
         return rio.Affine(
             self.dx,
             0,
@@ -295,10 +305,8 @@ class Cutout:
         )
 
     @property
-    def transform_r(self):
-        """
-        Get the affine transform of the cutout with reverse y-order.
-        """
+    def transform_r(self) -> rio.Affine:
+        """Get the affine transform of the cutout with reverse y-order."""
         return rio.Affine(
             self.dx,
             0,
@@ -309,42 +317,32 @@ class Cutout:
         )
 
     @property
-    def dx(self):
-        """
-        Spatial resolution on the x coordinates.
-        """
+    def dx(self) -> float:
+        """Spatial resolution on the x coordinates."""
         x = self.coords["x"]
-        return round((x[-1] - x[0]).item() / (x.size - 1), 8)
+        return round((x[-1] - x[0]).item() / (x.size - 1), 8)  # type: ignore[no-any-return]
 
     @property
-    def dy(self):
-        """
-        Spatial resolution on the y coordinates.
-        """
+    def dy(self) -> float:
+        """Spatial resolution on the y coordinates."""
         y = self.coords["y"]
-        return round((y[-1] - y[0]).item() / (y.size - 1), 8)
+        return round((y[-1] - y[0]).item() / (y.size - 1), 8)  # type: ignore[no-any-return]
 
     @property
-    def dt(self):
-        """
-        Time resolution of the cutout.
-        """
-        return pd.infer_freq(self.coords["time"].to_index())
+    def dt(self) -> str | None:
+        """Time resolution of the cutout."""
+        return pd.infer_freq(self.coords["time"].to_index())  # type: ignore[no-any-return]
 
     @property
-    def prepared(self):
-        """
-        Boolean indicating whether all available features are prepared.
-        """
-        return self.prepared_features.sort_index().equals(
+    def prepared(self) -> bool:
+        """Boolean indicating whether all available features are prepared."""
+        return self.prepared_features.sort_index().equals(  # type: ignore[no-any-return]
             self.available_features.sort_index()
         )
 
     @property
-    def prepared_features(self):
-        """
-        Get the list of prepared features in the cutout.
-        """
+    def prepared_features(self) -> pd.Series[Any]:
+        """Get the list of prepared features in the cutout."""
         index = [
             (self.data[v].attrs["module"], self.data[v].attrs["feature"])
             for v in self.data
@@ -353,7 +351,7 @@ class Cutout:
         return pd.Series(list(self.data), index, dtype=object)
 
     @CachedAttribute
-    def grid(self):
+    def grid(self) -> GeoDataFrame:
         """
         Cutout grid with coordinates and geometries.
 
@@ -375,7 +373,13 @@ class Cutout:
             crs=self.crs,
         )
 
-    def sel(self, path=None, bounds=None, buffer=0, **kwargs):
+    def sel(
+        self,
+        path: PathLike | None = None,
+        bounds: Sequence[float] | None = None,
+        buffer: float = 0,
+        **kwargs: Any,
+    ) -> Cutout:
         """
         Select parts of the cutout.
 
@@ -407,12 +411,15 @@ class Cutout:
         if bounds is not None:
             if buffer > 0:
                 bounds = box(*bounds).buffer(buffer).bounds
+                assert bounds is not None
             x1, y1, x2, y2 = bounds
             kwargs.update(x=slice(x1, x2), y=slice(y1, y2))
         data = self.data.sel(**kwargs)
         return Cutout(path, data=data)
 
-    def merge(self, other, path=None, **kwargs):
+    def merge(
+        self, other: Cutout, path: PathLike | None = None, **kwargs: Any
+    ) -> Cutout:
         """
         Merge two cutouts into a single cutout.
 
@@ -450,7 +457,7 @@ class Cutout:
 
         return Cutout(path, data=data)
 
-    def to_file(self, fn=None):
+    def to_file(self, fn: PathLike | None = None) -> None:
         """
         Save cutout to a NetCDF file.
 
@@ -464,7 +471,14 @@ class Cutout:
             fn = self.path
         self.data.to_netcdf(fn)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """Return string representation of the cutout.
+
+        Returns
+        -------
+        str
+            Human-readable summary of the cutout.
+        """
         start = np.datetime_as_string(self.coords["time"].values[0], unit="D")
         end = np.datetime_as_string(self.coords["time"].values[-1], unit="D")
         return (
@@ -489,7 +503,9 @@ class Cutout:
             )
         )
 
-    def indicatormatrix(self, shapes, shapes_crs=4326):
+    def indicatormatrix(
+        self, shapes: Sequence[Geometry], shapes_crs: CrsLike = 4326
+    ) -> SparseMatrix:
         """
         Compute the indicatormatrix.
 
@@ -505,6 +521,9 @@ class Cutout:
         Parameters
         ----------
         shapes : Collection of shapely polygons
+            Shapes to compute the indicator matrix for.
+        shapes_crs : int or CRS, default 4326
+            CRS of the shapes.
 
         Returns
         -------
@@ -514,7 +533,9 @@ class Cutout:
         """
         return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
 
-    def intersectionmatrix(self, shapes, shapes_crs=4326):
+    def intersectionmatrix(
+        self, shapes: Sequence[Geometry], shapes_crs: CrsLike = 4326
+    ) -> SparseMatrix:
         """
         Compute the intersectionmatrix.
 
@@ -525,8 +546,10 @@ class Cutout:
 
         Parameters
         ----------
-        orig : Collection of shapely polygons
-        dest : Collection of shapely polygons
+        shapes : Collection of shapely polygons
+            Shapes to compute the intersection matrix for.
+        shapes_crs : int or CRS, default 4326
+            CRS of the shapes.
 
         Returns
         -------
@@ -536,7 +559,7 @@ class Cutout:
         """
         return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
 
-    def area(self, crs=None):
+    def area(self, crs: CrsLike = None) -> DataArray:
         """
         Get the area per grid cell as a DataArray with coords (x,y).
 
@@ -561,13 +584,20 @@ class Cutout:
             [self.coords["y"], self.coords["x"]],
         )
 
-    def uniform_layout(self):
+    def uniform_layout(self) -> DataArray:
         """
         Get a uniform capacity layout for all grid cells.
+
+        Returns
+        -------
+        xr.DataArray
+            Layout with value 1 for all grid cells.
         """
         return xr.DataArray(1, [self.coords["y"], self.coords["x"]])
 
-    def uniform_density_layout(self, capacity_density, crs=None):
+    def uniform_density_layout(
+        self, capacity_density: Number, crs: CrsLike = None
+    ) -> DataArray:
         """
         Get a capacity layout from a uniform capacity density.
 
@@ -588,14 +618,18 @@ class Cutout:
         """
         return capacity_density * self.area(crs)
 
-    def equals(self, other):
+    def equals(self, other: Any) -> bool:
         """
-        It overrides xarray.Dataset.equals and ignores the path attribute in the comparison
+        Compare equality with another cutout, ignoring the path attribute.
+
+        Returns
+        -------
+        bool
+            Whether the two cutouts are equal.
         """
         if not isinstance(other, Cutout):
-            return NotImplemented
-        # Compare cutouts data attributes
-        return self.data.equals(other.data)
+            return NotImplemented  # type: ignore[no-any-return]
+        return bool(self.data.equals(other.data))
 
     def layout_from_capacity_list(self, data, col="Capacity"):
         """
@@ -632,7 +666,6 @@ class Cutout:
         >>> pv.plot()
 
         """
-
         x_grid = self.data.x.values
         y_grid = self.data.y.values
 
