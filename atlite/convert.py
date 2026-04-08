@@ -979,6 +979,7 @@ def runoff(
 
     return result
 
+
 def _hydro_from_runoff(
     cutout,
     plants,
@@ -1043,6 +1044,7 @@ def _hydro_from_runoff(
         basins, runoff, flowspeed, show_progress
     )
 
+
 def _hydro_from_discharge(
     cutout,
     plants,
@@ -1056,9 +1058,9 @@ def _hydro_from_discharge(
     plants : pd.DataFrame
         Run-of-river plants or dams with lon, lat columns.
     """
-    print("<"*100)
+    print("<" * 100)
     print("Extracting discharge time series for nearest grid points to plants...")
-    print("<"*100)
+    print("<" * 100)
     discharge = cutout.data.discharge
     inflow = xr.DataArray(
         np.zeros((len(plants), discharge.indexes["time"].size)),
@@ -1070,7 +1072,7 @@ def _hydro_from_discharge(
             x=plant.lon, y=plant.lat, method="nearest"
         )
     return inflow
-    
+
 
 def hydro(
     cutout,
@@ -1115,7 +1117,9 @@ def hydro(
                 plants,
             )
         if hydrobasins is None or "runoff" not in cutout.available_features.values:
-            raise ValueError("For runoff-based hydro time series, hydrobasins and runoff data must be provided.")
+            raise ValueError(
+                "For runoff-based hydro time series, hydrobasins and runoff data must be provided."
+            )
         return _hydro_from_runoff(
             cutout,
             plants,
@@ -1128,7 +1132,9 @@ def hydro(
     elif module.lower() == "glofas":
         # Check if discharge data is available in cutout, otherwise raise error
         if "discharge" not in cutout.data_vars:
-            raise ValueError("For GloFAS-based hydro time series, the cutout must include discharge data.")
+            raise ValueError(
+                "For GloFAS-based hydro time series, the cutout must include discharge data."
+            )
         return _hydro_from_discharge(
             cutout,
             plants,
@@ -1136,7 +1142,9 @@ def hydro(
     elif module.lower() == "era5":
         # Check if hydrobasins is provided, otherwise raise error
         if hydrobasins is None:
-            raise ValueError("For ERA5-based hydro time series, the hydrobasins dataset must be provided.")
+            raise ValueError(
+                "For ERA5-based hydro time series, the hydrobasins dataset must be provided."
+            )
         return _hydro_from_runoff(
             cutout,
             plants,
