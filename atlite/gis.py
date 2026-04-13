@@ -484,8 +484,8 @@ class ExclusionContainer:
                     raster._crs = CRS(d["crs"])
                 else:
                     raise ValueError(
-                        f"CRS of {raster} must be either geographic or projected, "
-                        "please provide it manually."
+                        f"CRS of {raster} is neither geographic nor projected, "
+                        f"please provide it manually:\n{raster.crs}"
                     )
             d["raster"] = raster
 

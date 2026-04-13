@@ -21,7 +21,13 @@ Upcoming Release
 * Add ``aggregate_time={"sum", "mean", None}`` to ``convert_and_aggregate`` for temporal 
   aggregation with and without spatial aggregation, and deprecate ``capacity_factor``/``capacity_factor_timeseries`` 
   in favor of it
-   
+
+**Bug fixes**
+
+* Fix regression when ``ExclusionContainer`` encounters a raster with an invalid CRS
+  (https://github.com/PyPSA/atlite/pull/500).
+
+
 `v0.5.0 <https://github.com/PyPSA/atlite/releases/tag/v0.5.0>`__ (13th March 2026)
 =======================================================================================   
    
