@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Tests for time aggregation functionality."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -23,21 +25,19 @@ def identity_convert(ds, **kwargs):
 
 @pytest.fixture
 def cutout():
-    np.random.seed(42)
+    rng = np.random.default_rng(42)
     times = xr.date_range("2020-01-01", periods=24, freq="h")
-    data = xr.Dataset(
-        {
-            "var": xr.DataArray(
-                np.random.rand(24, 3, 4),
-                dims=["time", "y", "x"],
-                coords={
-                    "time": times,
-                    "y": [50.0, 51.0, 52.0],
-                    "x": [5.0, 6.0, 7.0, 8.0],
-                },
-            )
-        }
-    )
+    data = xr.Dataset({
+        "var": xr.DataArray(
+            rng.random((24, 3, 4)),
+            dims=["time", "y", "x"],
+            coords={
+                "time": times,
+                "y": [50.0, 51.0, 52.0],
+                "x": [5.0, 6.0, 7.0, 8.0],
+            },
+        )
+    })
     return MockCutout(data)
 
 
@@ -158,12 +158,12 @@ class TestDeprecatedParams:
 class TestInvalidArgs:
     def test_invalid_aggregate_time_value(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
-            convert_and_aggregate(cutout, identity_convert, aggregate_time="invalid")
+            convert_and_aggregate(cutout, identity_convert, aggregate_time="invalid")  # type: ignore[arg-type]
 
     def test_aggregate_time_false_raises(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
-            convert_and_aggregate(cutout, identity_convert, aggregate_time=False)
+            convert_and_aggregate(cutout, identity_convert, aggregate_time=False)  # type: ignore[arg-type]
 
     def test_aggregate_time_true_raises(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
-            convert_and_aggregate(cutout, identity_convert, aggregate_time=True)
+            convert_and_aggregate(cutout, identity_convert, aggregate_time=True)  # type: ignore[arg-type]

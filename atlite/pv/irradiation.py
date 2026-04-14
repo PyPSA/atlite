@@ -2,20 +2,61 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Solar irradiation decomposition and transposition models."""
+
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 import numpy as np
 from dask.array import cos, fmax, fmin, radians, sin, sqrt
 
+if TYPE_CHECKING:
+    from atlite._types import (
+        ClearskyModel,
+        DataArray,
+        Dataset,
+        IrradiationType,
+        TrackingType,
+        TrigonModel,
+    )
+
 logger = logging.getLogger(__name__)
 
 
-def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
-    # Clearsky model from Reindl 1990 to split downward radiation into direct
-    # and diffuse contributions. Should switch to more up-to-date model, f.ex.
-    # Ridley et al. (2010) http://dx.doi.org/10.1016/j.renene.2009.07.018 ,
-    # Lauret et al. (2013):http://dx.doi.org/10.1016/j.renene.2012.01.049
+def DiffuseHorizontalIrrad(
+    ds: Dataset,
+    solar_position: Dataset,
+    clearsky_model: ClearskyModel | None,
+    influx: DataArray,
+) -> DataArray:
+    """
+    Estimate diffuse horizontal irradiation from total horizontal irradiation.
 
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing top-of-atmosphere irradiation and, for the enhanced
+        model, temperature and humidity.
+    solar_position : xarray.Dataset
+        Solar position with an ``altitude`` variable in radians.
+    clearsky_model : str or None
+        Reindl clearsky model to use, either ``"simple"`` or ``"enhanced"``.
+        If None, the model is chosen from the available data.
+    influx : xarray.DataArray
+        Total horizontal irradiation.
+
+    Returns
+    -------
+    xarray.DataArray
+        Diffuse horizontal irradiation.
+
+    Raises
+    ------
+    KeyError
+        If ``clearsky_model`` is not ``'simple'`` or ``'enhanced'``.
+    """
     sinaltitude = sin(solar_position["altitude"])
     influx_toa = ds["influx_toa"]
 
@@ -24,15 +65,9 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
             "enhanced" if "temperature" in ds and "humidity" in ds else "simple"
         )
 
-    # Reindl 1990 clearsky model
-
-    k = influx / influx_toa  # clearsky index
-    # k.values[k.values > 1.0] = 1.0
-    # k = k.rename('clearsky index')
+    k = influx / influx_toa
 
     if clearsky_model == "simple":
-        # Simple Reindl model without ambient air temperature and
-        # relative humidity
         fraction = (
             ((k > 0.0) & (k <= 0.3))
             * fmin(1.0, 1.020 - 0.254 * k + 0.0123 * sinaltitude)
@@ -41,8 +76,6 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
             + (k >= 0.78) * fmax(0.1, 0.486 * k - 0.182 * sinaltitude)
         )
     elif clearsky_model == "enhanced":
-        # Enhanced Reindl model with ambient air temperature and relative
-        # humidity
         T = ds["temperature"]
         rh = ds["humidity"]
 
@@ -66,16 +99,37 @@ def DiffuseHorizontalIrrad(ds, solar_position, clearsky_model, influx):
     else:
         raise KeyError("`clearsky model` must be chosen from 'simple' and 'enhanced'")
 
-    # Set diffuse fraction to one when the sun isn't up
-    # fraction = fraction.where(sinaltitude >= sin(radians(threshold))).fillna(1.0)
-    # fraction = fraction.rename('fraction index')
-
     return (influx * fraction).rename("diffuse horizontal")
 
 
-def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse):
-    # Hay-Davies Model
+def TiltedDiffuseIrrad(
+    ds: Dataset,
+    solar_position: Dataset,
+    surface_orientation: Dataset,
+    direct: DataArray,
+    diffuse: DataArray,
+) -> DataArray:
+    """
+    Calculate diffuse irradiation on a tilted surface.
 
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing top-of-atmosphere irradiation.
+    solar_position : xarray.Dataset
+        Solar position with an ``altitude`` variable in radians.
+    surface_orientation : xarray.Dataset
+        Surface orientation including ``cosincidence`` and ``slope``.
+    direct : xarray.DataArray
+        Direct horizontal irradiation.
+    diffuse : xarray.DataArray
+        Diffuse horizontal irradiation.
+
+    Returns
+    -------
+    xarray.DataArray
+        Diffuse tilted irradiation.
+    """
     sinaltitude = sin(solar_position["altitude"])
     influx_toa = ds["influx_toa"]
 
@@ -85,13 +139,9 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
     influx = direct + diffuse
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        # brightening factor
         f = sqrt(direct / influx).fillna(0.0)
-
-        # anisotropy factor
         A = direct / influx_toa
 
-    # geometric factor
     R_b = cosincidence / sinaltitude
 
     diffuse_t = (
@@ -101,13 +151,11 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
         + A * R_b
     ) * diffuse
 
-    # fixup: clip all negative values (unclear why it gets negative)
-    # note: REatlas does not do the fixup
-    if logger.isEnabledFor(logging.WARNING):
-        if ((diffuse_t < 0.0) & (sinaltitude > sin(radians(1.0)))).any():
-            logger.warning(
-                "diffuse_t exhibits negative values above altitude threshold."
-            )
+    if (
+        logger.isEnabledFor(logging.WARNING)
+        and ((diffuse_t < 0.0) & (sinaltitude > sin(radians(1.0)))).any()
+    ):
+        logger.warning("diffuse_t exhibits negative values above altitude threshold.")
 
     with np.errstate(invalid="ignore"):
         diffuse_t = diffuse_t.clip(min=0).fillna(0)
@@ -115,46 +163,105 @@ def TiltedDiffuseIrrad(ds, solar_position, surface_orientation, direct, diffuse)
     return diffuse_t.rename("diffuse tilted")
 
 
-def TiltedDirectIrrad(solar_position, surface_orientation, direct):
+def TiltedDirectIrrad(
+    solar_position: Dataset, surface_orientation: Dataset, direct: DataArray
+) -> DataArray:
+    """
+    Calculate direct irradiation on a tilted surface.
+
+    Parameters
+    ----------
+    solar_position : xarray.Dataset
+        Solar position with an ``altitude`` variable in radians.
+    surface_orientation : xarray.Dataset
+        Surface orientation including ``cosincidence``.
+    direct : xarray.DataArray
+        Direct horizontal irradiation.
+
+    Returns
+    -------
+    xarray.DataArray
+        Direct tilted irradiation.
+    """
     sinaltitude = sin(solar_position["altitude"])
     cosincidence = surface_orientation["cosincidence"]
 
-    # geometric factor
     R_b = cosincidence / sinaltitude
 
     return (R_b * direct).rename("direct tilted")
 
 
-def _albedo(ds, influx):
+def _albedo(ds: Dataset, influx: DataArray) -> DataArray:
+    """
+    Retrieve or derive surface albedo from the dataset.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing either ``albedo`` or ``outflux``.
+    influx : xarray.DataArray
+        Downward surface irradiation used when deriving albedo from outflux.
+
+    Returns
+    -------
+    xarray.DataArray
+        Surface albedo.
+
+    Raises
+    ------
+    AssertionError
+        If the dataset lacks both ``albedo`` and ``outflux`` variables.
+    """
     if "albedo" in ds:
-        albedo = ds["albedo"]
-    elif "outflux" in ds:
-        albedo = (ds["outflux"] / influx.where(influx != 0)).fillna(0).clip(max=1)
-    else:
-        raise AssertionError(
-            "Need either albedo or outflux as a variable in the dataset. "
-            "Check your cutout and dataset module."
-        )
-
-    return albedo
+        return ds["albedo"]
+    if "outflux" in ds:
+        return (ds["outflux"] / influx.where(influx != 0)).fillna(0).clip(max=1)
+    raise AssertionError(
+        "Need either albedo or outflux as a variable in the dataset. "
+        "Check your cutout and dataset module."
+    )
 
 
-def TiltedGroundIrrad(ds, solar_position, surface_orientation, influx):
+def TiltedGroundIrrad(
+    ds: Dataset,
+    solar_position: Dataset,
+    surface_orientation: Dataset,
+    influx: DataArray,
+) -> DataArray:
+    """
+    Calculate ground-reflected irradiation on a tilted surface.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset containing albedo information or reflected outflux.
+    solar_position : xarray.Dataset
+        Solar position dataset.
+    surface_orientation : xarray.Dataset
+        Surface orientation including ``slope``.
+    influx : xarray.DataArray
+        Total horizontal irradiation.
+
+    Returns
+    -------
+    xarray.DataArray
+        Ground-reflected tilted irradiation.
+    """
     surface_slope = surface_orientation["slope"]
     ground_t = influx * _albedo(ds, influx) * (1.0 - cos(surface_slope)) / 2.0
     return ground_t.rename("ground tilted")
 
 
 def TiltedIrradiation(
-    ds,
-    solar_position,
-    surface_orientation,
-    trigon_model,
-    clearsky_model,
-    tracking=0,
-    altitude_threshold=1.0,
-    irradiation="total",
-):
+    ds: Dataset,
+    solar_position: Dataset,
+    surface_orientation: Dataset,
+    trigon_model: TrigonModel,
+    clearsky_model: ClearskyModel | None,
+    tracking: TrackingType | int = 0,
+    altitude_threshold: float = 1.0,
+    irradiation: IrradiationType = "total",
+) -> DataArray:
     """
     Calculate the irradiation on a tilted surface.
 
@@ -168,7 +275,8 @@ def TiltedIrradiation(
     surface_orientation : xarray.Dataset
         Surface orientation calculated using atlite.orientation.SurfaceOrientation.
     trigon_model : str
-        Type of trigonometry model. Defaults to 'simple'if used via `convert_irradiation`.
+        Type of trigonometry model. Defaults to 'simple' if used via
+        `convert_irradiation`.
     clearsky_model : str or None
         Either the 'simple' or the 'enhanced' Reindl clearsky
         model. The default choice of None will choose dependending on
@@ -176,6 +284,8 @@ def TiltedIrradiation(
         incorporates ambient air temperature and relative humidity.
         NOTE: this option is only used if the used climate dataset
         doesn't provide direct and diffuse irradiation separately!
+    tracking : int or str, default 0
+        Type of solar tracking. 0 for fixed, other values for tracking modes.
     altitude_threshold : float
         Threshold for solar altitude in degrees. Values in range (0, altitude_threshold]
         will be set to zero. Default value equals 1.0 degrees.
@@ -192,11 +302,16 @@ def TiltedIrradiation(
     result : xarray.DataArray
         The desired irradiation quantity on the tilted surface.
 
+    Raises
+    ------
+    AssertionError
+        If the dataset lacks required irradiation variables.
+    ValueError
+        If ``irradiation`` is not a recognized type.
     """
     influx_toa = ds["influx_toa"]
 
-    def clip(influx, influx_max):
-        # use .data in clip due to dask-xarray incompatibilities
+    def clip(influx: DataArray, influx_max: DataArray) -> DataArray:
         return influx.clip(min=0, max=influx_max.transpose(*influx.dims).data)
 
     if "influx" in ds:
@@ -211,6 +326,7 @@ def TiltedIrradiation(
             "Need either influx or influx_direct and influx_diffuse in the "
             "dataset. Check your cutout and dataset module."
         )
+
     if trigon_model == "simple":
         k = surface_orientation["cosincidence"] / sin(solar_position["altitude"])
         if tracking != "dual":
@@ -243,10 +359,9 @@ def TiltedIrradiation(
         result = diffuse_t.rename("diffuse tilted")
     elif irradiation == "ground":
         result = ground_t.rename("ground tilted")
-
-    # The solar_position algorithms have a high error for small solar altitude
-    # values, leading to big overall errors from the 1/sinaltitude factor.
-    # => Suppress irradiation below solar altitudes of 1 deg.
+    else:
+        msg = f"Unknown irradiation type: {irradiation}"
+        raise ValueError(msg)
 
     cap_alt = solar_position["altitude"] < radians(altitude_threshold)
     result = result.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)

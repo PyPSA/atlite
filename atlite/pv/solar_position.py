@@ -2,6 +2,11 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Solar position calculation utilities."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from warnings import warn
 
 import pandas as pd
@@ -9,8 +14,11 @@ import xarray as xr
 from dask.array import arccos, arcsin, arctan2, cos, radians, sin
 from numpy import pi
 
+if TYPE_CHECKING:
+    from atlite._types import Dataset
 
-def SolarPosition(ds, time_shift="0H"):
+
+def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset:
     """
     Compute solar azimuth and altitude.
 
@@ -27,16 +35,18 @@ def SolarPosition(ds, time_shift="0H"):
         instantenous data (e.g. SARAH). Must be parseable by pandas.to_timedelta().
         Default: "0H"
 
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with ``altitude`` and ``azimuth`` in radians.
+
     References
     ----------
-    [1] Michalsky, J. J., The astronomical almanac’s algorithm for approximate
+    [1] Michalsky, J. J., The astronomical almanac's algorithm for approximate
     solar position (1950–2050), Solar Energy, 40(3), 227–235 (1988).
     [2] Sproul, A. B., Derivation of the solar geometric relationships using
     vector analysis, Renewable Energy, 32(7), 1187–1205 (2007).
     [3] Kalogirou, Solar Energy Engineering (2009).
-
-    More accurate algorithms would be
-    ---------------------------------
     [4] I. Reda and A. Andreas, Solar position algorithm for solar
     radiation applications. Solar Energy, vol. 76, no. 5, pp. 577-589, 2004.
     [5] I. Reda and A. Andreas, Corrigendum to Solar position algorithm for
@@ -44,11 +54,6 @@ def SolarPosition(ds, time_shift="0H"):
     [6] Blanc, P., & Wald, L., The SG2 algorithm for a fast and accurate
     computation of the position of the sun for multi-decadal time period, Solar
     Energy, 86(10), 3072–3083 (2012).
-
-    The unfortunately quite computationally intensive SPA algorithm [4,5] has
-    been implemented using numba or plain numpy for a single location at
-    https://github.com/pvlib/pvlib-python/blob/master/pvlib/spa.py.
-
     """
     # Act like a getter if these return variables are already in ds
     rvs = {
@@ -60,10 +65,14 @@ def SolarPosition(ds, time_shift="0H"):
         return ds[rvs].rename({v: v.replace("solar_", "") for v in rvs})
 
     warn(
-        """The calculation method and handling of solar position variables will change.
-    The solar position will in the future be a permanent variables of a cutout.
-    Recreate your cutout to remove this warning and permanently include the solar position variables into your cutout.""",
+        (
+            "The calculation method and handling of solar position variables will "
+            "change. The solar position will in the future be a permanent variable of "
+            "a cutout. Recreate your cutout to remove this warning and permanently "
+            "include the solar position variables into your cutout."
+        ),
         DeprecationWarning,
+        stacklevel=2,
     )
 
     # up to h and dec from [1]
@@ -116,6 +125,4 @@ def SolarPosition(ds, time_shift="0H"):
     az.attrs["units"] = "rad"
 
     vars = {da.name: da for da in [alt, az]}
-    solar_position = xr.Dataset(vars)
-
-    return solar_position
+    return xr.Dataset(vars)
