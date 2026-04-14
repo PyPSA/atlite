@@ -27,6 +27,8 @@ Upcoming Release
 * Fix regression when ``ExclusionContainer`` encounters a raster with an invalid CRS
   (https://github.com/PyPSA/atlite/pull/500).
 
+* Fix MultiIndex specific ``FutureWarning`` in ``convert_and_aggregate`` (https://github.com/PyPSA/atlite/pull/501).
+
 
 `v0.5.0 <https://github.com/PyPSA/atlite/releases/tag/v0.5.0>`__ (13th March 2026)
 =======================================================================================   
