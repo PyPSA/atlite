@@ -5,25 +5,26 @@
 Functions for aggregating results.
 """
 
-import dask
+import scipy.sparse as sp
 import xarray as xr
+from dask.array.core import Array
 
 
-def aggregate_matrix(da, matrix, index):
-    if index.name is None:
-        index = index.rename("dim_0")
-    if isinstance(da.data, dask.array.core.Array):
+def aggregate_matrix(
+    da: xr.DataArray, matrix: sp.csr_matrix, coords: xr.Coordinates
+) -> xr.DataArray:
+    if isinstance(da.data, Array):
         da = da.stack(spatial=("y", "x"))
         da = da.chunk(dict(spatial=-1))
         return xr.apply_ufunc(
             lambda da: da * matrix.T,
             da,
             input_core_dims=[["spatial"]],
-            output_core_dims=[[index.name]],
+            output_core_dims=[list(coords.dims)],
             dask="parallelized",
             output_dtypes=[da.dtype],
-            dask_gufunc_kwargs=dict(output_sizes={index.name: index.size}),
-        ).assign_coords(**{index.name: index})
+            dask_gufunc_kwargs=dict(output_sizes=coords.sizes),
+        ).assign_coords(coords)
     else:
         da = da.stack(spatial=("y", "x")).transpose("spatial", "time")
-        return xr.DataArray(matrix * da, [index, da.coords["time"]])
+        return xr.DataArray(matrix * da, coords.assign(time=da.coords["time"]))

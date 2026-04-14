@@ -19,6 +19,23 @@ from atlite.gis import maybe_swap_spatial_dims
 logger = logging.getLogger(__name__)
 
 
+def ensure_coords(index: pd.Index | xr.Coordinates) -> xr.Coordinates:
+    """
+    Convert an index or multiindex to coordinates
+    """
+    if isinstance(index, pd.MultiIndex):
+        coords = xr.Coordinates.from_pandas_multiindex(index, index.name or "dim_0")
+    elif isinstance(index, pd.Index):
+        coords = xr.Coordinates({index.name or "dim_0": index})
+    elif isinstance(index, xr.Coordinates):
+        coords = index
+    else:
+        raise ValueError(
+            f"index must be a pandas index or xarray coordinates, not: {index}"
+        )
+    return coords
+
+
 def migrate_from_cutout_directory(old_cutout_dir, path):
     """
     Convert an old style cutout directory to new style netcdf file.
