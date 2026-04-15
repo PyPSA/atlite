@@ -17,6 +17,10 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g. 
    ``pip install git+https://github.com/pypsa/atlite``.
 
+`v0.6.0 <https://github.com/PyPSA/atlite/releases/tag/v0.6.0>`__ (15th April 2026)
+=======================================================================================   
+
+**Features**
 
 * Add ``aggregate_time={"sum", "mean", None}`` to ``convert_and_aggregate`` for temporal 
   aggregation with and without spatial aggregation, and deprecate ``capacity_factor``/``capacity_factor_timeseries`` 
