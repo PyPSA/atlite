@@ -237,7 +237,7 @@ def convert_and_aggregate(
         if isinstance(shapes, geoseries_like) and index is None:
             index = shapes.index
 
-        matrix = cutout.indicatormatrix(shapes, shapes_crs)
+        matrix = cutout.indicatormatrix(shapes, shapes_crs).tocsr()
 
     if layout is not None:
         assert isinstance(layout, xr.DataArray)
