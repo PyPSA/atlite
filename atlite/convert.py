@@ -254,7 +254,7 @@ def convert_and_aggregate(
     coords = ensure_coords(pd.RangeIndex(matrix.shape[0]) if index is None else index)
     if len(coords.dims) > 1:
         raise ValueError(f"index must have a single dimension, not: {coords.dims}")
-    results = aggregate_matrix(da, matrix=matrix, coords=coords)
+    results = aggregate_matrix(da, matrix=matrix, index=coords)
 
     if per_unit or return_capacity:
         caps = matrix.sum(-1)
