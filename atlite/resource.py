@@ -199,10 +199,11 @@ def get_cspinstallationconfig(installation: str | PathLike) -> CSPConfig:
         config = cast("dict[str, Any]", yaml.safe_load(f))
     config["path"] = installation_path
 
+    # Convert efficiency dict to xr.DataArray and convert units: deg -> rad, % -> p.u.
     da = pd.DataFrame(config["efficiency"]).set_index(["altitude", "azimuth"])
-
     da = da.to_xarray()["value"]
 
+    # Solar altitude + azimuth expected in deg for readability; calculations use rad.
     da = da.rename({"azimuth": "azimuth [deg]", "altitude": "altitude [deg]"})
     da = da.assign_coords({
         "altitude": radians(da["altitude [deg]"]),
@@ -212,6 +213,7 @@ def get_cspinstallationconfig(installation: str | PathLike) -> CSPConfig:
 
     da = da.chunk("auto")
 
+    # Efficiency unit from % to p.u.
     da /= 1.0e2
 
     config["efficiency"] = da
@@ -245,6 +247,8 @@ def solarpanel_rated_capacity_per_unit(panel: str | PathLike | PanelConfig) -> f
     if model == "huld":
         return cast("float", panel["efficiency"])
     if model == "bofinger":
+        # one unit in the capacity layout is interpreted as one panel of a
+        # capacity (A + 1000 * B + log(1000) * C) * 1000 W/m^2 * (k / 1000)
         A, B, C = itemgetter("A", "B", "C")(panel)
         return cast("float", (A + B * 1000.0 + C * np.log(1000.0)) * 1e3)
     raise ValueError(f"Unknown panel model: {model}")
@@ -315,12 +319,16 @@ def windturbine_smooth(
         )
 
     def smooth(velocities: NDArray, power: NDArray) -> tuple[NDArray, NDArray]:
+        # interpolate kernel and power curve to the same, regular velocity grid
         velocities_reg = np.linspace(-50.0, 50.0, 1001)
         power_reg = np.interp(velocities_reg, velocities, power)
         kernel_reg = kernel(velocities_reg)
 
+        # the 0.1 downscaling is necessary because scipy expects velocity
+        # increments of 1., but here they are 0.1
         convolution = 0.1 * fftconvolve(power_reg, kernel_reg, mode="same")
 
+        # sample down so power curve doesn't get too long
         velocities_new = np.linspace(0.0, 35.0, 72)
         power_new = eta * np.interp(velocities_new, velocities_reg, convolution)
 
@@ -394,6 +402,8 @@ def _validate_turbine_config_dict(
         err_msg = "turbine wind speed and power arrays do not have equal length."
         raise ValueError(err_msg)
 
+    # Uses `>=` rather than `>` because many power curves have two entries for the
+    # same wind speed at the cut-in and cut-out speeds.
     if not np.all(np.diff(turbine["V"]) >= 0):
         err_msg = (
             "wind speed 'V' in the turbine config dict is expected to be increasing, "

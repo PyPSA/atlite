@@ -241,6 +241,7 @@ def get_data_influx(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     # are labelled as "14:00". Account by calculating the SolarPosition for the
     # center of the interval for aggregation.
     # See https://github.com/PyPSA/atlite/issues/158
+    # Suppress DeprecationWarning from new SolarPosition calculation (#199)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         time_shift = pd.to_timedelta("-30 minutes")
@@ -582,6 +583,9 @@ def retrieve_data(
     """
     Download ERA5 data from the CDS API and return as an xarray Dataset.
 
+    The ongoing and past requests can be tracked at
+    https://cds-beta.climate.copernicus.eu/requests?tab=all.
+
     Parameters
     ----------
     product : str
@@ -673,7 +677,8 @@ def get_data(
     lock : SerializableLock or None, optional
         Lock for thread-safe file creation.
     data_format : {{'grib', 'netcdf'}}, optional
-        Download format. Default 'grib'.
+        Download format. Default 'grib'; ``grib`` is recommended over
+        ``netcdf`` because the CDSAPI limits request size for the latter.
     monthly_requests : bool, optional
         If True, split API requests by month. Default False.
     concurrent_requests : bool, optional

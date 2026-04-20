@@ -58,6 +58,7 @@ def convert_lons_lats_ncep(
 
     ds = ds.sel(lat_0=ys)
 
+    # Lons should go from -180. to +180.
     if len(ds.coords["lon_0"].sel(lon_0=slice(xs.start + 360.0, xs.stop + 360.0))):
         ds = xr.concat(
             [ds.sel(lon_0=slice(xs.start + 360.0, xs.stop + 360.0)), ds.sel(lon_0=xs)],
@@ -105,7 +106,14 @@ def convert_time_hourly_ncep(ds: xr.Dataset, drop_time_vars: bool = True) -> xr.
 
 
 def convert_unaverage_ncep(ds: xr.Dataset) -> xr.Dataset:
-    """Convert running-average variables (``*_avg``) to instantaneous values.
+    r"""Convert running-average variables (``*_avg``) to instantaneous values.
+
+    The fields ending in ``_avg`` are averages over the forecast window which
+    have to be un-averaged by
+
+    .. math::
+       \tilde x_1 = x_1, \quad
+       \tilde x_i = i \cdot x_i - (i - 1) \cdot x_{i-1} \quad \forall i > 1.
 
     Parameters
     ----------
@@ -135,7 +143,17 @@ def convert_unaverage_ncep(ds: xr.Dataset) -> xr.Dataset:
 
 
 def convert_unaccumulate_ncep(ds: xr.Dataset) -> xr.Dataset:
-    """Convert accumulated variables (``*_acc``) to per-timestep values.
+    r"""Convert accumulated variables (``*_acc``) to per-timestep values.
+
+    The fields ending in ``_acc`` are accumulated over the forecast_time and
+    have to be un-accumulated by
+
+    .. math::
+       \tilde x_1 = x_1, \quad
+       \tilde x_i = x_i - x_{i-1} \quad \forall\, 1 < i \leq 6.
+
+    Source:
+    http://rda.ucar.edu/datasets/ds094.1/#docs/FAQs_hrly_timeseries.html
 
     Parameters
     ----------
@@ -255,6 +273,7 @@ def prepare_influx_ncep(
         ds = convert_time_hourly_ncep(ds)
 
         ds = ds.rename({"DSWRF_P8_L1_GGA0": "influx"})
+        # clipping random fluctuations around zero
         ds = convert_clip_lower(ds, "influx", a_min=0.1, value=0.0)
         yield yearmonth, ds
 
@@ -292,6 +311,7 @@ def prepare_outflux_ncep(
         ds = convert_time_hourly_ncep(ds)
 
         ds = ds.rename({"USWRF_P8_L1_GGA0": "outflux"})
+        # clipping random fluctuations around zero
         ds = convert_clip_lower(ds, "outflux", a_min=3.0, value=0.0)
         yield yearmonth, ds
 
@@ -395,6 +415,7 @@ def prepare_runoff_ncep(
     """
     with xr.open_dataset(fn, engine=engine) as ds:
         ds = convert_lons_lats_ncep(ds, xs, ys)
+        # runoff has missing values: set nans to 0
         ds = ds.fillna(0.0)
         ds = convert_unaccumulate_ncep(ds)
         ds = convert_time_hourly_ncep(ds)

@@ -26,6 +26,10 @@ def get_orientation(
     """
     Return an orientation factory by name.
 
+    Conventions:
+    - ``slope`` is the angle between ground and panel.
+    - ``azimuth`` is the clockwise angle from North (i.e. azimuth=180 faces South).
+
     Parameters
     ----------
     name : str or dict
@@ -102,6 +106,7 @@ def make_latitude_optimal() -> Callable[
         ) + np.radians(0.31)
         slope[~below_50] = np.radians(40.0)
 
+        # South orientation for panels on northern hemisphere and vice versa
         azimuth = np.where(lat.values < 0, 0, pi)
         return {
             "slope": xr.DataArray(slope, coords=lat.coords),
@@ -262,18 +267,21 @@ def SurfaceOrientation(
             surface_azimuth - sun_azimuth
         ) + cos(surface_slope) * sin(sun_altitude)
 
-    elif tracking == "horizontal":
+    elif tracking == "horizontal":  # horizontal tracking with horizontal axis
+        # orientation_dict['azimuth'] refers here to the azimuth of the tracker axis
         axis_azimuth = orientation_dict["azimuth"]
         rotation = arctan(
             (cos(sun_altitude) / sin(sun_altitude)) * sin(sun_azimuth - axis_azimuth)
         )
         surface_slope = abs(rotation)
+        # the 2nd part yields +/-1 and determines if the panel is facing east or west
         surface_azimuth = axis_azimuth + arcsin(sin(rotation) / sin(surface_slope))
         cosincidence = cos(surface_slope) * sin(sun_altitude) + sin(
             surface_slope
         ) * cos(sun_altitude) * cos(sun_azimuth - surface_azimuth)
 
-    elif tracking == "tilted_horizontal":
+    elif tracking == "tilted_horizontal":  # horizontal tracking with tilted axis
+        # orientation_dict['slope'] refers here to the tilt of the tracker axis
         axis_tilt = orientation_dict["slope"]
 
         rotation = arctan(
@@ -324,6 +332,9 @@ def SurfaceOrientation(
         )
         raise AssertionError(msg)
 
+    # fixup incidence angle: if the panel is badly oriented and the sun shines
+    # on the back of the panel (incidence > 90 deg), the irradiation would be
+    # negative instead of 0; this is prevented here.
     cosincidence = cosincidence.clip(min=0)
 
     return xr.Dataset({

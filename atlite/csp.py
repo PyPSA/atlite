@@ -47,8 +47,9 @@ def calculate_dni(
     altitude_threshold : float
         Threshold for solar altitude in degrees. Values in range (0, altitude_threshold]
         are set to altitude_threshold to prevent numerical issues when dividing by
-        the sine of very low solar altitude. Default: 3.75 degrees corresponds to
-        approximately 15 minutes of solar movement at 60 deg maximum altitude.
+        the sine of very low solar altitude (sunset / dawn). Default: 3.75 degrees
+        corresponds to the solar altitude traversed by the sun within about 15 minutes
+        in a location with 60 deg maximum solar altitude and 10 h day time.
 
     Returns
     -------

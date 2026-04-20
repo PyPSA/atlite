@@ -2,7 +2,12 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Solar panel electrical performance models."""
+"""Solar panel electrical performance models.
+
+The Huld model was copied from gsee -- global solar energy estimator
+by Stefan Pfenninger.
+https://github.com/renewables-ninja/gsee/blob/master/gsee/pv.py
+"""
 
 from __future__ import annotations
 

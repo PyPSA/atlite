@@ -57,7 +57,7 @@ def get_data_gebco_height(
             out_shape=(len(ys), len(xs)),
             resampling=Resampling.average,
         )
-        gebco = gebco[::-1]
+        gebco = gebco[::-1]  # change inversed y-axis
         tags = dataset.tags(bidx=1)
         tags = {k: to_numeric(v, errors="ignore") for k, v in tags.items()}
 

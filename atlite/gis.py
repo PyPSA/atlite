@@ -359,7 +359,11 @@ def pad_extent(
     **kwargs: Any,
 ) -> tuple[NDArray, rio.Affine]:
     """
-    Pad an array before reprojection.
+    Pad the extent of `src` by an equivalent of one cell of the target raster.
+
+    This ensures that the array is large enough to not be treated as nodata in
+    all cells of the destination raster. If ``src.ndim > 2``, the function
+    expects the last two dimensions to be ``y, x``.
 
     Parameters
     ----------
@@ -478,7 +482,14 @@ def shape_availability_reprojected(
     dst_shape: tuple[int, int],
 ) -> tuple[NDArray, rio.Affine]:
     """
-    Compute availability and reproject it to a target raster.
+    Compute and reproject the eligible area of one or more geometries.
+
+    The function executes ``shape_availability`` and reprojects the calculated
+    mask onto a new raster defined by ``(dst_transform, dst_crs, dst_shape)``.
+    Before reprojecting, the function pads the mask such that all non-nodata
+    data points are projected in full cells of the target raster. This ensures
+    that all data within the mask are projected correctly (GDAL inherent
+    'problem').
 
     Parameters
     ----------
@@ -999,7 +1010,9 @@ def regrid(
     **kwargs: Any,
 ) -> xr.Dataset | xr.DataArray:
     """
-    Reproject data to a new spatial grid.
+    Interpolate `ds` to a new spatial grid using rasterio's reproject.
+
+    See also: https://mapbox.github.io/rasterio/topics/resampling.html
 
     Parameters
     ----------
@@ -1010,7 +1023,10 @@ def regrid(
     dimy : pandas.Index
         Target y coordinates. ``dimy.name`` must match the source y dimension.
     **kwargs
-        Keyword arguments passed to ``rasterio.warp.reproject``.
+        Keyword arguments passed to ``rasterio.warp.reproject``; of note:
+        ``resampling`` is one of
+        ``gis.Resampling.{average,cubic,bilinear,nearest}``; ``src_crs`` and
+        ``dst_crs`` define the source/target CRS (default: EPSG 4326, latlong).
 
     Returns
     -------

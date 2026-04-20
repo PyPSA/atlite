@@ -163,6 +163,8 @@ def TiltedDiffuseIrrad(
     ):
         logger.warning("diffuse_t exhibits negative values above altitude threshold.")
 
+    # fixup: clip all negative values (unclear why it gets negative)
+    # note: REatlas does not do the fixup
     with np.errstate(invalid="ignore"):
         diffuse_t = diffuse_t.clip(min=0).fillna(0)
 
@@ -318,6 +320,7 @@ def TiltedIrradiation(
     influx_toa = ds["influx_toa"]
 
     def clip(influx: xr.DataArray, influx_max: xr.DataArray) -> xr.DataArray:
+        # use .data in clip due to dask-xarray incompatibilities
         return influx.clip(min=0, max=influx_max.transpose(*influx.dims).data)
 
     if "influx" in ds:
@@ -369,6 +372,9 @@ def TiltedIrradiation(
         msg = f"Unknown irradiation type: {irradiation}"
         raise ValueError(msg)
 
+    # The solar_position algorithms have a high error for small solar altitude
+    # values, leading to big overall errors from the 1/sinaltitude factor.
+    # => Suppress irradiation below altitude_threshold.
     cap_alt = solar_position["altitude"] < radians(altitude_threshold)
     result = result.where(~(cap_alt | (direct + diffuse <= 0.01)), 0)
     result.attrs["units"] = "W m**-2"

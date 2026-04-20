@@ -1666,6 +1666,17 @@ def convert_line_rating(
     """
     Convert weather data to dynamic line rating time series.
 
+    The formulation is based on:
+    [1] "IEEE Std 738™-2012 (Revision of IEEE Std 738-2006/Incorporates IEEE Std
+        738-2012/Cor 1-2013), IEEE Standard for Calculating the Current-Temperature
+        Relationship of Bare Overhead Conductors," p. 72.
+
+    Simplifications:
+    1. Wind speed is taken at 100 m above ground, whereas transmission lines are
+       typically at 50-60 m.
+    2. Solar heat influx is set proportional to solar short wave influx.
+    3. Incidence angle of the solar heat influx is assumed to be 90°.
+
     Parameters
     ----------
     ds : xr.Dataset
