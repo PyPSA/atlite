@@ -14,14 +14,12 @@ if TYPE_CHECKING:
     import pandas as pd
     from scipy.sparse import spmatrix
 
-    from atlite._types import DataArray
-
 
 def aggregate_matrix(
-    da: DataArray,
+    da: xr.DataArray,
     matrix: spmatrix,
     index: pd.Index,
-) -> DataArray:
+) -> xr.DataArray:
     """
     Aggregate spatial data with a sparse matrix.
 
@@ -53,6 +51,6 @@ def aggregate_matrix(
             output_dtypes=[da.dtype],
             dask_gufunc_kwargs={"output_sizes": {index.name: index.size}},
         ).assign_coords(**{index.name: index})
-        return cast("DataArray", result)
+        return cast("xr.DataArray", result)
     da = da.stack(spatial=("y", "x")).transpose("spatial", "time")
     return xr.DataArray(matrix * da, [index, da.coords["time"]])

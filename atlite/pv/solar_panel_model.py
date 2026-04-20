@@ -13,12 +13,10 @@ import numpy as np
 if TYPE_CHECKING:
     import xarray as xr
 
-    from atlite._types import DataArray
-
 
 def _power_huld(
-    irradiance: DataArray, t_amb: DataArray, pc: dict[str, Any]
-) -> DataArray:
+    irradiance: xr.DataArray, t_amb: xr.DataArray, pc: dict[str, Any]
+) -> xr.DataArray:
     """
     AC power per capacity predicted by Huld model, based on W/m2 irradiance.
 
@@ -57,8 +55,8 @@ def _power_huld(
 
 
 def _power_bofinger(
-    irradiance: DataArray, t_amb: DataArray, pc: dict[str, Any]
-) -> DataArray:
+    irradiance: xr.DataArray, t_amb: xr.DataArray, pc: dict[str, Any]
+) -> xr.DataArray:
     """
     Predict AC power per capacity using the Bofinger model.
 
@@ -93,8 +91,8 @@ def _power_bofinger(
 
 
 def SolarPanelModel(
-    ds: xr.Dataset, irradiance: DataArray, pc: dict[str, Any]
-) -> DataArray:
+    ds: xr.Dataset, irradiance: xr.DataArray, pc: dict[str, Any]
+) -> xr.DataArray:
     """
     Compute PV power output for the selected panel model.
 
@@ -102,14 +100,14 @@ def SolarPanelModel(
     ----------
     ds : xarray.Dataset
         Dataset containing ambient temperature.
-    irradiance : xarray.DataArray
+    irradiance : xarray.xr.DataArray
         Plane-of-array irradiation.
     pc : dict
         Panel configuration including the model parameters.
 
     Returns
     -------
-    xarray.DataArray
+    xarray.xr.DataArray
         Specific PV power output.
 
     Raises

@@ -319,7 +319,7 @@ try:
             "prepare_func": prepare_data_cordex,
             "oldname": "rsds",
             "newname": "influx",
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.cordex_dir,
                 "{model}",
                 "influx",
@@ -331,7 +331,7 @@ try:
             "prepare_func": prepare_data_cordex,
             "oldname": "rsus",
             "newname": "outflux",
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.cordex_dir,
                 "{model}",
                 "outflux",
@@ -343,7 +343,7 @@ try:
             "prepare_func": prepare_data_cordex,
             "oldname": "tas",
             "newname": "temperature",
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.cordex_dir,
                 "{model}",
                 "temperature",
@@ -355,7 +355,7 @@ try:
             "prepare_func": prepare_data_cordex,
             "oldname": "hurs",
             "newname": "humidity",
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.cordex_dir,
                 "{model}",
                 "humidity",
@@ -367,7 +367,7 @@ try:
             "prepare_func": prepare_data_cordex,
             "oldname": "sfcWind",
             "newname": "wnd10m",
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.cordex_dir,
                 "{model}",
                 "wind",
@@ -379,7 +379,7 @@ try:
             "prepare_func": prepare_static_data_cordex,
             "oldname": "rlst",
             "newname": "roughness",
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.cordex_dir,
                 "{model}",
                 "roughness",
@@ -391,7 +391,7 @@ try:
             "prepare_func": prepare_data_cordex,
             "oldname": "mrro",
             "newname": "runoff",
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.cordex_dir,
                 "{model}",
                 "runoff",
@@ -403,7 +403,7 @@ try:
             "prepare_func": prepare_static_data_cordex,
             "oldname": "orog",
             "newname": "height",
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.cordex_dir,
                 "{model}",
                 "altitude",
@@ -415,7 +415,7 @@ try:
             "prepare_func": prepare_weather_types_cordex,
             "oldname": "CWT",
             "newname": "CWT",
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.cordex_dir,
                 "{model}",
                 "weather_types",
@@ -432,7 +432,7 @@ try:
 
     meta_data_config = {
         "prepare_func": prepare_meta_cordex,
-        "template": os.path.join(  # noqa: PTH118
+        "template": os.path.join(
             config.cordex_dir,
             "{model}",
             "temperature",

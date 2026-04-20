@@ -46,8 +46,6 @@ if TYPE_CHECKING:
 
     from atlite._types import (
         ClearskyModel,
-        DataArray,
-        Dataset,
         HeatPumpSource,
         IrradiationType,
         NumericArray,
@@ -294,8 +292,8 @@ def convert_and_aggregate(
 
 
 def maybe_progressbar(
-    ds: Dataset | DataArray, show_progress: bool, **kwargs: Any
-) -> Dataset | DataArray:
+    ds: xr.Dataset | xr.DataArray, show_progress: bool, **kwargs: Any
+) -> xr.Dataset | xr.DataArray:
     """
     Load a dataset or data array, optionally showing a dask progress bar.
 
@@ -322,7 +320,7 @@ def maybe_progressbar(
 
 
 # temperature
-def convert_temperature(ds: Dataset) -> DataArray:
+def convert_temperature(ds: xr.Dataset) -> xr.DataArray:
     """
     Convert ambient air temperature from Kelvin to degrees Celsius.
 
@@ -340,7 +338,7 @@ def convert_temperature(ds: Dataset) -> DataArray:
     return ds["temperature"] - 273.15
 
 
-def temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
+def temperature(cutout: Cutout, **params: Any) -> xr.DataArray | NumericArray:
     """
     Return ambient air temperature converted from Kelvin to degrees Celsius.
 
@@ -366,7 +364,7 @@ def temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
 
 
 # soil temperature
-def convert_soil_temperature(ds: Dataset) -> DataArray:
+def convert_soil_temperature(ds: xr.Dataset) -> xr.DataArray:
     """
     Convert soil temperature from Kelvin to degrees Celsius.
 
@@ -388,7 +386,7 @@ def convert_soil_temperature(ds: Dataset) -> DataArray:
     return (ds["soil temperature"] - 273.15).fillna(0.0)
 
 
-def soil_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
+def soil_temperature(cutout: Cutout, **params: Any) -> xr.DataArray | NumericArray:
     """
     Return soil temperature converted from Kelvin to degrees Celsius.
 
@@ -417,7 +415,7 @@ def soil_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
 
 
 # dewpoint temperature
-def convert_dewpoint_temperature(ds: Dataset) -> DataArray:
+def convert_dewpoint_temperature(ds: xr.Dataset) -> xr.DataArray:
     """
     Convert dew point temperature from Kelvin to degrees Celsius.
 
@@ -435,7 +433,7 @@ def convert_dewpoint_temperature(ds: Dataset) -> DataArray:
     return ds["dewpoint temperature"] - 273.15
 
 
-def dewpoint_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericArray:
+def dewpoint_temperature(cutout: Cutout, **params: Any) -> xr.DataArray | NumericArray:
     """
     Return dew point temperature converted from Kelvin to degrees Celsius.
 
@@ -463,13 +461,13 @@ def dewpoint_temperature(cutout: Cutout, **params: Any) -> DataArray | NumericAr
 
 
 def convert_coefficient_of_performance(
-    ds: Dataset,
+    ds: xr.Dataset,
     source: HeatPumpSource,
     sink_T: float,
     c0: float | None,
     c1: float | None,
     c2: float | None,
-) -> DataArray:
+) -> xr.DataArray:
     """
     Convert source temperatures to heat pump COP values.
 
@@ -524,7 +522,7 @@ def coefficient_of_performance(
     c1: float | None = None,
     c2: float | None = None,
     **params: Any,
-) -> DataArray | NumericArray:
+) -> xr.DataArray | NumericArray:
     """
     Convert temperature to heat pump coefficient of performance (COP).
 
@@ -585,12 +583,12 @@ def coefficient_of_performance(
 
 # heat demand
 def convert_heat_demand(
-    ds: Dataset,
+    ds: xr.Dataset,
     threshold: float,
     a: float,
     constant: float,
     hour_shift: float,
-) -> DataArray:
+) -> xr.DataArray:
     """
     Convert ambient temperature to daily heat demand by degree days.
 
@@ -639,7 +637,7 @@ def heat_demand(
     constant: float = 0.0,
     hour_shift: float = 0.0,
     **params: Any,
-) -> DataArray | NumericArray:
+) -> xr.DataArray | NumericArray:
     """
     Convert outside temperature into daily heat demand using degree-day approximation.
 
@@ -702,12 +700,12 @@ def heat_demand(
 
 # cooling demand
 def convert_cooling_demand(
-    ds: Dataset,
+    ds: xr.Dataset,
     threshold: float,
     a: float,
     constant: float,
     hour_shift: float,
-) -> DataArray:
+) -> xr.DataArray:
     """
     Convert ambient temperature to daily cooling demand by degree days.
 
@@ -756,7 +754,7 @@ def cooling_demand(
     constant: float = 0.0,
     hour_shift: float = 0.0,
     **params: Any,
-) -> DataArray | NumericArray:
+) -> xr.DataArray | NumericArray:
     """
     Convert outside temperature into daily cooling demand using degree-day approximation.
 
@@ -821,14 +819,14 @@ def cooling_demand(
 
 # solar thermal collectors
 def convert_solar_thermal(
-    ds: Dataset,
+    ds: xr.Dataset,
     orientation: Callable,
     trigon_model: TrigonModel,
     clearsky_model: ClearskyModel | None,
     c0: float,
     c1: float,
     t_store: float,
-) -> DataArray:
+) -> xr.DataArray:
     """
     Convert weather data to solar thermal collector output.
 
@@ -888,7 +886,7 @@ def solar_thermal(
     c1: float = 3.0,
     t_store: float = 80.0,
     **params: Any,
-) -> DataArray | NumericArray:
+) -> xr.DataArray | NumericArray:
     """
     Convert radiation and temperature into solar thermal collector time series.
 
@@ -1097,13 +1095,13 @@ def wind(
 
 # irradiation
 def convert_irradiation(
-    ds: Dataset,
+    ds: xr.Dataset,
     orientation: Callable,
-    tracking: TrackingType = None,
+    tracking: TrackingType | None = None,
     irradiation: IrradiationType = "total",
     trigon_model: TrigonModel = "simple",
     clearsky_model: ClearskyModel | None = "simple",
-) -> DataArray:
+) -> xr.DataArray:
     """
     Convert weather data to irradiation on a tilted surface.
 
@@ -1144,10 +1142,10 @@ def irradiation(
     cutout: Cutout,
     orientation: OrientationName | dict[str, float] | Callable,
     irradiation: IrradiationType = "total",
-    tracking: TrackingType = None,
+    tracking: TrackingType | None = None,
     clearsky_model: ClearskyModel | None = None,
     **params: Any,
-) -> DataArray | NumericArray:
+) -> xr.DataArray | NumericArray:
     """
     Calculate irradiation on a tilted surface.
 
@@ -1221,13 +1219,13 @@ def irradiation(
 
 # solar PV
 def convert_pv(
-    ds: Dataset,
+    ds: xr.Dataset,
     panel: dict[str, Any],
     orientation: Callable,
     tracking: TrackingType,
     trigon_model: TrigonModel = "simple",
     clearsky_model: ClearskyModel | None = "simple",
-) -> DataArray:
+) -> xr.DataArray:
     """
     Convert weather data to photovoltaic specific generation.
 
@@ -1268,10 +1266,10 @@ def pv(
     cutout: Cutout,
     panel: str | PanelConfig,
     orientation: OrientationName | dict[str, float] | Callable,
-    tracking: TrackingType = None,
+    tracking: TrackingType | None = None,
     clearsky_model: ClearskyModel | None = None,
     **params: Any,
-) -> DataArray | NumericArray:
+) -> xr.DataArray | NumericArray:
     """
     Convert radiation and temperature into PV generation time series.
 
@@ -1421,7 +1419,7 @@ def csp(
     installation: str | CSPConfig,
     technology: Literal["parabolic trough", "solar tower"] | None = None,
     **params: Any,
-) -> DataArray | NumericArray:
+) -> xr.DataArray | NumericArray:
     """
     Convert direct radiation into CSP generation time series.
 

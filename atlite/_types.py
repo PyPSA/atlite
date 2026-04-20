@@ -7,30 +7,19 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal, TypeAlias, TypedDict
 
-import geopandas as gpd
 import numpy as np
-import scipy.sparse as sp
 import xarray as xr
 from pyproj import CRS
-from shapely.geometry.base import BaseGeometry
 
 NDArray: TypeAlias = np.ndarray[Any, np.dtype[np.floating[Any]]]
 NDArrayInt: TypeAlias = np.ndarray[Any, np.dtype[np.signedinteger[Any]]]
 NDArrayBool: TypeAlias = np.ndarray[Any, np.dtype[np.bool_]]
-DataArray: TypeAlias = xr.DataArray
-Dataset: TypeAlias = xr.Dataset
 PathLike: TypeAlias = str | Path
-NumericArray: TypeAlias = NDArray | DataArray
+NumericArray: TypeAlias = NDArray | xr.DataArray
 Number: TypeAlias = int | float | np.number[Any]
-GeoDataFrame: TypeAlias = gpd.GeoDataFrame
-GeoSeries: TypeAlias = gpd.GeoSeries
-Geometry: TypeAlias = BaseGeometry
-CrsLike: TypeAlias = str | int | CRS | dict[str, Any] | None
-SparseMatrix: TypeAlias = sp.lil_matrix | sp.csr_matrix
+CrsLike: TypeAlias = str | int | CRS | dict[str, Any]
 
-TrackingType: TypeAlias = (
-    Literal["horizontal", "tilted_horizontal", "vertical", "dual"] | None
-)
+TrackingType: TypeAlias = Literal["horizontal", "tilted_horizontal", "vertical", "dual"]
 ClearskyModel: TypeAlias = Literal["simple", "enhanced"]
 TrigonModel: TypeAlias = Literal["simple", "perez"]
 IrradiationType: TypeAlias = Literal["total", "direct", "diffuse", "ground"]

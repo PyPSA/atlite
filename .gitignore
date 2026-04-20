@@ -19,6 +19,7 @@ examples/*.nc
 examples/*.csv
 examples/*.zip
 examples/*.tif
+benchmarks/
 atlite/version.py
 paper
 .coverage*

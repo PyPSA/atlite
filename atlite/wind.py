@@ -12,17 +12,19 @@ from typing import TYPE_CHECKING, Literal, cast
 import numpy as np
 
 if TYPE_CHECKING:
-    from atlite._types import DataArray, Dataset, NDArray
+    import xarray as xr
+
+    from atlite._types import NDArray
 
 logger = logging.getLogger(__name__)
 
 
 def extrapolate_wind_speed(
-    ds: Dataset,
+    ds: xr.Dataset,
     to_height: int | float,
     from_height: int | None = None,
     method: Literal["logarithmic", "power"] = "logarithmic",
-) -> DataArray:
+) -> xr.DataArray:
     """
     Extrapolate the wind speed from a given height above ground to another.
 
@@ -90,19 +92,19 @@ def extrapolate_wind_speed(
 
     if method == "logarithmic":
         try:
-            roughness: DataArray = ds["roughness"]
+            roughness: xr.DataArray = ds["roughness"]
         except KeyError:
             raise RuntimeError(
                 "The logarithmic interpolation method requires surface roughness (roughness);\n"
                 "make sure you choose a compatible dataset like ERA5"
             ) from None
-        wnd_spd: DataArray = ds[from_name] * (
+        wnd_spd: xr.DataArray = ds[from_name] * (
             np.log(to_height / roughness) / np.log(from_height / roughness)
         )
         method_desc: str = "logarithmic method with roughness"
     elif method == "power":
         try:
-            wnd_shear_exp: DataArray = ds["wnd_shear_exp"]
+            wnd_shear_exp: xr.DataArray = ds["wnd_shear_exp"]
         except KeyError:
             raise RuntimeError(
                 "The power law interpolation method requires a wind shear exponent (wnd_shear_exp);\n"
@@ -123,4 +125,4 @@ def extrapolate_wind_speed(
         "units": "m s**-1",
     })
 
-    return cast("DataArray", wnd_spd.rename(to_name))
+    return cast("xr.DataArray", wnd_spd.rename(to_name))

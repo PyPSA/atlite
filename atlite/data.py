@@ -27,7 +27,7 @@ from atlite.datasets import modules as datamodules
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
-    from atlite._types import DataArray, DataFormat, Dataset, PathLike
+    from atlite._types import DataFormat, PathLike
     from atlite.cutout import Cutout
 
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def get_features(
     tmpdir: PathLike | None = None,
     monthly_requests: bool = False,
     concurrent_requests: bool = False,
-) -> Dataset:
+) -> xr.Dataset:
     """
     Load feature datasets for a cutout module.
 
@@ -87,9 +87,9 @@ def get_features(
 
     datasets = dask_compute(*datasets)
 
-    ds: Dataset = xr.merge(datasets, compat="equals")
+    ds: xr.Dataset = xr.merge(datasets, compat="equals")
     for v in ds:
-        da: DataArray = ds[v]
+        da: xr.DataArray = ds[v]
         da.attrs["module"] = module
         fd: Iterable[tuple[str, Any]] = datamodules[module].features.items()
         da.attrs["feature"] = [k for k, l in fd if v in l].pop()
@@ -294,7 +294,7 @@ def cutout_prepare(
         missing_features: np.ndarray[Any, np.dtype[Any]] = missing_vars.index.unique(
             "feature"
         )
-        ds: Dataset = get_features(
+        ds: xr.Dataset = get_features(
             cutout,
             module,
             missing_features,

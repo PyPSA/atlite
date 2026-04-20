@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from warnings import warn
 
 import pandas as pd
@@ -14,11 +13,8 @@ import xarray as xr
 from dask.array import arccos, arcsin, arctan2, cos, radians, sin
 from numpy import pi
 
-if TYPE_CHECKING:
-    from atlite._types import Dataset
 
-
-def SolarPosition(ds: Dataset, time_shift: str | pd.Timedelta = "0H") -> Dataset:
+def SolarPosition(ds: xr.Dataset, time_shift: str | pd.Timedelta = "0H") -> xr.Dataset:
     """
     Compute solar azimuth and altitude.
 

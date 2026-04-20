@@ -35,14 +35,10 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
     from matplotlib.axes import Axes
+    from shapely.geometry.base import BaseGeometry
 
     from atlite._types import (
         CrsLike,
-        DataArray,
-        Dataset,
-        GeoDataFrame,
-        Geometry,
-        GeoSeries,
         NDArray,
         PathLike,
     )
@@ -58,7 +54,7 @@ def get_coords(
     dy: float = 0.25,
     dt: str = "h",
     **kwargs: Any,
-) -> Dataset:
+) -> xr.Dataset:
     """
     Create cutout coordinates from slices and resolutions.
 
@@ -94,7 +90,7 @@ def get_coords(
     })
     ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
     ds = ds.sel(x=x, y=y, time=time)
-    return cast("Dataset", ds)
+    return cast("xr.Dataset", ds)
 
 
 def spdiag(v: NDArray | Sequence[float]) -> sp.sparse.csr_matrix:
@@ -117,10 +113,10 @@ def spdiag(v: NDArray | Sequence[float]) -> sp.sparse.csr_matrix:
 
 
 def reproject_shapes(
-    shapes: Iterable[Geometry] | pd.Series | dict[Any, Geometry],
+    shapes: Iterable[BaseGeometry] | pd.Series | dict[Any, BaseGeometry],
     crs1: CrsLike,
     crs2: CrsLike,
-) -> Iterable[Geometry] | pd.Series | OrderedDict[Any, Geometry]:
+) -> Iterable[BaseGeometry] | pd.Series | OrderedDict[Any, BaseGeometry]:
     """
     Reproject a collection of geometries.
 
@@ -140,7 +136,7 @@ def reproject_shapes(
     """
     transformer = Transformer.from_crs(crs1, crs2, always_xy=True)
 
-    def _reproject_shape(shape: Geometry) -> Geometry:
+    def _reproject_shape(shape: BaseGeometry) -> BaseGeometry:
         return transform(transformer.transform, shape)
 
     if isinstance(shapes, pd.Series):
@@ -151,8 +147,8 @@ def reproject_shapes(
 
 
 def compute_indicatormatrix(
-    orig: GeoDataFrame | GeoSeries | Iterable[Geometry],
-    dest: GeoDataFrame | GeoSeries | Iterable[Geometry],
+    orig: gpd.GeoDataFrame | gpd.GeoSeries | Iterable[BaseGeometry],
+    dest: gpd.GeoDataFrame | gpd.GeoSeries | Iterable[BaseGeometry],
     orig_crs: CrsLike = 4326,
     dest_crs: CrsLike = 4326,
 ) -> sp.sparse.lil_matrix:
@@ -212,8 +208,8 @@ def compute_indicatormatrix(
 
 
 def compute_intersectionmatrix(
-    orig: GeoDataFrame | GeoSeries | Iterable[Geometry],
-    dest: GeoDataFrame | GeoSeries | Iterable[Geometry],
+    orig: gpd.GeoDataFrame | gpd.GeoSeries | Iterable[BaseGeometry],
+    dest: gpd.GeoDataFrame | gpd.GeoSeries | Iterable[BaseGeometry],
     orig_crs: CrsLike = 4326,
     dest_crs: CrsLike = 4326,
 ) -> sp.sparse.lil_matrix:
@@ -292,10 +288,10 @@ def padded_transform_and_shape(
 
 def projected_mask(
     raster: rio.DatasetReader,
-    geom: GeoSeries,
+    geom: gpd.GeoSeries,
     transform: rio.Affine | None = None,
     shape: tuple[int, int] | None = None,
-    crs: CrsLike = None,
+    crs: CrsLike | None = None,
     allow_no_overlap: bool = False,
     **kwargs: Any,
 ) -> tuple[NDArray, rio.Affine]:
@@ -408,7 +404,7 @@ def pad_extent(
 
 
 def shape_availability(
-    geometry: GeoSeries, excluder: ExclusionContainer
+    geometry: gpd.GeoSeries, excluder: ExclusionContainer
 ) -> tuple[NDArray, rio.Affine]:
     """
     Compute the eligible area in one or more geometries.
@@ -475,7 +471,7 @@ def shape_availability(
 
 
 def shape_availability_reprojected(
-    geometry: GeoSeries,
+    geometry: gpd.GeoSeries,
     excluder: ExclusionContainer,
     dst_transform: rio.Affine,
     dst_crs: CrsLike,
@@ -553,7 +549,7 @@ class ExclusionContainer:
         invert: bool = False,
         nodata: int = 255,
         allow_no_overlap: bool = False,
-        crs: CrsLike = None,
+        crs: CrsLike | None = None,
     ) -> None:
         """
         Register a raster to the ExclusionContainer.
@@ -598,7 +594,7 @@ class ExclusionContainer:
 
     def add_geometry(
         self,
-        geometry: PathLike | GeoDataFrame | GeoSeries,
+        geometry: PathLike | gpd.GeoDataFrame | gpd.GeoSeries,
         buffer: float = 0,
         invert: bool = False,
     ) -> None:
@@ -689,9 +685,9 @@ class ExclusionContainer:
 
     def compute_shape_availability(
         self,
-        geometry: GeoDataFrame | GeoSeries,
+        geometry: gpd.GeoDataFrame | gpd.GeoSeries,
         dst_transform: rio.Affine | None = None,
-        dst_crs: CrsLike = None,
+        dst_crs: CrsLike | None = None,
         dst_shape: tuple[int, int] | None = None,
     ) -> tuple[NDArray, rio.Affine]:
         """
@@ -752,11 +748,11 @@ class ExclusionContainer:
 
     def plot_shape_availability(
         self,
-        geometry: GeoDataFrame | GeoSeries,
+        geometry: gpd.GeoDataFrame | gpd.GeoSeries,
         ax: Axes | None = None,
         set_title: bool = True,
         dst_transform: rio.Affine | None = None,
-        dst_crs: CrsLike = None,
+        dst_crs: CrsLike | None = None,
         dst_shape: tuple[int, int] | None = None,
         show_kwargs: dict[str, Any] | None = None,
         plot_kwargs: dict[str, Any] | None = None,
@@ -830,7 +826,7 @@ class ExclusionContainer:
         return ax
 
 
-_mp_shapes: GeoSeries
+_mp_shapes: gpd.GeoSeries
 _mp_excluder: ExclusionContainer
 _mp_dst_transform: rio.Affine
 _mp_dst_crs: CrsLike
@@ -838,7 +834,7 @@ _mp_dst_shapes: tuple[int, int]
 
 
 def _init_process(
-    shapes_: GeoSeries,
+    shapes_: gpd.GeoSeries,
     excluder_: ExclusionContainer,
     dst_transform_: rio.Affine,
     dst_crs_: CrsLike,
@@ -862,11 +858,11 @@ def _process_func(i: Any) -> NDArray:
 
 def compute_availabilitymatrix(
     cutout: Any,
-    shapes: GeoDataFrame | GeoSeries,
+    shapes: gpd.GeoDataFrame | gpd.GeoSeries,
     excluder: ExclusionContainer,
     nprocesses: int | None = None,
     disable_progressbar: bool = True,
-) -> DataArray:
+) -> xr.DataArray:
     """
     Compute the eligible share within cutout cells in the overlap with shapes.
 
@@ -955,8 +951,8 @@ def compute_availabilitymatrix(
 
 
 def maybe_swap_spatial_dims(
-    ds: Dataset | DataArray, namex: str = "x", namey: str = "y"
-) -> Dataset | DataArray:
+    ds: xr.Dataset | xr.DataArray, namex: str = "x", namey: str = "y"
+) -> xr.Dataset | xr.DataArray:
     """
     Ensure spatial coordinates follow atlite's axis ordering.
 
@@ -997,11 +993,11 @@ def _as_transform(x: pd.Index, y: pd.Index) -> rio.Affine:
 
 
 def regrid(
-    ds: Dataset | DataArray,
+    ds: xr.Dataset | xr.DataArray,
     dimx: pd.Index,
     dimy: pd.Index,
     **kwargs: Any,
-) -> Dataset | DataArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Reproject data to a new spatial grid.
 
@@ -1058,7 +1054,7 @@ def regrid(
     assert len(dtypes) == 1, "regrid can only reproject datasets with homogeneous dtype"
 
     return cast(
-        "Dataset | DataArray",
+        "xr.Dataset | xr.DataArray",
         (
             xr
             .apply_ufunc(

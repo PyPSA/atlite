@@ -13,10 +13,10 @@ import numpy as np
 from dask.array import cos, fmax, fmin, radians, sin, sqrt
 
 if TYPE_CHECKING:
+    import xarray as xr
+
     from atlite._types import (
         ClearskyModel,
-        DataArray,
-        Dataset,
         IrradiationType,
         TrackingType,
         TrigonModel,
@@ -26,13 +26,18 @@ logger = logging.getLogger(__name__)
 
 
 def DiffuseHorizontalIrrad(
-    ds: Dataset,
-    solar_position: Dataset,
+    ds: xr.Dataset,
+    solar_position: xr.Dataset,
     clearsky_model: ClearskyModel | None,
-    influx: DataArray,
-) -> DataArray:
+    influx: xr.DataArray,
+) -> xr.DataArray:
     """
     Estimate diffuse horizontal irradiation from total horizontal irradiation.
+
+    Clearsky model from Reindl 1990 to split downward radiation into direct
+    and diffuse contributions. Should switch to more up-to-date model, e.g.
+    Ridley et al. (2010) http://dx.doi.org/10.1016/j.renene.2009.07.018 ,
+    Lauret et al. (2013): http://dx.doi.org/10.1016/j.renene.2012.01.049
 
     Parameters
     ----------
@@ -65,7 +70,8 @@ def DiffuseHorizontalIrrad(
             "enhanced" if "temperature" in ds and "humidity" in ds else "simple"
         )
 
-    k = influx / influx_toa
+    # Reindl 1990 clearsky model
+    k = influx / influx_toa  # clearsky index
 
     if clearsky_model == "simple":
         fraction = (
@@ -103,14 +109,14 @@ def DiffuseHorizontalIrrad(
 
 
 def TiltedDiffuseIrrad(
-    ds: Dataset,
-    solar_position: Dataset,
-    surface_orientation: Dataset,
-    direct: DataArray,
-    diffuse: DataArray,
-) -> DataArray:
+    ds: xr.Dataset,
+    solar_position: xr.Dataset,
+    surface_orientation: xr.Dataset,
+    direct: xr.DataArray,
+    diffuse: xr.DataArray,
+) -> xr.DataArray:
     """
-    Calculate diffuse irradiation on a tilted surface.
+    Calculate diffuse irradiation on a tilted surface (Hay-Davies model).
 
     Parameters
     ----------
@@ -139,8 +145,8 @@ def TiltedDiffuseIrrad(
     influx = direct + diffuse
 
     with np.errstate(divide="ignore", invalid="ignore"):
-        f = sqrt(direct / influx).fillna(0.0)
-        A = direct / influx_toa
+        f = sqrt(direct / influx).fillna(0.0)  # brightening factor
+        A = direct / influx_toa  # anisotropy factor
 
     R_b = cosincidence / sinaltitude
 
@@ -164,8 +170,8 @@ def TiltedDiffuseIrrad(
 
 
 def TiltedDirectIrrad(
-    solar_position: Dataset, surface_orientation: Dataset, direct: DataArray
-) -> DataArray:
+    solar_position: xr.Dataset, surface_orientation: xr.Dataset, direct: xr.DataArray
+) -> xr.DataArray:
     """
     Calculate direct irradiation on a tilted surface.
 
@@ -191,7 +197,7 @@ def TiltedDirectIrrad(
     return (R_b * direct).rename("direct tilted")
 
 
-def _albedo(ds: Dataset, influx: DataArray) -> DataArray:
+def _albedo(ds: xr.Dataset, influx: xr.DataArray) -> xr.DataArray:
     """
     Retrieve or derive surface albedo from the dataset.
 
@@ -223,11 +229,11 @@ def _albedo(ds: Dataset, influx: DataArray) -> DataArray:
 
 
 def TiltedGroundIrrad(
-    ds: Dataset,
-    solar_position: Dataset,
-    surface_orientation: Dataset,
-    influx: DataArray,
-) -> DataArray:
+    ds: xr.Dataset,
+    solar_position: xr.Dataset,
+    surface_orientation: xr.Dataset,
+    influx: xr.DataArray,
+) -> xr.DataArray:
     """
     Calculate ground-reflected irradiation on a tilted surface.
 
@@ -253,15 +259,15 @@ def TiltedGroundIrrad(
 
 
 def TiltedIrradiation(
-    ds: Dataset,
-    solar_position: Dataset,
-    surface_orientation: Dataset,
+    ds: xr.Dataset,
+    solar_position: xr.Dataset,
+    surface_orientation: xr.Dataset,
     trigon_model: TrigonModel,
     clearsky_model: ClearskyModel | None,
-    tracking: TrackingType | int = 0,
+    tracking: TrackingType | int | None = 0,
     altitude_threshold: float = 1.0,
     irradiation: IrradiationType = "total",
-) -> DataArray:
+) -> xr.DataArray:
     """
     Calculate the irradiation on a tilted surface.
 
@@ -311,7 +317,7 @@ def TiltedIrradiation(
     """
     influx_toa = ds["influx_toa"]
 
-    def clip(influx: DataArray, influx_max: DataArray) -> DataArray:
+    def clip(influx: xr.DataArray, influx_max: xr.DataArray) -> xr.DataArray:
         return influx.clip(min=0, max=influx_max.transpose(*influx.dims).data)
 
     if "influx" in ds:

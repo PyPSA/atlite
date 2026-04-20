@@ -31,9 +31,10 @@ CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 if TYPE_CHECKING:
     from typing import TypedDict
 
+    import xarray as xr
     from typing_extensions import NotRequired
 
-    from atlite._types import DataArray, NDArray, PathLike
+    from atlite._types import NDArray, PathLike
 
     class TurbineConfig(TypedDict):
         """Wind turbine configuration dictionary."""
@@ -60,7 +61,7 @@ if TYPE_CHECKING:
     class CSPConfig(TypedDict):
         """CSP installation configuration dictionary."""
 
-        efficiency: DataArray
+        efficiency: xr.DataArray
         path: PathLike
         technology: NotRequired[str]
         name: NotRequired[str]

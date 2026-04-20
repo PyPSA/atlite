@@ -84,6 +84,11 @@ def _add_height(ds: xr.Dataset) -> xr.Dataset:
     -------
     xr.Dataset
         Dataset with 'height' variable in meters, 'z' removed.
+
+    References
+    ----------
+    [1] ERA5: surface elevation and orography, retrieved: 10.02.2019
+    https://confluence.ecmwf.int/display/CKB/ERA5%3A+surface+elevation+and+orography
     """
     g0 = 9.80665
     z = ds["z"]
@@ -113,6 +118,7 @@ def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dat
         Dataset with standardized coordinates.
     """
     ds = ds.rename({"longitude": "x", "latitude": "y", "valid_time": "time"})
+    # round coords since cds coords are float32 which would lead to mismatches
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
     )
@@ -159,6 +165,7 @@ def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
         np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
     ).assign_attrs(units="", long_name="wind shear exponent")
 
+    # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
     azimuth = arctan2(ds["u100"], ds["v100"])
     ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
 
@@ -225,10 +232,15 @@ def get_data_influx(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     )
     ds = ds.drop_vars(["ssrd", "ssr"])
 
+    # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
     for a in ("influx_direct", "influx_diffuse", "influx_toa"):
         ds[a] = ds[a] / (60.0 * 60.0)
         ds[a].attrs["units"] = "W m**-2"
 
+    # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00
+    # are labelled as "14:00". Account by calculating the SolarPosition for the
+    # center of the interval for aggregation.
+    # See https://github.com/PyPSA/atlite/issues/158
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         time_shift = pd.to_timedelta("-30 minutes")
@@ -498,8 +510,9 @@ def open_with_grib_conventions(
     """
     Open a GRIB file using cfgrib with standardized coordinate conventions.
 
-    Renames forecast/pressure/model dimensions and expands missing dimensions.
-    If ``tmpdir`` is None, registers a finalizer to delete the file on GC.
+    Performs the same conversion as the CDS backend, but locally.
+    Based on the documentation at
+    https://confluence.ecmwf.int/display/CKB/GRIB+to+netCDF+conversion+on+new+CDS+and+ADS+systems
 
     Parameters
     ----------
@@ -621,6 +634,7 @@ def retrieve_data(
         logger.info("CDS: Downloading variables\n\t%s\n", varstr)
         result.download(target)
 
+    # Convert from grib to netcdf locally, same conversion as in CDS backend
     if request["data_format"] == "grib":
         ds = open_with_grib_conventions(target, chunks=chunks, tmpdir=tmpdir)
     else:

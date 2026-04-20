@@ -32,18 +32,15 @@ from shapely.geometry import box
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    import scipy.sparse as sp
+    from shapely.geometry.base import BaseGeometry
+
     from atlite._types import (
         CrsLike,
-        DataArray,
-        GeoDataFrame,
-        Geometry,
         NDArray,
         Number,
         PathLike,
-        SparseMatrix,
     )
-
-    pass
 
 from atlite.convert import (
     coefficient_of_performance,
@@ -351,7 +348,7 @@ class Cutout:
         return pd.Series(list(self.data), index, dtype=object)
 
     @CachedAttribute
-    def grid(self) -> GeoDataFrame:
+    def grid(self) -> gpd.GeoDataFrame:
         """
         Cutout grid with coordinates and geometries.
 
@@ -387,7 +384,7 @@ class Cutout:
         ----------
         path : str | path-like
             File where to store the sub-cutout. Defaults to a temporary file.
-        bounds : GeoSeries.bounds | DataFrame, optional
+        bounds : gpd.GeoSeries.bounds | DataFrame, optional
             The outer bounds of the cutout or as a DataFrame
             containing (min.long, min.lat, max.long, max.lat).
         buffer : float, optional
@@ -504,8 +501,8 @@ class Cutout:
         )
 
     def indicatormatrix(
-        self, shapes: Sequence[Geometry], shapes_crs: CrsLike = 4326
-    ) -> SparseMatrix:
+        self, shapes: Sequence[BaseGeometry], shapes_crs: CrsLike = 4326
+    ) -> sp.lil_matrix | sp.csr_matrix:
         """
         Compute the indicatormatrix.
 
@@ -534,8 +531,8 @@ class Cutout:
         return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
 
     def intersectionmatrix(
-        self, shapes: Sequence[Geometry], shapes_crs: CrsLike = 4326
-    ) -> SparseMatrix:
+        self, shapes: Sequence[BaseGeometry], shapes_crs: CrsLike = 4326
+    ) -> sp.lil_matrix | sp.csr_matrix:
         """
         Compute the intersectionmatrix.
 
@@ -559,7 +556,7 @@ class Cutout:
         """
         return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
 
-    def area(self, crs: CrsLike = None) -> DataArray:
+    def area(self, crs: CrsLike | None = None) -> xr.DataArray:
         """
         Get the area per grid cell as a DataArray with coords (x,y).
 
@@ -584,7 +581,7 @@ class Cutout:
             [self.coords["y"], self.coords["x"]],
         )
 
-    def uniform_layout(self) -> DataArray:
+    def uniform_layout(self) -> xr.DataArray:
         """
         Get a uniform capacity layout for all grid cells.
 
@@ -596,8 +593,8 @@ class Cutout:
         return xr.DataArray(1, [self.coords["y"], self.coords["x"]])
 
     def uniform_density_layout(
-        self, capacity_density: Number, crs: CrsLike = None
-    ) -> DataArray:
+        self, capacity_density: Number, crs: CrsLike | None = None
+    ) -> xr.DataArray:
         """
         Get a capacity layout from a uniform capacity density.
 

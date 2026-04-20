@@ -106,8 +106,9 @@ select = [
 ]
 
 ignore = [
-    'E501', # line too long
-    'E741', # ambiguous variable names
+    'E501',   # line too long
+    'E741',   # ambiguous variable names
+    'PTH118', # os.path.join -> Path (keep os.path.join for template strings)
 ]
 
 [tool.ruff.lint.per-file-ignores]

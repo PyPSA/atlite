@@ -626,7 +626,7 @@ try:
         "influx": {
             "tasks_func": tasks_monthly_ncep,
             "prepare_func": prepare_influx_ncep,
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.ncep_dir,
                 "{year}{month:0>2}/dswsfc.*.grb2",
             ),
@@ -634,7 +634,7 @@ try:
         "outflux": {
             "tasks_func": tasks_monthly_ncep,
             "prepare_func": prepare_outflux_ncep,
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.ncep_dir,
                 "{year}{month:0>2}/uswsfc.*.grb2",
             ),
@@ -642,7 +642,7 @@ try:
         "temperature": {
             "tasks_func": tasks_monthly_ncep,
             "prepare_func": prepare_temperature_ncep,
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.ncep_dir,
                 "{year}{month:0>2}/tmp2m.*.grb2",
             ),
@@ -650,7 +650,7 @@ try:
         "soil temperature": {
             "tasks_func": tasks_monthly_ncep,
             "prepare_func": prepare_soil_temperature_ncep,
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.ncep_dir,
                 "{year}{month:0>2}/soilt1.*.grb2",
             ),
@@ -658,7 +658,7 @@ try:
         "wnd10m": {
             "tasks_func": tasks_monthly_ncep,
             "prepare_func": prepare_wnd10m_ncep,
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.ncep_dir,
                 "{year}{month:0>2}/wnd10m.*.grb2",
             ),
@@ -666,7 +666,7 @@ try:
         "runoff": {
             "tasks_func": tasks_monthly_ncep,
             "prepare_func": prepare_runoff_ncep,
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.ncep_dir,
                 "{year}{month:0>2}/runoff.*.grb2",
             ),
@@ -674,7 +674,7 @@ try:
         "roughness": {
             "tasks_func": tasks_monthly_ncep,
             "prepare_func": prepare_roughness_ncep,
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.ncep_dir,
                 "{year}{month:0>2}/flxf.gdas.*.grb2",
             ),
@@ -682,7 +682,7 @@ try:
         "height": {
             "tasks_func": tasks_height_ncep,
             "prepare_func": prepare_height_ncep,
-            "template": os.path.join(  # noqa: PTH118
+            "template": os.path.join(
                 config.ncep_dir,
                 "height/cdas1.20130101.splgrbanl.grb2",
             ),
@@ -697,7 +697,7 @@ try:
 
     meta_data_config = {
         "prepare_func": prepare_meta_ncep,
-        "template": os.path.join(  # noqa: PTH118
+        "template": os.path.join(
             config.ncep_dir,
             "{year}{month:0>2}/tmp2m.*.grb2",
         ),

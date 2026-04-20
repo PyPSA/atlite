@@ -17,12 +17,12 @@ from numpy import pi
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from atlite._types import Dataset, NumericArray, OrientationName, TrackingType
+    from atlite._types import NumericArray, OrientationName, TrackingType
 
 
 def get_orientation(
     name: OrientationName | dict[str, Any], **params: Any
-) -> Callable[[NumericArray, NumericArray, Dataset], dict[str, NumericArray]]:
+) -> Callable[[NumericArray, NumericArray, xr.Dataset], dict[str, NumericArray]]:
     """
     Return an orientation factory by name.
 
@@ -41,14 +41,14 @@ def get_orientation(
     if isinstance(name, dict):
         params = name
         name = params.pop("name", "constant")
-    result: Callable[[NumericArray, NumericArray, Dataset], dict[str, NumericArray]] = (
-        getattr(sys.modules[__name__], f"make_{name}")(**params)
-    )
+    result: Callable[
+        [NumericArray, NumericArray, xr.Dataset], dict[str, NumericArray]
+    ] = getattr(sys.modules[__name__], f"make_{name}")(**params)
     return result
 
 
 def make_latitude_optimal() -> Callable[
-    [NumericArray, NumericArray, Dataset], dict[str, xr.DataArray]
+    [NumericArray, NumericArray, xr.Dataset], dict[str, xr.DataArray]
 ]:
     """
     Return an optimal tilt angle assuming the panel faces the equator.
@@ -72,7 +72,7 @@ def make_latitude_optimal() -> Callable[
     """
 
     def latitude_optimal(
-        lon: NumericArray, lat: NumericArray, solar_position: Dataset
+        lon: NumericArray, lat: NumericArray, solar_position: xr.Dataset
     ) -> dict[str, xr.DataArray]:
         """
         Build an orientation with latitude-dependent optimal tilt.
@@ -113,7 +113,7 @@ def make_latitude_optimal() -> Callable[
 
 def make_constant(
     slope: float, azimuth: float
-) -> Callable[[NumericArray, NumericArray, Dataset], dict[str, NumericArray]]:
+) -> Callable[[NumericArray, NumericArray, xr.Dataset], dict[str, NumericArray]]:
     """
     Create an orientation function with constant slope and azimuth.
 
@@ -133,7 +133,7 @@ def make_constant(
     azimuth_rad = radians(azimuth)
 
     def constant(
-        lon: NumericArray, lat: NumericArray, solar_position: Dataset
+        lon: NumericArray, lat: NumericArray, solar_position: xr.Dataset
     ) -> dict[str, NumericArray]:
         """
         Return the configured constant panel orientation.
@@ -159,7 +159,7 @@ def make_constant(
 
 def make_latitude(
     azimuth: float = 180,
-) -> Callable[[NumericArray, NumericArray, Dataset], dict[str, NumericArray]]:
+) -> Callable[[NumericArray, NumericArray, xr.Dataset], dict[str, NumericArray]]:
     """
     Create an orientation function with slope equal to latitude.
 
@@ -176,7 +176,7 @@ def make_latitude(
     azimuth_rad = radians(azimuth)
 
     def latitude(
-        lon: NumericArray, lat: NumericArray, solar_position: Dataset
+        lon: NumericArray, lat: NumericArray, solar_position: xr.Dataset
     ) -> dict[str, NumericArray]:
         """
         Return an orientation with slope equal to latitude.
@@ -201,13 +201,13 @@ def make_latitude(
 
 
 def SurfaceOrientation(
-    ds: Dataset,
-    solar_position: Dataset,
+    ds: xr.Dataset,
+    solar_position: xr.Dataset,
     orientation: Callable[
-        [NumericArray, NumericArray, Dataset], dict[str, NumericArray]
+        [NumericArray, NumericArray, xr.Dataset], dict[str, NumericArray]
     ],
-    tracking: TrackingType = None,
-) -> Dataset:
+    tracking: TrackingType | None = None,
+) -> xr.Dataset:
     """
     Compute cos(incidence) for slope and panel azimuth.
 
