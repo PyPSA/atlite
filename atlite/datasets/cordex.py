@@ -309,136 +309,82 @@ def tasks_yearly_cordex(
     ]
 
 
-weather_data_config: dict[str, dict[str, Any]] = {}
-try:
-    from atlite import config  # type: ignore[attr-defined]
+cordex_dir = os.environ["ATLITE_CORDEX_DIR"]
 
-    weather_data_config = {
-        "influx": {
-            "tasks_func": tasks_yearly_cordex,
-            "prepare_func": prepare_data_cordex,
-            "oldname": "rsds",
-            "newname": "influx",
-            "template": os.path.join(
-                config.cordex_dir,
-                "{model}",
-                "influx",
-                "rsds_*_{year}*.nc",
-            ),
-        },
-        "outflux": {
-            "tasks_func": tasks_yearly_cordex,
-            "prepare_func": prepare_data_cordex,
-            "oldname": "rsus",
-            "newname": "outflux",
-            "template": os.path.join(
-                config.cordex_dir,
-                "{model}",
-                "outflux",
-                "rsus_*_{year}*.nc",
-            ),
-        },
-        "temperature": {
-            "tasks_func": tasks_yearly_cordex,
-            "prepare_func": prepare_data_cordex,
-            "oldname": "tas",
-            "newname": "temperature",
-            "template": os.path.join(
-                config.cordex_dir,
-                "{model}",
-                "temperature",
-                "tas_*_{year}*.nc",
-            ),
-        },
-        "humidity": {
-            "tasks_func": tasks_yearly_cordex,
-            "prepare_func": prepare_data_cordex,
-            "oldname": "hurs",
-            "newname": "humidity",
-            "template": os.path.join(
-                config.cordex_dir,
-                "{model}",
-                "humidity",
-                "hurs_*_{year}*.nc",
-            ),
-        },
-        "wnd10m": {
-            "tasks_func": tasks_yearly_cordex,
-            "prepare_func": prepare_data_cordex,
-            "oldname": "sfcWind",
-            "newname": "wnd10m",
-            "template": os.path.join(
-                config.cordex_dir,
-                "{model}",
-                "wind",
-                "sfcWind_*_{year}*.nc",
-            ),
-        },
-        "roughness": {
-            "tasks_func": tasks_yearly_cordex,
-            "prepare_func": prepare_static_data_cordex,
-            "oldname": "rlst",
-            "newname": "roughness",
-            "template": os.path.join(
-                config.cordex_dir,
-                "{model}",
-                "roughness",
-                "rlst_*.nc",
-            ),
-        },
-        "runoff": {
-            "tasks_func": tasks_yearly_cordex,
-            "prepare_func": prepare_data_cordex,
-            "oldname": "mrro",
-            "newname": "runoff",
-            "template": os.path.join(
-                config.cordex_dir,
-                "{model}",
-                "runoff",
-                "mrro_*_{year}*.nc",
-            ),
-        },
-        "height": {
-            "tasks_func": tasks_yearly_cordex,
-            "prepare_func": prepare_static_data_cordex,
-            "oldname": "orog",
-            "newname": "height",
-            "template": os.path.join(
-                config.cordex_dir,
-                "{model}",
-                "altitude",
-                "orog_*.nc",
-            ),
-        },
-        "CWT": {
-            "tasks_func": tasks_yearly_cordex,
-            "prepare_func": prepare_weather_types_cordex,
-            "oldname": "CWT",
-            "newname": "CWT",
-            "template": os.path.join(
-                config.cordex_dir,
-                "{model}",
-                "weather_types",
-                "CWT_*_{year}*.nc",
-            ),
-        },
-    }
-except ImportError:
-    pass
-
-meta_data_config: dict[str, Any] = {}
-try:
-    from atlite import config  # type: ignore[attr-defined]
-
-    meta_data_config = {
-        "prepare_func": prepare_meta_cordex,
+weather_data_config: dict[str, dict[str, Any]] = {
+    "influx": {
+        "tasks_func": tasks_yearly_cordex,
+        "prepare_func": prepare_data_cordex,
+        "oldname": "rsds",
+        "newname": "influx",
+        "template": os.path.join(cordex_dir, "{model}", "influx", "rsds_*_{year}*.nc"),
+    },
+    "outflux": {
+        "tasks_func": tasks_yearly_cordex,
+        "prepare_func": prepare_data_cordex,
+        "oldname": "rsus",
+        "newname": "outflux",
+        "template": os.path.join(cordex_dir, "{model}", "outflux", "rsus_*_{year}*.nc"),
+    },
+    "temperature": {
+        "tasks_func": tasks_yearly_cordex,
+        "prepare_func": prepare_data_cordex,
+        "oldname": "tas",
+        "newname": "temperature",
         "template": os.path.join(
-            config.cordex_dir,
-            "{model}",
-            "temperature",
-            "tas_*_{year}*.nc",
+            cordex_dir, "{model}", "temperature", "tas_*_{year}*.nc"
         ),
-        "height_config": weather_data_config["height"],
-    }
-except (ImportError, KeyError):
-    pass
+    },
+    "humidity": {
+        "tasks_func": tasks_yearly_cordex,
+        "prepare_func": prepare_data_cordex,
+        "oldname": "hurs",
+        "newname": "humidity",
+        "template": os.path.join(
+            cordex_dir, "{model}", "humidity", "hurs_*_{year}*.nc"
+        ),
+    },
+    "wnd10m": {
+        "tasks_func": tasks_yearly_cordex,
+        "prepare_func": prepare_data_cordex,
+        "oldname": "sfcWind",
+        "newname": "wnd10m",
+        "template": os.path.join(cordex_dir, "{model}", "wind", "sfcWind_*_{year}*.nc"),
+    },
+    "roughness": {
+        "tasks_func": tasks_yearly_cordex,
+        "prepare_func": prepare_static_data_cordex,
+        "oldname": "rlst",
+        "newname": "roughness",
+        "template": os.path.join(cordex_dir, "{model}", "roughness", "rlst_*.nc"),
+    },
+    "runoff": {
+        "tasks_func": tasks_yearly_cordex,
+        "prepare_func": prepare_data_cordex,
+        "oldname": "mrro",
+        "newname": "runoff",
+        "template": os.path.join(cordex_dir, "{model}", "runoff", "mrro_*_{year}*.nc"),
+    },
+    "height": {
+        "tasks_func": tasks_yearly_cordex,
+        "prepare_func": prepare_static_data_cordex,
+        "oldname": "orog",
+        "newname": "height",
+        "template": os.path.join(cordex_dir, "{model}", "altitude", "orog_*.nc"),
+    },
+    "CWT": {
+        "tasks_func": tasks_yearly_cordex,
+        "prepare_func": prepare_weather_types_cordex,
+        "oldname": "CWT",
+        "newname": "CWT",
+        "template": os.path.join(
+            cordex_dir, "{model}", "weather_types", "CWT_*_{year}*.nc"
+        ),
+    },
+}
+
+meta_data_config: dict[str, Any] = {
+    "prepare_func": prepare_meta_cordex,
+    "template": os.path.join(cordex_dir, "{model}", "temperature", "tas_*_{year}*.nc"),
+    "height_config": weather_data_config["height"],
+}

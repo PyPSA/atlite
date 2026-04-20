@@ -618,90 +618,53 @@ def tasks_height_ncep(
     ]
 
 
-weather_data_config: dict[str, dict[str, Any]] = {}
-try:
-    from atlite import config  # type: ignore[attr-defined]
+ncep_dir = os.environ["ATLITE_NCEP_DIR"]
 
-    weather_data_config = {
-        "influx": {
-            "tasks_func": tasks_monthly_ncep,
-            "prepare_func": prepare_influx_ncep,
-            "template": os.path.join(
-                config.ncep_dir,
-                "{year}{month:0>2}/dswsfc.*.grb2",
-            ),
-        },
-        "outflux": {
-            "tasks_func": tasks_monthly_ncep,
-            "prepare_func": prepare_outflux_ncep,
-            "template": os.path.join(
-                config.ncep_dir,
-                "{year}{month:0>2}/uswsfc.*.grb2",
-            ),
-        },
-        "temperature": {
-            "tasks_func": tasks_monthly_ncep,
-            "prepare_func": prepare_temperature_ncep,
-            "template": os.path.join(
-                config.ncep_dir,
-                "{year}{month:0>2}/tmp2m.*.grb2",
-            ),
-        },
-        "soil temperature": {
-            "tasks_func": tasks_monthly_ncep,
-            "prepare_func": prepare_soil_temperature_ncep,
-            "template": os.path.join(
-                config.ncep_dir,
-                "{year}{month:0>2}/soilt1.*.grb2",
-            ),
-        },
-        "wnd10m": {
-            "tasks_func": tasks_monthly_ncep,
-            "prepare_func": prepare_wnd10m_ncep,
-            "template": os.path.join(
-                config.ncep_dir,
-                "{year}{month:0>2}/wnd10m.*.grb2",
-            ),
-        },
-        "runoff": {
-            "tasks_func": tasks_monthly_ncep,
-            "prepare_func": prepare_runoff_ncep,
-            "template": os.path.join(
-                config.ncep_dir,
-                "{year}{month:0>2}/runoff.*.grb2",
-            ),
-        },
-        "roughness": {
-            "tasks_func": tasks_monthly_ncep,
-            "prepare_func": prepare_roughness_ncep,
-            "template": os.path.join(
-                config.ncep_dir,
-                "{year}{month:0>2}/flxf.gdas.*.grb2",
-            ),
-        },
-        "height": {
-            "tasks_func": tasks_height_ncep,
-            "prepare_func": prepare_height_ncep,
-            "template": os.path.join(
-                config.ncep_dir,
-                "height/cdas1.20130101.splgrbanl.grb2",
-            ),
-        },
-    }
-except ImportError:
-    pass
+weather_data_config: dict[str, dict[str, Any]] = {
+    "influx": {
+        "tasks_func": tasks_monthly_ncep,
+        "prepare_func": prepare_influx_ncep,
+        "template": os.path.join(ncep_dir, "{year}{month:0>2}/dswsfc.*.grb2"),
+    },
+    "outflux": {
+        "tasks_func": tasks_monthly_ncep,
+        "prepare_func": prepare_outflux_ncep,
+        "template": os.path.join(ncep_dir, "{year}{month:0>2}/uswsfc.*.grb2"),
+    },
+    "temperature": {
+        "tasks_func": tasks_monthly_ncep,
+        "prepare_func": prepare_temperature_ncep,
+        "template": os.path.join(ncep_dir, "{year}{month:0>2}/tmp2m.*.grb2"),
+    },
+    "soil temperature": {
+        "tasks_func": tasks_monthly_ncep,
+        "prepare_func": prepare_soil_temperature_ncep,
+        "template": os.path.join(ncep_dir, "{year}{month:0>2}/soilt1.*.grb2"),
+    },
+    "wnd10m": {
+        "tasks_func": tasks_monthly_ncep,
+        "prepare_func": prepare_wnd10m_ncep,
+        "template": os.path.join(ncep_dir, "{year}{month:0>2}/wnd10m.*.grb2"),
+    },
+    "runoff": {
+        "tasks_func": tasks_monthly_ncep,
+        "prepare_func": prepare_runoff_ncep,
+        "template": os.path.join(ncep_dir, "{year}{month:0>2}/runoff.*.grb2"),
+    },
+    "roughness": {
+        "tasks_func": tasks_monthly_ncep,
+        "prepare_func": prepare_roughness_ncep,
+        "template": os.path.join(ncep_dir, "{year}{month:0>2}/flxf.gdas.*.grb2"),
+    },
+    "height": {
+        "tasks_func": tasks_height_ncep,
+        "prepare_func": prepare_height_ncep,
+        "template": os.path.join(ncep_dir, "height/cdas1.20130101.splgrbanl.grb2"),
+    },
+}
 
-meta_data_config: dict[str, Any] = {}
-try:
-    from atlite import config  # type: ignore[attr-defined]
-
-    meta_data_config = {
-        "prepare_func": prepare_meta_ncep,
-        "template": os.path.join(
-            config.ncep_dir,
-            "{year}{month:0>2}/tmp2m.*.grb2",
-        ),
-        "height_config": weather_data_config["height"],
-    }
-except (ImportError, KeyError):
-    pass
+meta_data_config: dict[str, Any] = {
+    "prepare_func": prepare_meta_ncep,
+    "template": os.path.join(ncep_dir, "{year}{month:0>2}/tmp2m.*.grb2"),
+    "height_config": weather_data_config["height"],
+}
