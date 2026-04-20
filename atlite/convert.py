@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Literal
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+from atlite.pv import solar_position
 import xarray as xr
 from dask import compute, delayed
 from dask.array import absolute, arccos, cos, maximum, mod, radians, sin, sqrt
@@ -25,12 +26,11 @@ from dask.diagnostics import ProgressBar
 from numpy import pi
 from scipy.sparse import csr_matrix
 
-from atlite import csp as cspm
 from atlite import hydro as hydrom
 from atlite import wind as windm
 from atlite.aggregate import aggregate_matrix
 from atlite.gis import spdiag
-from atlite.pv.irradiation import TiltedIrradiation
+from atlite.pv.irradiation import TiltedIrradiation, TiltedDirectIrrad
 from atlite.pv.orientation import SurfaceOrientation, get_orientation
 from atlite.pv.solar_panel_model import SolarPanelModel
 from atlite.pv.solar_position import SolarPosition
@@ -939,12 +939,15 @@ def pv(cutout, panel, orientation, tracking=None, clearsky_model=None, **params)
 # solar CSP
 def convert_csp(ds, installation):
     solar_position = SolarPosition(ds)
+    direct = ds["influx_direct"]
 
     tech = installation["technology"]
     if tech == "parabolic trough":
-        irradiation = ds["influx_direct"]
+        surface_orientation_trough = SurfaceOrientation(ds, solar_position, orientation={'slope': 0.0,'azimuth': 0.0}, tracking="horizontal")
+        irradiation = TiltedDirectIrrad(solar_position, surface_orientation_trough, direct)    
     elif tech == "solar tower":
-        irradiation = cspm.calculate_dni(ds, solar_position)
+        surface_orientation_tower = SurfaceOrientation(ds, solar_position, orientation={'slope': 0.0,'azimuth': 0.0}, tracking="dual")
+        irradiation = TiltedDirectIrrad(solar_position, surface_orientation_tower, direct)
     else:
         raise ValueError(f'Unknown CSP technology option "{tech}".')
 

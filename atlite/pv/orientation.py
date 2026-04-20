@@ -103,6 +103,8 @@ def SurfaceOrientation(ds, solar_position, orientation, tracking=None):
     """
     lon = radians(ds["lon"])
     lat = radians(ds["lat"])
+    if not callable(orientation):
+        orientation = get_orientation(orientation)
 
     orientation = orientation(lon, lat, solar_position)
     surface_slope = orientation["slope"]
