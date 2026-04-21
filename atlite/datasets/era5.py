@@ -16,7 +16,7 @@ import warnings
 import weakref
 from pathlib import Path
 from tempfile import mkstemp
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import cdsapi
 import numpy as np
@@ -31,6 +31,7 @@ from atlite.pv.solar_position import SolarPosition
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from contextlib import AbstractContextManager
 
     from dask.utils import SerializableLock
 
@@ -122,7 +123,7 @@ def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dat
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
     )
-    ds = maybe_swap_spatial_dims(ds)
+    ds = cast("xr.Dataset", maybe_swap_spatial_dims(ds))
     if add_lon_lat:
         ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
     return ds.drop_vars(["expver", "number"], errors="ignore")
@@ -624,11 +625,10 @@ def retrieve_data(
     )
     result = client.retrieve(product, request)
 
-    if lock is None:
-        lock = nullcontext()
+    cm: AbstractContextManager = nullcontext() if lock is None else lock
 
     suffix = f".{request['data_format']}"
-    with lock:
+    with cm:
         fd, target = mkstemp(suffix=suffix, dir=tmpdir)
         os.close(fd)
 
@@ -734,4 +734,6 @@ def get_data(
     else:
         datasets = map(retrieve_once, time_chunks)
 
-    return xr.concat(datasets, dim="time").sel(time=coords["time"])
+    result = xr.concat(datasets, dim="time").sel(time=coords["time"])
+    assert isinstance(result, xr.Dataset)
+    return result

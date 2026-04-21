@@ -317,7 +317,7 @@ class Cutout:
     def dx(self) -> float:
         """Spatial resolution on the x coordinates."""
         x = self.coords["x"]
-        return round((x[-1] - x[0]).item() / (x.size - 1), 8)  # type: ignore[no-any-return]
+        return float(round((x[-1] - x[0]).item() / (x.size - 1), 8))
 
     @property
     def dy(self) -> float:

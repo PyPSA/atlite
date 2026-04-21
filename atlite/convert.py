@@ -8,7 +8,6 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import warnings
-from collections import namedtuple
 from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -48,7 +47,6 @@ if TYPE_CHECKING:
         ClearskyModel,
         HeatPumpSource,
         IrradiationType,
-        NumericArray,
         OrientationName,
         TrackingType,
         TrigonModel,
@@ -83,7 +81,7 @@ def convert_and_aggregate(
     show_progress: bool = False,
     dask_kwargs: dict[str, Any] | None = None,
     **convert_kwds: Any,
-) -> Any:
+) -> xr.DataArray | xr.Dataset:
     """
     Convert and aggregate a weather-based renewable generation time-series.
 
@@ -235,7 +233,7 @@ def convert_and_aggregate(
             )
 
         if isinstance(matrix, xr.DataArray):
-            coords = matrix.indexes.get(matrix.dims[1]).to_frame(index=False)
+            coords = matrix.indexes[matrix.dims[1]].to_frame(index=False)
             if not np.array_equal(coords[["x", "y"]], cutout.grid[["x", "y"]]):
                 raise ValueError(
                     "Matrix spatial coordinates not aligned with cutout spatial "
@@ -338,7 +336,7 @@ def convert_temperature(ds: xr.Dataset) -> xr.DataArray:
     return ds["temperature"] - 273.15
 
 
-def temperature(cutout: Cutout, **params: Any) -> xr.DataArray | NumericArray:
+def temperature(cutout: Cutout, **params: Any) -> xr.Dataset | xr.DataArray:
     """
     Return ambient air temperature converted from Kelvin to degrees Celsius.
 
@@ -386,7 +384,7 @@ def convert_soil_temperature(ds: xr.Dataset) -> xr.DataArray:
     return (ds["soil temperature"] - 273.15).fillna(0.0)
 
 
-def soil_temperature(cutout: Cutout, **params: Any) -> xr.DataArray | NumericArray:
+def soil_temperature(cutout: Cutout, **params: Any) -> xr.Dataset | xr.DataArray:
     """
     Return soil temperature converted from Kelvin to degrees Celsius.
 
@@ -433,7 +431,7 @@ def convert_dewpoint_temperature(ds: xr.Dataset) -> xr.DataArray:
     return ds["dewpoint temperature"] - 273.15
 
 
-def dewpoint_temperature(cutout: Cutout, **params: Any) -> xr.DataArray | NumericArray:
+def dewpoint_temperature(cutout: Cutout, **params: Any) -> xr.Dataset | xr.DataArray:
     """
     Return dew point temperature converted from Kelvin to degrees Celsius.
 
@@ -522,7 +520,7 @@ def coefficient_of_performance(
     c1: float | None = None,
     c2: float | None = None,
     **params: Any,
-) -> xr.DataArray | NumericArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Convert temperature to heat pump coefficient of performance (COP).
 
@@ -637,7 +635,7 @@ def heat_demand(
     constant: float = 0.0,
     hour_shift: float = 0.0,
     **params: Any,
-) -> xr.DataArray | NumericArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Convert outside temperature into daily heat demand using degree-day approximation.
 
@@ -754,7 +752,7 @@ def cooling_demand(
     constant: float = 0.0,
     hour_shift: float = 0.0,
     **params: Any,
-) -> xr.DataArray | NumericArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Convert outside temperature into daily cooling demand using degree-day approximation.
 
@@ -886,7 +884,7 @@ def solar_thermal(
     c1: float = 3.0,
     t_store: float = 80.0,
     **params: Any,
-) -> xr.DataArray | NumericArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Convert radiation and temperature into solar thermal collector time series.
 
@@ -960,7 +958,7 @@ def convert_wind(
     ds: xr.Dataset,
     turbine: TurbineConfig,
     interpolation_method: Literal["logarithmic", "power"],
-) -> xr.DataArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Convert wind speeds to turbine-specific generation.
 
@@ -995,6 +993,7 @@ def convert_wind(
         output_dtypes=[wnd_hub.dtype],
         dask="parallelized",
     )
+    assert isinstance(da, xr.DataArray)
 
     da.attrs["units"] = "MWh/MWp"
     return da.rename("specific generation")
@@ -1007,7 +1006,7 @@ def wind(
     add_cutout_windspeed: bool = False,
     interpolation_method: Literal["logarithmic", "power"] = "logarithmic",
     **params: Any,
-) -> xr.DataArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Generate wind generation time-series.
 
@@ -1145,7 +1144,7 @@ def irradiation(
     tracking: TrackingType | None = None,
     clearsky_model: ClearskyModel | None = None,
     **params: Any,
-) -> xr.DataArray | NumericArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Calculate irradiation on a tilted surface.
 
@@ -1269,7 +1268,7 @@ def pv(
     tracking: TrackingType | None = None,
     clearsky_model: ClearskyModel | None = None,
     **params: Any,
-) -> xr.DataArray | NumericArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Convert radiation and temperature into PV generation time series.
 
@@ -1419,7 +1418,7 @@ def csp(
     installation: str | CSPConfig,
     technology: Literal["parabolic trough", "solar tower"] | None = None,
     **params: Any,
-) -> xr.DataArray | NumericArray:
+) -> xr.Dataset | xr.DataArray:
     """
     Convert direct radiation into CSP generation time series.
 
@@ -1748,13 +1747,13 @@ def convert_line_rating(
     A = D * 1  # projected area of conductor in square meters
 
     if isinstance(ds, dict):
-        Position = namedtuple("Position", ["altitude", "azimuth"])
-        solar_position = Position(ds["solar_altitude"], ds["solar_azimuth"])
+        altitude = ds["solar_altitude"]
+        azimuth = ds["solar_azimuth"]
     else:
-        solar_position = SolarPosition(ds)
-    Phi_s = arccos(
-        cos(solar_position.altitude) * cos((solar_position.azimuth) - radians(psi))
-    )
+        sp = SolarPosition(ds)
+        altitude = sp["altitude"]
+        azimuth = sp["azimuth"]
+    Phi_s = arccos(cos(altitude) * cos(azimuth - radians(psi)))
 
     qs = alpha * Q * A * sin(Phi_s)
 
@@ -1897,8 +1896,8 @@ def line_rating(
             res.append(dummy)
     if show_progress:
         with ProgressBar(minimum=2):
-            res = compute(res, **dask_kwargs)
+            (computed,) = compute(res, **dask_kwargs)
     else:
-        res = compute(res, **dask_kwargs)
+        (computed,) = compute(res, **dask_kwargs)
 
-    return xr.concat(*res, dim=df.index).assign_attrs(units="A")
+    return xr.concat(computed, dim=df.index).assign_attrs(units="A")
