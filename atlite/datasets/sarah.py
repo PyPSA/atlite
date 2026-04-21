@@ -9,7 +9,7 @@ import logging
 import warnings
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
@@ -135,7 +135,7 @@ def interpolate(
     dtypes = {da.dtype for da in data_vars}
     assert len(dtypes) == 1, "interpolate only supports datasets with homogeneous dtype"
 
-    return xr.apply_ufunc(
+    result: xr.Dataset | xr.DataArray = xr.apply_ufunc(
         _interpolate,
         ds,
         input_core_dims=[[dim]],
@@ -145,6 +145,7 @@ def interpolate(
         dask="allowed",
         keep_attrs=True,
     )
+    return result
 
 
 def as_slice(bounds: slice | tuple[float, float], pad: bool = True) -> slice:
@@ -245,13 +246,19 @@ def get_data(
         lon=ds.lon.astype(float).round(4), lat=ds.lat.astype(float).round(4)
     )
 
-    ds = interpolate(ds) if creation_parameters["sarah_interpolate"] else ds.fillna(0)
+    ds = cast(
+        "xr.Dataset",
+        interpolate(ds) if creation_parameters["sarah_interpolate"] else ds.fillna(0),
+    )
 
     if cutout.dt not in ["30min", "30T"]:
         ds = hourly_mean(ds)
 
     if (cutout.dx != dx) or (cutout.dy != dy):
-        ds = regrid(ds, coords["lon"], coords["lat"], resampling=Resampling.average)
+        ds = cast(
+            "xr.Dataset",
+            regrid(ds, coords["lon"], coords["lat"], resampling=Resampling.average),
+        )
 
     dif_attrs = {"long_name": "Surface Diffuse Shortwave Flux", "units": "W m-2"}
     ds["influx_diffuse"] = (ds["SIS"] - ds["SID"]).assign_attrs(**dif_attrs)

@@ -58,7 +58,7 @@ Documentation = "https://atlite.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 
-dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff", "mypy", "types-PyYAML"]
+dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff", "mypy", "types-PyYAML", "types-requests"]
 
 docs = [
     "numpydoc==1.8.0",

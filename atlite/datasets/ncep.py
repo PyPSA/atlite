@@ -131,7 +131,7 @@ def convert_unaverage_ncep(ds: xr.Dataset) -> xr.Dataset:
         y = da * xr.DataArray(
             np.arange(1, len(coords) + 1), dims=[dim], coords={dim: coords}
         )
-        return y - y.shift(**{dim: 1}).fillna(0.0)
+        return y - y.shift({dim: 1}).fillna(0.0)
 
     for k, da in ds.items():
         assert isinstance(k, str)
@@ -167,7 +167,7 @@ def convert_unaccumulate_ncep(ds: xr.Dataset) -> xr.Dataset:
     """
 
     def unaccumulate(da: xr.DataArray, dim: str = "forecast_time0") -> xr.DataArray:
-        return da - da.shift(**{dim: 1}).fillna(0.0)
+        return da - da.shift({dim: 1}).fillna(0.0)
 
     for k, da in ds.items():
         assert isinstance(k, str)

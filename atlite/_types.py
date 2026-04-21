@@ -18,6 +18,9 @@ PathLike: TypeAlias = str | Path
 NumericArray: TypeAlias = NDArray | xr.DataArray
 Number: TypeAlias = int | float | np.number[Any]
 CrsLike: TypeAlias = str | int | CRS | dict[str, Any]
+ConvertResult: TypeAlias = (
+    xr.DataArray | xr.Dataset | tuple[xr.DataArray | xr.Dataset, xr.DataArray]
+)
 
 TrackingType: TypeAlias = Literal["horizontal", "tilted_horizontal", "vertical", "dual"]
 ClearskyModel: TypeAlias = Literal["simple", "enhanced"]

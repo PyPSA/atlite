@@ -467,7 +467,8 @@ def add_finalizer(ds: xr.Dataset, target: PathLike) -> None:
         Path to the temporary file to clean up.
     """
     logger.debug("Adding finalizer for %s", target)
-    weakref.finalize(ds._close.__self__.ds, noisy_unlink, target)
+    assert ds._close is not None
+    weakref.finalize(cast("Any", ds._close).__self__.ds, noisy_unlink, target)
 
 
 def sanitize_chunks(chunks: Any, **dim_mapping: str) -> Any:

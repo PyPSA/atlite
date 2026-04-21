@@ -89,11 +89,10 @@ def SolarPosition(ds: xr.Dataset, time_shift: str | pd.Timedelta = "0H") -> xr.D
 
     # Operations make new DataArray eager; reconvert to lazy dask arrays
     chunks = ds.chunksizes.get("time", "auto")
-    if isinstance(chunks, tuple):
-        chunks = chunks[0]
-    n = n.chunk(chunks)
-    hour = hour.chunk(chunks)
-    minute = minute.chunk(chunks)
+    chunk_size = chunks[0] if isinstance(chunks, tuple) else chunks
+    n = n.chunk(chunk_size)
+    hour = hour.chunk(chunk_size)
+    minute = minute.chunk(chunk_size)
 
     L = 280.460 + 0.9856474 * n  # mean longitude (deg)
     g = radians(357.528 + 0.9856003 * n)  # mean anomaly (rad)

@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 from tempfile import mktemp
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from warnings import warn
 
 import geopandas as gpd
@@ -224,8 +224,9 @@ class Cutout:
             }
             data = xr.Dataset(coords=coords, attrs=attrs)
 
-        # Check compatibility of CRS
-        modules = atleast_1d(data.attrs.get("module"))
+        module_attr = data.attrs.get("module")
+        assert module_attr is not None, "Cutout data missing 'module' attribute"
+        modules = atleast_1d(module_attr)
         crs = {CRS(datamodules[m].crs) for m in modules}
         assert len(crs) == 1, f"CRS of {module} not compatible"
 
@@ -240,7 +241,7 @@ class Cutout:
     @property
     def module(self) -> str | list[str]:
         """Data module of the cutout."""
-        return self.data.attrs.get("module")  # type: ignore[no-any-return]
+        return cast("str | list[str]", self.data.attrs["module"])
 
     @property
     def crs(self) -> CRS:

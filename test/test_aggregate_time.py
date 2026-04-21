@@ -4,12 +4,20 @@
 
 """Tests for time aggregation functionality."""
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
 
 from atlite.convert import convert_and_aggregate
+
+
+def _call(*args: Any, **kwargs: Any) -> xr.DataArray | xr.Dataset:
+    result = convert_and_aggregate(*args, **kwargs)
+    assert not isinstance(result, tuple)
+    return result
 
 
 class MockCutout:
@@ -43,24 +51,24 @@ def cutout():
 
 class TestAggregateTimeNoSpatial:
     def test_aggregate_time_none_returns_timeseries(self, cutout):
-        result = convert_and_aggregate(cutout, identity_convert, aggregate_time=None)
+        result = _call(cutout, identity_convert, aggregate_time=None)
         assert "time" in result.dims
 
     def test_aggregate_time_mean(self, cutout):
-        result = convert_and_aggregate(cutout, identity_convert, aggregate_time="mean")
+        result = _call(cutout, identity_convert, aggregate_time="mean")
         assert "time" not in result.dims
         expected = cutout.data["var"].mean("time")
         np.testing.assert_allclose(result.values, expected.values)
 
     def test_aggregate_time_sum(self, cutout):
-        result = convert_and_aggregate(cutout, identity_convert, aggregate_time="sum")
+        result = _call(cutout, identity_convert, aggregate_time="sum")
         assert "time" not in result.dims
         expected = cutout.data["var"].sum("time")
         np.testing.assert_allclose(result.values, expected.values)
 
     def test_legacy_default_no_spatial_sums_over_time(self, cutout):
         with pytest.warns(FutureWarning, match="aggregate_time='legacy'"):
-            result = convert_and_aggregate(cutout, identity_convert)
+            result = _call(cutout, identity_convert)
         expected = cutout.data["var"].sum("time")
         assert "time" not in result.dims
         xr.testing.assert_identical(result, expected)
@@ -77,14 +85,12 @@ def layout(cutout):
 
 @pytest.fixture
 def result_ts(cutout, layout):
-    return convert_and_aggregate(
-        cutout, identity_convert, layout=layout, aggregate_time=None
-    )
+    return _call(cutout, identity_convert, layout=layout, aggregate_time=None)
 
 
 class TestAggregateTimeWithSpatial:
     def test_aggregate_time_mean_with_layout(self, cutout, layout, result_ts):
-        result_mean = convert_and_aggregate(
+        result_mean = _call(
             cutout, identity_convert, layout=layout, aggregate_time="mean"
         )
         assert "time" in result_ts.dims
@@ -92,7 +98,7 @@ class TestAggregateTimeWithSpatial:
         np.testing.assert_allclose(result_mean.values, result_ts.mean("time").values)
 
     def test_aggregate_time_sum_with_layout(self, cutout, layout, result_ts):
-        result_sum = convert_and_aggregate(
+        result_sum = _call(
             cutout, identity_convert, layout=layout, aggregate_time="sum"
         )
         assert "time" not in result_sum.dims
@@ -100,7 +106,7 @@ class TestAggregateTimeWithSpatial:
 
     def test_legacy_default_with_layout_returns_timeseries(self, cutout, layout):
         with pytest.warns(FutureWarning, match="aggregate_time='legacy'"):
-            result = convert_and_aggregate(cutout, identity_convert, layout=layout)
+            result = _call(cutout, identity_convert, layout=layout)
         assert "time" in result.dims
 
     def test_aggregate_time_with_per_unit(self, cutout):
@@ -109,7 +115,7 @@ class TestAggregateTimeWithSpatial:
             dims=["y", "x"],
             coords={"y": cutout.data.y, "x": cutout.data.x},
         )
-        result_pu = convert_and_aggregate(
+        result_pu = _call(
             cutout,
             identity_convert,
             layout=layout,
@@ -118,7 +124,7 @@ class TestAggregateTimeWithSpatial:
         )
         assert "time" not in result_pu.dims
 
-        result_pu_ts = convert_and_aggregate(
+        result_pu_ts = _call(
             cutout,
             identity_convert,
             layout=layout,
@@ -131,23 +137,19 @@ class TestAggregateTimeWithSpatial:
 class TestDeprecatedParams:
     def test_capacity_factor_warns(self, cutout):
         with pytest.warns(FutureWarning, match="capacity_factor is deprecated"):
-            result = convert_and_aggregate(
-                cutout, identity_convert, capacity_factor=True
-            )
+            result = _call(cutout, identity_convert, capacity_factor=True)
         assert "time" not in result.dims
 
     def test_capacity_factor_timeseries_warns(self, cutout):
         with pytest.warns(
             FutureWarning, match="capacity_factor_timeseries is deprecated"
         ):
-            result = convert_and_aggregate(
-                cutout, identity_convert, capacity_factor_timeseries=True
-            )
+            result = _call(cutout, identity_convert, capacity_factor_timeseries=True)
         assert "time" in result.dims
 
     def test_capacity_factor_with_aggregate_time_raises(self, cutout):
         with pytest.raises(ValueError, match="Cannot use"):
-            convert_and_aggregate(
+            _call(
                 cutout,
                 identity_convert,
                 capacity_factor=True,
@@ -158,12 +160,12 @@ class TestDeprecatedParams:
 class TestInvalidArgs:
     def test_invalid_aggregate_time_value(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
-            convert_and_aggregate(cutout, identity_convert, aggregate_time="invalid")  # type: ignore[arg-type]
+            _call(cutout, identity_convert, aggregate_time="invalid")
 
     def test_aggregate_time_false_raises(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
-            convert_and_aggregate(cutout, identity_convert, aggregate_time=False)  # type: ignore[arg-type]
+            _call(cutout, identity_convert, aggregate_time=False)
 
     def test_aggregate_time_true_raises(self, cutout):
         with pytest.raises(ValueError, match="aggregate_time must be"):
-            convert_and_aggregate(cutout, identity_convert, aggregate_time=True)  # type: ignore[arg-type]
+            _call(cutout, identity_convert, aggregate_time=True)

@@ -105,7 +105,8 @@ def DiffuseHorizontalIrrad(
     else:
         raise KeyError("`clearsky model` must be chosen from 'simple' and 'enhanced'")
 
-    return (influx * fraction).rename("diffuse horizontal")
+    result: xr.DataArray = (influx * fraction).rename("diffuse horizontal")
+    return result
 
 
 def TiltedDiffuseIrrad(
@@ -168,7 +169,8 @@ def TiltedDiffuseIrrad(
     with np.errstate(invalid="ignore"):
         diffuse_t = diffuse_t.clip(min=0).fillna(0)
 
-    return diffuse_t.rename("diffuse tilted")
+    result: xr.DataArray = diffuse_t.rename("diffuse tilted")
+    return result
 
 
 def TiltedDirectIrrad(
@@ -196,7 +198,8 @@ def TiltedDirectIrrad(
 
     R_b = cosincidence / sinaltitude
 
-    return (R_b * direct).rename("direct tilted")
+    result: xr.DataArray = (R_b * direct).rename("direct tilted")
+    return result
 
 
 def _albedo(ds: xr.Dataset, influx: xr.DataArray) -> xr.DataArray:
@@ -257,7 +260,8 @@ def TiltedGroundIrrad(
     """
     surface_slope = surface_orientation["slope"]
     ground_t = influx * _albedo(ds, influx) * (1.0 - cos(surface_slope)) / 2.0
-    return ground_t.rename("ground tilted")
+    result: xr.DataArray = ground_t.rename("ground tilted")
+    return result
 
 
 def TiltedIrradiation(
@@ -360,6 +364,7 @@ def TiltedIrradiation(
 
         total_t = direct_t + diffuse_t + ground_t
 
+    result: xr.DataArray
     if irradiation == "total":
         result = total_t.rename("total tilted")
     elif irradiation == "direct":

@@ -45,6 +45,7 @@ if TYPE_CHECKING:
 
     from atlite._types import (
         ClearskyModel,
+        ConvertResult,
         HeatPumpSource,
         IrradiationType,
         OrientationName,
@@ -81,7 +82,7 @@ def convert_and_aggregate(
     show_progress: bool = False,
     dask_kwargs: dict[str, Any] | None = None,
     **convert_kwds: Any,
-) -> xr.DataArray | xr.Dataset:
+) -> ConvertResult:
     """
     Convert and aggregate a weather-based renewable generation time-series.
 
@@ -336,7 +337,7 @@ def convert_temperature(ds: xr.Dataset) -> xr.DataArray:
     return ds["temperature"] - 273.15
 
 
-def temperature(cutout: Cutout, **params: Any) -> xr.Dataset | xr.DataArray:
+def temperature(cutout: Cutout, **params: Any) -> ConvertResult:
     """
     Return ambient air temperature converted from Kelvin to degrees Celsius.
 
@@ -384,7 +385,7 @@ def convert_soil_temperature(ds: xr.Dataset) -> xr.DataArray:
     return (ds["soil temperature"] - 273.15).fillna(0.0)
 
 
-def soil_temperature(cutout: Cutout, **params: Any) -> xr.Dataset | xr.DataArray:
+def soil_temperature(cutout: Cutout, **params: Any) -> ConvertResult:
     """
     Return soil temperature converted from Kelvin to degrees Celsius.
 
@@ -431,7 +432,7 @@ def convert_dewpoint_temperature(ds: xr.Dataset) -> xr.DataArray:
     return ds["dewpoint temperature"] - 273.15
 
 
-def dewpoint_temperature(cutout: Cutout, **params: Any) -> xr.Dataset | xr.DataArray:
+def dewpoint_temperature(cutout: Cutout, **params: Any) -> ConvertResult:
     """
     Return dew point temperature converted from Kelvin to degrees Celsius.
 
@@ -520,7 +521,7 @@ def coefficient_of_performance(
     c1: float | None = None,
     c2: float | None = None,
     **params: Any,
-) -> xr.Dataset | xr.DataArray:
+) -> ConvertResult:
     """
     Convert temperature to heat pump coefficient of performance (COP).
 
@@ -635,7 +636,7 @@ def heat_demand(
     constant: float = 0.0,
     hour_shift: float = 0.0,
     **params: Any,
-) -> xr.Dataset | xr.DataArray:
+) -> ConvertResult:
     """
     Convert outside temperature into daily heat demand using degree-day approximation.
 
@@ -752,7 +753,7 @@ def cooling_demand(
     constant: float = 0.0,
     hour_shift: float = 0.0,
     **params: Any,
-) -> xr.Dataset | xr.DataArray:
+) -> ConvertResult:
     """
     Convert outside temperature into daily cooling demand using degree-day approximation.
 
@@ -884,7 +885,7 @@ def solar_thermal(
     c1: float = 3.0,
     t_store: float = 80.0,
     **params: Any,
-) -> xr.Dataset | xr.DataArray:
+) -> ConvertResult:
     """
     Convert radiation and temperature into solar thermal collector time series.
 
@@ -1006,7 +1007,7 @@ def wind(
     add_cutout_windspeed: bool = False,
     interpolation_method: Literal["logarithmic", "power"] = "logarithmic",
     **params: Any,
-) -> xr.Dataset | xr.DataArray:
+) -> ConvertResult:
     """
     Generate wind generation time-series.
 
@@ -1144,7 +1145,7 @@ def irradiation(
     tracking: TrackingType | None = None,
     clearsky_model: ClearskyModel | None = None,
     **params: Any,
-) -> xr.Dataset | xr.DataArray:
+) -> ConvertResult:
     """
     Calculate irradiation on a tilted surface.
 
@@ -1268,7 +1269,7 @@ def pv(
     tracking: TrackingType | None = None,
     clearsky_model: ClearskyModel | None = None,
     **params: Any,
-) -> xr.Dataset | xr.DataArray:
+) -> ConvertResult:
     """
     Convert radiation and temperature into PV generation time series.
 
@@ -1418,7 +1419,7 @@ def csp(
     installation: str | CSPConfig,
     technology: Literal["parabolic trough", "solar tower"] | None = None,
     **params: Any,
-) -> xr.Dataset | xr.DataArray:
+) -> ConvertResult:
     """
     Convert direct radiation into CSP generation time series.
 

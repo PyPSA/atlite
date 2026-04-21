@@ -312,11 +312,12 @@ def windturbine_smooth(
     sigma: float = params.get("sigma", 2.29)
 
     def kernel(v_0: NDArray) -> NDArray:
-        return (
+        result: NDArray = (
             1.0
             / np.sqrt(2 * np.pi * sigma * sigma)
             * np.exp(-(v_0 - Delta_v) * (v_0 - Delta_v) / (2 * sigma * sigma))
         )
+        return result
 
     def smooth(velocities: NDArray, power: NDArray) -> tuple[NDArray, NDArray]:
         # interpolate kernel and power curve to the same, regular velocity grid
