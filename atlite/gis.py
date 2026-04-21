@@ -479,7 +479,9 @@ class ExclusionContainer:
                 assert isinstance(raster, rio.DatasetReader)
 
             # Check if the raster has a valid CRS
-            if not (raster.crs.is_geographic or raster.crs.is_projected):
+            if raster.crs is None or not (
+                raster.crs.is_geographic or raster.crs.is_projected
+            ):
                 if d["crs"]:
                     raster._crs = CRS(d["crs"])
                 else:

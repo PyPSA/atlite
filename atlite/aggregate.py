@@ -5,14 +5,19 @@
 Functions for aggregating results.
 """
 
+import pandas as pd
 import scipy.sparse as sp
 import xarray as xr
 from dask.array.core import Array
 
+from atlite.utils import ensure_coords
+
 
 def aggregate_matrix(
-    da: xr.DataArray, matrix: sp.csr_matrix, coords: xr.Coordinates
+    da: xr.DataArray, matrix: sp.csr_matrix, index: xr.Coordinates | pd.Index
 ) -> xr.DataArray:
+    coords = ensure_coords(index)
+
     if isinstance(da.data, Array):
         da = da.stack(spatial=("y", "x"))
         da = da.chunk(dict(spatial=-1))
