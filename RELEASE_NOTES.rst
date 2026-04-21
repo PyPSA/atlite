@@ -17,8 +17,15 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g. 
    ``pip install git+https://github.com/pypsa/atlite``.
 
+`v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
+=======================================================================================
+
+**Bug fixes**
+
+* Fix backwards compatibility of ``aggregate_matrix``.
+
 `v0.6.0 <https://github.com/PyPSA/atlite/releases/tag/v0.6.0>`__ (15th April 2026)
-=======================================================================================   
+=======================================================================================
 
 **Features**
 
