@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Literal
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from atlite.pv import solar_position
 import xarray as xr
 from dask import compute, delayed
 from dask.array import absolute, arccos, cos, maximum, mod, radians, sin, sqrt
@@ -30,7 +29,7 @@ from atlite import hydro as hydrom
 from atlite import wind as windm
 from atlite.aggregate import aggregate_matrix
 from atlite.gis import spdiag
-from atlite.pv.irradiation import TiltedIrradiation, TiltedDirectIrrad
+from atlite.pv.irradiation import TiltedDirectIrrad, TiltedIrradiation
 from atlite.pv.orientation import SurfaceOrientation, get_orientation
 from atlite.pv.solar_panel_model import SolarPanelModel
 from atlite.pv.solar_position import SolarPosition
@@ -943,11 +942,25 @@ def convert_csp(ds, installation):
 
     tech = installation["technology"]
     if tech == "parabolic trough":
-        surface_orientation_trough = SurfaceOrientation(ds, solar_position, orientation={'slope': 0.0,'azimuth': 0.0}, tracking="horizontal")
-        irradiation = TiltedDirectIrrad(solar_position, surface_orientation_trough, direct)    
+        surface_orientation_trough = SurfaceOrientation(
+            ds,
+            solar_position,
+            orientation={"slope": 0.0, "azimuth": 0.0},
+            tracking="horizontal",
+        )
+        irradiation = TiltedDirectIrrad(
+            solar_position, surface_orientation_trough, direct
+        )
     elif tech == "solar tower":
-        surface_orientation_tower = SurfaceOrientation(ds, solar_position, orientation={'slope': 0.0,'azimuth': 0.0}, tracking="dual")
-        irradiation = TiltedDirectIrrad(solar_position, surface_orientation_tower, direct)
+        surface_orientation_tower = SurfaceOrientation(
+            ds,
+            solar_position,
+            orientation={"slope": 0.0, "azimuth": 0.0},
+            tracking="dual",
+        )
+        irradiation = TiltedDirectIrrad(
+            solar_position, surface_orientation_tower, direct
+        )
     else:
         raise ValueError(f'Unknown CSP technology option "{tech}".')
 

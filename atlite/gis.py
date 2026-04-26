@@ -854,7 +854,7 @@ def regrid(ds, dimx, dimy, **kwargs):
             output_dtypes=[dtypes.pop()],
             dask_gufunc_kwargs=dict(
                 output_sizes={"yout": dst_shape[0], "xout": dst_shape[1]},
-                allow_rechunk=True
+                allow_rechunk=True,
             ),
             dask="parallelized",
             kwargs=kwargs,
