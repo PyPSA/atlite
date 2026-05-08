@@ -678,11 +678,17 @@ class TestERA5NCAR:
 
     @staticmethod
     def test_influx_coarse_identical(cutout_era5_coarse, cutout_era5_ncar_coarse):
-        """era5_ncar coarse influx should be identical to era5 coarse influx."""
+        """era5_ncar coarse influx should be close to era5 coarse influx.
+
+        CDS ERA5 interpolates from the native Gaussian (N320, ~0.28125°) grid via MIR;
+        era5_ncar uses bilinear from the 0.25° lat-lon product.  The two methods give
+        identical results at 0.25° (see test_influx_identical) but diverge by up to
+        ~2 × 10⁻³ W m⁻² at off-grid coarse resolutions.
+        """
         xr.testing.assert_allclose(
             cutout_era5_ncar_coarse.data,
             cutout_era5_coarse.data[_ERA5_INFLUX_VARS],
-            atol=1e-4,
+            atol=5e-3,
         )
 
     @staticmethod
@@ -693,9 +699,15 @@ class TestERA5NCAR:
     def test_influx_weird_resolution_identical(
         cutout_era5_weird_resolution, cutout_era5_ncar_weird_resolution
     ):
-        """era5_ncar weird-resolution influx should be identical to era5."""
+        """era5_ncar weird-resolution influx should be close to era5.
+
+        At non-aligned resolutions (both x and y off the 0.25° native grid) the
+        difference between CDS MIR (from N320 Gaussian) and bilinear from 0.25° can
+        reach ~2 W m⁻² near steep twilight gradients.  Solar position variables are
+        independent of the source data and remain exact.
+        """
         xr.testing.assert_allclose(
             cutout_era5_ncar_weird_resolution.data,
             cutout_era5_weird_resolution.data[_ERA5_INFLUX_VARS],
-            atol=1e-4,
+            atol=2.5,
         )

@@ -448,6 +448,9 @@ def get_data(cutout, feature, tmpdir=None, lock=None, **kwargs):
 
     tmpdir is provided by atlite's cutout.prepare(); when callers pass a
     persistent path, previously downloaded files are reused on restart.
+        
+    TODO:
+    - verify congruence between interpolated grids for larger cutouts in CDS and NCAR
     """
     coords = cutout.coords
     x0, x1 = coords["x"].min().item(), coords["x"].max().item()
@@ -465,22 +468,39 @@ def get_data(cutout, feature, tmpdir=None, lock=None, **kwargs):
     west = x0 - _BBOX_PAD
     east = x1 + _BBOX_PAD
 
+    # Target latitude/longitude values for regridding raw downloads.
+    # DataArrays from _load_var use "latitude"/"longitude" dims (before
+    # _postprocess_influx renames them to "y"/"x").
+    target_lat = coords["y"].values
+    target_lon = coords["x"].values
+
     if feature == "influx":
         arrays = {}
         for atlite_name in ("ssrd", "ssr", "fdir", "tisr"):
             arrays[atlite_name] = _load_var(
                 atlite_name, north, south, west, east, start, end, cache_dir
             )
+
+        # ERA5 can have ssr > ssrd at the day/night boundary (accumulation artifact).
+        # Clip before interpolation so the unphysical values aren't amplified by bilinear
+        # interpolation (target points near the boundary get small ssrd but large ssr
+        # from the daytime side, yielding extreme negative albedo).
+        arrays["ssr"] = arrays["ssr"].where(
+            arrays["ssr"] <= arrays["ssrd"], other=arrays["ssrd"]
+        )
+
+        # Regrid raw variables to target resolution before computing derived quantities.
+        # This matches the CDS ordering (interpolate → compute albedo/diffuse/clip).
+        # At native 0.25° resolution target points fall exactly on source grid points
+        # and linear interp returns exact values — never use method="nearest".
+
+        for atlite_name in list(arrays.keys()):
+            arrays[atlite_name] = arrays[atlite_name].interp(
+                latitude=target_lat, longitude=target_lon, method="linear"
+            )
         ds = _postprocess_influx(xr.Dataset(arrays))
     else:
         raise NotImplementedError(f"Feature {feature!r} not supported by era5_ncar")
-
-    # Regrid to the cutout's target spatial grid.
-    if _grids_align(ds, coords):
-        ds = ds.sel(x=coords["x"].values, y=coords["y"].values, method="nearest")
-    else:
-        ds = ds.interp(x=coords["x"].values, y=coords["y"].values, method="linear")
-    ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
 
     ds = ds.reindex(time=coords["time"])
     return ds
