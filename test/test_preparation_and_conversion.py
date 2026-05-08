@@ -18,11 +18,10 @@ import numpy as np
 import pandas as pd
 import pytest
 import urllib3
+import xarray as xr
 from dateutil.relativedelta import relativedelta
 from shapely.geometry import LineString as Line
 from shapely.geometry import Point
-
-import xarray as xr
 
 import atlite
 from atlite import Cutout
@@ -658,7 +657,8 @@ class TestGebco:
 class TestERA5NCAR:
     @staticmethod
     def test_all_features_identical(cutout_era5, cutout_era5_ncar):
-        """At native 0.25° resolution era5_ncar should match era5 across every feature.
+        """
+        At native 0.25° resolution era5_ncar should match era5 across every feature.
 
         Covers wind, temperature, runoff, influx and height. At 0.25° target points
         fall exactly on the source grid so bilinear interpolation reproduces source
@@ -675,7 +675,8 @@ class TestERA5NCAR:
 
     @staticmethod
     def test_all_features_coarse_identical(cutout_era5_coarse, cutout_era5_ncar_coarse):
-        """era5_ncar coarse-resolution should be close to era5 across all features.
+        """
+        era5_ncar coarse-resolution should be close to era5 across all features.
 
         CDS ERA5 interpolates from the native Gaussian (N320, ~0.28125°) grid via MIR;
         era5_ncar uses bilinear from the 0.25° lat-lon product. The two methods give
@@ -703,7 +704,8 @@ class TestERA5NCAR:
     def test_all_features_weird_resolution_identical(
         cutout_era5_weird_resolution, cutout_era5_ncar_weird_resolution
     ):
-        """era5_ncar weird-resolution should be close to era5 across all features.
+        """
+        era5_ncar weird-resolution should be close to era5 across all features.
 
         At non-aligned resolutions (both x and y off the 0.25° native grid) the
         difference between CDS MIR (from N320 Gaussian) and bilinear from 0.25° is

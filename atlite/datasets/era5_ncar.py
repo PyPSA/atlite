@@ -372,7 +372,7 @@ def _download_to_array(
     Layout per product:
       - e5.oper.an.sfc:        arr shape [T, lat, lon]
       - e5.oper.fc.sfc.accumu: arr shape [n_init, n_fhr, lat, lon] → ravel to [T, lat, lon]
-      - e5.oper.invariant:     arr shape [lat, lon] or [1, lat, lon]
+      - e5.oper.invariant:     arr shape [1, lat, lon] → squeeze to [lat, lon]
     """
     # dap2:// avoids pydap's protocol-detection warning for https:// URLs.
     ds_pydap = open_url(f"dap2://{url[8:]}")
@@ -383,9 +383,7 @@ def _download_to_array(
     elif product == "e5.oper.an.sfc":
         data = arr
     elif product == "e5.oper.invariant":
-        # Server may return [1, lat, lon] or [lat, lon] depending on file layout.
-        # TODO: check if server really returns two different layouts. if always consistent - remove conditional
-        data = arr[0] if arr.ndim == 3 else arr
+        data = arr[0]
     else:
         raise ValueError(f"Unknown product: {product!r}")
 
