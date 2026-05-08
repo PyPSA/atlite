@@ -655,6 +655,54 @@ class TestGebco:
 
 
 class TestERA5NCAR:
+    WEIRD_RESOLUTION_TOLERANCES = {
+        "albedo": 2.0,
+        "dewpoint temperature": 0.25,
+        "height": 14.0,
+        "influx_diffuse": 0.6,
+        "influx_direct": 2.0,
+        "influx_toa": 0.06,
+        "roughness": 0.06,
+        "runoff": 1.5e-5,
+        "soil temperature": 0.2,
+        "solar_altitude": 0.0,
+        "solar_azimuth": 0.0,
+        "temperature": 0.2,
+        "wnd100m": 0.25,
+        "wnd_azimuth": 0.03,
+        "wnd_shear_exp": 0.03,
+    }
+
+    @staticmethod
+    def _assert_compatible_cutouts(reference, candidate):
+        ref = reference.data
+        cand = candidate.data
+
+        assert set(cand.data_vars) == set(ref.data_vars)
+        assert set(cand.coords) == set(ref.coords)
+        assert dict(cand.sizes) == dict(ref.sizes)
+        assert set(candidate.prepared_features) == set(reference.prepared_features)
+        assert set(cand.attrs["prepared_features"]) == set(
+            ref.attrs["prepared_features"]
+        )
+
+        for attr in ("dx", "dy"):
+            if attr in cand.attrs or attr in ref.attrs:
+                assert cand.attrs.get(attr) == ref.attrs.get(attr)
+
+        for coord in sorted(ref.coords):
+            xr.testing.assert_equal(cand.coords[coord], ref.coords[coord])
+
+        for var in sorted(ref.data_vars):
+            assert cand[var].dims == ref[var].dims
+            assert cand[var].attrs["feature"] == ref[var].attrs["feature"]
+            assert cand[var].attrs["module"] == cand.attrs["module"]
+            assert ref[var].attrs["module"] == ref.attrs["module"]
+
+        cand_units = {var: cand[var].attrs.get("units") for var in sorted(cand)}
+        ref_units = {var: ref[var].attrs.get("units") for var in sorted(ref)}
+        assert cand_units == ref_units
+
     @staticmethod
     def test_all_features_identical(cutout_era5, cutout_era5_ncar):
         """
@@ -664,9 +712,8 @@ class TestERA5NCAR:
         fall exactly on the source grid so bilinear interpolation reproduces source
         values exactly.
         """
-        common = sorted(
-            set(cutout_era5_ncar.data.data_vars) & set(cutout_era5.data.data_vars)
-        )
+        TestERA5NCAR._assert_compatible_cutouts(cutout_era5, cutout_era5_ncar)
+        common = sorted(cutout_era5.data.data_vars)
         xr.testing.assert_allclose(
             cutout_era5_ncar.data[common],
             cutout_era5.data[common],
@@ -685,15 +732,16 @@ class TestERA5NCAR:
         (W m⁻²); other features (temperature K, wind m/s, height m, runoff m) stay
         well within the same atol.
         """
-        common = sorted(
-            set(cutout_era5_ncar_coarse.data.data_vars)
-            & set(cutout_era5_coarse.data.data_vars)
+        TestERA5NCAR._assert_compatible_cutouts(
+            cutout_era5_coarse, cutout_era5_ncar_coarse
         )
-        # TODO: verify min value possible here
+        common = sorted(cutout_era5_coarse.data.data_vars)
+        # Cached fixture max_abs is ~1.8e-3, dominated by influx variables.
         xr.testing.assert_allclose(
             cutout_era5_ncar_coarse.data[common],
             cutout_era5_coarse.data[common],
-            atol=5e-3,
+            atol=2e-3,
+            rtol=1e-5,
         )
 
     @staticmethod
@@ -719,13 +767,15 @@ class TestERA5NCAR:
           albedo           ~2       (a few cells at the day/night boundary)
           others (temperature, wind, soil temp, runoff, …)  ≪ 1 in their native units
         """
-        common = sorted(
-            set(cutout_era5_ncar_weird_resolution.data.data_vars)
-            & set(cutout_era5_weird_resolution.data.data_vars)
+        TestERA5NCAR._assert_compatible_cutouts(
+            cutout_era5_weird_resolution, cutout_era5_ncar_weird_resolution
         )
-        # TODO: change to rtol and establish min value
-        xr.testing.assert_allclose(
-            cutout_era5_ncar_weird_resolution.data[common],
-            cutout_era5_weird_resolution.data[common],
-            atol=30,
+        assert set(TestERA5NCAR.WEIRD_RESOLUTION_TOLERANCES) == set(
+            cutout_era5_weird_resolution.data.data_vars
         )
+        for var, atol in TestERA5NCAR.WEIRD_RESOLUTION_TOLERANCES.items():
+            xr.testing.assert_allclose(
+                cutout_era5_ncar_weird_resolution.data[var],
+                cutout_era5_weird_resolution.data[var],
+                atol=atol,
+            )

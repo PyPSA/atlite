@@ -30,8 +30,6 @@ Design
   in-flight THREDDS requests stay bounded — no separate semaphore needed.
 - tenacity retries each network fetch on transport-level errors only.
 """
-# TODO:align logging with era5.py
-# TODO:run precommit, ty, ruff checks
 
 import hashlib
 import logging
@@ -431,6 +429,7 @@ def _fetch_file(
         logger.debug("cache hit: %s", cache.name)
         return cache
 
+    logger.info("NCAR: Downloading variable %s", atlite_name)
     da = _download_to_array(
         url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, product, time_coord
     )
@@ -594,8 +593,8 @@ def _regrid_to_target(arrays: RawArrays, cutout: Any) -> RawArrays:
     """
     target_lat = cutout.coords["y"].values
     target_lon = cutout.coords["x"].values
-    # TODO: why is this sel and not just continue? bcs of downsampling?
     if _is_native_grid(cutout):
+        # Keep target coordinates/order while avoiding materialising interp at native resolution.
         return {
             name: da.sel(
                 latitude=target_lat,
@@ -641,10 +640,10 @@ def get_data_wind(cutout: Any, tmpdir: Path) -> xr.Dataset:
         np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
     ).assign_attrs(units="", long_name="wind shear exponent")
 
-    azimuth = np.arctan2(ds["u100"], ds["v100"])
-    ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi).assign_attrs(
-        units="m s**-1", long_name="100 metre U wind component"
-    )
+    azimuth = xr.apply_ufunc(np.arctan2, ds["u100"], ds["v100"], dask="allowed")
+    ds["wnd_azimuth"] = xr.where(
+        azimuth >= 0, azimuth, azimuth + 2 * np.pi
+    ).assign_attrs(units="m s**-1", long_name="100 metre U wind component")
 
     ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
     ds = ds.rename({"fsr": "roughness"})
@@ -772,6 +771,8 @@ def get_data(
     """
     if feature not in _HANDLERS:
         raise NotImplementedError(f"Feature {feature!r} not supported by era5_ncar")
+
+    logger.info(f"Requesting data for feature {feature}...")
 
     cache_dir = Path(tmpdir) if tmpdir is not None else Path(mkdtemp())
 

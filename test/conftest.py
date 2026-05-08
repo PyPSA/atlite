@@ -22,6 +22,7 @@ CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
 def _ncar_reachable() -> bool:
     try:
         import urllib.request
+
         urllib.request.urlopen(
             "https://thredds.rda.ucar.edu/thredds/catalog/catalog.html",
             timeout=10,
@@ -214,12 +215,19 @@ def cutout_era5_ncar(cutouts_path):
 
 @pytest.fixture(scope="session")
 def cutout_era5_ncar_coarse(cutouts_path):
-    return _prepare_era5_ncar_cutout(cutouts_path / "cutout_era5_ncar_coarse.nc", time=TIME, dx=0.5, dy=0.7)
+    return _prepare_era5_ncar_cutout(
+        cutouts_path / "cutout_era5_ncar_coarse.nc", time=TIME, dx=0.5, dy=0.7
+    )
 
 
 @pytest.fixture(scope="session")
 def cutout_era5_ncar_weird_resolution(cutouts_path):
-    return _prepare_era5_ncar_cutout(cutouts_path / "cutout_era5_ncar_weird_resolution.nc", time=TIME, dx=0.132, dy=0.32)
+    return _prepare_era5_ncar_cutout(
+        cutouts_path / "cutout_era5_ncar_weird_resolution.nc",
+        time=TIME,
+        dx=0.132,
+        dy=0.32,
+    )
 
 
 @pytest.fixture(scope="session")
