@@ -1,35 +1,9 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Download ERA5 data from NCAR THREDDS (ds633.0) via OPeNDAP (DAP2) with CEs.
+"""Download ERA5 data from NCAR THREDDS for atlite cutouts."""
 
-Mirrors the surface of atlite.datasets.era5 so it can be used as a drop-in
-alternative (module="era5_ncar") that avoids CDS authentication and queueing.
-
-Design
-------
-- _temporal_file_specs() assembles dodsC base URLs and time CE fragments from
-  the NCAR file naming convention — no catalog fetch needed.
-- _spatial_specs() maps the bounding box to one or two ERA5 0.25° grid spatial
-  segments. ERA5 on NCAR uses 0–360 longitude (lon[j] = j*0.25, j=0 at 0°E),
-  so bboxes that straddle the prime meridian produce two non-contiguous index
-  ranges that must be fetched separately and concatenated.
-- _build_url() combines a temporal spec and a spatial spec into a full DAP2 CE URL.
-- _download_to_array() opens one file via pydap.open_url and returns a DataArray.
-  Dispatches on product type (analysis / forecast / invariant) for time-axis decoding.
-- _fetch_file() wraps _download_to_array with a disk cache in tmpdir: a file
-  keyed by MD5(url) is written atomically; hits skip the network entirely.
-- _load_var() fetches all (temporal-file × spatial-segment) combinations in
-  one parallel batch via dask.compute, then opens them lazily via
-  xr.open_mfdataset so downstream computation reads from disk in chunks
-  rather than holding all arrays in RAM.
-- The inner compute() runs through a module-level _FETCH_POOL (8 threads),
-  installed via dask.config.set(pool=...). Multiple feature handlers running
-  in parallel under atlite's outer compute share that one pool, so total
-  in-flight THREDDS requests stay bounded — no separate semaphore needed.
-- tenacity retries each network fetch on transport-level errors only.
-"""
+from __future__ import annotations
 
 import hashlib
 import logging
@@ -41,7 +15,7 @@ from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from tempfile import mkdtemp
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import dask
 import numpy as np
@@ -61,21 +35,19 @@ from atlite.datasets.era5 import (
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
 
+if TYPE_CHECKING:
+    from atlite.cutout import Cutout
+
 logger = logging.getLogger(__name__)
 
 TemporalSpec = dict[str, str | np.ndarray | None]
 SpatialSpec = dict[str, int]
 Area = dict[str, float]
 RawArrays = dict[str, xr.DataArray]
-Handler = Callable[[Any, Path], xr.Dataset]
+Handler = Callable[["Cutout", Path], xr.Dataset]
 Sanitizer = Callable[[xr.Dataset], xr.Dataset]
 
-# Shared dask thread pool used by the inner compute() in _load_var, scoped via
-# `with dask.config.set(pool=_FETCH_POOL)`. Its `max_workers` IS the network
-# concurrency cap — multiple feature handlers running in parallel under
-# atlite's outer compute() all share this single pool, so total in-flight
-# THREDDS requests never exceed 8. UCAR has asked us to keep concurrency
-# bounded; do not raise without their consent.
+# UCAR asked us to keep THREDDS request concurrency bounded.
 _FETCH_POOL = ContextAwareThreadPoolExecutor(8, thread_name_prefix="ncar-fetch")
 
 crs = 4326
@@ -131,6 +103,19 @@ VARIABLES: dict[str, tuple[str, str, str]] = {
 
 
 def _month_bounds_in_range(start: date, end: date) -> list[tuple[date, date]]:
+    """
+    Return monthly file periods covering a date range.
+
+    Parameters
+    ----------
+    start, end : datetime.date
+        Inclusive date range.
+
+    Returns
+    -------
+    list of tuple of datetime.date
+        Month start and month end pairs.
+    """
     if start > end:
         return []
     out: list[tuple[date, date]] = []
@@ -146,6 +131,21 @@ def _month_bounds_in_range(start: date, end: date) -> list[tuple[date, date]]:
 
 
 def _add_month(y: int, m: int, delta: int) -> tuple[int, int]:
+    """
+    Add months to a year-month pair.
+
+    Parameters
+    ----------
+    y, m : int
+        Year and month.
+    delta : int
+        Number of months to add.
+
+    Returns
+    -------
+    tuple of int
+        Updated ``(year, month)`` pair.
+    """
     m += delta
     y += (m - 1) // 12
     m = (m - 1) % 12 + 1
@@ -154,11 +154,22 @@ def _add_month(y: int, m: int, delta: int) -> tuple[int, int]:
 
 def _halfmonth_bounds_in_range(start: date, end: date) -> list[tuple[date, date]]:
     """
-    Return half-month (period_start, next_period_start) pairs covering [start, end].
+    Return half-month file periods covering a date range.
 
-    When start falls exactly on the 1st or 16th the preceding half-month is also
-    included, because accumulated ERA5 forecast files for that day begin at 06:00 UTC
-    so hours 00–06 live in the previous file.
+    Parameters
+    ----------
+    start, end : datetime.date
+        Inclusive date range.
+
+    Returns
+    -------
+    list of tuple of datetime.date
+        Period start and next period start pairs.
+
+    Notes
+    -----
+    Forecast files initialized at 06:00 UTC require the preceding half-month
+    file when the requested range starts on the 1st or 16th.
     """
     if start > end:
         return []
@@ -197,24 +208,26 @@ def _temporal_file_specs(
     product: str, param_code: str, start: date | None, end: date | None
 ) -> list[TemporalSpec]:
     """
-    Return one record per ERA5 file covering [start, end].
+    Build temporal file specifications for an ERA5 variable.
 
-    Each record contains:
-      base_url   — dodsC URL of the NetCDF file (no CE appended)
-      time_ce    — precomputed DAP2 index expression for the time dimension(s),
-                   e.g. "[0:743]" for analysis or "[0:29][0:11]" for forecast
-      time_coord — precomputed np.datetime64[h] array of the file's hourly time
-                   axis (None for invariant). Computed from the file naming
-                   convention so we can skip a per-file pydap fetch of the
-                   `time` / `forecast_initial_time` / `forecast_hour` arrays.
+    Parameters
+    ----------
+    product : str
+        NCAR product directory.
+    param_code : str
+        ERA5 parameter code used in the NCAR file name.
+    start, end : datetime.date or None
+        Inclusive requested date range. Invariant variables do not require a
+        date range.
 
-    _build_url() inserts the spatial CE after time_ce.
+    Returns
+    -------
+    list of dict
+        Dictionaries with ``base_url``, ``time_ce`` and ``time_coord`` entries.
     """
     specs: list[TemporalSpec] = []
 
     if product == "e5.oper.invariant":
-        # Z is stored with a length-1 time dim (Float32 Z[time=1][lat][lon]),
-        # so the spatial CE must be preceded by a [0:0] selector for the time axis.
         specs.append(
             {
                 "base_url": (
@@ -281,7 +294,23 @@ def _temporal_file_specs(
 
 
 def _build_url(tspec: TemporalSpec, sspec: SpatialSpec, var_name: str) -> str:
-    """Assemble a full DAP2 CE URL from a temporal file spec and a spatial segment spec."""
+    """
+    Assemble a DAP2 constraint-expression URL.
+
+    Parameters
+    ----------
+    tspec : dict
+        Temporal file specification from :func:`_temporal_file_specs`.
+    sspec : dict
+        Spatial index specification from :func:`_spatial_specs`.
+    var_name : str
+        NCAR variable name.
+
+    Returns
+    -------
+    str
+        URL including DAP2 constraint expression.
+    """
     spatial_ce = (
         f"[{sspec['lat_s']}:{sspec['lat_e']}][{sspec['lon_s']}:{sspec['lon_e']}]"
     )
@@ -297,21 +326,23 @@ def _spatial_specs(
     north: float, south: float, west: float, east: float
 ) -> list[SpatialSpec]:
     """
-    Map a WGS84 bounding box to one or two ERA5 0.25° grid spatial segments.
+    Map a WGS84 bounding box to ERA5 grid index segments.
 
-    ERA5 on NCAR uses 0–360 longitude (lon[j] = j*0.25, j=0 at 0°E prime
-    meridian, j=1439 at 359.75°E). Bboxes that straddle the prime meridian
-    produce two non-contiguous index ranges:
-      segment 0: [j_west : 1439]  western (negative-longitude) portion
-      segment 1: [0 : j_east]     eastern (positive-longitude) portion
-    Non-straddling bboxes produce a single segment.
+    Parameters
+    ----------
+    north, south, west, east : float
+        Bounding box edges in degrees.
 
-    Latitude runs 90°N → −90°S: lat[i] = 90 − i*0.25 (i=0 at 90°N, i=720 at −90°S).
+    Returns
+    -------
+    list of dict
+        One or two index segments with latitude and longitude start/stop
+        entries. Two segments are returned when the box crosses the prime
+        meridian in NCAR's 0-360 longitude grid.
     """
     lat_s = math.ceil((90 - north) / _ERA5_RES)
     lat_e = math.floor((90 - south) / _ERA5_RES)
 
-    # Python modulo maps negative longitudes to 0–360: -4 % 360 = 356
     west_360 = west % 360
     east_360 = east % 360
     j_west = math.ceil(west_360 / _ERA5_RES)
@@ -332,8 +363,6 @@ def _spatial_specs(
 # ---------------------------------------------------------------------------
 
 
-# Retry on transport-level errors. Excludes programmer errors (KeyError,
-# AttributeError, TypeError, …) so genuine bugs surface immediately.
 _TRANSIENT_EXCEPTIONS = (urllib.error.URLError, OSError, TimeoutError)
 
 
@@ -356,23 +385,29 @@ def _download_to_array(
     time_coord: np.ndarray | None,
 ) -> xr.DataArray:
     """
-    Download one ERA5 file via pydap and return a DataArray.
+    Download one constrained ERA5 file.
 
-    `time_coord` is precomputed by `_temporal_file_specs` from the file naming
-    convention, so we don't need to fetch `time` / `forecast_initial_time` /
-    `forecast_hour` from the server (each previously cost a separate HTTP
-    round-trip; ~60% of all NCAR requests in the original implementation).
+    Parameters
+    ----------
+    url : str
+        DAP2 URL including constraint expression.
+    var_name : str
+        NCAR variable name.
+    atlite_name : str
+        Variable name used by atlite.
+    lat_s, lat_e, lon_s, lon_e : int
+        Inclusive ERA5 grid index bounds.
+    product : str
+        NCAR product directory.
+    time_coord : numpy.ndarray or None
+        Hourly time coordinate for the downloaded values.
 
-    Concurrency is bounded by the shared `_FETCH_POOL` (size 8) that
-    `_load_var` installs via `dask.config.set(pool=...)` before its inner
-    compute(); this function makes no concurrency assumptions of its own.
-
-    Layout per product:
-      - e5.oper.an.sfc:        arr shape [T, lat, lon]
-      - e5.oper.fc.sfc.accumu: arr shape [n_init, n_fhr, lat, lon] → ravel to [T, lat, lon]
-      - e5.oper.invariant:     arr shape [1, lat, lon] → squeeze to [lat, lon]
+    Returns
+    -------
+    xarray.DataArray
+        Downloaded variable with ``time`` where applicable and native ERA5
+        latitude/longitude coordinates.
     """
-    # dap2:// avoids pydap's protocol-detection warning for https:// URLs.
     ds_pydap = open_url(f"dap2://{url[8:]}")
     arr = np.asarray(ds_pydap[var_name][var_name][:])
 
@@ -417,11 +452,29 @@ def _fetch_file(
     tmpdir: Path,
 ) -> Path:
     """
-    Return path to a cached Zarr store for one ERA5 file, downloading if absent.
+    Return a cached Zarr store for one ERA5 file.
 
-    The cache key is MD5(url), which encodes variable, period, and spatial CE.
-    The write is atomic (write to .tmp dir, rename on success) so a crashed
-    download leaves no corrupt store.  Zarr is thread-safe so no lock is needed.
+    Parameters
+    ----------
+    url : str
+        DAP2 URL including constraint expression.
+    var_name : str
+        NCAR variable name.
+    atlite_name : str
+        Variable name used by atlite.
+    lat_s, lat_e, lon_s, lon_e : int
+        Inclusive ERA5 grid index bounds.
+    product : str
+        NCAR product directory.
+    time_coord : numpy.ndarray or None
+        Hourly time coordinate for the downloaded values.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the Zarr store.
     """
     key = hashlib.md5(url.encode()).hexdigest()[:16]
     cache = tmpdir / f"era5ncar_{key}.zarr"
@@ -456,12 +509,23 @@ def _load_var(
     tmpdir: Path,
 ) -> xr.DataArray:
     """
-    Fetch all files for one variable in parallel, return a lazy DataArray.
+    Load one NCAR variable for the requested extent and time range.
 
-    The inner compute() runs through the shared `_FETCH_POOL` so concurrent
-    `_load_var` calls (one per variable, scheduled in parallel by the caller's
-    own dask compute) share a single 8-worker pool — total in-flight network
-    requests stay bounded regardless of how many variables / features run.
+    Parameters
+    ----------
+    atlite_name : str
+        Variable name used by atlite.
+    north, south, west, east : float
+        Requested bounding box in degrees.
+    start, end : datetime.date or None
+        Inclusive requested date range.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    xarray.DataArray
+        Lazy array on the native ERA5 latitude/longitude grid.
     """
     product, param_code, var_name = VARIABLES[atlite_name]
     is_invariant = product == "e5.oper.invariant"
@@ -472,8 +536,6 @@ def _load_var(
         "%s: %d file(s), %d spatial segment(s)", atlite_name, len(tspecs), len(sspecs)
     )
 
-    # Outer loop over sspecs, inner over tspecs — paths[:n] are tspecs for
-    # sspecs[0], paths[n:] for sspecs[1] (when meridian-straddling).
     n = len(tspecs)
     with dask.config.set(pool=_FETCH_POOL):
         all_paths = compute(
@@ -541,11 +603,23 @@ def _load_var(
 # ---------------------------------------------------------------------------
 
 
-def _area(cutout: Any) -> Area:
+def _area(cutout: Cutout) -> Area:
+    """
+    Return the padded ERA5 request area for a cutout.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid.
+
+    Returns
+    -------
+    dict
+        Bounding box with ``north``, ``south``, ``west`` and ``east`` entries.
+    """
     coords = cutout.coords
     x0, x1 = coords["x"].min().item(), coords["x"].max().item()
     y0, y1 = coords["y"].min().item(), coords["y"].max().item()
-    # Pad bounding box so bilinear interpolation has support at target grid edges.
     return {
         "north": min(90.0, y1 + _BBOX_PAD),
         "south": max(-90.0, y0 - _BBOX_PAD),
@@ -554,23 +628,42 @@ def _area(cutout: Any) -> Area:
     }
 
 
-def _is_native_grid(cutout: Any) -> bool:
-    """True iff the cutout requests data at the source 0.25° resolution."""
+def _is_native_grid(cutout: Cutout) -> bool:
+    """
+    Return whether the cutout uses the native ERA5 resolution.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid.
+
+    Returns
+    -------
+    bool
+        True when both spatial resolutions are 0.25 degrees.
+    """
     return abs(cutout.dx - _ERA5_RES) < 1e-9 and abs(cutout.dy - _ERA5_RES) < 1e-9
 
 
-def _fetch_vars(atlite_names: list[str], cutout: Any, tmpdir: Path) -> RawArrays:
+def _fetch_vars(atlite_names: list[str], cutout: Cutout, tmpdir: Path) -> RawArrays:
     """
-    Load each requested raw NCAR variable as a DataArray (native lat/lon coords).
+    Load raw NCAR variables for a cutout.
 
-    Variables are loaded sequentially; per-variable parallelism happens inside
-    `_load_var`'s `compute(*delayed_fetches)`. Cross-feature parallelism
-    happens at the atlite level (each feature's `get_data` is wrapped in
-    `delayed` by `atlite.data.get_features`). Both layers share `_FETCH_POOL`,
-    so total in-flight HTTP requests are bounded by its 8 workers.
+    Parameters
+    ----------
+    atlite_names : list of str
+        Variable names used by atlite.
+    cutout : atlite.Cutout
+        Cutout defining the target grid and time range.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    dict
+        Mapping from variable name to native-grid :class:`xarray.DataArray`.
     """
     area = _area(cutout)
-    # For invariant-only fetches the time range is irrelevant but harmless.
     if "time" in cutout.coords:
         time_index = cutout.coords["time"].to_index()
         start, end = time_index[0].date(), time_index[-1].date()
@@ -582,19 +675,25 @@ def _fetch_vars(atlite_names: list[str], cutout: Any, tmpdir: Path) -> RawArrays
     }
 
 
-def _regrid_to_target(arrays: RawArrays, cutout: Any) -> RawArrays:
+def _regrid_to_target(arrays: RawArrays, cutout: Cutout) -> RawArrays:
     """
-    Bring raw DataArrays onto the cutout's target grid.
+    Regrid raw variables to the cutout grid.
 
-    At native 0.25° (cutout.dx == cutout.dy == _ERA5_RES) source points
-    coincide with target points, so we `.sel(method="nearest")` to skip
-    the materialising bilinear interp entirely. At any other dx/dy we
-    bilinearly interpolate.
+    Parameters
+    ----------
+    arrays : dict
+        Native-grid data arrays keyed by variable name.
+    cutout : atlite.Cutout
+        Cutout defining the target grid.
+
+    Returns
+    -------
+    dict
+        Data arrays on the cutout grid.
     """
     target_lat = cutout.coords["y"].values
     target_lon = cutout.coords["x"].values
     if _is_native_grid(cutout):
-        # Keep target coordinates/order while avoiding materialising interp at native resolution.
         return {
             name: da.sel(
                 latitude=target_lat,
@@ -611,7 +710,19 @@ def _regrid_to_target(arrays: RawArrays, cutout: Any) -> RawArrays:
 
 
 def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
-    """Rename latitude/longitude → y/x and add lon/lat coords (matches era5.py)."""
+    """
+    Normalize spatial coordinates to atlite conventions.
+
+    Parameters
+    ----------
+    ds : xarray.Dataset
+        Dataset with ``latitude`` and ``longitude`` coordinates.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with ``y``, ``x``, ``lat`` and ``lon`` coordinates.
+    """
     ds = ds.rename({"latitude": "y", "longitude": "x"})
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5),
@@ -627,7 +738,23 @@ def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
 # ---------------------------------------------------------------------------
 
 
-def get_data_wind(cutout: Any, tmpdir: Path) -> xr.Dataset:
+def get_data_wind(cutout: Cutout, tmpdir: Path) -> xr.Dataset:
+    """
+    Retrieve and prepare wind variables.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid and time range.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset containing ``wnd100m``, ``wnd_shear_exp``, ``wnd_azimuth`` and
+        ``roughness``.
+    """
     arrays = _fetch_vars(["u10", "v10", "u100", "v100", "fsr"], cutout, tmpdir)
     arrays = _regrid_to_target(arrays, cutout)
     ds = _rename_and_clean_coords(xr.Dataset(arrays))
@@ -653,15 +780,25 @@ def get_data_wind(cutout: Any, tmpdir: Path) -> xr.Dataset:
     return ds
 
 
-def get_data_influx(cutout: Any, tmpdir: Path) -> xr.Dataset:
+def get_data_influx(cutout: Cutout, tmpdir: Path) -> xr.Dataset:
+    """
+    Retrieve and prepare solar influx variables.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid and time range.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset containing influx, albedo and solar position variables.
+    """
     arrays = _fetch_vars(["ssrd", "ssr", "fdir", "tisr"], cutout, tmpdir)
 
-    # ERA5 can have ssr > ssrd at the day/night boundary (accumulation artifact).
-    # When we bilinearly interpolate, that artifact gets amplified — target
-    # points near the boundary mix tiny ssrd with much larger ssr, yielding
-    # extreme negative albedo. Clip ssr ≤ ssrd before interp to suppress it.
-    # At native resolution we don't interp, so we leave the raw values alone
-    # to match what era5.py (CDS) returns.
+    # Avoid negative albedo artifacts at off-grid day/night boundaries.
     if not _is_native_grid(cutout):
         arrays["ssr"] = arrays["ssr"].where(
             arrays["ssr"] <= arrays["ssrd"], other=arrays["ssrd"]
@@ -685,8 +822,6 @@ def get_data_influx(cutout: Any, tmpdir: Path) -> xr.Dataset:
         ds[a] = ds[a] / 3600.0
         ds[a].attrs["units"] = "W m**-2"
 
-    # ERA5 fluxes are mean values for previous hour; shift solar position by -30min
-    # so it matches the centre of the aggregation interval (see PyPSA/atlite#158).
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         sp = SolarPosition(ds, time_shift=pd.to_timedelta("-30 minutes"))
@@ -696,7 +831,22 @@ def get_data_influx(cutout: Any, tmpdir: Path) -> xr.Dataset:
     return ds
 
 
-def get_data_temperature(cutout: Any, tmpdir: Path) -> xr.Dataset:
+def get_data_temperature(cutout: Cutout, tmpdir: Path) -> xr.Dataset:
+    """
+    Retrieve and prepare temperature variables.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid and time range.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset containing air, soil and dewpoint temperatures.
+    """
     arrays = _fetch_vars(["t2m", "d2m", "stl4"], cutout, tmpdir)
     arrays = _regrid_to_target(arrays, cutout)
     ds = _rename_and_clean_coords(xr.Dataset(arrays))
@@ -712,7 +862,22 @@ def get_data_temperature(cutout: Any, tmpdir: Path) -> xr.Dataset:
     return ds
 
 
-def get_data_runoff(cutout: Any, tmpdir: Path) -> xr.Dataset:
+def get_data_runoff(cutout: Cutout, tmpdir: Path) -> xr.Dataset:
+    """
+    Retrieve and prepare runoff.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid and time range.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset containing ``runoff``.
+    """
     arrays = _fetch_vars(["ro"], cutout, tmpdir)
     arrays = _regrid_to_target(arrays, cutout)
     ds = _rename_and_clean_coords(xr.Dataset(arrays))
@@ -721,7 +886,22 @@ def get_data_runoff(cutout: Any, tmpdir: Path) -> xr.Dataset:
     return ds
 
 
-def get_data_height(cutout: Any, tmpdir: Path) -> xr.Dataset:
+def get_data_height(cutout: Cutout, tmpdir: Path) -> xr.Dataset:
+    """
+    Retrieve and prepare surface height.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset containing ``height``.
+    """
     arrays = _fetch_vars(["z"], cutout, tmpdir)
     arrays = _regrid_to_target(arrays, cutout)
     ds = _rename_and_clean_coords(xr.Dataset(arrays))
@@ -751,23 +931,33 @@ _SANITIZERS: dict[str, Sanitizer] = {
 
 
 def get_data(
-    cutout: Any,
+    cutout: Cutout,
     feature: str,
     tmpdir: str | Path | None = None,
     lock: Any = None,
     **creation_parameters: Any,
 ) -> xr.Dataset:
     """
-    Retrieve data from NCAR THREDDS for the given cutout and feature.
+    Retrieve ERA5 feature data from NCAR THREDDS.
 
-    This is the atlite dataset entrypoint called by cutout.prepare(). The
-    `lock` and CDS-only kwargs (data_format, monthly_requests,
-    concurrent_requests) are accepted for signature compatibility with
-    atlite.datasets.era5.get_data but ignored here — concurrency is managed
-    by the module-level _FETCH_POOL via dask.config.set(pool=...).
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid and time range.
+    feature : str
+        Feature name to retrieve. Must be one of ``features``.
+    tmpdir : str or pathlib.Path, optional
+        Directory for cached Zarr stores.
+    lock : object, optional
+        Accepted for compatibility with :func:`atlite.datasets.era5.get_data`.
+    **creation_parameters
+        Additional creation parameters. ``sanitize`` controls whether standard
+        atlite sanitizers are applied.
 
-    `tmpdir` is provided by atlite's cutout.prepare(); when callers pass a
-    persistent path, previously downloaded files are reused on restart.
+    Returns
+    -------
+    xarray.Dataset
+        Prepared dataset for the requested feature.
     """
     if feature not in _HANDLERS:
         raise NotImplementedError(f"Feature {feature!r} not supported by era5_ncar")
