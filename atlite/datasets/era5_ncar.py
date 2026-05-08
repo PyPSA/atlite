@@ -26,18 +26,22 @@ import hashlib
 import logging
 import math
 import threading
+import warnings
 from calendar import monthrange
 from datetime import date
 from pathlib import Path
 from tempfile import mkdtemp
 
 import numpy as np
+import pandas as pd
 import tenacity
 import xarray as xr
 from dask import compute, delayed
 from pydap.client import open_url
 
+from atlite.datasets.era5 import sanitize_influx
 from atlite.gis import maybe_swap_spatial_dims
+from atlite.pv.solar_position import SolarPosition
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +50,14 @@ _FETCH_SEMAPHORE = threading.Semaphore(8)
 crs = 4326
 
 features = {
-    "influx": ["ssrd", "ssr", "fdir", "tisr"],
+    "influx": [
+        "influx_toa",
+        "influx_direct",
+        "influx_diffuse",
+        "albedo",
+        "solar_altitude",
+        "solar_azimuth",
+    ],
 }
 
 _DODC_BASE = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d633000"
@@ -371,6 +382,58 @@ def _load_var(
     return da
 
 # ---------------------------------------------------------------------------
+# Solar timeseries download and postprocessing
+# ---------------------------------------------------------------------------
+
+def get_solar_timeseries(
+    north: float,
+    south: float,
+    west: float,
+    east: float,
+    start: date,
+    end: date,
+    tmpdir: Path,
+    lock=None,
+) -> xr.Dataset:
+    """Download all four solar accumulation variables and return a raw Dataset."""
+
+
+def _postprocess_influx(ds: xr.Dataset) -> xr.Dataset:
+    """Convert raw solar variables (ssrd, ssr, fdir, tisr) to atlite influx variables.
+
+    Mirrors atlite.datasets.era5.get_data_influx / sanitize_influx.
+    Accepts ds with native latitude/longitude dimension names.
+    """
+    ds = ds.rename({"latitude": "y", "longitude": "x"})
+    ds = maybe_swap_spatial_dims(ds)
+    ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
+
+    ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
+    ds["albedo"] = (
+        ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
+        .fillna(0.0)
+        .assign_attrs(units="(0 - 1)", long_name="Albedo")
+    )
+    ds["influx_diffuse"] = (ds["ssrd"] - ds["influx_direct"]).assign_attrs(
+        units="J m**-2", long_name="Surface diffuse solar radiation downwards"
+    )
+    ds = ds.drop_vars(["ssrd", "ssr"])
+
+    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
+        ds[a] = ds[a] / 3600.0
+        ds[a].attrs["units"] = "W m**-2"
+
+    ds = sanitize_influx(ds)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        sp = SolarPosition(ds, time_shift=pd.to_timedelta("-30 minutes"))
+    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
+
+    return xr.merge([ds, sp])
+
+
+# ---------------------------------------------------------------------------
 # atlite Cutout entrypoint
 # ---------------------------------------------------------------------------
 
@@ -402,10 +465,12 @@ def get_data(cutout, feature, tmpdir=None, lock=None, **kwargs):
             tmpdir=cache_dir,
             lock=lock,
         )
+        arrays = {}
+        for atlite_name in ("ssrd", "ssr", "fdir", "tisr"):
+            arrays[atlite_name] = _load_var(atlite_name, north, south, west, east, start, end, tmpdir)
+        ds = _postprocess_influx(xr.Dataset(arrays))
     else:
         raise NotImplementedError(f"Feature {feature!r} not supported by era5_ncar")
 
-    ds = ds.rename({"latitude": "y", "longitude": "x"})
-    ds = maybe_swap_spatial_dims(ds)
     ds = ds.reindex(time=coords["time"])
     return ds
