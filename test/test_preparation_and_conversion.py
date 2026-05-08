@@ -688,6 +688,7 @@ class TestERA5NCAR:
             set(cutout_era5_ncar_coarse.data.data_vars)
             & set(cutout_era5_coarse.data.data_vars)
         )
+        # TODO: verify min value possible here
         xr.testing.assert_allclose(
             cutout_era5_ncar_coarse.data[common],
             cutout_era5_coarse.data[common],
@@ -720,6 +721,7 @@ class TestERA5NCAR:
             set(cutout_era5_ncar_weird_resolution.data.data_vars)
             & set(cutout_era5_weird_resolution.data.data_vars)
         )
+        # TODO: change to rtol and establish min value
         xr.testing.assert_allclose(
             cutout_era5_ncar_weird_resolution.data[common],
             cutout_era5_weird_resolution.data[common],

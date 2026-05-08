@@ -21,15 +21,25 @@ Design
 - _fetch_file() wraps _download_to_array with a disk cache in tmpdir: a file
   keyed by MD5(url) is written atomically; hits skip the network entirely.
 - _load_var() fetches all (temporal-file × spatial-segment) combinations in
-  one parallel batch, then opens them lazily via xr.open_mfdataset so downstream
-  computation reads from disk in chunks rather than holding all arrays in RAM.
+  one parallel batch via dask.compute, then opens them lazily via
+  xr.open_mfdataset so downstream computation reads from disk in chunks
+  rather than holding all arrays in RAM.
+- The inner compute() runs through a module-level _FETCH_POOL (8 threads),
+  installed via dask.config.set(pool=...). Multiple feature handlers running
+  in parallel under atlite's outer compute share that one pool, so total
+  in-flight THREDDS requests stay bounded — no separate semaphore needed.
 - tenacity retries each network fetch on transport-level errors only.
 """
+# TODO:fix comments
+# TODO:simplify flow
+# TODO:align logging with era5.py
+# TODO:run precommit, ty, ruff checks
+# TODO:write docs
+# TODO:write PR
 
 import hashlib
 import logging
 import math
-import threading
 import urllib.error
 import warnings
 from calendar import monthrange
@@ -37,11 +47,13 @@ from datetime import date
 from pathlib import Path
 from tempfile import mkdtemp
 
+import dask
 import numpy as np
 import pandas as pd
 import tenacity
 import xarray as xr
 from dask import compute, delayed
+from dask.threaded import ContextAwareThreadPoolExecutor
 from pydap.client import open_url
 
 from atlite.datasets.era5 import (
@@ -55,7 +67,13 @@ from atlite.pv.solar_position import SolarPosition
 
 logger = logging.getLogger(__name__)
 
-_FETCH_SEMAPHORE = threading.Semaphore(8)
+# Shared dask thread pool used by the inner compute() in _load_var, scoped via
+# `with dask.config.set(pool=_FETCH_POOL)`. Its `max_workers` IS the network
+# concurrency cap — multiple feature handlers running in parallel under
+# atlite's outer compute() all share this single pool, so total in-flight
+# THREDDS requests never exceed 8. UCAR has asked us to keep concurrency
+# bounded; do not raise without their consent.
+_FETCH_POOL = ContextAwareThreadPoolExecutor(8, thread_name_prefix="ncar-fetch")
 
 crs = 4326
 
@@ -321,7 +339,11 @@ def _download_to_array(
     `time_coord` is precomputed by `_temporal_file_specs` from the file naming
     convention, so we don't need to fetch `time` / `forecast_initial_time` /
     `forecast_hour` from the server (each previously cost a separate HTTP
-    round-trip inside the semaphore-held block; ~60% of all NCAR requests).
+    round-trip; ~60% of all NCAR requests in the original implementation).
+
+    Concurrency is bounded by the shared `_FETCH_POOL` (size 8) that
+    `_load_var` installs via `dask.config.set(pool=...)` before its inner
+    compute(); this function makes no concurrency assumptions of its own.
 
     Layout per product:
       - e5.oper.an.sfc:        arr shape [T, lat, lon]
@@ -329,9 +351,8 @@ def _download_to_array(
       - e5.oper.invariant:     arr shape [lat, lon] or [1, lat, lon]
     """
     # dap2:// avoids pydap's protocol-detection warning for https:// URLs.
-    with _FETCH_SEMAPHORE:
-        ds_pydap = open_url(f"dap2://{url[8:]}")
-        arr = np.asarray(ds_pydap[var_name][var_name][:])
+    ds_pydap = open_url(f"dap2://{url[8:]}")
+    arr = np.asarray(ds_pydap[var_name][var_name][:])
 
     if product == "e5.oper.fc.sfc.accumu":
         data = arr.reshape(-1, arr.shape[2], arr.shape[3])
@@ -400,7 +421,7 @@ def _fetch_file(
 # Per-variable loader
 # ---------------------------------------------------------------------------
 
-def _plan_var(
+def _load_var(
     atlite_name: str,
     north: float,
     south: float,
@@ -409,64 +430,60 @@ def _plan_var(
     start: date | None,
     end: date | None,
     tmpdir: Path,
-) -> dict:
-    """Build (but do not execute) the per-file fetch plan for one variable.
+) -> xr.DataArray:
+    """Fetch all files for one variable in parallel, return a lazy DataArray.
 
-    Returns a dict with `delayeds` (list of dask Delayed for _fetch_file calls)
-    and metadata for `_assemble_var` to consume after compute().
+    The inner compute() runs through the shared `_FETCH_POOL` so concurrent
+    `_load_var` calls (one per variable, scheduled in parallel by the caller's
+    own dask compute) share a single 8-worker pool — total in-flight network
+    requests stay bounded regardless of how many variables / features run.
     """
     product, param_code, var_name = VARIABLES[atlite_name]
+    is_invariant = product == "e5.oper.invariant"
+
     tspecs = _temporal_file_specs(product, param_code, start, end)
     sspecs = _spatial_specs(north, south, west, east)
-    # Outer loop over sspecs, inner over tspecs — paths[:n] are tspecs for sspecs[0],
-    # paths[n:] for sspecs[1] (when meridian-straddling).
-    delayeds = [
-        delayed(_fetch_file)(
-            _build_url(ts, ss, var_name),
-            var_name, atlite_name,
-            ss["lat_s"], ss["lat_e"], ss["lon_s"], ss["lon_e"],
-            product, ts["time_coord"], tmpdir,
-        )
-        for ss in sspecs
-        for ts in tspecs
-    ]
-    return {
-        "atlite_name": atlite_name,
-        "product": product,
-        "n_tspecs": len(tspecs),
-        "n_sspecs": len(sspecs),
-        "delayeds": delayeds,
-    }
+    logger.info(
+        "%s: %d file(s), %d spatial segment(s)", atlite_name, len(tspecs), len(sspecs)
+    )
 
+    # Outer loop over sspecs, inner over tspecs — paths[:n] are tspecs for
+    # sspecs[0], paths[n:] for sspecs[1] (when meridian-straddling).
+    n = len(tspecs)
+    with dask.config.set(pool=_FETCH_POOL):
+        all_paths = compute(*[
+            delayed(_fetch_file)(
+                _build_url(ts, ss, var_name),
+                var_name, atlite_name,
+                ss["lat_s"], ss["lat_e"], ss["lon_s"], ss["lon_e"],
+                product, ts["time_coord"], tmpdir,
+            )
+            for ss in sspecs
+            for ts in tspecs
+        ])
 
-def _assemble_var(plan: dict, paths: list, start: date | None, end: date | None) -> xr.DataArray:
-    """Open the cached Zarr files for one variable lazily and return a DataArray."""
-    atlite_name = plan["atlite_name"]
-    product = plan["product"]
-    n = plan["n_tspecs"]
-
-    if product == "e5.oper.invariant":
-        if plan["n_sspecs"] == 1:
-            da = xr.open_dataset(str(paths[0]), engine="zarr")[atlite_name]
+    if is_invariant:
+        if len(sspecs) == 1:
+            da = xr.open_dataset(str(all_paths[0]), engine="zarr")[atlite_name]
         else:
-            das = [xr.open_dataset(str(p), engine="zarr")[atlite_name] for p in paths]
+            das = [xr.open_dataset(str(p), engine="zarr")[atlite_name] for p in all_paths]
             da = xr.concat(das, dim="longitude").sortby("longitude")
         da.encoding = {}
         return da
 
-    if plan["n_sspecs"] == 1:
+    if len(sspecs) == 1:
         da = xr.open_mfdataset(
-            [str(p) for p in paths],
-            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100}
+            [str(p) for p in all_paths],
+            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100},
         )[atlite_name]
     else:
         ds_a = xr.open_mfdataset(
-            [str(p) for p in paths[:n]],
-            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100}
+            [str(p) for p in all_paths[:n]],
+            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100},
         )
         ds_b = xr.open_mfdataset(
-            [str(p) for p in paths[n:]],
-            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100}
+            [str(p) for p in all_paths[n:]],
+            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100},
         )
         da = xr.concat([ds_a, ds_b], dim="longitude").sortby("longitude")[atlite_name]
 
@@ -508,26 +525,19 @@ def _is_native_grid(cutout) -> bool:
 def _fetch_vars(atlite_names, cutout, tmpdir):
     """Load each requested raw NCAR variable as a DataArray (native lat/lon coords).
 
-    All file fetches across all variables are scheduled into a single
-    dask.compute() call so the 8-slot _FETCH_SEMAPHORE pool sees one big
-    work-list rather than one var's worth at a time. This lets later
-    variables' files start as soon as a slot frees, instead of waiting for
-    the previous variable to fully drain.
+    Variables are loaded sequentially; per-variable parallelism happens inside
+    `_load_var`'s `compute(*delayed_fetches)`. Cross-feature parallelism
+    happens at the atlite level (each feature's `get_data` is wrapped in
+    `delayed` by `atlite.data.get_features`). Both layers share `_FETCH_POOL`,
+    so total in-flight HTTP requests are bounded by its 8 workers.
     """
     bbox = _bbox(cutout)
     # For invariant-only fetches the time range is irrelevant but harmless.
     start, end = _time_range(cutout) if "time" in cutout.coords else (None, None)
-
-    plans = [_plan_var(name, **bbox, start=start, end=end, tmpdir=tmpdir) for name in atlite_names]
-    flat_paths = compute(*[d for p in plans for d in p["delayeds"]])
-
-    arrays = {}
-    idx = 0
-    for plan in plans:
-        n = len(plan["delayeds"])
-        arrays[plan["atlite_name"]] = _assemble_var(plan, list(flat_paths[idx:idx + n]), start, end)
-        idx += n
-    return arrays
+    return {
+        name: _load_var(name, **bbox, start=start, end=end, tmpdir=tmpdir)
+        for name in atlite_names
+    }
 
 
 def _regrid_to_target(arrays, cutout):
@@ -540,6 +550,7 @@ def _regrid_to_target(arrays, cutout):
     """
     target_lat = cutout.coords["y"].values
     target_lon = cutout.coords["x"].values
+    # TODO: why is this sel and not just continue? bcs of downsampling?
     if _is_native_grid(cutout):
         return {
             name: da.sel(
@@ -685,7 +696,7 @@ def get_data(cutout, feature, tmpdir=None, lock=None, **creation_parameters):
     `lock` and CDS-only kwargs (data_format, monthly_requests,
     concurrent_requests) are accepted for signature compatibility with
     atlite.datasets.era5.get_data but ignored here — concurrency is managed
-    by the module-level _FETCH_SEMAPHORE.
+    by the module-level _FETCH_POOL via dask.config.set(pool=...).
 
     `tmpdir` is provided by atlite's cutout.prepare(); when callers pass a
     persistent path, previously downloaded files are reused on restart.
