@@ -9,24 +9,30 @@ Design
 - file_urls() assembles dodsC URLs directly from the NCAR file naming convention
   — no catalog fetch needed.
 - _bbox_isel() maps the bounding box to ERA5 0.25° integer grid indices.
-- _fetch_file() opens one file via pydap.open_url; pydap translates index slices
-  into a DAP2 CE so only the spatial subset is transferred.
-- dask delayed/compute runs all file fetches for a variable in parallel, and all
-  variables in parallel, using the same scheduler as the rest of atlite.
-- tenacity retries each file fetch on any transient error.
+- _download_to_array() opens one file via pydap.open_url and returns a DataArray.
+- _fetch_file() wraps _download_to_array with a disk cache in tmpdir: a file
+  keyed by MD5(url) is written atomically; hits skip the network entirely.
+- _load_var() fetches all files for one variable in parallel, then opens them
+  lazily via xr.open_mfdataset so downstream computation reads from disk in
+  chunks rather than holding all arrays in RAM simultaneously.
+- tenacity retries each network fetch on any transient error.
 """
 
+import hashlib
 import logging
 import math
-import re
 import threading
 from calendar import monthrange
+from contextlib import nullcontext
 from datetime import date
+from pathlib import Path
+from tempfile import mkdtemp
 
 import numpy as np
 import tenacity
 import xarray as xr
 from dask import compute, delayed
+from dask.utils import SerializableLock
 from pydap.client import open_url
 
 from atlite.gis import maybe_swap_spatial_dims
@@ -201,6 +207,11 @@ def _bbox_isel(north: float, south: float, west: float, east: float) -> dict:
 # Per-file fetch
 # ---------------------------------------------------------------------------
 
+def _cache_path(tmpdir: Path, url: str) -> Path:
+    key = hashlib.md5(url.encode()).hexdigest()[:16]
+    return tmpdir / f"era5ncar_{key}.nc"
+
+
 @tenacity.retry(
     retry=tenacity.retry_if_exception_type(Exception),
     wait=tenacity.wait_exponential(multiplier=2, min=4, max=120),
@@ -208,7 +219,7 @@ def _bbox_isel(north: float, south: float, west: float, east: float) -> dict:
     before_sleep=tenacity.before_sleep_log(logger, logging.WARNING),
     reraise=True,
 )
-def _fetch_file(
+def _download_to_array(
     url: str,
     var_name: str,
     atlite_name: str,
@@ -217,13 +228,7 @@ def _fetch_file(
     lon_s: int,
     lon_e: int,
 ) -> xr.DataArray:
-    """
-    Fetch one ERA5 accumu file via pydap.
-
-    The URL already contains a DAP2 CE that constrains both the temporal and
-    spatial dimensions, so no size queries are needed here.
-    Returns a DataArray with a 1D hourly time axis.
-    """
+    """Download one ERA5 accumu file via pydap and return a DataArray."""
     # dap2:// avoids pydap's protocol-detection warning for https:// URLs.
     with _FETCH_SEMAPHORE:
         ds_pydap = open_url(f"dap2://{url[8:]}")
@@ -245,6 +250,40 @@ def _fetch_file(
     )
 
 
+def _fetch_file(
+    url: str,
+    var_name: str,
+    atlite_name: str,
+    lat_s: int,
+    lat_e: int,
+    lon_s: int,
+    lon_e: int,
+    tmpdir: Path,
+    lock,
+) -> Path:
+    """
+    Return path to a cached NetCDF for one ERA5 file, downloading if absent.
+
+    The cache key is MD5(url), which encodes variable, period, and spatial CE.
+    The write is atomic (write to .tmp under lock, rename on success) so a
+    crashed download leaves no corrupt file.  The lock serialises HDF5 writes
+    because the system netCDF4 library is typically not compiled with
+    thread-safe HDF5.
+    """
+    cache = _cache_path(tmpdir, url)
+    if cache.exists():
+        logger.debug("cache hit: %s", cache.name)
+        return cache
+
+    da = _download_to_array(url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e)
+    tmp = cache.with_suffix(".tmp")
+    with lock:
+        da.to_netcdf(tmp)
+    tmp.rename(cache)
+    logger.debug("cached: %s", cache.name)
+    return cache
+
+
 # ---------------------------------------------------------------------------
 # Per-variable loader
 # ---------------------------------------------------------------------------
@@ -257,8 +296,16 @@ def _load_var(
     east: float,
     start: date,
     end: date,
+    tmpdir: Path,
+    lock,
 ) -> xr.DataArray:
-    """Fetch all files for one variable in parallel, concatenate, return DataArray."""
+    """
+    Fetch all files for one variable in parallel, return a DataArray.
+
+    Files are written to tmpdir one at a time under lock.  Reads are also
+    serialised under lock: netCDF4 is typically not compiled with thread-safe
+    HDF5, so concurrent opens across dask workers would segfault.
+    """
     product, param_code, var_name = SOLAR_VARIABLES[atlite_name]
 
     isel = _bbox_isel(north, south, west, east)
@@ -268,15 +315,21 @@ def _load_var(
     lon_e = isel["longitude"].stop - 1
 
     urls = file_urls(product, param_code, var_name, start, end, lat_s, lat_e, lon_s, lon_e)
-    logger.info(f"{atlite_name}: {len(urls)} files")
+    logger.info("%s: %d files", atlite_name, len(urls))
 
-    arrays = compute(*[
-        delayed(_fetch_file)(url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e)
+    paths = compute(*[
+        delayed(_fetch_file)(url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, tmpdir, lock)
         for url in urls
     ])
 
-    da = xr.concat(list(arrays), dim="time").sortby("time")
-    return da.sel(time=slice(str(start), str(end)))
+    parts = []
+    for p in paths:
+        with lock:
+            parts.append(xr.open_dataset(p)[atlite_name].load())
+
+    da = xr.concat(parts, dim="time").sortby("time").sel(time=slice(str(start), str(end)))
+    da.encoding = {}  # don't let cache-file encoding bleed into the cutout write
+    return da
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +343,8 @@ def get_solar_timeseries(
     east: float,
     start: date,
     end: date,
+    tmpdir: Path,
+    lock=None,
 ) -> xr.Dataset:
     """
     Download all four atlite solar variables from NCAR THREDDS and return a
@@ -307,9 +362,17 @@ def get_solar_timeseries(
         Bounding box in degrees (lat/lon WGS84).
     start, end : date
         Inclusive date range.
+    tmpdir : Path
+        Directory for per-file NetCDF cache. Pass a persistent path to enable
+        crash recovery; files whose cache entry already exists are skipped.
+    lock : SerializableLock or None
+        Serialises HDF5 writes; pass the lock from atlite's get_features to
+        avoid races on non-thread-safe netCDF4 builds.
     """
+    if lock is None:
+        lock = SerializableLock()
     arrays = compute(*[
-        delayed(_load_var)(name, north, south, west, east, start, end)
+        delayed(_load_var)(name, north, south, west, east, start, end, tmpdir, lock)
         for name in SOLAR_VARIABLES
     ])
     return xr.merge(list(arrays))
@@ -326,6 +389,9 @@ def get_data(cutout, feature, tmpdir=None, lock=None, **kwargs):
     This is the atlite dataset entrypoint called by cutout.prepare().
     Currently only 'influx' is supported, returning raw ERA5 accumulated
     solar radiation variables (ssrd, ssr, fdir, tisr).
+
+    tmpdir is provided by atlite's cutout.prepare(); when callers pass a
+    persistent path, previously downloaded files are reused on restart.
     """
     coords = cutout.coords
     x0, x1 = coords["x"].min().item(), coords["x"].max().item()
@@ -335,8 +401,15 @@ def get_data(cutout, feature, tmpdir=None, lock=None, **kwargs):
     start = time_index[0].date()
     end = time_index[-1].date()
 
+    cache_dir = Path(tmpdir) if tmpdir is not None else Path(mkdtemp())
+
     if feature == "influx":
-        ds = get_solar_timeseries(north=y1, south=y0, west=x0, east=x1, start=start, end=end)
+        ds = get_solar_timeseries(
+            north=y1, south=y0, west=x0, east=x1,
+            start=start, end=end,
+            tmpdir=cache_dir,
+            lock=lock,
+        )
     else:
         raise NotImplementedError(f"Feature {feature!r} not supported by era5_ncar")
 
