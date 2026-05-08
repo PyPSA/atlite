@@ -193,8 +193,8 @@ def _bbox_isel(north: float, south: float, west: float, east: float) -> dict:
     """
     lat_start = math.ceil((90 - north) / _ERA5_RES)
     lat_stop  = math.floor((90 - south) / _ERA5_RES) + 1
-    lon_start = math.ceil(west / _ERA5_RES)
-    lon_stop  = math.floor(east / _ERA5_RES) + 1
+    lon_start = math.ceil((west + 180) / _ERA5_RES)
+    lon_stop  = math.floor((east + 180) / _ERA5_RES) + 1
     return {
         "latitude":  slice(lat_start, lat_stop),
         "longitude": slice(lon_start, lon_stop),
@@ -238,7 +238,7 @@ def _download_to_array(
     times  = (fit_dt[:, None] + fhr[None, :].astype("timedelta64[h]")).ravel()
 
     lat_vals = 90.0 - np.arange(lat_s, lat_e + 1) * _ERA5_RES
-    lon_vals = np.arange(lon_s, lon_e + 1) * _ERA5_RES
+    lon_vals = -180.0 + np.arange(lon_s, lon_e + 1) * _ERA5_RES
 
     return xr.DataArray(
         arr.reshape(-1, arr.shape[2], arr.shape[3]),
