@@ -430,6 +430,7 @@ def _load_var(
         for ts in tspecs
     ])
 
+    # TODO: dedup logic
     if is_invariant:
         # Single file in time, but possibly two spatial segments to stitch.
         if len(sspecs) == 1:
