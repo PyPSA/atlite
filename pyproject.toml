@@ -49,6 +49,8 @@ dependencies = [
     "cdsapi>=0.7.4",
     "cfgrib>=0.9.15.0",
     "h5netcdf>=1.6.1",
+    "tenacity>=9.1.4",
+    "pydap>=3.5.9",
 ]
 
 [project.urls]
