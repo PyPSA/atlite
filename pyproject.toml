@@ -51,6 +51,7 @@ dependencies = [
     "h5netcdf>=1.6.1",
     "tenacity>=9.1.4",
     "pydap>=3.5.9",
+    "zarr>=2.18.3",
 ]
 
 [project.urls]

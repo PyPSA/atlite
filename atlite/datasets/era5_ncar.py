@@ -6,15 +6,19 @@ Download ERA5 data from NCAR THREDDS (ds633.0) via OPeNDAP (DAP2) with CEs.
 
 Design
 ------
-- file_urls() assembles dodsC URLs directly from the NCAR file naming convention
-  — no catalog fetch needed.
-- _bbox_isel() maps the bounding box to ERA5 0.25° integer grid indices.
+- _temporal_file_specs() assembles dodsC base URLs and time CE fragments from
+  the NCAR file naming convention — no catalog fetch needed.
+- _spatial_specs() maps the bounding box to one or two ERA5 0.25° grid spatial
+  segments. ERA5 on NCAR uses 0–360 longitude (lon[j] = j*0.25, j=0 at 0°E),
+  so bboxes that straddle the prime meridian produce two non-contiguous index
+  ranges that must be fetched separately and concatenated.
+- _build_url() combines a temporal spec and a spatial spec into a full DAP2 CE URL.
 - _download_to_array() opens one file via pydap.open_url and returns a DataArray.
 - _fetch_file() wraps _download_to_array with a disk cache in tmpdir: a file
   keyed by MD5(url) is written atomically; hits skip the network entirely.
-- _load_var() fetches all files for one variable in parallel, then opens them
-  lazily via xr.open_mfdataset so downstream computation reads from disk in
-  chunks rather than holding all arrays in RAM simultaneously.
+- _load_var() fetches all (temporal-file × spatial-segment) combinations in
+  one parallel batch, then opens them lazily via xr.open_mfdataset so downstream
+  computation reads from disk in chunks rather than holding all arrays in RAM.
 - tenacity retries each network fetch on any transient error.
 """
 
@@ -48,6 +52,7 @@ features = {
 _DODC_BASE = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d633000"
 _ERA5_RES = 0.25  # degree
 _ERA5_EPOCH = np.datetime64("1900-01-01T00:00", "h")
+_N_HOUR = 11  # 12 ERA5 forecast steps; DAP2 stop index is inclusive
 
 SOLAR_VARIABLES = {
     "ssrd": ("e5.oper.fc.sfc.accumu", "128_169_ssrd", "SSRD"),
@@ -58,7 +63,7 @@ SOLAR_VARIABLES = {
 
 
 # ---------------------------------------------------------------------------
-# URL assembly
+# Temporal helpers
 # ---------------------------------------------------------------------------
 
 def _month_bounds_in_range(start: date, end: date) -> list[tuple[date, date]]:
@@ -120,85 +125,115 @@ def _halfmonth_bounds_in_range(start: date, end: date) -> list[tuple[date, date]
     return out
 
 
-def file_urls(
-    product: str,
-    param_code: str,
-    var_name: str,
-    start: date,
-    end: date,
-    lat_s: int,
-    lat_e: int,
-    lon_s: int,
-    lon_e: int,
-) -> list[str]:
+def _temporal_file_specs(
+    product: str, param_code: str, start: date, end: date
+) -> list[dict]:
     """
-    Assemble dodsC URLs with embedded DAP2 constraint expressions for [start, end].
+    Return one record per ERA5 file covering [start, end].
 
-    Each URL includes a CE that fully constrains spatial dimensions and, for
-    forecast products, the time dimensions, so _fetch_file needs no size queries.
+    Each record contains:
+      base_url   — dodsC URL of the NetCDF file (no CE appended)
+      time_ce    — precomputed DAP2 index expression for the time dimension(s),
+                   e.g. "[0:743]" for analysis or "[0:29][0:11]" for forecast
+      extra_vars — comma-prefixed CE fragments for the auxiliary time variables
+                   that must be requested alongside the data variable
 
-    n_init for forecast files is derived from (last_day - first_day).days * 2;
-    n_hour is always 12 (ERA5 forecast steps 1–12 h).
+    _build_url() inserts the spatial CE between time_ce and extra_vars.
     """
-    _N_HOUR = 11  # 12 forecast steps; DAP2 stop index is inclusive
-    spatial_ce = f"[{lat_s}:{lat_e}][{lon_s}:{lon_e}]"
-    urls = []
+    specs = []
 
     if product == "e5.oper.invariant":
-        urls.append(
-            f"{_DODC_BASE}/e5.oper.invariant/197901/"
-            "e5.oper.invariant.128_129_z.ll025sc.1979010100_1979010100.nc"
-        )
+        specs.append({
+            "base_url": (
+                f"{_DODC_BASE}/e5.oper.invariant/197901/"
+                "e5.oper.invariant.128_129_z.ll025sc.1979010100_1979010100.nc"
+            ),
+            "time_ce": "",
+            "extra_vars": "",
+        })
+
     elif product == "e5.oper.an.sfc":
         for first_day, last_day in _month_bounds_in_range(start, end):
             ym = first_day.strftime("%Y%m")
             n_time = (last_day - first_day).days * 24 + 23  # inclusive stop index
-            ce = f"?{var_name}[0:{n_time}]{spatial_ce},time[0:{n_time}]"
-            urls.append(
-                f"{_DODC_BASE}/{product}/{ym}/"
+            fname = (
                 f"{product}.{param_code}.ll025sc."
                 f"{first_day.strftime('%Y%m%d')}00_{last_day.strftime('%Y%m%d')}23.nc"
-                f"{ce}"
             )
+            specs.append({
+                "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
+                "time_ce": f"[0:{n_time}]",
+                "extra_vars": f",time[0:{n_time}]",
+            })
+
     elif product == "e5.oper.fc.sfc.accumu":
         for first_day, last_day in _halfmonth_bounds_in_range(start, end):
             ym = first_day.strftime("%Y%m")
             n_init = (last_day - first_day).days * 2 - 1  # inclusive stop index
-            ce = (
-                f"?{var_name}[0:{n_init}][0:{_N_HOUR}]{spatial_ce}"
-                f",forecast_initial_time[0:{n_init}]"
-                f",forecast_hour[0:{_N_HOUR}]"
-            )
-            urls.append(
-                f"{_DODC_BASE}/{product}/{ym}/"
+            fname = (
                 f"{product}.{param_code}.ll025sc."
                 f"{first_day.strftime('%Y%m%d')}06_{last_day.strftime('%Y%m%d')}06.nc"
-                f"{ce}"
             )
+            specs.append({
+                "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
+                "time_ce": f"[0:{n_init}][0:{_N_HOUR}]",
+                "extra_vars": (
+                    f",forecast_initial_time[0:{n_init}]"
+                    f",forecast_hour[0:{_N_HOUR}]"
+                ),
+            })
+
     else:
         raise ValueError(f"Unknown product: {product!r}")
-    return urls
+
+    return specs
+
+
+def _build_url(tspec: dict, sspec: dict, var_name: str) -> str:
+    """Assemble a full DAP2 CE URL from a temporal file spec and a spatial segment spec."""
+    spatial_ce = f"[{sspec['lat_s']}:{sspec['lat_e']}][{sspec['lon_s']}:{sspec['lon_e']}]"
+    return (
+        f"{tspec['base_url']}"
+        f"?{var_name}{tspec['time_ce']}{spatial_ce}{tspec['extra_vars']}"
+    )
 
 
 # ---------------------------------------------------------------------------
 # Spatial index helpers
 # ---------------------------------------------------------------------------
 
-def _bbox_isel(north: float, south: float, west: float, east: float) -> dict:
+def _spatial_specs(
+    north: float, south: float, west: float, east: float
+) -> list[dict]:
     """
-    Convert a WGS84 bounding box to ERA5 0.25° grid integer index slices.
+    Map a WGS84 bounding box to one or two ERA5 0.25° grid spatial segments.
 
-    Indices computed from lat[i] = 90 - i*0.25, lon[j] = j*0.25 — no
-    coordinate array fetch needed.
+    ERA5 on NCAR uses 0–360 longitude (lon[j] = j*0.25, j=0 at 0°E prime
+    meridian, j=1439 at 359.75°E). Bboxes that straddle the prime meridian
+    produce two non-contiguous index ranges:
+      segment 0: [j_west : 1439]  western (negative-longitude) portion
+      segment 1: [0 : j_east]     eastern (positive-longitude) portion
+    Non-straddling bboxes produce a single segment.
+
+    Latitude runs 90°N → −90°S: lat[i] = 90 − i*0.25 (i=0 at 90°N, i=720 at −90°S).
     """
-    lat_start = math.ceil((90 - north) / _ERA5_RES)
-    lat_stop  = math.floor((90 - south) / _ERA5_RES) + 1
-    lon_start = math.ceil((west + 180) / _ERA5_RES)
-    lon_stop  = math.floor((east + 180) / _ERA5_RES) + 1
-    return {
-        "latitude":  slice(lat_start, lat_stop),
-        "longitude": slice(lon_start, lon_stop),
-    }
+    lat_s = math.ceil((90 - north) / _ERA5_RES)
+    lat_e = math.floor((90 - south) / _ERA5_RES)
+
+    # Python modulo maps negative longitudes to 0–360: -4 % 360 = 356
+    west_360 = west % 360
+    east_360 = east % 360
+    j_west = math.ceil(west_360 / _ERA5_RES)
+    j_east = math.floor(east_360 / _ERA5_RES)
+
+    base = {"lat_s": lat_s, "lat_e": lat_e}
+    if j_west <= j_east:
+        return [{**base, "lon_s": j_west, "lon_e": j_east}]
+    else:
+        return [
+            {**base, "lon_s": j_west, "lon_e": 1439},
+            {**base, "lon_s": 0,      "lon_e": j_east},
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +273,8 @@ def _download_to_array(
     times  = (fit_dt[:, None] + fhr[None, :].astype("timedelta64[h]")).ravel()
 
     lat_vals = 90.0 - np.arange(lat_s, lat_e + 1) * _ERA5_RES
-    lon_vals = -180.0 + np.arange(lon_s, lon_e + 1) * _ERA5_RES
+    raw_lons = np.arange(lon_s, lon_e + 1) * _ERA5_RES                    # 0–360
+    lon_vals = np.where(raw_lons > 180.0, raw_lons - 360.0, raw_lons)     # → −180..180
 
     return xr.DataArray(
         arr.reshape(-1, arr.shape[2], arr.shape[3]),
@@ -295,74 +331,44 @@ def _load_var(
     """Fetch all files for one variable in parallel, return a DataArray."""
     product, param_code, var_name = SOLAR_VARIABLES[atlite_name]
 
-    isel = _bbox_isel(north, south, west, east)
-    lat_s = isel["latitude"].start
-    lat_e = isel["latitude"].stop - 1
-    lon_s = isel["longitude"].start
-    lon_e = isel["longitude"].stop - 1
+    tspecs = _temporal_file_specs(product, param_code, start, end)
+    sspecs = _spatial_specs(north, south, west, east)
+    logger.info("%s: %d file(s), %d spatial segment(s)", atlite_name, len(tspecs), len(sspecs))
 
-    urls = file_urls(product, param_code, var_name, start, end, lat_s, lat_e, lon_s, lon_e)
-    logger.info("%s: %d files", atlite_name, len(urls))
-
-    paths = compute(*[
-        delayed(_fetch_file)(url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, tmpdir)
-        for url in urls
+    # Download all (temporal × spatial) combinations in one parallel batch.
+    # Ordering: outer loop over sspecs, inner over tspecs, so all_paths[:n]
+    # are the temporal files for sspecs[0] and all_paths[n:] for sspecs[1].
+    n = len(tspecs)
+    all_paths = compute(*[
+        delayed(_fetch_file)(
+            _build_url(ts, ss, var_name),
+            var_name, atlite_name,
+            ss["lat_s"], ss["lat_e"], ss["lon_s"], ss["lon_e"],
+            tmpdir,
+        )
+        for ss in sspecs
+        for ts in tspecs
     ])
 
-    ds = xr.open_mfdataset(
-        [str(p) for p in paths],
-        engine="zarr",
-        concat_dim="time",
-        combine="nested",
-    )
-    da = ds[atlite_name].sortby("time").sel(time=slice(str(start), str(end)))
-    da.encoding = {}  # don't let cache-file encoding bleed into the cutout write
+    if len(sspecs) == 1:
+        da = xr.open_mfdataset(
+            [str(p) for p in all_paths],
+            engine="zarr", concat_dim="time", combine="nested",
+        )[atlite_name]
+    else:
+        ds_a = xr.open_mfdataset(
+            [str(p) for p in all_paths[:n]],
+            engine="zarr", concat_dim="time", combine="nested",
+        )
+        ds_b = xr.open_mfdataset(
+            [str(p) for p in all_paths[n:]],
+            engine="zarr", concat_dim="time", combine="nested",
+        )
+        da = xr.concat([ds_a, ds_b], dim="longitude").sortby("longitude")[atlite_name]
+
+    da = da.sortby("time").sel(time=slice(str(start), str(end)))
+    da.encoding = {}
     return da
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-def get_solar_timeseries(
-    north: float,
-    south: float,
-    west: float,
-    east: float,
-    start: date,
-    end: date,
-    tmpdir: Path,
-    lock=None,
-) -> xr.Dataset:
-    """
-    Download all four atlite solar variables from NCAR THREDDS and return a
-    merged xarray Dataset with a 1D hourly time axis.
-
-    Variables returned (raw ERA5 accumulated values):
-      ssrd  Surface solar radiation downwards  [J m-2]
-      ssr   Surface net solar radiation        [J m-2]
-      fdir  Direct solar radiation at surface  [J m-2]
-      tisr  TOA incident solar radiation       [J m-2 s]
-
-    Parameters
-    ----------
-    north, south, west, east : float
-        Bounding box in degrees (lat/lon WGS84).
-    start, end : date
-        Inclusive date range.
-    tmpdir : Path
-        Directory for per-file Zarr cache. Pass a persistent path to enable
-        crash recovery; entries that already exist are skipped.
-    lock : ignored
-        Accepted for API compatibility with atlite's get_features; Zarr is
-        thread-safe so no lock is needed.
-    """
-    arrays = compute(*[
-        delayed(_load_var)(name, north, south, west, east, start, end, tmpdir)
-        for name in SOLAR_VARIABLES
-    ])
-    return xr.merge(list(arrays))
-
 
 # ---------------------------------------------------------------------------
 # atlite Cutout entrypoint
