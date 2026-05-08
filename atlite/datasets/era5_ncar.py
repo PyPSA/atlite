@@ -62,6 +62,7 @@ features = {
 
 _DODC_BASE = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d633000"
 _ERA5_RES = 0.25  # degree
+_BBOX_PAD = 0.5   # degrees added to each side for edge interpolation support
 _ERA5_EPOCH = np.datetime64("1900-01-01T00:00", "h")
 _N_HOUR = 11  # 12 ERA5 forecast steps; DAP2 stop index is inclusive
 
@@ -458,19 +459,28 @@ def get_data(cutout, feature, tmpdir=None, lock=None, **kwargs):
 
     cache_dir = Path(tmpdir) if tmpdir is not None else Path(mkdtemp())
 
+    # Pad bounding box so bilinear interpolation has support at target grid edges.
+    north = min(90.0, y1 + _BBOX_PAD)
+    south = max(-90.0, y0 - _BBOX_PAD)
+    west = x0 - _BBOX_PAD
+    east = x1 + _BBOX_PAD
+
     if feature == "influx":
-        ds = get_solar_timeseries(
-            north=y1, south=y0, west=x0, east=x1,
-            start=start, end=end,
-            tmpdir=cache_dir,
-            lock=lock,
-        )
         arrays = {}
         for atlite_name in ("ssrd", "ssr", "fdir", "tisr"):
-            arrays[atlite_name] = _load_var(atlite_name, north, south, west, east, start, end, tmpdir)
+            arrays[atlite_name] = _load_var(
+                atlite_name, north, south, west, east, start, end, cache_dir
+            )
         ds = _postprocess_influx(xr.Dataset(arrays))
     else:
         raise NotImplementedError(f"Feature {feature!r} not supported by era5_ncar")
+
+    # Regrid to the cutout's target spatial grid.
+    if _grids_align(ds, coords):
+        ds = ds.sel(x=coords["x"].values, y=coords["y"].values, method="nearest")
+    else:
+        ds = ds.interp(x=coords["x"].values, y=coords["y"].values, method="linear")
+    ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
 
     ds = ds.reindex(time=coords["time"])
     return ds
