@@ -177,10 +177,12 @@ def _temporal_file_specs(
       base_url   — dodsC URL of the NetCDF file (no CE appended)
       time_ce    — precomputed DAP2 index expression for the time dimension(s),
                    e.g. "[0:743]" for analysis or "[0:29][0:11]" for forecast
-      extra_vars — comma-prefixed CE fragments for the auxiliary time variables
-                   that must be requested alongside the data variable
+      time_coord — precomputed np.datetime64[h] array of the file's hourly time
+                   axis (None for invariant). Computed from the file naming
+                   convention so we can skip a per-file pydap fetch of the
+                   `time` / `forecast_initial_time` / `forecast_hour` arrays.
 
-    _build_url() inserts the spatial CE between time_ce and extra_vars.
+    _build_url() inserts the spatial CE after time_ce.
     """
     specs = []
 
@@ -193,7 +195,7 @@ def _temporal_file_specs(
                 "e5.oper.invariant.128_129_z.ll025sc.1979010100_1979010100.nc"
             ),
             "time_ce": "[0:0]",
-            "extra_vars": "",
+            "time_coord": None,
         })
 
     elif product == "e5.oper.an.sfc":
@@ -204,10 +206,13 @@ def _temporal_file_specs(
                 f"{product}.{param_code}.ll025sc."
                 f"{first_day.strftime('%Y%m%d')}00_{last_day.strftime('%Y%m%d')}23.nc"
             )
+            t0 = np.datetime64(first_day, "h")
+            t_end = np.datetime64(last_day, "h") + np.timedelta64(23, "h")
+            time_coord = np.arange(t0, t_end + np.timedelta64(1, "h"), np.timedelta64(1, "h"))
             specs.append({
                 "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
                 "time_ce": f"[0:{n_time}]",
-                "extra_vars": f",time[0:{n_time}]",
+                "time_coord": time_coord,
             })
 
     elif product == "e5.oper.fc.sfc.accumu":
@@ -218,13 +223,15 @@ def _temporal_file_specs(
                 f"{product}.{param_code}.ll025sc."
                 f"{first_day.strftime('%Y%m%d')}06_{last_day.strftime('%Y%m%d')}06.nc"
             )
+            init_start = np.datetime64(first_day, "h") + np.timedelta64(6, "h")
+            init_end = np.datetime64(last_day, "h") + np.timedelta64(6, "h")
+            init_times = np.arange(init_start, init_end, np.timedelta64(12, "h"))
+            fhr = np.arange(1, 13, dtype="int64")  # forecast hours 1..12 (12 steps)
+            time_coord = (init_times[:, None] + fhr[None, :].astype("timedelta64[h]")).ravel()
             specs.append({
                 "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
                 "time_ce": f"[0:{n_init}][0:{_N_HOUR}]",
-                "extra_vars": (
-                    f",forecast_initial_time[0:{n_init}]"
-                    f",forecast_hour[0:{_N_HOUR}]"
-                ),
+                "time_coord": time_coord,
             })
 
     else:
@@ -236,10 +243,7 @@ def _temporal_file_specs(
 def _build_url(tspec: dict, sspec: dict, var_name: str) -> str:
     """Assemble a full DAP2 CE URL from a temporal file spec and a spatial segment spec."""
     spatial_ce = f"[{sspec['lat_s']}:{sspec['lat_e']}][{sspec['lon_s']}:{sspec['lon_e']}]"
-    return (
-        f"{tspec['base_url']}"
-        f"?{var_name}{tspec['time_ce']}{spatial_ce}{tspec['extra_vars']}"
-    )
+    return f"{tspec['base_url']}?{var_name}{tspec['time_ce']}{spatial_ce}"
 
 
 # ---------------------------------------------------------------------------
@@ -310,35 +314,34 @@ def _download_to_array(
     lon_s: int,
     lon_e: int,
     product: str,
+    time_coord: np.ndarray | None,
 ) -> xr.DataArray:
     """Download one ERA5 file via pydap and return a DataArray.
 
-    Time-axis decoding depends on the product:
-      - e5.oper.an.sfc:        1D `time` (hours since 1900); arr shape [T, lat, lon]
-      - e5.oper.fc.sfc.accumu: 2D forecast_initial_time × forecast_hour, ravelled to 1D
-      - e5.oper.invariant:     no time dim; arr shape [lat, lon] (or [1, lat, lon])
+    `time_coord` is precomputed by `_temporal_file_specs` from the file naming
+    convention, so we don't need to fetch `time` / `forecast_initial_time` /
+    `forecast_hour` from the server (each previously cost a separate HTTP
+    round-trip inside the semaphore-held block; ~60% of all NCAR requests).
+
+    Layout per product:
+      - e5.oper.an.sfc:        arr shape [T, lat, lon]
+      - e5.oper.fc.sfc.accumu: arr shape [n_init, n_fhr, lat, lon] → ravel to [T, lat, lon]
+      - e5.oper.invariant:     arr shape [lat, lon] or [1, lat, lon]
     """
     # dap2:// avoids pydap's protocol-detection warning for https:// URLs.
     with _FETCH_SEMAPHORE:
         ds_pydap = open_url(f"dap2://{url[8:]}")
         arr = np.asarray(ds_pydap[var_name][var_name][:])
 
-        if product == "e5.oper.fc.sfc.accumu":
-            fit_raw = np.asarray(ds_pydap["forecast_initial_time"][:])  # h since 1900
-            fhr     = np.asarray(ds_pydap["forecast_hour"][:])           # 1..12
-            fit_dt  = _ERA5_EPOCH + fit_raw.astype("timedelta64[h]")
-            time_coord = (fit_dt[:, None] + fhr[None, :].astype("timedelta64[h]")).ravel()
-            data = arr.reshape(-1, arr.shape[2], arr.shape[3])
-        elif product == "e5.oper.an.sfc":
-            t_raw = np.asarray(ds_pydap["time"][:])  # h since 1900
-            time_coord = _ERA5_EPOCH + t_raw.astype("timedelta64[h]")
-            data = arr  # [T, lat, lon]
-        elif product == "e5.oper.invariant":
-            time_coord = None
-            # Server may return [1, lat, lon] or [lat, lon] depending on file layout.
-            data = arr[0] if arr.ndim == 3 else arr
-        else:
-            raise ValueError(f"Unknown product: {product!r}")
+    if product == "e5.oper.fc.sfc.accumu":
+        data = arr.reshape(-1, arr.shape[2], arr.shape[3])
+    elif product == "e5.oper.an.sfc":
+        data = arr
+    elif product == "e5.oper.invariant":
+        # Server may return [1, lat, lon] or [lat, lon] depending on file layout.
+        data = arr[0] if arr.ndim == 3 else arr
+    else:
+        raise ValueError(f"Unknown product: {product!r}")
 
     lat_vals = 90.0 - np.arange(lat_s, lat_e + 1) * _ERA5_RES
     raw_lons = np.arange(lon_s, lon_e + 1) * _ERA5_RES                    # 0–360
@@ -368,6 +371,7 @@ def _fetch_file(
     lon_s: int,
     lon_e: int,
     product: str,
+    time_coord: np.ndarray | None,
     tmpdir: Path,
 ) -> Path:
     """
@@ -382,7 +386,9 @@ def _fetch_file(
         logger.debug("cache hit: %s", cache.name)
         return cache
 
-    da = _download_to_array(url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, product)
+    da = _download_to_array(
+        url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, product, time_coord
+    )
     tmp = cache.with_name(cache.name + ".tmp")
     da.to_zarr(tmp, mode="w")
     tmp.rename(cache)
@@ -394,7 +400,7 @@ def _fetch_file(
 # Per-variable loader
 # ---------------------------------------------------------------------------
 
-def _load_var(
+def _plan_var(
     atlite_name: str,
     north: float,
     south: float,
@@ -403,57 +409,64 @@ def _load_var(
     start: date | None,
     end: date | None,
     tmpdir: Path,
-) -> xr.DataArray:
-    """Fetch all files for one variable in parallel, return a DataArray."""
-    product, param_code, var_name = VARIABLES[atlite_name]
-    is_invariant = product == "e5.oper.invariant"
+) -> dict:
+    """Build (but do not execute) the per-file fetch plan for one variable.
 
+    Returns a dict with `delayeds` (list of dask Delayed for _fetch_file calls)
+    and metadata for `_assemble_var` to consume after compute().
+    """
+    product, param_code, var_name = VARIABLES[atlite_name]
     tspecs = _temporal_file_specs(product, param_code, start, end)
     sspecs = _spatial_specs(north, south, west, east)
-    logger.info(
-        "%s: %d file(s), %d spatial segment(s)", atlite_name, len(tspecs), len(sspecs)
-    )
-
-    # Download all (temporal × spatial) combinations in one parallel batch.
-    # Ordering: outer loop over sspecs, inner over tspecs, so all_paths[:n]
-    # are the temporal files for sspecs[0] and all_paths[n:] for sspecs[1].
-    n = len(tspecs)
-    all_paths = compute(*[
+    # Outer loop over sspecs, inner over tspecs — paths[:n] are tspecs for sspecs[0],
+    # paths[n:] for sspecs[1] (when meridian-straddling).
+    delayeds = [
         delayed(_fetch_file)(
             _build_url(ts, ss, var_name),
             var_name, atlite_name,
             ss["lat_s"], ss["lat_e"], ss["lon_s"], ss["lon_e"],
-            product,
-            tmpdir,
+            product, ts["time_coord"], tmpdir,
         )
         for ss in sspecs
         for ts in tspecs
-    ])
+    ]
+    return {
+        "atlite_name": atlite_name,
+        "product": product,
+        "n_tspecs": len(tspecs),
+        "n_sspecs": len(sspecs),
+        "delayeds": delayeds,
+    }
 
-    # TODO: dedup logic
-    if is_invariant:
-        # Single file in time, but possibly two spatial segments to stitch.
-        if len(sspecs) == 1:
-            da = xr.open_dataset(str(all_paths[0]), engine="zarr")[atlite_name]
+
+def _assemble_var(plan: dict, paths: list, start: date | None, end: date | None) -> xr.DataArray:
+    """Open the cached Zarr files for one variable lazily and return a DataArray."""
+    atlite_name = plan["atlite_name"]
+    product = plan["product"]
+    n = plan["n_tspecs"]
+
+    if product == "e5.oper.invariant":
+        if plan["n_sspecs"] == 1:
+            da = xr.open_dataset(str(paths[0]), engine="zarr")[atlite_name]
         else:
-            das = [xr.open_dataset(str(p), engine="zarr")[atlite_name] for p in all_paths]
+            das = [xr.open_dataset(str(p), engine="zarr")[atlite_name] for p in paths]
             da = xr.concat(das, dim="longitude").sortby("longitude")
         da.encoding = {}
         return da
 
-    if len(sspecs) == 1:
+    if plan["n_sspecs"] == 1:
         da = xr.open_mfdataset(
-            [str(p) for p in all_paths],
-            engine="zarr", concat_dim="time", combine="nested",
+            [str(p) for p in paths],
+            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100}
         )[atlite_name]
     else:
         ds_a = xr.open_mfdataset(
-            [str(p) for p in all_paths[:n]],
-            engine="zarr", concat_dim="time", combine="nested",
+            [str(p) for p in paths[:n]],
+            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100}
         )
         ds_b = xr.open_mfdataset(
-            [str(p) for p in all_paths[n:]],
-            engine="zarr", concat_dim="time", combine="nested",
+            [str(p) for p in paths[n:]],
+            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100}
         )
         da = xr.concat([ds_a, ds_b], dim="longitude").sortby("longitude")[atlite_name]
 
@@ -484,25 +497,57 @@ def _time_range(cutout) -> tuple[date, date]:
     return time_index[0].date(), time_index[-1].date()
 
 
+def _is_native_grid(cutout) -> bool:
+    """True iff the cutout requests data at the source 0.25° resolution."""
+    return (
+        abs(cutout.dx - _ERA5_RES) < 1e-9
+        and abs(cutout.dy - _ERA5_RES) < 1e-9
+    )
+
+
 def _fetch_vars(atlite_names, cutout, tmpdir):
-    """Load each requested raw NCAR variable as a DataArray (native lat/lon coords)."""
+    """Load each requested raw NCAR variable as a DataArray (native lat/lon coords).
+
+    All file fetches across all variables are scheduled into a single
+    dask.compute() call so the 8-slot _FETCH_SEMAPHORE pool sees one big
+    work-list rather than one var's worth at a time. This lets later
+    variables' files start as soon as a slot frees, instead of waiting for
+    the previous variable to fully drain.
+    """
     bbox = _bbox(cutout)
     # For invariant-only fetches the time range is irrelevant but harmless.
     start, end = _time_range(cutout) if "time" in cutout.coords else (None, None)
-    return {
-        name: _load_var(name, **bbox, start=start, end=end, tmpdir=tmpdir)
-        for name in atlite_names
-    }
+
+    plans = [_plan_var(name, **bbox, start=start, end=end, tmpdir=tmpdir) for name in atlite_names]
+    flat_paths = compute(*[d for p in plans for d in p["delayeds"]])
+
+    arrays = {}
+    idx = 0
+    for plan in plans:
+        n = len(plan["delayeds"])
+        arrays[plan["atlite_name"]] = _assemble_var(plan, list(flat_paths[idx:idx + n]), start, end)
+        idx += n
+    return arrays
 
 
 def _regrid_to_target(arrays, cutout):
-    """Bilinear-interpolate raw DataArrays onto the cutout's target grid.
+    """Bring raw DataArrays onto the cutout's target grid.
 
-    At native 0.25° resolution target points fall exactly on source grid points
-    and linear interp returns exact values — never use method="nearest".
+    At native 0.25° (cutout.dx == cutout.dy == _ERA5_RES) source points
+    coincide with target points, so we `.sel(method="nearest")` to skip
+    the materialising bilinear interp entirely. At any other dx/dy we
+    bilinearly interpolate.
     """
     target_lat = cutout.coords["y"].values
     target_lon = cutout.coords["x"].values
+    if _is_native_grid(cutout):
+        return {
+            name: da.sel(
+                latitude=target_lat, longitude=target_lon,
+                method="nearest", tolerance=1e-6,
+            )
+            for name, da in arrays.items()
+        }
     return {
         name: da.interp(latitude=target_lat, longitude=target_lon, method="linear")
         for name, da in arrays.items()
@@ -568,12 +613,15 @@ def get_data_influx(cutout, tmpdir):
     arrays = _fetch_vars(["ssrd", "ssr", "fdir", "tisr"], cutout, tmpdir)
 
     # ERA5 can have ssr > ssrd at the day/night boundary (accumulation artifact).
-    # Clip before interpolation so the unphysical values aren't amplified by bilinear
-    # interpolation (target points near the boundary get small ssrd but large ssr
-    # from the daytime side, yielding extreme negative albedo).
-    arrays["ssr"] = arrays["ssr"].where(
-        arrays["ssr"] <= arrays["ssrd"], other=arrays["ssrd"]
-    )
+    # When we bilinearly interpolate, that artifact gets amplified — target
+    # points near the boundary mix tiny ssrd with much larger ssr, yielding
+    # extreme negative albedo. Clip ssr ≤ ssrd before interp to suppress it.
+    # At native resolution we don't interp, so we leave the raw values alone
+    # to match what era5.py (CDS) returns.
+    if not _is_native_grid(cutout):
+        arrays["ssr"] = arrays["ssr"].where(
+            arrays["ssr"] <= arrays["ssrd"], other=arrays["ssrd"]
+        )
 
     arrays = _regrid_to_target(arrays, cutout)
     ds = _clean_coords(xr.Dataset(arrays))
