@@ -31,10 +31,11 @@ Design
 - tenacity retries each network fetch on transport-level errors only.
 """
 # TODO:fix comments
-# TODO:simplify flow
+# TODO: add type annotations
 # TODO:align logging with era5.py
 # TODO:run precommit, ty, ruff checks
 # TODO:write docs
+# TODO: rename _clean_coords to _rename_and_clean_coords to match era5.py
 # TODO:write PR
 
 import hashlib
@@ -307,6 +308,7 @@ def _spatial_specs(
 # ---------------------------------------------------------------------------
 
 def _cache_path(tmpdir: Path, url: str) -> Path:
+    # TODO: inline
     key = hashlib.md5(url.encode()).hexdigest()[:16]
     return tmpdir / f"era5ncar_{key}.zarr"
 
@@ -360,6 +362,7 @@ def _download_to_array(
         data = arr
     elif product == "e5.oper.invariant":
         # Server may return [1, lat, lon] or [lat, lon] depending on file layout.
+        # TODO: check if server really returns two different layouts. if always consistent - remove conditional
         data = arr[0] if arr.ndim == 3 else arr
     else:
         raise ValueError(f"Unknown product: {product!r}")
@@ -497,6 +500,7 @@ def _load_var(
 # ---------------------------------------------------------------------------
 
 def _bbox(cutout):
+    # TODO: rename to _area to match era5.py
     coords = cutout.coords
     x0, x1 = coords["x"].min().item(), coords["x"].max().item()
     y0, y1 = coords["y"].min().item(), coords["y"].max().item()
@@ -510,6 +514,7 @@ def _bbox(cutout):
 
 
 def _time_range(cutout) -> tuple[date, date]:
+    # TODO: inline
     time_index = cutout.coords["time"].to_index()
     return time_index[0].date(), time_index[-1].date()
 
@@ -586,6 +591,7 @@ def get_data_wind(cutout, tmpdir):
     arrays = _regrid_to_target(arrays, cutout)
     ds = _clean_coords(xr.Dataset(arrays))
 
+    # TODO: check if units are correct ,era5.py uses units from ds here
     for h in (10, 100):
         ds[f"wnd{h}m"] = np.sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
             units="m s**-1", long_name=f"{h} metre wind speed"
@@ -600,25 +606,6 @@ def get_data_wind(cutout, tmpdir):
     ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
     ds = ds.rename({"fsr": "roughness"})
     return ds
-
-
-def get_data_temperature(cutout, tmpdir):
-    arrays = _fetch_vars(["t2m", "d2m", "stl4"], cutout, tmpdir)
-    arrays = _regrid_to_target(arrays, cutout)
-    ds = _clean_coords(xr.Dataset(arrays))
-    return ds.rename({
-        "t2m": "temperature",
-        "stl4": "soil temperature",
-        "d2m": "dewpoint temperature",
-    })
-
-
-def get_data_runoff(cutout, tmpdir):
-    arrays = _fetch_vars(["ro"], cutout, tmpdir)
-    arrays = _regrid_to_target(arrays, cutout)
-    ds = _clean_coords(xr.Dataset(arrays))
-    return ds.rename({"ro": "runoff"})
-
 
 def get_data_influx(cutout, tmpdir):
     arrays = _fetch_vars(["ssrd", "ssr", "fdir", "tisr"], cutout, tmpdir)
@@ -662,10 +649,31 @@ def get_data_influx(cutout, tmpdir):
     return xr.merge([ds, sp])
 
 
+def get_data_temperature(cutout, tmpdir):
+    arrays = _fetch_vars(["t2m", "d2m", "stl4"], cutout, tmpdir)
+    arrays = _regrid_to_target(arrays, cutout)
+    ds = _clean_coords(xr.Dataset(arrays))
+    return ds.rename({
+        "t2m": "temperature",
+        "stl4": "soil temperature",
+        "d2m": "dewpoint temperature",
+    })
+
+
+def get_data_runoff(cutout, tmpdir):
+    arrays = _fetch_vars(["ro"], cutout, tmpdir)
+    arrays = _regrid_to_target(arrays, cutout)
+    ds = _clean_coords(xr.Dataset(arrays))
+    return ds.rename({"ro": "runoff"})
+
+
+
+
 def get_data_height(cutout, tmpdir):
     arrays = _fetch_vars(["z"], cutout, tmpdir)
     arrays = _regrid_to_target(arrays, cutout)
     ds = _clean_coords(xr.Dataset(arrays))
+    # TODO: edit all getter functions to return just ds for style consistency with era5.py
     return _add_height(ds)
 
 
