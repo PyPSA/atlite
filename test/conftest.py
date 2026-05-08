@@ -203,7 +203,7 @@ def _prepare_era5_ncar_cutout(path, prepare_kwargs=None, **kwargs):
     cutout = Cutout(path=path, module="era5_ncar", bounds=BOUNDS, **kwargs)
     if not path.exists() and not NCAR_AVAILABLE:
         pytest.skip("NCAR THREDDS not reachable and no cached cutout available")
-    cutout.prepare(features=["influx"], tmpdir=str(path.parent), **(prepare_kwargs or {}))
+    cutout.prepare(tmpdir=str(path.parent), **(prepare_kwargs or {}))
     return cutout
 
 

@@ -668,10 +668,27 @@ _ERA5_INFLUX_VARS = [
 
 class TestERA5NCAR:
     @staticmethod
+    def test_all_features_identical(cutout_era5, cutout_era5_ncar):
+        """At native 0.25° resolution era5_ncar should match era5 across every feature.
+
+        Covers wind, temperature, runoff and height. Influx is exercised more
+        precisely by test_influx_identical below; this catches regressions in
+        the analysis-surface and invariant code paths.
+        """
+        common = sorted(
+            set(cutout_era5_ncar.data.data_vars) & set(cutout_era5.data.data_vars)
+        )
+        xr.testing.assert_allclose(
+            cutout_era5_ncar.data[common],
+            cutout_era5.data[common],
+            atol=1e-4,
+        )
+
+    @staticmethod
     def test_influx_identical(cutout_era5, cutout_era5_ncar):
         """era5_ncar influx should be identical to era5 influx."""
         xr.testing.assert_allclose(
-            cutout_era5_ncar.data,
+            cutout_era5_ncar.data[_ERA5_INFLUX_VARS],
             cutout_era5.data[_ERA5_INFLUX_VARS],
             atol=1e-4,
         )
@@ -686,7 +703,7 @@ class TestERA5NCAR:
         ~2 × 10⁻³ W m⁻² at off-grid coarse resolutions.
         """
         xr.testing.assert_allclose(
-            cutout_era5_ncar_coarse.data,
+            cutout_era5_ncar_coarse.data[_ERA5_INFLUX_VARS],
             cutout_era5_coarse.data[_ERA5_INFLUX_VARS],
             atol=5e-3,
         )
@@ -707,7 +724,7 @@ class TestERA5NCAR:
         independent of the source data and remain exact.
         """
         xr.testing.assert_allclose(
-            cutout_era5_ncar_weird_resolution.data,
+            cutout_era5_ncar_weird_resolution.data[_ERA5_INFLUX_VARS],
             cutout_era5_weird_resolution.data[_ERA5_INFLUX_VARS],
             atol=2.5,
         )
