@@ -30,13 +30,8 @@ Design
   in-flight THREDDS requests stay bounded — no separate semaphore needed.
 - tenacity retries each network fetch on transport-level errors only.
 """
-# TODO:fix comments
-# TODO: add type annotations
 # TODO:align logging with era5.py
 # TODO:run precommit, ty, ruff checks
-# TODO:write docs
-# TODO: rename _clean_coords to _rename_and_clean_coords to match era5.py
-# TODO:write PR
 
 import hashlib
 import logging
@@ -44,9 +39,11 @@ import math
 import urllib.error
 import warnings
 from calendar import monthrange
+from collections.abc import Callable
 from datetime import date
 from pathlib import Path
 from tempfile import mkdtemp
+from typing import Any
 
 import dask
 import numpy as np
@@ -68,6 +65,13 @@ from atlite.pv.solar_position import SolarPosition
 
 logger = logging.getLogger(__name__)
 
+TemporalSpec = dict[str, str | np.ndarray | None]
+SpatialSpec = dict[str, int]
+Area = dict[str, float]
+RawArrays = dict[str, xr.DataArray]
+Handler = Callable[[Any, Path], xr.Dataset]
+Sanitizer = Callable[[xr.Dataset], xr.Dataset]
+
 # Shared dask thread pool used by the inner compute() in _load_var, scoped via
 # `with dask.config.set(pool=_FETCH_POOL)`. Its `max_workers` IS the network
 # concurrency cap — multiple feature handlers running in parallel under
@@ -78,7 +82,7 @@ _FETCH_POOL = ContextAwareThreadPoolExecutor(8, thread_name_prefix="ncar-fetch")
 
 crs = 4326
 
-features = {
+features: dict[str, list[str]] = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
     "influx": [
@@ -93,39 +97,40 @@ features = {
     "runoff": ["runoff"],
 }
 
-static_features = {"height"}
+static_features: set[str] = {"height"}
 
 _DODC_BASE = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d633000"
 _ERA5_RES = 0.25  # degree
-_BBOX_PAD = 0.5   # degrees added to each side for edge interpolation support
+_BBOX_PAD = 0.5  # degrees added to each side for edge interpolation support
 _ERA5_EPOCH = np.datetime64("1900-01-01T00:00", "h")
 _N_HOUR = 11  # 12 ERA5 forecast steps; DAP2 stop index is inclusive
 
 # atlite name → (NCAR product dir, NCAR param code, DAP2 variable name)
-VARIABLES = {
+VARIABLES: dict[str, tuple[str, str, str]] = {
     # analysis surface (1D time)
-    "u10":  ("e5.oper.an.sfc", "128_165_10u",  "VAR_10U"),
-    "v10":  ("e5.oper.an.sfc", "128_166_10v",  "VAR_10V"),
+    "u10": ("e5.oper.an.sfc", "128_165_10u", "VAR_10U"),
+    "v10": ("e5.oper.an.sfc", "128_166_10v", "VAR_10V"),
     "u100": ("e5.oper.an.sfc", "228_246_100u", "VAR_100U"),
     "v100": ("e5.oper.an.sfc", "228_247_100v", "VAR_100V"),
-    "fsr":  ("e5.oper.an.sfc", "128_244_fsr",  "FSR"),
-    "t2m":  ("e5.oper.an.sfc", "128_167_2t",   "VAR_2T"),
-    "d2m":  ("e5.oper.an.sfc", "128_168_2d",   "VAR_2D"),
+    "fsr": ("e5.oper.an.sfc", "128_244_fsr", "FSR"),
+    "t2m": ("e5.oper.an.sfc", "128_167_2t", "VAR_2T"),
+    "d2m": ("e5.oper.an.sfc", "128_168_2d", "VAR_2D"),
     "stl4": ("e5.oper.an.sfc", "128_236_stl4", "STL4"),
     # forecast accumulation (2D time: forecast_initial_time × forecast_hour)
     "ssrd": ("e5.oper.fc.sfc.accumu", "128_169_ssrd", "SSRD"),
-    "ssr":  ("e5.oper.fc.sfc.accumu", "128_176_ssr",  "SSR"),
+    "ssr": ("e5.oper.fc.sfc.accumu", "128_176_ssr", "SSR"),
     "fdir": ("e5.oper.fc.sfc.accumu", "228_021_fdir", "FDIR"),
     "tisr": ("e5.oper.fc.sfc.accumu", "128_212_tisr", "TISR"),
-    "ro":   ("e5.oper.fc.sfc.accumu", "128_205_ro",   "RO"),
+    "ro": ("e5.oper.fc.sfc.accumu", "128_205_ro", "RO"),
     # invariant (no time)
-    "z":    ("e5.oper.invariant",     "128_129_z",    "Z"),
+    "z": ("e5.oper.invariant", "128_129_z", "Z"),
 }
 
 
 # ---------------------------------------------------------------------------
 # Temporal helpers
 # ---------------------------------------------------------------------------
+
 
 def _month_bounds_in_range(start: date, end: date) -> list[tuple[date, date]]:
     if start > end:
@@ -164,7 +169,11 @@ def _halfmonth_bounds_in_range(start: date, end: date) -> list[tuple[date, date]
         return date(d.year, d.month, 1) if d.day <= 15 else date(d.year, d.month, 16)
 
     def next_start(s: date) -> date:
-        return date(s.year, s.month, 16) if s.day == 1 else date(*_add_month(s.year, s.month, 1), 1)
+        return (
+            date(s.year, s.month, 16)
+            if s.day == 1
+            else date(*_add_month(s.year, s.month, 1), 1)
+        )
 
     out: list[tuple[date, date]] = []
     cs = cur_start(start)
@@ -187,8 +196,8 @@ def _halfmonth_bounds_in_range(start: date, end: date) -> list[tuple[date, date]
 
 
 def _temporal_file_specs(
-    product: str, param_code: str, start: date, end: date
-) -> list[dict]:
+    product: str, param_code: str, start: date | None, end: date | None
+) -> list[TemporalSpec]:
     """
     Return one record per ERA5 file covering [start, end].
 
@@ -203,21 +212,25 @@ def _temporal_file_specs(
 
     _build_url() inserts the spatial CE after time_ce.
     """
-    specs = []
+    specs: list[TemporalSpec] = []
 
     if product == "e5.oper.invariant":
         # Z is stored with a length-1 time dim (Float32 Z[time=1][lat][lon]),
         # so the spatial CE must be preceded by a [0:0] selector for the time axis.
-        specs.append({
-            "base_url": (
-                f"{_DODC_BASE}/e5.oper.invariant/197901/"
-                "e5.oper.invariant.128_129_z.ll025sc.1979010100_1979010100.nc"
-            ),
-            "time_ce": "[0:0]",
-            "time_coord": None,
-        })
+        specs.append(
+            {
+                "base_url": (
+                    f"{_DODC_BASE}/e5.oper.invariant/197901/"
+                    "e5.oper.invariant.128_129_z.ll025sc.1979010100_1979010100.nc"
+                ),
+                "time_ce": "[0:0]",
+                "time_coord": None,
+            }
+        )
 
     elif product == "e5.oper.an.sfc":
+        if start is None or end is None:
+            raise ValueError("Analysis variables require a time range.")
         for first_day, last_day in _month_bounds_in_range(start, end):
             ym = first_day.strftime("%Y%m")
             n_time = (last_day - first_day).days * 24 + 23  # inclusive stop index
@@ -227,14 +240,20 @@ def _temporal_file_specs(
             )
             t0 = np.datetime64(first_day, "h")
             t_end = np.datetime64(last_day, "h") + np.timedelta64(23, "h")
-            time_coord = np.arange(t0, t_end + np.timedelta64(1, "h"), np.timedelta64(1, "h"))
-            specs.append({
-                "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
-                "time_ce": f"[0:{n_time}]",
-                "time_coord": time_coord,
-            })
+            time_coord = np.arange(
+                t0, t_end + np.timedelta64(1, "h"), np.timedelta64(1, "h")
+            )
+            specs.append(
+                {
+                    "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
+                    "time_ce": f"[0:{n_time}]",
+                    "time_coord": time_coord,
+                }
+            )
 
     elif product == "e5.oper.fc.sfc.accumu":
+        if start is None or end is None:
+            raise ValueError("Forecast variables require a time range.")
         for first_day, last_day in _halfmonth_bounds_in_range(start, end):
             ym = first_day.strftime("%Y%m")
             n_init = (last_day - first_day).days * 2 - 1  # inclusive stop index
@@ -246,12 +265,16 @@ def _temporal_file_specs(
             init_end = np.datetime64(last_day, "h") + np.timedelta64(6, "h")
             init_times = np.arange(init_start, init_end, np.timedelta64(12, "h"))
             fhr = np.arange(1, 13, dtype="int64")  # forecast hours 1..12 (12 steps)
-            time_coord = (init_times[:, None] + fhr[None, :].astype("timedelta64[h]")).ravel()
-            specs.append({
-                "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
-                "time_ce": f"[0:{n_init}][0:{_N_HOUR}]",
-                "time_coord": time_coord,
-            })
+            time_coord = (
+                init_times[:, None] + fhr[None, :].astype("timedelta64[h]")
+            ).ravel()
+            specs.append(
+                {
+                    "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
+                    "time_ce": f"[0:{n_init}][0:{_N_HOUR}]",
+                    "time_coord": time_coord,
+                }
+            )
 
     else:
         raise ValueError(f"Unknown product: {product!r}")
@@ -259,9 +282,11 @@ def _temporal_file_specs(
     return specs
 
 
-def _build_url(tspec: dict, sspec: dict, var_name: str) -> str:
+def _build_url(tspec: TemporalSpec, sspec: SpatialSpec, var_name: str) -> str:
     """Assemble a full DAP2 CE URL from a temporal file spec and a spatial segment spec."""
-    spatial_ce = f"[{sspec['lat_s']}:{sspec['lat_e']}][{sspec['lon_s']}:{sspec['lon_e']}]"
+    spatial_ce = (
+        f"[{sspec['lat_s']}:{sspec['lat_e']}][{sspec['lon_s']}:{sspec['lon_e']}]"
+    )
     return f"{tspec['base_url']}?{var_name}{tspec['time_ce']}{spatial_ce}"
 
 
@@ -269,9 +294,10 @@ def _build_url(tspec: dict, sspec: dict, var_name: str) -> str:
 # Spatial index helpers
 # ---------------------------------------------------------------------------
 
+
 def _spatial_specs(
     north: float, south: float, west: float, east: float
-) -> list[dict]:
+) -> list[SpatialSpec]:
     """
     Map a WGS84 bounding box to one or two ERA5 0.25° grid spatial segments.
 
@@ -293,24 +319,19 @@ def _spatial_specs(
     j_west = math.ceil(west_360 / _ERA5_RES)
     j_east = math.floor(east_360 / _ERA5_RES)
 
-    base = {"lat_s": lat_s, "lat_e": lat_e}
+    base: SpatialSpec = {"lat_s": lat_s, "lat_e": lat_e}
     if j_west <= j_east:
         return [{**base, "lon_s": j_west, "lon_e": j_east}]
     else:
         return [
             {**base, "lon_s": j_west, "lon_e": 1439},
-            {**base, "lon_s": 0,      "lon_e": j_east},
+            {**base, "lon_s": 0, "lon_e": j_east},
         ]
 
 
 # ---------------------------------------------------------------------------
 # Per-file fetch
 # ---------------------------------------------------------------------------
-
-def _cache_path(tmpdir: Path, url: str) -> Path:
-    # TODO: inline
-    key = hashlib.md5(url.encode()).hexdigest()[:16]
-    return tmpdir / f"era5ncar_{key}.zarr"
 
 
 # Retry on transport-level errors. Excludes programmer errors (KeyError,
@@ -336,7 +357,8 @@ def _download_to_array(
     product: str,
     time_coord: np.ndarray | None,
 ) -> xr.DataArray:
-    """Download one ERA5 file via pydap and return a DataArray.
+    """
+    Download one ERA5 file via pydap and return a DataArray.
 
     `time_coord` is precomputed by `_temporal_file_specs` from the file naming
     convention, so we don't need to fetch `time` / `forecast_initial_time` /
@@ -368,8 +390,8 @@ def _download_to_array(
         raise ValueError(f"Unknown product: {product!r}")
 
     lat_vals = 90.0 - np.arange(lat_s, lat_e + 1) * _ERA5_RES
-    raw_lons = np.arange(lon_s, lon_e + 1) * _ERA5_RES                    # 0–360
-    lon_vals = np.where(raw_lons > 180.0, raw_lons - 360.0, raw_lons)     # → −180..180
+    raw_lons = np.arange(lon_s, lon_e + 1) * _ERA5_RES  # 0–360
+    lon_vals = np.where(raw_lons > 180.0, raw_lons - 360.0, raw_lons)  # → −180..180
 
     if time_coord is None:
         return xr.DataArray(
@@ -405,7 +427,8 @@ def _fetch_file(
     The write is atomic (write to .tmp dir, rename on success) so a crashed
     download leaves no corrupt store.  Zarr is thread-safe so no lock is needed.
     """
-    cache = _cache_path(tmpdir, url)
+    key = hashlib.md5(url.encode()).hexdigest()[:16]
+    cache = tmpdir / f"era5ncar_{key}.zarr"
     if cache.exists():
         logger.debug("cache hit: %s", cache.name)
         return cache
@@ -424,6 +447,7 @@ def _fetch_file(
 # Per-variable loader
 # ---------------------------------------------------------------------------
 
+
 def _load_var(
     atlite_name: str,
     north: float,
@@ -434,7 +458,8 @@ def _load_var(
     end: date | None,
     tmpdir: Path,
 ) -> xr.DataArray:
-    """Fetch all files for one variable in parallel, return a lazy DataArray.
+    """
+    Fetch all files for one variable in parallel, return a lazy DataArray.
 
     The inner compute() runs through the shared `_FETCH_POOL` so concurrent
     `_load_var` calls (one per variable, scheduled in parallel by the caller's
@@ -454,22 +479,32 @@ def _load_var(
     # sspecs[0], paths[n:] for sspecs[1] (when meridian-straddling).
     n = len(tspecs)
     with dask.config.set(pool=_FETCH_POOL):
-        all_paths = compute(*[
-            delayed(_fetch_file)(
-                _build_url(ts, ss, var_name),
-                var_name, atlite_name,
-                ss["lat_s"], ss["lat_e"], ss["lon_s"], ss["lon_e"],
-                product, ts["time_coord"], tmpdir,
-            )
-            for ss in sspecs
-            for ts in tspecs
-        ])
+        all_paths = compute(
+            *[
+                delayed(_fetch_file)(
+                    _build_url(ts, ss, var_name),
+                    var_name,
+                    atlite_name,
+                    ss["lat_s"],
+                    ss["lat_e"],
+                    ss["lon_s"],
+                    ss["lon_e"],
+                    product,
+                    ts["time_coord"],
+                    tmpdir,
+                )
+                for ss in sspecs
+                for ts in tspecs
+            ]
+        )
 
     if is_invariant:
         if len(sspecs) == 1:
             da = xr.open_dataset(str(all_paths[0]), engine="zarr")[atlite_name]
         else:
-            das = [xr.open_dataset(str(p), engine="zarr")[atlite_name] for p in all_paths]
+            das = [
+                xr.open_dataset(str(p), engine="zarr")[atlite_name] for p in all_paths
+            ]
             da = xr.concat(das, dim="longitude").sortby("longitude")
         da.encoding = {}
         return da
@@ -477,16 +512,25 @@ def _load_var(
     if len(sspecs) == 1:
         da = xr.open_mfdataset(
             [str(p) for p in all_paths],
-            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100},
+            engine="zarr",
+            concat_dim="time",
+            combine="nested",
+            chunks={"time": 100},
         )[atlite_name]
     else:
         ds_a = xr.open_mfdataset(
             [str(p) for p in all_paths[:n]],
-            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100},
+            engine="zarr",
+            concat_dim="time",
+            combine="nested",
+            chunks={"time": 100},
         )
         ds_b = xr.open_mfdataset(
             [str(p) for p in all_paths[n:]],
-            engine="zarr", concat_dim="time", combine="nested", chunks={"time": 100},
+            engine="zarr",
+            concat_dim="time",
+            combine="nested",
+            chunks={"time": 100},
         )
         da = xr.concat([ds_a, ds_b], dim="longitude").sortby("longitude")[atlite_name]
 
@@ -499,8 +543,8 @@ def _load_var(
 # Shared retrieval and coordinate post-processing
 # ---------------------------------------------------------------------------
 
-def _bbox(cutout):
-    # TODO: rename to _area to match era5.py
+
+def _area(cutout: Any) -> Area:
     coords = cutout.coords
     x0, x1 = coords["x"].min().item(), coords["x"].max().item()
     y0, y1 = coords["y"].min().item(), coords["y"].max().item()
@@ -513,22 +557,14 @@ def _bbox(cutout):
     }
 
 
-def _time_range(cutout) -> tuple[date, date]:
-    # TODO: inline
-    time_index = cutout.coords["time"].to_index()
-    return time_index[0].date(), time_index[-1].date()
-
-
-def _is_native_grid(cutout) -> bool:
+def _is_native_grid(cutout: Any) -> bool:
     """True iff the cutout requests data at the source 0.25° resolution."""
-    return (
-        abs(cutout.dx - _ERA5_RES) < 1e-9
-        and abs(cutout.dy - _ERA5_RES) < 1e-9
-    )
+    return abs(cutout.dx - _ERA5_RES) < 1e-9 and abs(cutout.dy - _ERA5_RES) < 1e-9
 
 
-def _fetch_vars(atlite_names, cutout, tmpdir):
-    """Load each requested raw NCAR variable as a DataArray (native lat/lon coords).
+def _fetch_vars(atlite_names: list[str], cutout: Any, tmpdir: Path) -> RawArrays:
+    """
+    Load each requested raw NCAR variable as a DataArray (native lat/lon coords).
 
     Variables are loaded sequentially; per-variable parallelism happens inside
     `_load_var`'s `compute(*delayed_fetches)`. Cross-feature parallelism
@@ -536,17 +572,22 @@ def _fetch_vars(atlite_names, cutout, tmpdir):
     `delayed` by `atlite.data.get_features`). Both layers share `_FETCH_POOL`,
     so total in-flight HTTP requests are bounded by its 8 workers.
     """
-    bbox = _bbox(cutout)
+    area = _area(cutout)
     # For invariant-only fetches the time range is irrelevant but harmless.
-    start, end = _time_range(cutout) if "time" in cutout.coords else (None, None)
+    if "time" in cutout.coords:
+        time_index = cutout.coords["time"].to_index()
+        start, end = time_index[0].date(), time_index[-1].date()
+    else:
+        start, end = None, None
     return {
-        name: _load_var(name, **bbox, start=start, end=end, tmpdir=tmpdir)
+        name: _load_var(name, **area, start=start, end=end, tmpdir=tmpdir)
         for name in atlite_names
     }
 
 
-def _regrid_to_target(arrays, cutout):
-    """Bring raw DataArrays onto the cutout's target grid.
+def _regrid_to_target(arrays: RawArrays, cutout: Any) -> RawArrays:
+    """
+    Bring raw DataArrays onto the cutout's target grid.
 
     At native 0.25° (cutout.dx == cutout.dy == _ERA5_RES) source points
     coincide with target points, so we `.sel(method="nearest")` to skip
@@ -559,8 +600,10 @@ def _regrid_to_target(arrays, cutout):
     if _is_native_grid(cutout):
         return {
             name: da.sel(
-                latitude=target_lat, longitude=target_lon,
-                method="nearest", tolerance=1e-6,
+                latitude=target_lat,
+                longitude=target_lon,
+                method="nearest",
+                tolerance=1e-6,
             )
             for name, da in arrays.items()
         }
@@ -570,7 +613,7 @@ def _regrid_to_target(arrays, cutout):
     }
 
 
-def _clean_coords(ds: xr.Dataset) -> xr.Dataset:
+def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
     """Rename latitude/longitude → y/x and add lon/lat coords (matches era5.py)."""
     ds = ds.rename({"latitude": "y", "longitude": "x"})
     ds = ds.assign_coords(
@@ -586,10 +629,11 @@ def _clean_coords(ds: xr.Dataset) -> xr.Dataset:
 # Per-feature handlers (mirror atlite.datasets.era5.get_data_<feature>)
 # ---------------------------------------------------------------------------
 
-def get_data_wind(cutout, tmpdir):
+
+def get_data_wind(cutout: Any, tmpdir: Path) -> xr.Dataset:
     arrays = _fetch_vars(["u10", "v10", "u100", "v100", "fsr"], cutout, tmpdir)
     arrays = _regrid_to_target(arrays, cutout)
-    ds = _clean_coords(xr.Dataset(arrays))
+    ds = _rename_and_clean_coords(xr.Dataset(arrays))
 
     # TODO: check if units are correct ,era5.py uses units from ds here
     for h in (10, 100):
@@ -607,7 +651,8 @@ def get_data_wind(cutout, tmpdir):
     ds = ds.rename({"fsr": "roughness"})
     return ds
 
-def get_data_influx(cutout, tmpdir):
+
+def get_data_influx(cutout: Any, tmpdir: Path) -> xr.Dataset:
     arrays = _fetch_vars(["ssrd", "ssr", "fdir", "tisr"], cutout, tmpdir)
 
     # ERA5 can have ssr > ssrd at the day/night boundary (accumulation artifact).
@@ -622,7 +667,7 @@ def get_data_influx(cutout, tmpdir):
         )
 
     arrays = _regrid_to_target(arrays, cutout)
-    ds = _clean_coords(xr.Dataset(arrays))
+    ds = _rename_and_clean_coords(xr.Dataset(arrays))
 
     ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
     ds["albedo"] = (
@@ -646,38 +691,41 @@ def get_data_influx(cutout, tmpdir):
         sp = SolarPosition(ds, time_shift=pd.to_timedelta("-30 minutes"))
     sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
-    return xr.merge([ds, sp])
+    ds = xr.merge([ds, sp])
+    return ds
 
 
-def get_data_temperature(cutout, tmpdir):
+def get_data_temperature(cutout: Any, tmpdir: Path) -> xr.Dataset:
     arrays = _fetch_vars(["t2m", "d2m", "stl4"], cutout, tmpdir)
     arrays = _regrid_to_target(arrays, cutout)
-    ds = _clean_coords(xr.Dataset(arrays))
-    return ds.rename({
-        "t2m": "temperature",
-        "stl4": "soil temperature",
-        "d2m": "dewpoint temperature",
-    })
+    ds = _rename_and_clean_coords(xr.Dataset(arrays))
+    ds = ds.rename(
+        {
+            "t2m": "temperature",
+            "stl4": "soil temperature",
+            "d2m": "dewpoint temperature",
+        }
+    )
+    return ds
 
 
-def get_data_runoff(cutout, tmpdir):
+def get_data_runoff(cutout: Any, tmpdir: Path) -> xr.Dataset:
     arrays = _fetch_vars(["ro"], cutout, tmpdir)
     arrays = _regrid_to_target(arrays, cutout)
-    ds = _clean_coords(xr.Dataset(arrays))
-    return ds.rename({"ro": "runoff"})
+    ds = _rename_and_clean_coords(xr.Dataset(arrays))
+    ds = ds.rename({"ro": "runoff"})
+    return ds
 
 
-
-
-def get_data_height(cutout, tmpdir):
+def get_data_height(cutout: Any, tmpdir: Path) -> xr.Dataset:
     arrays = _fetch_vars(["z"], cutout, tmpdir)
     arrays = _regrid_to_target(arrays, cutout)
-    ds = _clean_coords(xr.Dataset(arrays))
-    # TODO: edit all getter functions to return just ds for style consistency with era5.py
-    return _add_height(ds)
+    ds = _rename_and_clean_coords(xr.Dataset(arrays))
+    ds = _add_height(ds)
+    return ds
 
 
-_HANDLERS = {
+_HANDLERS: dict[str, Handler] = {
     "wind": get_data_wind,
     "influx": get_data_influx,
     "temperature": get_data_temperature,
@@ -685,7 +733,7 @@ _HANDLERS = {
     "height": get_data_height,
 }
 
-_SANITIZERS = {
+_SANITIZERS: dict[str, Sanitizer] = {
     "wind": sanitize_wind,
     "influx": sanitize_influx,
     "runoff": sanitize_runoff,
@@ -696,7 +744,14 @@ _SANITIZERS = {
 # atlite Cutout entrypoint
 # ---------------------------------------------------------------------------
 
-def get_data(cutout, feature, tmpdir=None, lock=None, **creation_parameters):
+
+def get_data(
+    cutout: Any,
+    feature: str,
+    tmpdir: str | Path | None = None,
+    lock: Any = None,
+    **creation_parameters: Any,
+) -> xr.Dataset:
     """
     Retrieve data from NCAR THREDDS for the given cutout and feature.
 
