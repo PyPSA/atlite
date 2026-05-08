@@ -23,7 +23,6 @@ import logging
 import math
 import threading
 from calendar import monthrange
-from contextlib import nullcontext
 from datetime import date
 from pathlib import Path
 from tempfile import mkdtemp
@@ -32,7 +31,6 @@ import numpy as np
 import tenacity
 import xarray as xr
 from dask import compute, delayed
-from dask.utils import SerializableLock
 from pydap.client import open_url
 
 from atlite.gis import maybe_swap_spatial_dims
@@ -209,7 +207,7 @@ def _bbox_isel(north: float, south: float, west: float, east: float) -> dict:
 
 def _cache_path(tmpdir: Path, url: str) -> Path:
     key = hashlib.md5(url.encode()).hexdigest()[:16]
-    return tmpdir / f"era5ncar_{key}.nc"
+    return tmpdir / f"era5ncar_{key}.zarr"
 
 
 @tenacity.retry(
@@ -259,16 +257,13 @@ def _fetch_file(
     lon_s: int,
     lon_e: int,
     tmpdir: Path,
-    lock,
 ) -> Path:
     """
-    Return path to a cached NetCDF for one ERA5 file, downloading if absent.
+    Return path to a cached Zarr store for one ERA5 file, downloading if absent.
 
     The cache key is MD5(url), which encodes variable, period, and spatial CE.
-    The write is atomic (write to .tmp under lock, rename on success) so a
-    crashed download leaves no corrupt file.  The lock serialises HDF5 writes
-    because the system netCDF4 library is typically not compiled with
-    thread-safe HDF5.
+    The write is atomic (write to .tmp dir, rename on success) so a crashed
+    download leaves no corrupt store.  Zarr is thread-safe so no lock is needed.
     """
     cache = _cache_path(tmpdir, url)
     if cache.exists():
@@ -276,9 +271,8 @@ def _fetch_file(
         return cache
 
     da = _download_to_array(url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e)
-    tmp = cache.with_suffix(".tmp")
-    with lock:
-        da.to_netcdf(tmp)
+    tmp = cache.with_name(cache.name + ".tmp")
+    da.to_zarr(tmp, mode="w")
     tmp.rename(cache)
     logger.debug("cached: %s", cache.name)
     return cache
@@ -297,15 +291,8 @@ def _load_var(
     start: date,
     end: date,
     tmpdir: Path,
-    lock,
 ) -> xr.DataArray:
-    """
-    Fetch all files for one variable in parallel, return a DataArray.
-
-    Files are written to tmpdir one at a time under lock.  Reads are also
-    serialised under lock: netCDF4 is typically not compiled with thread-safe
-    HDF5, so concurrent opens across dask workers would segfault.
-    """
+    """Fetch all files for one variable in parallel, return a DataArray."""
     product, param_code, var_name = SOLAR_VARIABLES[atlite_name]
 
     isel = _bbox_isel(north, south, west, east)
@@ -318,16 +305,17 @@ def _load_var(
     logger.info("%s: %d files", atlite_name, len(urls))
 
     paths = compute(*[
-        delayed(_fetch_file)(url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, tmpdir, lock)
+        delayed(_fetch_file)(url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, tmpdir)
         for url in urls
     ])
 
-    parts = []
-    for p in paths:
-        with lock:
-            parts.append(xr.open_dataset(p)[atlite_name].load())
-
-    da = xr.concat(parts, dim="time").sortby("time").sel(time=slice(str(start), str(end)))
+    ds = xr.open_mfdataset(
+        [str(p) for p in paths],
+        engine="zarr",
+        concat_dim="time",
+        combine="nested",
+    )
+    da = ds[atlite_name].sortby("time").sel(time=slice(str(start), str(end)))
     da.encoding = {}  # don't let cache-file encoding bleed into the cutout write
     return da
 
@@ -363,16 +351,14 @@ def get_solar_timeseries(
     start, end : date
         Inclusive date range.
     tmpdir : Path
-        Directory for per-file NetCDF cache. Pass a persistent path to enable
-        crash recovery; files whose cache entry already exists are skipped.
-    lock : SerializableLock or None
-        Serialises HDF5 writes; pass the lock from atlite's get_features to
-        avoid races on non-thread-safe netCDF4 builds.
+        Directory for per-file Zarr cache. Pass a persistent path to enable
+        crash recovery; entries that already exist are skipped.
+    lock : ignored
+        Accepted for API compatibility with atlite's get_features; Zarr is
+        thread-safe so no lock is needed.
     """
-    if lock is None:
-        lock = SerializableLock()
     arrays = compute(*[
-        delayed(_load_var)(name, north, south, west, east, start, end, tmpdir, lock)
+        delayed(_load_var)(name, north, south, west, east, start, end, tmpdir)
         for name in SOLAR_VARIABLES
     ])
     return xr.merge(list(arrays))

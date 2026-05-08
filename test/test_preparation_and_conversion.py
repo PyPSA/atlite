@@ -22,6 +22,8 @@ from dateutil.relativedelta import relativedelta
 from shapely.geometry import LineString as Line
 from shapely.geometry import Point
 
+import xarray as xr
+
 import atlite
 from atlite import Cutout
 
@@ -651,3 +653,49 @@ class TestGebco:
         Every cells should have data.
         """
         assert np.isfinite(cutout_gebco.data).all()
+
+
+# Variables produced by era5.py for the influx feature.
+_ERA5_INFLUX_VARS = [
+    "influx_toa",
+    "influx_direct",
+    "influx_diffuse",
+    "albedo",
+    "solar_altitude",
+    "solar_azimuth",
+]
+
+
+class TestERA5NCAR:
+    @staticmethod
+    def test_influx_identical(cutout_era5, cutout_era5_ncar):
+        """era5_ncar influx should be identical to era5 influx."""
+        xr.testing.assert_allclose(
+            cutout_era5_ncar.data,
+            cutout_era5.data[_ERA5_INFLUX_VARS],
+            atol=1e-4,
+        )
+
+    @staticmethod
+    def test_influx_coarse_identical(cutout_era5_coarse, cutout_era5_ncar_coarse):
+        """era5_ncar coarse influx should be identical to era5 coarse influx."""
+        xr.testing.assert_allclose(
+            cutout_era5_ncar_coarse.data,
+            cutout_era5_coarse.data[_ERA5_INFLUX_VARS],
+            atol=1e-4,
+        )
+
+    @staticmethod
+    @pytest.mark.skipif(
+        os.name == "nt",
+        reason="This test breaks on windows machine on CI due to unknown reasons.",
+    )
+    def test_influx_weird_resolution_identical(
+        cutout_era5_weird_resolution, cutout_era5_ncar_weird_resolution
+    ):
+        """era5_ncar weird-resolution influx should be identical to era5."""
+        xr.testing.assert_allclose(
+            cutout_era5_ncar_weird_resolution.data,
+            cutout_era5_weird_resolution.data[_ERA5_INFLUX_VARS],
+            atol=1e-4,
+        )

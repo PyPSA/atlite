@@ -24,7 +24,7 @@ with tempfile.TemporaryDirectory() as cache_dir:
     c1 = atlite.Cutout(path=str(cache / "cold.nc"), module="era5_ncar", **BBOX, **TIME)
     c1.prepare(features=["influx"], tmpdir=str(cache))
     cold_time = time.time() - t0
-    cached_files = sorted(cache.glob("era5ncar_*.nc"))
+    cached_files = sorted(cache.glob("era5ncar_*.zarr"))
     print(f"\ncold: {cold_time:.1f}s, {len(cached_files)} files cached")
 
     # Warm run

@@ -19,6 +19,21 @@ GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
 
 
+def _ncar_reachable() -> bool:
+    try:
+        import urllib.request
+        urllib.request.urlopen(
+            "https://thredds.rda.ucar.edu/thredds/catalog/catalog.html",
+            timeout=10,
+        )
+        return True
+    except Exception:
+        return False
+
+
+NCAR_AVAILABLE = _ncar_reachable()
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--cache-path",
@@ -182,6 +197,36 @@ def cutout_sarah_weird_resolution(cutouts_path):
     )
     cutout.prepare()
     return cutout
+
+
+def _prepare_era5_ncar_cutout(path, ncar_cache, prepare_kwargs=None, **kwargs):
+    cutout = Cutout(path=path, module="era5_ncar", bounds=BOUNDS, **kwargs)
+    if not path.exists() and not NCAR_AVAILABLE:
+        pytest.skip("NCAR THREDDS not reachable and no cached cutout available")
+    ncar_cache.mkdir(parents=True, exist_ok=True)
+    cutout.prepare(features=["influx"], tmpdir=str(ncar_cache), **(prepare_kwargs or {}))
+    return cutout
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_ncar(cutouts_path):
+    tmp_path = cutouts_path / "cutout_era5_ncar.nc"
+    ncar_cache = cutouts_path / "ncar_cache"
+    return _prepare_era5_ncar_cutout(tmp_path, ncar_cache, time=TIME)
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_ncar_coarse(cutouts_path):
+    tmp_path = cutouts_path / "cutout_era5_ncar_coarse.nc"
+    ncar_cache = cutouts_path / "ncar_cache"
+    return _prepare_era5_ncar_cutout(tmp_path, ncar_cache, time=TIME, dx=0.5, dy=0.7)
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_ncar_weird_resolution(cutouts_path):
+    tmp_path = cutouts_path / "cutout_era5_ncar_weird_resolution.nc"
+    ncar_cache = cutouts_path / "ncar_cache"
+    return _prepare_era5_ncar_cutout(tmp_path, ncar_cache, time=TIME, dx=0.132, dy=0.32)
 
 
 @pytest.fixture(scope="session")
