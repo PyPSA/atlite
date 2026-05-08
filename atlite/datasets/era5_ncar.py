@@ -635,7 +635,6 @@ def get_data_wind(cutout: Any, tmpdir: Path) -> xr.Dataset:
     arrays = _regrid_to_target(arrays, cutout)
     ds = _rename_and_clean_coords(xr.Dataset(arrays))
 
-    # TODO: check if units are correct ,era5.py uses units from ds here
     for h in (10, 100):
         ds[f"wnd{h}m"] = np.sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
             units="m s**-1", long_name=f"{h} metre wind speed"
@@ -645,10 +644,15 @@ def get_data_wind(cutout: Any, tmpdir: Path) -> xr.Dataset:
     ).assign_attrs(units="", long_name="wind shear exponent")
 
     azimuth = np.arctan2(ds["u100"], ds["v100"])
-    ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
+    ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi).assign_attrs(
+        units="m s**-1", long_name="100 metre U wind component"
+    )
 
     ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
     ds = ds.rename({"fsr": "roughness"})
+    ds["roughness"] = ds["roughness"].assign_attrs(
+        units="m", long_name="Forecast surface roughness"
+    )
     return ds
 
 
@@ -706,6 +710,8 @@ def get_data_temperature(cutout: Any, tmpdir: Path) -> xr.Dataset:
             "d2m": "dewpoint temperature",
         }
     )
+    for name in ("temperature", "soil temperature", "dewpoint temperature"):
+        ds[name].attrs["units"] = "K"
     return ds
 
 
@@ -714,6 +720,7 @@ def get_data_runoff(cutout: Any, tmpdir: Path) -> xr.Dataset:
     arrays = _regrid_to_target(arrays, cutout)
     ds = _rename_and_clean_coords(xr.Dataset(arrays))
     ds = ds.rename({"ro": "runoff"})
+    ds["runoff"].attrs["units"] = "m"
     return ds
 
 
@@ -722,6 +729,7 @@ def get_data_height(cutout: Any, tmpdir: Path) -> xr.Dataset:
     arrays = _regrid_to_target(arrays, cutout)
     ds = _rename_and_clean_coords(xr.Dataset(arrays))
     ds = _add_height(ds)
+    ds["height"].attrs["units"] = "m**2 s**-2"
     return ds
 
 
