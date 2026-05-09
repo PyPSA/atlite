@@ -721,6 +721,42 @@ class TestERA5NCAR:
         )
 
     @staticmethod
+    def test_all_features_3h_sampling_identical(
+        cutout_era5_3h_sampling, cutout_era5_ncar_3h_sampling
+    ):
+        """
+        era5_ncar should preserve coarser hourly sampling and match ERA5 values.
+        """
+        assert pd.infer_freq(cutout_era5_ncar_3h_sampling.data.time) == "3h"
+        TestERA5NCAR._assert_compatible_cutouts(
+            cutout_era5_3h_sampling, cutout_era5_ncar_3h_sampling
+        )
+        common = sorted(cutout_era5_3h_sampling.data.data_vars)
+        xr.testing.assert_allclose(
+            cutout_era5_ncar_3h_sampling.data[common],
+            cutout_era5_3h_sampling.data[common],
+            atol=1e-4,
+        )
+
+    @staticmethod
+    def test_all_features_2days_crossing_months_identical(
+        cutout_era5_2days_crossing_months, cutout_era5_ncar_2days_crossing_months
+    ):
+        """
+        era5_ncar should match ERA5 across month boundaries.
+        """
+        TestERA5NCAR._assert_compatible_cutouts(
+            cutout_era5_2days_crossing_months,
+            cutout_era5_ncar_2days_crossing_months,
+        )
+        common = sorted(cutout_era5_2days_crossing_months.data.data_vars)
+        xr.testing.assert_allclose(
+            cutout_era5_ncar_2days_crossing_months.data[common],
+            cutout_era5_2days_crossing_months.data[common],
+            atol=1e-4,
+        )
+
+    @staticmethod
     def test_all_features_coarse_identical(cutout_era5_coarse, cutout_era5_ncar_coarse):
         """
         era5_ncar coarse-resolution should be close to era5 across all features.
