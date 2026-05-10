@@ -33,6 +33,9 @@ Upcoming Release
   aggregation with and without spatial aggregation, and deprecate ``capacity_factor``/``capacity_factor_timeseries`` 
   in favor of it
 
+* Add the NCAR mirror of ERA5 as a new dataset ``atlite/datasets/era5_ncar.py``. It can be used as a drop-in replacement
+  for the CDS source in many workflows, and doesn't require authentication or waiting in a queue.
+
 **Bug fixes**
 
 * Fix regression when ``ExclusionContainer`` encounters a raster with an invalid CRS
