@@ -24,6 +24,12 @@ Upcoming Release
 
 * Fix backwards compatibility of ``aggregate_matrix``.
 
+**Features**
+
+* Add the NCAR mirror of ERA5 as a new dataset ``atlite/datasets/era5_ncar.py``. It can be used as a drop-in replacement
+  for the CDS source in many workflows, and doesn't require authentication or waiting in a queue.
+
+
 `v0.6.0 <https://github.com/PyPSA/atlite/releases/tag/v0.6.0>`__ (15th April 2026)
 =======================================================================================
 
@@ -32,9 +38,6 @@ Upcoming Release
 * Add ``aggregate_time={"sum", "mean", None}`` to ``convert_and_aggregate`` for temporal 
   aggregation with and without spatial aggregation, and deprecate ``capacity_factor``/``capacity_factor_timeseries`` 
   in favor of it
-
-* Add the NCAR mirror of ERA5 as a new dataset ``atlite/datasets/era5_ncar.py``. It can be used as a drop-in replacement
-  for the CDS source in many workflows, and doesn't require authentication or waiting in a queue.
 
 **Bug fixes**
 
