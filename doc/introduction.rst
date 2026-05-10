@@ -93,15 +93,16 @@ minimal setup from the user in comparison to other datasets. We offer two method
 - ECMWF ADS API (European Centre for Medium-Range Weather Forecasts
   Climate Data Store) is the original source for the dataset. It requires
   some setup (see :doc:`installation instructions <installation>`), and
-  downloads may spend hours in the server processing queue. See
+  downloads may spend hours in a processing queue on the server. See
   `this example <https://atlite.readthedocs.io/en/master/examples/create_cutout.html>`_
   to learn how to create an ERA5 cutout.
 
 - NSF NCAR (National Science Foundation National Center for Atmospheric
   Research) hosts `a mirror <https://gdex.ucar.edu/datasets/d633000/>`_
   of ERA5. It does not require authentication, and downloads begin
-  instantaneously. However, the data is stored in a different format
-  than CDS, so expect minor numerical differences.
+  instantaneously. It is the most convenient source for most users unless you need 
+  to download the data at an odd resolution. See `this example <https://atlite.readthedocs.io/en/master/examples/comparing_era5_sources_cds_vs_ncar.html>`_
+  to learn how to use the NCAR mirror and understand where it may not be the best choice.
 
 Previously and in the future other datasets where and (hopefully) will
 again be usable, including
