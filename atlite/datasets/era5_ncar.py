@@ -35,6 +35,7 @@ from atlite.datasets.era5 import (
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
 
+#  avoid circular imports during typecheck
 if TYPE_CHECKING:
     from atlite.cutout import Cutout
 
@@ -48,7 +49,7 @@ RawArrays = dict[str, xr.DataArray]
 Handler = Callable[["Cutout", Path], xr.Dataset]
 Sanitizer = Callable[[xr.Dataset], xr.Dataset]
 
-# UCAR asked us to keep THREDDS request concurrency bounded.
+# Custom dask thread pool to limit simultaneous THREDDS requests to avoid rate limits
 _FETCH_POOL = ContextAwareThreadPoolExecutor(8, thread_name_prefix="ncar-fetch")
 
 crs = 4326
@@ -71,12 +72,11 @@ features: dict[str, list[str]] = {
 static_features: set[str] = {"height"}
 
 _DODC_BASE = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d633000"
-_ERA5_RES = 0.25  # degree
-_BBOX_PAD = 0.5  # degrees added to each side for edge interpolation support
-_ERA5_EPOCH = np.datetime64("1900-01-01T00:00", "h")
-_N_HOUR = 11  # 12 ERA5 forecast steps; DAP2 stop index is inclusive
+_ERA5_RES = 0.25  # ERA5 is stored at 0.25/0.25 deg. grid resolution on NCAR THREDDS
+_BBOX_PAD = 0.5  # degrees added to each side for interpolation
 
 # atlite name → (NCAR product dir, NCAR param code, DAP2 variable name)
+# mapping of variables for creatig download URLs
 VARIABLES: dict[str, tuple[str, str, str]] = {
     # analysis surface (1D time)
     "u10": ("e5.oper.an.sfc", "128_165_10u", "VAR_10U"),
@@ -99,117 +99,55 @@ VARIABLES: dict[str, tuple[str, str, str]] = {
 
 
 # ---------------------------------------------------------------------------
-# Temporal helpers
+# Functions for building download URLs
 # ---------------------------------------------------------------------------
 
 
-def _month_bounds_in_range(start: date, end: date) -> list[tuple[date, date]]:
+def _build_url(tspec: TemporalSpec, sspec: SpatialSpec, var_name: str) -> str:
     """
-    Return monthly file periods covering a date range.
+    Assemble a DAP2 download URL. The dataset is stored in monthly/biweekly NetCDF
+    files for each variable. A single file covers the whole globe, but DAP constraint
+    expressions allow us to download a spatial subset of that. So for a cutout that is
+    limited in space and time, we:
+    1) Determine which files cover the required time period (TemporalSpec)
+    2) Determine which spacial slice of those files is required for the cutout (SpatialSpec)
 
     Parameters
     ----------
-    start, end : datetime.date
-        Inclusive date range.
+    tspec : dict
+        Temporal file specification from :func:`_temporal_file_specs`.
+    sspec : dict
+        Spatial index specification from :func:`_spatial_specs`.
+    var_name : str
+        NCAR variable name.
 
     Returns
     -------
-    list of tuple of datetime.date
-        Month start and month end pairs.
+    str
+        URL including DAP2 constraint expression.
     """
-    if start > end:
-        return []
-    out: list[tuple[date, date]] = []
-    cur = date(start.year, start.month, 1)
-    while cur <= end:
-        _, last = monthrange(cur.year, cur.month)
-        out.append((date(cur.year, cur.month, 1), date(cur.year, cur.month, last)))
-        if cur.month == 12:
-            cur = date(cur.year + 1, 1, 1)
-        else:
-            cur = date(cur.year, cur.month + 1, 1)
-    return out
-
-
-def _add_month(y: int, m: int, delta: int) -> tuple[int, int]:
-    """
-    Add months to a year-month pair.
-
-    Parameters
-    ----------
-    y, m : int
-        Year and month.
-    delta : int
-        Number of months to add.
-
-    Returns
-    -------
-    tuple of int
-        Updated ``(year, month)`` pair.
-    """
-    m += delta
-    y += (m - 1) // 12
-    m = (m - 1) % 12 + 1
-    return y, m
-
-
-def _halfmonth_bounds_in_range(start: date, end: date) -> list[tuple[date, date]]:
-    """
-    Return half-month file periods covering a date range.
-
-    Parameters
-    ----------
-    start, end : datetime.date
-        Inclusive date range.
-
-    Returns
-    -------
-    list of tuple of datetime.date
-        Period start and next period start pairs.
-
-    Notes
-    -----
-    Forecast files initialized at 06:00 UTC require the preceding half-month
-    file when the requested range starts on the 1st or 16th.
-    """
-    if start > end:
-        return []
-
-    def cur_start(d: date) -> date:
-        return date(d.year, d.month, 1) if d.day <= 15 else date(d.year, d.month, 16)
-
-    def next_start(s: date) -> date:
-        return (
-            date(s.year, s.month, 16)
-            if s.day == 1
-            else date(*_add_month(s.year, s.month, 1), 1)
-        )
-
-    out: list[tuple[date, date]] = []
-    cs = cur_start(start)
-
-    if start.day in (1, 16):
-        if cs.day == 1:
-            py, pm = _add_month(cs.year, cs.month, -1)
-            out.append((date(py, pm, 16), cs))
-        else:
-            out.append((date(cs.year, cs.month, 1), cs))
-
-    cur = cs
-    while cur <= end:
-        nxt = next_start(cur)
-        if nxt > start:
-            out.append((cur, nxt))
-        cur = nxt
-
-    return out
+    spatial_ce = (
+        f"[{sspec['lat_s']}:{sspec['lat_e']}][{sspec['lon_s']}:{sspec['lon_e']}]"
+    )
+    return f"{tspec['base_url']}?{var_name}{tspec['time_ce']}{spatial_ce}"
 
 
 def _temporal_file_specs(
     product: str, param_code: str, start: date | None, end: date | None
 ) -> list[TemporalSpec]:
     """
-    Build temporal file specifications for an ERA5 variable.
+    Build temporal file specifications for an ERA5 variable. This is a list of URLs
+    of the required NetCDF files for this variable, plus the indices of time variables
+    within those files. Indices are required, because a DAP2 constraint expression that
+    we use for spatial subsetting must hardcode values for all variables, even if you
+    want the whole time range (and different months have different numbers of hours, so
+    we cannot hardcode them).
+
+    All varriables follow roughly the same format:
+    {BASE_URL}/{PRODUCT_CODE}/{YYYYMM}/{PRODUCT_CODE}.{PARAMETER_CODE}.ll025sc.{YYYYMMDDHH_start}.{YYYYMMDDHH_end}.nc
+
+    But invariant, analysis, and forecast variables are stored in different formats underneath, hence
+    the three branches.
 
     Parameters
     ----------
@@ -283,7 +221,7 @@ def _temporal_file_specs(
             specs.append(
                 {
                     "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
-                    "time_ce": f"[0:{n_init}][0:{_N_HOUR}]",
+                    "time_ce": f"[0:{n_init}][0:{11}]",
                     "time_coord": time_coord,
                 }
             )
@@ -294,40 +232,124 @@ def _temporal_file_specs(
     return specs
 
 
-def _build_url(tspec: TemporalSpec, sspec: SpatialSpec, var_name: str) -> str:
+def _month_bounds_in_range(start: date, end: date) -> list[tuple[date, date]]:
     """
-    Assemble a DAP2 constraint-expression URL.
+    Return monthly file periods covering a date range. Used for analysis variables,
+    which are stored in monthly files.
 
     Parameters
     ----------
-    tspec : dict
-        Temporal file specification from :func:`_temporal_file_specs`.
-    sspec : dict
-        Spatial index specification from :func:`_spatial_specs`.
-    var_name : str
-        NCAR variable name.
+    start, end : datetime.date
+        Inclusive date range.
 
     Returns
     -------
-    str
-        URL including DAP2 constraint expression.
+    list of tuple of datetime.date
+        Month start and month end pairs.
     """
-    spatial_ce = (
-        f"[{sspec['lat_s']}:{sspec['lat_e']}][{sspec['lon_s']}:{sspec['lon_e']}]"
-    )
-    return f"{tspec['base_url']}?{var_name}{tspec['time_ce']}{spatial_ce}"
+    if start > end:
+        return []
+    out: list[tuple[date, date]] = []
+    cur = date(start.year, start.month, 1)
+    while cur <= end:
+        _, last = monthrange(cur.year, cur.month)
+        out.append((date(cur.year, cur.month, 1), date(cur.year, cur.month, last)))
+        if cur.month == 12:
+            cur = date(cur.year + 1, 1, 1)
+        else:
+            cur = date(cur.year, cur.month + 1, 1)
+    return out
 
 
-# ---------------------------------------------------------------------------
-# Spatial index helpers
-# ---------------------------------------------------------------------------
+def _add_month(y: int, m: int, delta: int) -> tuple[int, int]:
+    """
+    Add months to a year-month pair.
+
+    Parameters
+    ----------
+    y, m : int
+        Year and month.
+    delta : int
+        Number of months to add.
+
+    Returns
+    -------
+    tuple of int
+        Updated ``(year, month)`` pair.
+    """
+    m += delta
+    y += (m - 1) // 12
+    m = (m - 1) % 12 + 1
+    return y, m
+
+
+def _halfmonth_bounds_in_range(start: date, end: date) -> list[tuple[date, date]]:
+    """
+    Return half-month file periods covering a date range. Used for forecast variables,
+    which are stored in (roughly) 15-day files.
+
+    Parameters
+    ----------
+    start, end : datetime.date
+        Inclusive date range.
+
+    Returns
+    -------
+    list of tuple of datetime.date
+        Period start and next period start pairs.
+
+    Notes
+    -----
+    Forecast files initialized at 06:00 UTC require the preceding half-month
+    file when the requested range starts on the 1st or 16th.
+    """
+    if start > end:
+        return []
+
+    def cur_start(d: date) -> date:
+        return date(d.year, d.month, 1) if d.day <= 15 else date(d.year, d.month, 16)
+
+    def next_start(s: date) -> date:
+        return (
+            date(s.year, s.month, 16)
+            if s.day == 1
+            else date(*_add_month(s.year, s.month, 1), 1)
+        )
+
+    out: list[tuple[date, date]] = []
+    cs = cur_start(start)
+
+    if start.day in (1, 16):
+        if cs.day == 1:
+            py, pm = _add_month(cs.year, cs.month, -1)
+            out.append((date(py, pm, 16), cs))
+        else:
+            out.append((date(cs.year, cs.month, 1), cs))
+
+    cur = cs
+    while cur <= end:
+        nxt = next_start(cur)
+        if nxt > start:
+            out.append((cur, nxt))
+        cur = nxt
+
+    return out
 
 
 def _spatial_specs(
     north: float, south: float, west: float, east: float
 ) -> list[SpatialSpec]:
     """
-    Map a WGS84 bounding box to ERA5 grid index segments.
+    Map atlite coords to ERA5 grid index segments.
+
+    atlite coordinate system:
+    - x: -180:180
+    - y: -90:90
+
+    ncar d633000 coordinate system:
+    - x: 0:360
+    - y: -90:90
+
 
     Parameters
     ----------
@@ -360,10 +382,43 @@ def _spatial_specs(
 
 
 # ---------------------------------------------------------------------------
-# Per-file fetch
+# Download/retrieval machinery
 # ---------------------------------------------------------------------------
+#
+def _fetch_vars(atlite_names: list[str], cutout: Cutout, tmpdir: Path) -> RawArrays:
+    """
+    Load raw NCAR variables for an atlite cutout.
+
+    Parameters
+    ----------
+    atlite_names : list of str
+        Variable names used by atlite.
+    cutout : atlite.Cutout
+        Cutout defining the target grid and time range.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    dict
+        Mapping from variable name to native-grid :class:`xarray.DataArray`.
+    """
+    area = _area(cutout)
+    if "time" in cutout.coords:
+        time_index = cutout.coords["time"].to_index()
+        start, end = time_index[0].date(), time_index[-1].date()
+    else:
+        start, end = None, None
+    return {
+        name: _load_var(name, **area, start=start, end=end, tmpdir=tmpdir)
+        for name in atlite_names
+    }
 
 
+# We use tenacity to retry downloads when they fail due to netwoerk errors or
+# rate limits. Exponential backoff ensures we don't hit the server with
+# a lot of retries at the same time. Retries only happen at the below
+# network-related errors
 _TRANSIENT_EXCEPTIONS = (urllib.error.URLError, OSError, TimeoutError)
 
 
@@ -644,36 +699,6 @@ def _is_native_grid(cutout: Cutout) -> bool:
         True when both spatial resolutions are 0.25 degrees.
     """
     return abs(cutout.dx - _ERA5_RES) < 1e-9 and abs(cutout.dy - _ERA5_RES) < 1e-9
-
-
-def _fetch_vars(atlite_names: list[str], cutout: Cutout, tmpdir: Path) -> RawArrays:
-    """
-    Load raw NCAR variables for a cutout.
-
-    Parameters
-    ----------
-    atlite_names : list of str
-        Variable names used by atlite.
-    cutout : atlite.Cutout
-        Cutout defining the target grid and time range.
-    tmpdir : pathlib.Path
-        Directory for cached Zarr stores.
-
-    Returns
-    -------
-    dict
-        Mapping from variable name to native-grid :class:`xarray.DataArray`.
-    """
-    area = _area(cutout)
-    if "time" in cutout.coords:
-        time_index = cutout.coords["time"].to_index()
-        start, end = time_index[0].date(), time_index[-1].date()
-    else:
-        start, end = None, None
-    return {
-        name: _load_var(name, **area, start=start, end=end, tmpdir=tmpdir)
-        for name in atlite_names
-    }
 
 
 def _regrid_to_target(arrays: RawArrays, cutout: Cutout) -> RawArrays:
