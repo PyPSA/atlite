@@ -72,6 +72,7 @@ static_features: set[str] = {"height"}
 
 _DODS_BASE = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d633000"
 _ERA5_RES = 0.25  # ERA5 is stored at 0.25/0.25 deg. grid resolution on NCAR THREDDS
+_N_LON = int(round(360.0 / _ERA5_RES))
 _BBOX_PAD = 0.5  # degrees added to each side for interpolation
 
 # atlite name → (NCAR product dir, NCAR param code, DAP2 variable name)
@@ -366,19 +367,20 @@ def _spatial_specs(
     lat_e = math.floor((90 - south) / _ERA5_RES)
 
     base: SpatialSpec = {"lat_s": lat_s, "lat_e": lat_e}
+    # handle whole world slices
     if east - west >= 360.0 - 1e-9:
-        return [{**base, "lon_s": 0, "lon_e": 1439}]
+        return [{**base, "lon_s": 0, "lon_e": _N_LON - 1}]
 
     west_360 = west % 360
     east_360 = east % 360
-    j_west = math.ceil(west_360 / _ERA5_RES)
-    j_east = math.floor(east_360 / _ERA5_RES)
+    j_west = math.ceil(west_360 / _ERA5_RES) % _N_LON
+    j_east = math.floor(east_360 / _ERA5_RES) % _N_LON
 
     if j_west <= j_east:
         return [{**base, "lon_s": j_west, "lon_e": j_east}]
     else:
         return [
-            {**base, "lon_s": j_west, "lon_e": 1439},
+            {**base, "lon_s": j_west, "lon_e": _N_LON - 1},
             {**base, "lon_s": 0, "lon_e": j_east},
         ]
 
@@ -389,7 +391,7 @@ def _spatial_specs(
 #
 def _fetch_vars(atlite_names: list[str], cutout: Cutout, tmpdir: Path) -> RawArrays:
     """
-    Load raw NCAR variables for an atlite cutout.
+    Get raw ERA5 data relevant to a list of atlite variables.
 
     Parameters
     ----------
@@ -428,145 +430,6 @@ def _fetch_vars(atlite_names: list[str], cutout: Cutout, tmpdir: Path) -> RawArr
     }
 
 
-# We use tenacity to retry downloads when they fail due to network errors or
-# rate limits. Exponential backoff ensures we don't hit the server with
-# a lot of retries at the same time. Retries only happen at the below
-# network-related errors
-_TRANSIENT_EXCEPTIONS = (urllib.error.URLError, OSError, TimeoutError)
-
-
-@tenacity.retry(
-    retry=tenacity.retry_if_exception_type(_TRANSIENT_EXCEPTIONS),
-    wait=tenacity.wait_exponential_jitter(initial=4, max=120, jitter=4),
-    stop=tenacity.stop_after_attempt(8),
-    before_sleep=tenacity.before_sleep_log(logger, logging.WARNING),
-    reraise=True,
-)
-def _download_to_array(
-    url: str,
-    var_name: str,
-    atlite_name: str,
-    lat_s: int,
-    lat_e: int,
-    lon_s: int,
-    lon_e: int,
-    product: str,
-    time_coord: np.ndarray | None,
-) -> xr.DataArray:
-    """
-    Download one constrained ERA5 file.
-
-    Parameters
-    ----------
-    url : str
-        DAP2 URL including constraint expression.
-    var_name : str
-        NCAR variable name.
-    atlite_name : str
-        Variable name used by atlite.
-    lat_s, lat_e, lon_s, lon_e : int
-        Inclusive ERA5 grid index bounds.
-    product : str
-        NCAR product directory.
-    time_coord : numpy.ndarray or None
-        Hourly time coordinate for the downloaded values.
-
-    Returns
-    -------
-    xarray.DataArray
-        Downloaded variable with ``time`` where applicable and native ERA5
-        latitude/longitude coordinates.
-    """
-    ds_pydap = open_url(f"dap2://{url[8:]}")
-    arr = np.asarray(ds_pydap[var_name][var_name][:])
-
-    if product == "e5.oper.fc.sfc.accumu":
-        data = arr.reshape(-1, arr.shape[2], arr.shape[3])
-    elif product == "e5.oper.an.sfc":
-        data = arr
-    elif product == "e5.oper.invariant":
-        data = arr[0]
-    else:
-        raise ValueError(f"Unknown product: {product!r}")
-
-    lat_vals = 90.0 - np.arange(lat_s, lat_e + 1) * _ERA5_RES
-    raw_lons = np.arange(lon_s, lon_e + 1) * _ERA5_RES
-    lon_vals = np.where(raw_lons >= 180.0, raw_lons - 360.0, raw_lons)
-
-    if time_coord is None:
-        return xr.DataArray(
-            data,
-            dims=["latitude", "longitude"],
-            coords={"latitude": lat_vals, "longitude": lon_vals},
-            name=atlite_name,
-        )
-    return xr.DataArray(
-        data,
-        dims=["time", "latitude", "longitude"],
-        coords={"time": time_coord, "latitude": lat_vals, "longitude": lon_vals},
-        name=atlite_name,
-    )
-
-
-def _fetch_file(
-    url: str,
-    var_name: str,
-    atlite_name: str,
-    lat_s: int,
-    lat_e: int,
-    lon_s: int,
-    lon_e: int,
-    product: str,
-    time_coord: np.ndarray | None,
-    tmpdir: Path,
-) -> Path:
-    """
-    Return a cached Zarr store for one ERA5 file.
-
-    Parameters
-    ----------
-    url : str
-        DAP2 URL including constraint expression.
-    var_name : str
-        NCAR variable name.
-    atlite_name : str
-        Variable name used by atlite.
-    lat_s, lat_e, lon_s, lon_e : int
-        Inclusive ERA5 grid index bounds.
-    product : str
-        NCAR product directory.
-    time_coord : numpy.ndarray or None
-        Hourly time coordinate for the downloaded values.
-    tmpdir : pathlib.Path
-        Directory for cached Zarr stores.
-
-    Returns
-    -------
-    pathlib.Path
-        Path to the Zarr store.
-    """
-    key = hashlib.md5(url.encode()).hexdigest()[:16]
-    cache = tmpdir / f"era5ncar_{key}.zarr"
-    if cache.exists():
-        logger.debug("cache hit: %s", cache.name)
-        return cache
-
-    logger.info("NCAR: Downloading variable %s", atlite_name)
-    da = _download_to_array(
-        url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, product, time_coord
-    )
-    tmp = cache.with_name(cache.name + ".tmp")
-    da.to_zarr(tmp, mode="w")
-    tmp.rename(cache)
-    logger.debug("cached: %s", cache.name)
-    return cache
-
-
-# ---------------------------------------------------------------------------
-# Per-variable loader
-# ---------------------------------------------------------------------------
-
-
 def _load_var(
     atlite_name: str,
     north: float,
@@ -579,7 +442,7 @@ def _load_var(
     chunks: dict[str, int],
 ) -> xr.DataArray:
     """
-    Load one NCAR variable for the requested extent and time range.
+    Load one NCAR variable for the requested spatial extent and time range.
 
     Parameters
     ----------
@@ -609,7 +472,9 @@ def _load_var(
     )
 
     n = len(tspecs)
+    # we use a custom thread pool to limit the number of simultaneous request to THREDDS
     with dask.config.set(pool=_FETCH_POOL):
+        # get list of locations of all downloaded files.
         all_paths = compute(
             *[
                 delayed(_fetch_file)(
@@ -629,6 +494,11 @@ def _load_var(
             ]
         )
 
+    # open all relevant files. requests which cross the zero meridian will have two
+    # files - one for data east of the meridian, one for data west of the meridian.
+    # those need to be concatenated along the longitude.
+
+    # invariant will only have one timestep, so it doesn't require concatenation along time
     if is_invariant:
         if len(sspecs) == 1:
             da = xr.open_dataset(str(all_paths[0]), engine="zarr")[atlite_name]
@@ -641,6 +511,7 @@ def _load_var(
         da.encoding = {}
         return da
 
+    # everything else has a time dimension, so files must be concatenated along time and space.
     if len(sspecs) == 1:
         da = xr.open_mfdataset(
             [str(p) for p in all_paths],
@@ -672,9 +543,153 @@ def _load_var(
     return da
 
 
-# ---------------------------------------------------------------------------
-# Shared retrieval and coordinate post-processing
-# ---------------------------------------------------------------------------
+def _fetch_file(
+    url: str,
+    var_name: str,
+    atlite_name: str,
+    lat_s: int,
+    lat_e: int,
+    lon_s: int,
+    lon_e: int,
+    product: str,
+    time_coord: np.ndarray | None,
+    tmpdir: Path,
+) -> Path:
+    """
+    Caching function, also enables recovery from a failed run.
+    Due to the large number of files required, we benefit a lot
+    from reading and writing them in parallel. We use zarr for
+    this, as the zarr engine is thread-safe by default, whereas
+    the HDF5 engine used by NetCDF is not, and requires serialising
+    reads and writes.
+
+    Parameters
+    ----------
+    url : str
+        DAP2 URL including constraint expression.
+    var_name : str
+        NCAR variable name.
+    atlite_name : str
+        Variable name used by atlite.
+    lat_s, lat_e, lon_s, lon_e : int
+        Inclusive ERA5 grid index bounds.
+    product : str
+        NCAR product directory.
+    time_coord : numpy.ndarray or None
+        Hourly time coordinate for the downloaded values.
+    tmpdir : pathlib.Path
+        Directory for cached Zarr stores.
+
+    Returns
+    -------
+    pathlib.Path
+        Path to the Zarr store.
+    """
+    # the url features the constraint expression, so it uniquely identifies a file
+    # incl. spatial and temporal subset.
+    key = hashlib.md5(url.encode()).hexdigest()[:16]
+    cache = tmpdir / f"era5ncar_{key}.zarr"
+    if cache.exists():
+        logger.debug("cache hit: %s", cache.name)
+        return cache
+
+    logger.info("NCAR: Downloading variable %s", atlite_name)
+    da = _download_to_array(
+        url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, product, time_coord
+    )
+    # atomic write
+    tmp = cache.with_name(cache.name + ".tmp")
+    da.to_zarr(tmp, mode="w")
+    tmp.rename(cache)
+    logger.debug("cached: %s", cache.name)
+    return cache
+
+
+# We use tenacity to retry downloads when they fail due to network errors or
+# rate limits. Exponential backoff ensures we don't hit the server with
+# a lot of retries at the same time. Retries only happen at the below
+# network-related errors
+_TRANSIENT_EXCEPTIONS = (urllib.error.URLError, OSError, TimeoutError)
+
+
+@tenacity.retry(
+    retry=tenacity.retry_if_exception_type(_TRANSIENT_EXCEPTIONS),
+    wait=tenacity.wait_exponential_jitter(initial=4, max=120, jitter=4),
+    stop=tenacity.stop_after_attempt(8),
+    before_sleep=tenacity.before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
+def _download_to_array(
+    url: str,
+    var_name: str,
+    atlite_name: str,
+    lat_s: int,
+    lat_e: int,
+    lon_s: int,
+    lon_e: int,
+    product: str,
+    time_coord: np.ndarray | None,
+) -> xr.DataArray:
+    """
+    Download one ERA5 file.
+
+    Parameters
+    ----------
+    url : str
+        DAP2 URL including constraint expression.
+    var_name : str
+        NCAR variable name.
+    atlite_name : str
+        Variable name used by atlite.
+    lat_s, lat_e, lon_s, lon_e : int
+        Inclusive ERA5 grid index bounds.
+    product : str
+        NCAR product directory.
+    time_coord : numpy.ndarray or None
+        Hourly time coordinate for the downloaded values.
+
+    Returns
+    -------
+    xarray.DataArray
+        Downloaded variable with ``time`` where applicable and native ERA5
+        latitude/longitude coordinates.
+    """
+    ds_pydap = open_url(f"dap2://{url[8:]}")
+    arr = np.asarray(ds_pydap[var_name][var_name][:])
+
+    if product == "e5.oper.fc.sfc.accumu":
+        # forecast variables have a 2D time index [forecast_init][forecast_time]
+        # we flatten them here for consistent processing upstream
+        # note - the values are NOT actually accumulated within a forecast,
+        # the timeseries is already deaccumnulated
+        data = arr.reshape(-1, arr.shape[2], arr.shape[3])
+    elif product == "e5.oper.an.sfc":
+        data = arr
+    elif product == "e5.oper.invariant":
+        # invariant variables are stored as a single timestep in 1970
+        # we need to extract the data
+        data = arr[0]
+    else:
+        raise ValueError(f"Unknown product: {product!r}")
+
+    # assign lat/lon values
+    lat_vals = 90.0 - np.arange(lat_s, lat_e + 1) * _ERA5_RES
+    raw_lons = np.arange(lon_s, lon_e + 1) * _ERA5_RES
+    lon_vals = np.where(raw_lons >= 180.0, raw_lons - 360.0, raw_lons)
+
+    if time_coord is None:
+        return xr.DataArray(
+            data,
+            dims=["latitude", "longitude"],
+            coords={"latitude": lat_vals, "longitude": lon_vals},
+            name=atlite_name,
+        )
+    return xr.DataArray(
+        data,
+        dims=["time", "latitude", "longitude"],
+        coords={"time": time_coord, "latitude": lat_vals, "longitude": lon_vals},
+        name=atlite_name,
+    )
 
 
 def _is_native_grid(cutout: Cutout) -> bool:
@@ -730,7 +745,14 @@ def _with_periodic_longitude(da: xr.DataArray, target_lon: np.ndarray) -> xr.Dat
 
 def _regrid_to_target(arrays: RawArrays, cutout: Cutout) -> RawArrays:
     """
-    Regrid raw variables to the cutout grid.
+    Regrid raw variables to the cutout grid. NCAR stores ERA5 at a 0.25/0.25 deg.
+    grid, so the best we can do is interpolate within it.
+
+    The CDS source in era5.py is a better choice if you need data at a grid that is
+    not a multiple of 0.25/0.25 deg., as they do sophisticated interpolation from the
+    raw spectral and Gaussian grids.
+
+    This function is here for feature parity with era5.py.
 
     Parameters
     ----------
@@ -766,6 +788,7 @@ def _regrid_to_target(arrays: RawArrays, cutout: Cutout) -> RawArrays:
             len(target_lon),
         )
         return {
+            # if data is close to zero longitude, we mirror it for interpolation purposes
             name: _with_periodic_longitude(da, target_lon).interp(
                 latitude=target_lat, longitude=target_lon, method="linear"
             )
