@@ -32,9 +32,6 @@ def _ncar_reachable() -> bool:
         return False
 
 
-NCAR_AVAILABLE = _ncar_reachable()
-
-
 def pytest_addoption(parser):
     parser.addoption(
         "--cache-path",
@@ -202,7 +199,7 @@ def cutout_sarah_weird_resolution(cutouts_path):
 
 def _prepare_era5_ncar_cutout(path, prepare_kwargs=None, **kwargs):
     cutout = Cutout(path=path, module="era5-ncar", bounds=BOUNDS, **kwargs)
-    if not path.exists() and not NCAR_AVAILABLE:
+    if not path.exists() and not _ncar_reachable():
         pytest.skip("NCAR THREDDS not reachable and no cached cutout available")
     cutout.prepare(tmpdir=str(path.parent), **(prepare_kwargs or {}))
     return cutout

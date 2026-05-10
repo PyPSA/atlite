@@ -704,6 +704,27 @@ class TestERA5NCAR:
         assert cand_units == ref_units
 
     @staticmethod
+    def _assert_allclose(reference, candidate, variables, *, atol, rtol=1e-7):
+        for var in variables:
+            if var == "wnd_azimuth":
+                diff = abs(
+                    (candidate[var] - reference[var] + np.pi) % (2 * np.pi) - np.pi
+                )
+                xr.testing.assert_allclose(
+                    diff,
+                    xr.zeros_like(diff),
+                    atol=atol,
+                    rtol=rtol,
+                )
+            else:
+                xr.testing.assert_allclose(
+                    candidate[var],
+                    reference[var],
+                    atol=atol,
+                    rtol=rtol,
+                )
+
+    @staticmethod
     def test_all_features_identical(cutout_era5, cutout_era5_ncar):
         """
         At native 0.25° resolution era5_ncar should match era5 across every feature.
@@ -714,9 +735,10 @@ class TestERA5NCAR:
         """
         TestERA5NCAR._assert_compatible_cutouts(cutout_era5, cutout_era5_ncar)
         common = sorted(cutout_era5.data.data_vars)
-        xr.testing.assert_allclose(
-            cutout_era5_ncar.data[common],
-            cutout_era5.data[common],
+        TestERA5NCAR._assert_allclose(
+            cutout_era5.data,
+            cutout_era5_ncar.data,
+            common,
             atol=1e-4,
         )
 
@@ -732,9 +754,10 @@ class TestERA5NCAR:
             cutout_era5_3h_sampling, cutout_era5_ncar_3h_sampling
         )
         common = sorted(cutout_era5_3h_sampling.data.data_vars)
-        xr.testing.assert_allclose(
-            cutout_era5_ncar_3h_sampling.data[common],
-            cutout_era5_3h_sampling.data[common],
+        TestERA5NCAR._assert_allclose(
+            cutout_era5_3h_sampling.data,
+            cutout_era5_ncar_3h_sampling.data,
+            common,
             atol=1e-4,
         )
 
@@ -750,9 +773,10 @@ class TestERA5NCAR:
             cutout_era5_ncar_2days_crossing_months,
         )
         common = sorted(cutout_era5_2days_crossing_months.data.data_vars)
-        xr.testing.assert_allclose(
-            cutout_era5_ncar_2days_crossing_months.data[common],
-            cutout_era5_2days_crossing_months.data[common],
+        TestERA5NCAR._assert_allclose(
+            cutout_era5_2days_crossing_months.data,
+            cutout_era5_ncar_2days_crossing_months.data,
+            common,
             atol=1e-4,
         )
 
@@ -773,9 +797,10 @@ class TestERA5NCAR:
         )
         common = sorted(cutout_era5_coarse.data.data_vars)
         # Cached fixture max_abs is ~1.8e-3, dominated by influx variables.
-        xr.testing.assert_allclose(
-            cutout_era5_ncar_coarse.data[common],
-            cutout_era5_coarse.data[common],
+        TestERA5NCAR._assert_allclose(
+            cutout_era5_coarse.data,
+            cutout_era5_ncar_coarse.data,
+            common,
             atol=2e-3,
             rtol=1e-5,
         )
@@ -810,8 +835,9 @@ class TestERA5NCAR:
             cutout_era5_weird_resolution.data.data_vars
         )
         for var, atol in TestERA5NCAR.WEIRD_RESOLUTION_TOLERANCES.items():
-            xr.testing.assert_allclose(
-                cutout_era5_ncar_weird_resolution.data[var],
-                cutout_era5_weird_resolution.data[var],
+            TestERA5NCAR._assert_allclose(
+                cutout_era5_weird_resolution.data,
+                cutout_era5_ncar_weird_resolution.data,
+                [var],
                 atol=atol,
             )

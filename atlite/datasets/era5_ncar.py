@@ -44,7 +44,6 @@ logging.getLogger("pydap").setLevel(logging.WARNING)
 
 TemporalSpec = dict[str, str | np.ndarray | None]
 SpatialSpec = dict[str, int]
-Area = dict[str, float]
 RawArrays = dict[str, xr.DataArray]
 Handler = Callable[["Cutout", Path], xr.Dataset]
 Sanitizer = Callable[[xr.Dataset], xr.Dataset]
@@ -71,12 +70,12 @@ features: dict[str, list[str]] = {
 
 static_features: set[str] = {"height"}
 
-_DODC_BASE = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d633000"
+_DODS_BASE = "https://thredds.rda.ucar.edu/thredds/dodsC/files/g/d633000"
 _ERA5_RES = 0.25  # ERA5 is stored at 0.25/0.25 deg. grid resolution on NCAR THREDDS
 _BBOX_PAD = 0.5  # degrees added to each side for interpolation
 
 # atlite name → (NCAR product dir, NCAR param code, DAP2 variable name)
-# mapping of variables for creatig download URLs
+# mapping of variables for creating download URLs
 VARIABLES: dict[str, tuple[str, str, str]] = {
     # analysis surface (1D time)
     "u10": ("e5.oper.an.sfc", "128_165_10u", "VAR_10U"),
@@ -110,7 +109,7 @@ def _build_url(tspec: TemporalSpec, sspec: SpatialSpec, var_name: str) -> str:
     expressions allow us to download a spatial subset of that. So for a cutout that is
     limited in space and time, we:
     1) Determine which files cover the required time period (TemporalSpec)
-    2) Determine which spacial slice of those files is required for the cutout (SpatialSpec)
+    2) Determine which spatial slice of those files is required for the cutout (SpatialSpec)
 
     Parameters
     ----------
@@ -143,7 +142,7 @@ def _temporal_file_specs(
     want the whole time range (and different months have different numbers of hours, so
     we cannot hardcode them).
 
-    All varriables follow roughly the same format:
+    All variables follow roughly the same format:
     {BASE_URL}/{PRODUCT_CODE}/{YYYYMM}/{PRODUCT_CODE}.{PARAMETER_CODE}.ll025sc.{YYYYMMDDHH_start}.{YYYYMMDDHH_end}.nc
 
     But invariant, analysis, and forecast variables are stored in different formats underneath, hence
@@ -170,7 +169,7 @@ def _temporal_file_specs(
         specs.append(
             {
                 "base_url": (
-                    f"{_DODC_BASE}/e5.oper.invariant/197901/"
+                    f"{_DODS_BASE}/e5.oper.invariant/197901/"
                     "e5.oper.invariant.128_129_z.ll025sc.1979010100_1979010100.nc"
                 ),
                 "time_ce": "[0:0]",
@@ -195,7 +194,7 @@ def _temporal_file_specs(
             )
             specs.append(
                 {
-                    "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
+                    "base_url": f"{_DODS_BASE}/{product}/{ym}/{fname}",
                     "time_ce": f"[0:{n_time}]",
                     "time_coord": time_coord,
                 }
@@ -220,7 +219,7 @@ def _temporal_file_specs(
             ).ravel()
             specs.append(
                 {
-                    "base_url": f"{_DODC_BASE}/{product}/{ym}/{fname}",
+                    "base_url": f"{_DODS_BASE}/{product}/{ym}/{fname}",
                     "time_ce": f"[0:{n_init}][0:{11}]",
                     "time_coord": time_coord,
                 }
@@ -366,12 +365,15 @@ def _spatial_specs(
     lat_s = math.ceil((90 - north) / _ERA5_RES)
     lat_e = math.floor((90 - south) / _ERA5_RES)
 
+    base: SpatialSpec = {"lat_s": lat_s, "lat_e": lat_e}
+    if east - west >= 360.0 - 1e-9:
+        return [{**base, "lon_s": 0, "lon_e": 1439}]
+
     west_360 = west % 360
     east_360 = east % 360
     j_west = math.ceil(west_360 / _ERA5_RES)
     j_east = math.floor(east_360 / _ERA5_RES)
 
-    base: SpatialSpec = {"lat_s": lat_s, "lat_e": lat_e}
     if j_west <= j_east:
         return [{**base, "lon_s": j_west, "lon_e": j_east}]
     else:
@@ -403,19 +405,30 @@ def _fetch_vars(atlite_names: list[str], cutout: Cutout, tmpdir: Path) -> RawArr
     dict
         Mapping from variable name to native-grid :class:`xarray.DataArray`.
     """
-    area = _area(cutout)
+    coords = cutout.coords
+    x0, x1 = coords["x"].min().item(), coords["x"].max().item()
+    y0, y1 = coords["y"].min().item(), coords["y"].max().item()
+    area = {
+        "north": min(90.0, y1 + _BBOX_PAD),
+        "south": max(-90.0, y0 - _BBOX_PAD),
+        "west": x0 - _BBOX_PAD,
+        "east": x1 + _BBOX_PAD,
+    }
     if "time" in cutout.coords:
         time_index = cutout.coords["time"].to_index()
         start, end = time_index[0].date(), time_index[-1].date()
     else:
         start, end = None, None
+    chunks = cutout.chunks or {"time": 100}
     return {
-        name: _load_var(name, **area, start=start, end=end, tmpdir=tmpdir)
+        name: _load_var(
+            name, **area, start=start, end=end, tmpdir=tmpdir, chunks=chunks
+        )
         for name in atlite_names
     }
 
 
-# We use tenacity to retry downloads when they fail due to netwoerk errors or
+# We use tenacity to retry downloads when they fail due to network errors or
 # rate limits. Exponential backoff ensures we don't hit the server with
 # a lot of retries at the same time. Retries only happen at the below
 # network-related errors
@@ -424,7 +437,7 @@ _TRANSIENT_EXCEPTIONS = (urllib.error.URLError, OSError, TimeoutError)
 
 @tenacity.retry(
     retry=tenacity.retry_if_exception_type(_TRANSIENT_EXCEPTIONS),
-    wait=tenacity.wait_exponential(multiplier=2, min=4, max=120),
+    wait=tenacity.wait_exponential_jitter(initial=4, max=120, jitter=4),
     stop=tenacity.stop_after_attempt(8),
     before_sleep=tenacity.before_sleep_log(logger, logging.WARNING),
     reraise=True,
@@ -477,8 +490,8 @@ def _download_to_array(
         raise ValueError(f"Unknown product: {product!r}")
 
     lat_vals = 90.0 - np.arange(lat_s, lat_e + 1) * _ERA5_RES
-    raw_lons = np.arange(lon_s, lon_e + 1) * _ERA5_RES  # 0–360
-    lon_vals = np.where(raw_lons > 180.0, raw_lons - 360.0, raw_lons)  # → −180..180
+    raw_lons = np.arange(lon_s, lon_e + 1) * _ERA5_RES
+    lon_vals = np.where(raw_lons >= 180.0, raw_lons - 360.0, raw_lons)
 
     if time_coord is None:
         return xr.DataArray(
@@ -563,6 +576,7 @@ def _load_var(
     start: date | None,
     end: date | None,
     tmpdir: Path,
+    chunks: dict[str, int],
 ) -> xr.DataArray:
     """
     Load one NCAR variable for the requested extent and time range.
@@ -577,6 +591,8 @@ def _load_var(
         Inclusive requested date range.
     tmpdir : pathlib.Path
         Directory for cached Zarr stores.
+    chunks : dict
+        Dask chunks passed to :func:`xarray.open_mfdataset`.
 
     Returns
     -------
@@ -620,7 +636,8 @@ def _load_var(
             das = [
                 xr.open_dataset(str(p), engine="zarr")[atlite_name] for p in all_paths
             ]
-            da = xr.concat(das, dim="longitude").sortby("longitude")
+            da = xr.concat(das, dim="longitude")
+        da = da.sortby("longitude")
         da.encoding = {}
         return da
 
@@ -630,7 +647,7 @@ def _load_var(
             engine="zarr",
             concat_dim="time",
             combine="nested",
-            chunks={"time": 100},
+            chunks=chunks,
         )[atlite_name]
     else:
         ds_a = xr.open_mfdataset(
@@ -638,17 +655,18 @@ def _load_var(
             engine="zarr",
             concat_dim="time",
             combine="nested",
-            chunks={"time": 100},
+            chunks=chunks,
         )
         ds_b = xr.open_mfdataset(
             [str(p) for p in all_paths[n:]],
             engine="zarr",
             concat_dim="time",
             combine="nested",
-            chunks={"time": 100},
+            chunks=chunks,
         )
-        da = xr.concat([ds_a, ds_b], dim="longitude").sortby("longitude")[atlite_name]
+        da = xr.concat([ds_a, ds_b], dim="longitude")[atlite_name]
 
+    da = da.sortby("longitude")
     da = da.sortby("time").sel(time=slice(str(start), str(end)))
     da.encoding = {}
     return da
@@ -657,31 +675,6 @@ def _load_var(
 # ---------------------------------------------------------------------------
 # Shared retrieval and coordinate post-processing
 # ---------------------------------------------------------------------------
-
-
-def _area(cutout: Cutout) -> Area:
-    """
-    Return the padded ERA5 request area for a cutout.
-
-    Parameters
-    ----------
-    cutout : atlite.Cutout
-        Cutout defining the target grid.
-
-    Returns
-    -------
-    dict
-        Bounding box with ``north``, ``south``, ``west`` and ``east`` entries.
-    """
-    coords = cutout.coords
-    x0, x1 = coords["x"].min().item(), coords["x"].max().item()
-    y0, y1 = coords["y"].min().item(), coords["y"].max().item()
-    return {
-        "north": min(90.0, y1 + _BBOX_PAD),
-        "south": max(-90.0, y0 - _BBOX_PAD),
-        "west": x0 - _BBOX_PAD,
-        "east": x1 + _BBOX_PAD,
-    }
 
 
 def _is_native_grid(cutout: Cutout) -> bool:
@@ -699,6 +692,40 @@ def _is_native_grid(cutout: Cutout) -> bool:
         True when both spatial resolutions are 0.25 degrees.
     """
     return abs(cutout.dx - _ERA5_RES) < 1e-9 and abs(cutout.dy - _ERA5_RES) < 1e-9
+
+
+def _with_periodic_longitude(da: xr.DataArray, target_lon: np.ndarray) -> xr.DataArray:
+    """
+    Add a temporary +180 longitude column for interpolation across the seam.
+
+    Atlite-facing coordinates remain [-180, 180). The duplicate is only used as
+    an interpolation source when a target longitude lies beyond the largest
+    available positive source longitude and the -180 column is present.
+
+    Parameters
+    ----------
+    da : xarray.DataArray
+        Native-grid variable with a ``longitude`` coordinate.
+    target_lon : numpy.ndarray
+        Target longitudes requested by the cutout.
+
+    Returns
+    -------
+    xarray.DataArray
+        ``da`` unchanged, or ``da`` with a temporary duplicate seam column at
+        ``+180`` for interpolation.
+    """
+    lon = da.longitude.values
+    if lon.size == 0 or np.nanmax(target_lon) <= np.nanmax(lon) + 1e-9:
+        return da
+    if np.any(np.isclose(lon, 180.0, atol=1e-9)):
+        return da
+    if not np.any(np.isclose(lon, -180.0, atol=1e-9)):
+        return da
+
+    seam = da.sel(longitude=[-180.0], method="nearest", tolerance=1e-6)
+    seam = seam.assign_coords(longitude=[180.0])
+    return xr.concat([da, seam], dim="longitude").sortby("longitude")
 
 
 def _regrid_to_target(arrays: RawArrays, cutout: Cutout) -> RawArrays:
@@ -731,10 +758,17 @@ def _regrid_to_target(arrays: RawArrays, cutout: Cutout) -> RawArrays:
         }
     else:
         logger.warning(
-            f"The requested grid {target_lat}/{target_lon} deg. is not a multiple of the default grid. This will introduce numerical differences between this source and the CDS used by era5.py. Consult documentation, consider using era5.py."
+            "NCAR ERA5 regrids from native 0.25 deg. to dx=%s, dy=%s "
+            "(target shape y=%s, x=%s); results may differ from CDS/MIR.",
+            cutout.dx,
+            cutout.dy,
+            len(target_lat),
+            len(target_lon),
         )
         return {
-            name: da.interp(latitude=target_lat, longitude=target_lon, method="linear")
+            name: _with_periodic_longitude(da, target_lon).interp(
+                latitude=target_lat, longitude=target_lon, method="linear"
+            )
             for name, da in arrays.items()
         }
 
