@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""Download ERA5 data from NCAR THREDDS for atlite cutouts."""
+"""Download ERA5 data from the NCAR THREDDS server"""
 
 from __future__ import annotations
 
@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from atlite.cutout import Cutout
 
 logger = logging.getLogger(__name__)
+logging.getLogger("pydap").setLevel(logging.WARNING)
 
 TemporalSpec = dict[str, str | np.ndarray | None]
 SpatialSpec = dict[str, int]
@@ -703,10 +704,14 @@ def _regrid_to_target(arrays: RawArrays, cutout: Cutout) -> RawArrays:
             )
             for name, da in arrays.items()
         }
-    return {
-        name: da.interp(latitude=target_lat, longitude=target_lon, method="linear")
-        for name, da in arrays.items()
-    }
+    else:
+        logger.warning(
+            f"The requested grid {target_lat}/{target_lon} deg. is not a multiple of the default grid. This will introduce numerical differences between this source and the CDS used by era5.py. Consult documentation, consider using era5.py."
+        )
+        return {
+            name: da.interp(latitude=target_lat, longitude=target_lon, method="linear")
+            for name, da in arrays.items()
+        }
 
 
 def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
