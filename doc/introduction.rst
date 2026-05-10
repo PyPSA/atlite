@@ -100,7 +100,7 @@ minimal setup from the user in comparison to other datasets. We offer two method
 - NSF NCAR (National Science Foundation National Center for Atmospheric
   Research) hosts `a mirror <https://gdex.ucar.edu/datasets/d633000/>`_
   of ERA5. It does not require authentication, and downloads begin
-  instantaneously. It is the most convenient source for most users unless you need 
+  instantaneously. It is the most convenient source for most users unless you need
   to download the data at an odd resolution. See `this example <https://atlite.readthedocs.io/en/master/examples/comparing_era5_sources_cds_vs_ncar.html>`_
   to learn how to use the NCAR mirror and understand where it may not be the best choice.
 
