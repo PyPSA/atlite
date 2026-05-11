@@ -50,6 +50,14 @@ Sanitizer = Callable[[xr.Dataset], xr.Dataset]
 
 # Custom dask thread pool to limit simultaneous THREDDS requests to avoid rate limits
 _FETCH_POOL = ContextAwareThreadPoolExecutor(8, thread_name_prefix="ncar-fetch")
+_OPEN_MFDATASET_CHUNK_WARNING = (
+    r'The specified chunks separate the stored chunks along dimension "time" '
+    r"starting at index \d+\. This could degrade performance\."
+)
+_ZARR_CONSOLIDATED_METADATA_WARNING = (
+    r"Consolidated metadata is currently not part in the Zarr format 3 "
+    r"specification\."
+)
 
 crs = 4326
 
@@ -468,7 +476,7 @@ def _load_var(
     tspecs = _temporal_file_specs(product, param_code, start, end)
     sspecs = _spatial_specs(north, south, west, east)
     logger.info(
-        "%s: %d file(s), %d spatial segment(s)", atlite_name, len(tspecs), len(sspecs)
+        f"{atlite_name}: {len(tspecs)} file(s), {len(sspecs)} spatial segment(s)"
     )
 
     n = len(tspecs)
@@ -512,30 +520,36 @@ def _load_var(
         return da
 
     # everything else has a time dimension, so files must be concatenated along time and space.
-    if len(sspecs) == 1:
-        da = xr.open_mfdataset(
-            [str(p) for p in all_paths],
-            engine="zarr",
-            concat_dim="time",
-            combine="nested",
-            chunks=chunks,
-        )[atlite_name]
-    else:
-        ds_a = xr.open_mfdataset(
-            [str(p) for p in all_paths[:n]],
-            engine="zarr",
-            concat_dim="time",
-            combine="nested",
-            chunks=chunks,
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=_OPEN_MFDATASET_CHUNK_WARNING,
+            category=UserWarning,
         )
-        ds_b = xr.open_mfdataset(
-            [str(p) for p in all_paths[n:]],
-            engine="zarr",
-            concat_dim="time",
-            combine="nested",
-            chunks=chunks,
-        )
-        da = xr.concat([ds_a, ds_b], dim="longitude")[atlite_name]
+        if len(sspecs) == 1:
+            da = xr.open_mfdataset(
+                [str(p) for p in all_paths],
+                engine="zarr",
+                concat_dim="time",
+                combine="nested",
+                chunks=chunks,
+            )[atlite_name]
+        else:
+            ds_a = xr.open_mfdataset(
+                [str(p) for p in all_paths[:n]],
+                engine="zarr",
+                concat_dim="time",
+                combine="nested",
+                chunks=chunks,
+            )
+            ds_b = xr.open_mfdataset(
+                [str(p) for p in all_paths[n:]],
+                engine="zarr",
+                concat_dim="time",
+                combine="nested",
+                chunks=chunks,
+            )
+            da = xr.concat([ds_a, ds_b], dim="longitude")[atlite_name]
 
     da = da.sortby("longitude")
     da = da.sortby("time").sel(time=slice(str(start), str(end)))
@@ -590,18 +604,23 @@ def _fetch_file(
     key = hashlib.md5(url.encode()).hexdigest()[:16]
     cache = tmpdir / f"era5ncar_{key}.zarr"
     if cache.exists():
-        logger.debug("cache hit: %s", cache.name)
+        logger.debug(f"cache hit: {cache.name}")
         return cache
 
-    logger.info("NCAR: Downloading variable %s", atlite_name)
     da = _download_to_array(
         url, var_name, atlite_name, lat_s, lat_e, lon_s, lon_e, product, time_coord
     )
     # atomic write
     tmp = cache.with_name(cache.name + ".tmp")
-    da.to_zarr(tmp, mode="w")
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message=_ZARR_CONSOLIDATED_METADATA_WARNING,
+            category=UserWarning,
+        )
+        da.to_zarr(tmp, mode="w")
     tmp.rename(cache)
-    logger.debug("cached: %s", cache.name)
+    logger.debug(f"cached: {cache.name}")
     return cache
 
 
@@ -780,12 +799,9 @@ def _regrid_to_target(arrays: RawArrays, cutout: Cutout) -> RawArrays:
         }
     else:
         logger.warning(
-            "NCAR ERA5 regrids from native 0.25 deg. to dx=%s, dy=%s "
-            "(target shape y=%s, x=%s); results may differ from CDS/MIR.",
-            cutout.dx,
-            cutout.dy,
-            len(target_lat),
-            len(target_lon),
+            f"NCAR ERA5 regrids from native 0.25 deg. to dx={cutout.dx}, dy={cutout.dy} "
+            f"(target shape y={len(target_lat)}, x={len(target_lon)}); "
+            "results may differ from CDS/MIR."
         )
         return {
             # if data is close to zero longitude, we mirror it for interpolation purposes
