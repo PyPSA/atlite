@@ -655,23 +655,10 @@ class TestGebco:
 
 
 class TestERA5NCAR:
-    WEIRD_RESOLUTION_TOLERANCES = {
-        "albedo": 2.0,
-        "dewpoint temperature": 0.25,
-        "height": 14.0,
-        "influx_diffuse": 0.6,
-        "influx_direct": 2.0,
-        "influx_toa": 0.06,
-        "roughness": 0.06,
-        "runoff": 1.5e-5,
-        "soil temperature": 0.2,
-        "solar_altitude": 0.0,
-        "solar_azimuth": 0.0,
-        "temperature": 0.2,
-        "wnd100m": 0.25,
-        "wnd_azimuth": 0.03,
-        "wnd_shear_exp": 0.03,
-    }
+    """
+    we assume that era5.py cutouts are correct, and only test whether era5_ncar.py cutouts
+    have the same structure and contain the saem numerical values
+    """
 
     @staticmethod
     def _assert_compatible_cutouts(reference, candidate):
@@ -707,6 +694,8 @@ class TestERA5NCAR:
     def _assert_allclose(reference, candidate, variables, *, atol, rtol=1e-7):
         for var in variables:
             if var == "wnd_azimuth":
+                # wind_azimuth is an angle, so it wraps around zero. we must
+                # take the modulo to get an accurate numerical difference
                 diff = abs(
                     (candidate[var] - reference[var] + np.pi) % (2 * np.pi) - np.pi
                 )
@@ -728,10 +717,6 @@ class TestERA5NCAR:
     def test_all_features_identical(cutout_era5, cutout_era5_ncar):
         """
         At native 0.25° resolution era5_ncar should match era5 across every feature.
-
-        Covers wind, temperature, runoff, influx and height. At 0.25° target points
-        fall exactly on the source grid so bilinear interpolation reproduces source
-        values exactly.
         """
         TestERA5NCAR._assert_compatible_cutouts(cutout_era5, cutout_era5_ncar)
         common = sorted(cutout_era5.data.data_vars)
@@ -783,14 +768,14 @@ class TestERA5NCAR:
     @staticmethod
     def test_all_features_coarse_identical(cutout_era5_coarse, cutout_era5_ncar_coarse):
         """
-        era5_ncar coarse-resolution should be close to era5 across all features.
+        Coarse and 'weird' resolution tests is where CDS and NCAR start to diverge.
+        NCAR stores data on a regular 0.25/0.25 degree grid, and other resolutions
+        are produced locally by linear interpolation.
+        CDS has a sophisticated interpolation library called MIR, which uses raw
+        ERA5 spectral data.
 
-        CDS ERA5 interpolates from the native Gaussian (N320, ~0.28125°) grid via MIR;
-        era5_ncar uses bilinear from the 0.25° lat-lon product. The two methods give
-        identical results at 0.25° (see test_all_features_identical) but diverge at
-        off-grid coarse resolutions. The tolerance is dominated by influx variables
-        (W m⁻²); other features (temperature K, wind m/s, height m, runoff m) stay
-        well within the same atol.
+        The results are close-ish at the coarse resolution test, but at the 'weird'
+        resolution they start to diverge
         """
         TestERA5NCAR._assert_compatible_cutouts(
             cutout_era5_coarse, cutout_era5_ncar_coarse
@@ -810,31 +795,45 @@ class TestERA5NCAR:
         os.name == "nt",
         reason="This test breaks on windows machine on CI due to unknown reasons.",
     )
-    def test_all_features_weird_resolution_identical(
+    def test_all_features_weird_resolution_similar(
         cutout_era5_weird_resolution, cutout_era5_ncar_weird_resolution
     ):
         """
-        era5_ncar weird-resolution should be close to era5 across all features.
+        Coarse and 'weird' resolution tests is where CDS and NCAR start to diverge.
+        NCAR stores data on a regular 0.25/0.25 degree grid, and other resolutions
+        are produced locally by linear interpolation.
+        CDS has a sophisticated interpolation library called MIR, which uses raw
+        ERA5 spectral data.
 
-        At non-aligned resolutions (both x and y off the 0.25° native grid) the
-        difference between CDS MIR (from N320 Gaussian) and bilinear from 0.25° is
-        largest near steep gradients (twilight for influx, coastlines for height).
-        Solar position variables are computed from time/lat/lon and remain exact.
-
-        Per-variable observed max-abs-diff over the test cutout:
-          height           ~14 m   (dominates the tolerance: rugged-terrain coastline
-                                    cells where MIR vs. bilinear from 0.25° diverge)
-          influx_direct    ~2 W m⁻²  (near twilight)
-          albedo           ~2       (a few cells at the day/night boundary)
-          others (temperature, wind, soil temp, runoff, …)  ≪ 1 in their native units
+        The results are close-ish at the coarse resolution test, but at the 'weird'
+        resolution they start to diverge.
         """
+        # tolerances measured for this particular cutout. hard-coded
+        # to test for any regressions
+        WEIRD_RESOLUTION_TOLERANCES = {
+            "albedo": 2.0,
+            "dewpoint temperature": 0.25,
+            "height": 14.0,
+            "influx_diffuse": 0.6,
+            "influx_direct": 2.0,
+            "influx_toa": 0.06,
+            "roughness": 0.06,
+            "runoff": 1.5e-5,
+            "soil temperature": 0.2,
+            "solar_altitude": 0.0,
+            "solar_azimuth": 0.0,
+            "temperature": 0.2,
+            "wnd100m": 0.25,
+            "wnd_azimuth": 0.03,
+            "wnd_shear_exp": 0.03,
+        }
         TestERA5NCAR._assert_compatible_cutouts(
             cutout_era5_weird_resolution, cutout_era5_ncar_weird_resolution
         )
-        assert set(TestERA5NCAR.WEIRD_RESOLUTION_TOLERANCES) == set(
+        assert set(WEIRD_RESOLUTION_TOLERANCES) == set(
             cutout_era5_weird_resolution.data.data_vars
         )
-        for var, atol in TestERA5NCAR.WEIRD_RESOLUTION_TOLERANCES.items():
+        for var, atol in WEIRD_RESOLUTION_TOLERANCES.items():
             TestERA5NCAR._assert_allclose(
                 cutout_era5_weird_resolution.data,
                 cutout_era5_ncar_weird_resolution.data,
