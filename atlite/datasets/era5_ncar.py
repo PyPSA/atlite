@@ -28,6 +28,7 @@ from pydap.client import open_url
 
 from atlite.datasets.era5 import (
     _add_height,
+    sanitize_chunks,
     sanitize_influx,
     sanitize_runoff,
     sanitize_wind,
@@ -39,8 +40,6 @@ from atlite.pv.solar_position import SolarPosition
 if TYPE_CHECKING:
     from atlite.cutout import Cutout
 
-logger = logging.getLogger(__name__)
-logging.getLogger("pydap").setLevel(logging.WARNING)
 
 TemporalSpec = dict[str, str | np.ndarray | None]
 SpatialSpec = dict[str, int]
@@ -50,14 +49,24 @@ Sanitizer = Callable[[xr.Dataset], xr.Dataset]
 
 # Custom dask thread pool to limit simultaneous THREDDS requests to avoid rate limits
 _FETCH_POOL = ContextAwareThreadPoolExecutor(8, thread_name_prefix="ncar-fetch")
-_OPEN_MFDATASET_CHUNK_WARNING = (
-    r'The specified chunks separate the stored chunks along dimension "time" '
-    r"starting at index \d+\. This could degrade performance\."
-)
+
+# zarr-python can use consolidated metadata, but releases a warning because some
+# other implementations apparently can't. We ignore the warning
 _ZARR_CONSOLIDATED_METADATA_WARNING = (
     r"Consolidated metadata is currently not part in the Zarr format 3 "
     r"specification\."
 )
+warnings.filterwarnings(
+    "ignore",
+    message=_ZARR_CONSOLIDATED_METADATA_WARNING,
+    category=UserWarning,
+)
+
+logger = logging.getLogger(__name__)
+logging.getLogger("pydap").setLevel(logging.WARNING)
+
+# default chunk size to avoid OOM for large cutouts
+_ZARR_DISK_CHUNKS = {"time": 100}
 
 crs = 4326
 
@@ -396,7 +405,8 @@ def _spatial_specs(
 # ---------------------------------------------------------------------------
 # Download/retrieval machinery
 # ---------------------------------------------------------------------------
-#
+
+
 def _fetch_vars(atlite_names: list[str], cutout: Cutout, tmpdir: Path) -> RawArrays:
     """
     Get raw ERA5 data relevant to a list of atlite variables.
@@ -472,6 +482,7 @@ def _load_var(
     """
     product, param_code, var_name = VARIABLES[atlite_name]
     is_invariant = product == "e5.oper.invariant"
+    chunks = sanitize_chunks(chunks, time="time")
 
     tspecs = _temporal_file_specs(product, param_code, start, end)
     sspecs = _spatial_specs(north, south, west, east)
@@ -520,39 +531,35 @@ def _load_var(
         return da
 
     # everything else has a time dimension, so files must be concatenated along time and space.
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message=_OPEN_MFDATASET_CHUNK_WARNING,
-            category=UserWarning,
+    if len(sspecs) == 1:
+        da = xr.open_mfdataset(
+            [str(p) for p in all_paths],
+            engine="zarr",
+            concat_dim="time",
+            combine="nested",
+            chunks={},
+        )[atlite_name]
+    else:
+        ds_a = xr.open_mfdataset(
+            [str(p) for p in all_paths[:n]],
+            engine="zarr",
+            concat_dim="time",
+            combine="nested",
+            chunks={},
         )
-        if len(sspecs) == 1:
-            da = xr.open_mfdataset(
-                [str(p) for p in all_paths],
-                engine="zarr",
-                concat_dim="time",
-                combine="nested",
-                chunks=chunks,
-            )[atlite_name]
-        else:
-            ds_a = xr.open_mfdataset(
-                [str(p) for p in all_paths[:n]],
-                engine="zarr",
-                concat_dim="time",
-                combine="nested",
-                chunks=chunks,
-            )
-            ds_b = xr.open_mfdataset(
-                [str(p) for p in all_paths[n:]],
-                engine="zarr",
-                concat_dim="time",
-                combine="nested",
-                chunks=chunks,
-            )
-            da = xr.concat([ds_a, ds_b], dim="longitude")[atlite_name]
+        ds_b = xr.open_mfdataset(
+            [str(p) for p in all_paths[n:]],
+            engine="zarr",
+            concat_dim="time",
+            combine="nested",
+            chunks={},
+        )
+        da = xr.concat([ds_a, ds_b], dim="longitude")[atlite_name]
 
     da = da.sortby("longitude")
     da = da.sortby("time").sel(time=slice(str(start), str(end)))
+    if chunks != _ZARR_DISK_CHUNKS:
+        da = da.chunk(chunks)
     da.encoding = {}
     return da
 
@@ -612,13 +619,14 @@ def _fetch_file(
     )
     # atomic write
     tmp = cache.with_name(cache.name + ".tmp")
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message=_ZARR_CONSOLIDATED_METADATA_WARNING,
-            category=UserWarning,
+    encoding = None
+    if da.name is not None and "time" in da.dims:
+        zarr_chunks = tuple(
+            min(_ZARR_DISK_CHUNKS.get(dim, size), size)
+            for dim, size in zip(da.dims, da.shape, strict=True)
         )
-        da.to_zarr(tmp, mode="w")
+        encoding = {da.name: {"chunks": zarr_chunks}}
+    da.to_zarr(tmp, mode="w", encoding=encoding)
     tmp.rename(cache)
     logger.debug(f"cached: {cache.name}")
     return cache
