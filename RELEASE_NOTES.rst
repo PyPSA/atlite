@@ -26,8 +26,12 @@ Upcoming Release
 
 **Features**
 
-* Add the NCAR mirror of ERA5 as a new dataset ``atlite/datasets/era5_ncar.py``. It can be used as a drop-in replacement
-  for the CDS source in many workflows, and doesn't require authentication or waiting in a queue.
+* Add an Earth Data Hub (EDH) source for ERA5 as a new dataset ``atlite/datasets/era5_edh.py``.
+  Pass ``module="era5-edh"`` to ``atlite.Cutout`` to source data from
+  ``data.earthdatahub.destine.eu`` instead of the Copernicus Data Store. Authentication
+  is via a standard ``~/.netrc`` entry for ``data.earthdatahub.destine.eu``; no queue and
+  no per-request wait. Only the native 0.25°×0.25° grid is supported — for other
+  resolutions, keep using ``module="era5"`` (CDS).
 
 
 `v0.6.0 <https://github.com/PyPSA/atlite/releases/tag/v0.6.0>`__ (15th April 2026)

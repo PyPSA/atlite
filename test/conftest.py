@@ -19,14 +19,11 @@ GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
 
 
-def _ncar_reachable() -> bool:
+def _edh_reachable() -> bool:
     try:
-        import urllib.request
+        import socket
 
-        urllib.request.urlopen(
-            "https://thredds.rda.ucar.edu/thredds/catalog/catalog.html",
-            timeout=10,
-        )
+        socket.create_connection(("data.earthdatahub.destine.eu", 443), timeout=10)
         return True
     except Exception:
         return False
@@ -197,21 +194,21 @@ def cutout_sarah_weird_resolution(cutouts_path):
     return cutout
 
 
-def _prepare_era5_ncar_cutout(path, prepare_kwargs=None, **kwargs):
-    cutout = Cutout(path=path, module="era5-ncar", bounds=BOUNDS, **kwargs)
-    if not path.exists() and not _ncar_reachable():
-        pytest.skip("NCAR THREDDS not reachable and no cached cutout available")
+def _prepare_era5_edh_cutout(path, prepare_kwargs=None, **kwargs):
+    cutout = Cutout(path=path, module="era5-edh", bounds=BOUNDS, **kwargs)
+    if not path.exists() and not _edh_reachable():
+        pytest.skip("EDH not reachable and no cached cutout available")
     cutout.prepare(tmpdir=str(path.parent), **(prepare_kwargs or {}))
     return cutout
 
 
 @pytest.fixture(scope="session")
-def cutout_era5_ncar(cutouts_path):
-    return _prepare_era5_ncar_cutout(cutouts_path / "cutout_era5-ncar.nc", time=TIME)
+def cutout_era5_edh(cutouts_path):
+    return _prepare_era5_edh_cutout(cutouts_path / "cutout_era5-edh.nc", time=TIME)
 
 
 @pytest.fixture(scope="session")
-def cutout_era5_ncar_3h_sampling(cutouts_path):
+def cutout_era5_edh_3h_sampling(cutouts_path):
     time = [
         f"{TIME} 00:00",
         f"{TIME} 03:00",
@@ -222,33 +219,16 @@ def cutout_era5_ncar_3h_sampling(cutouts_path):
         f"{TIME} 18:00",
         f"{TIME} 21:00",
     ]
-    return _prepare_era5_ncar_cutout(
-        cutouts_path / "cutout_era5-ncar_3h_sampling.nc", time=time
+    return _prepare_era5_edh_cutout(
+        cutouts_path / "cutout_era5-edh_3h_sampling.nc", time=time
     )
 
 
 @pytest.fixture(scope="session")
-def cutout_era5_ncar_2days_crossing_months(cutouts_path):
-    return _prepare_era5_ncar_cutout(
-        cutouts_path / "cutout_era5-ncar_2days_crossing_months.nc",
+def cutout_era5_edh_2days_crossing_months(cutouts_path):
+    return _prepare_era5_edh_cutout(
+        cutouts_path / "cutout_era5-edh_2days_crossing_months.nc",
         time=slice("2013-02-28", "2013-03-01"),
-    )
-
-
-@pytest.fixture(scope="session")
-def cutout_era5_ncar_coarse(cutouts_path):
-    return _prepare_era5_ncar_cutout(
-        cutouts_path / "cutout_era5-ncar_coarse.nc", time=TIME, dx=0.5, dy=0.7
-    )
-
-
-@pytest.fixture(scope="session")
-def cutout_era5_ncar_weird_resolution(cutouts_path):
-    return _prepare_era5_ncar_cutout(
-        cutouts_path / "cutout_era5-ncar_weird_resolution.nc",
-        time=TIME,
-        dx=0.132,
-        dy=0.32,
     )
 
 

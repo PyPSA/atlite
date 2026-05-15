@@ -654,11 +654,34 @@ class TestGebco:
         assert np.isfinite(cutout_gebco.data).all()
 
 
-class TestERA5NCAR:
+class TestERA5EDH:
     """
-    we assume that era5.py cutouts are correct, and only test whether era5_ncar.py cutouts
+    we assume that era5.py cutouts are correct, and only test whether era5_edh.py cutouts
     have the same structure and contain the saem numerical values
     """
+
+    # Per-variable absolute tolerances measured against CDS across all three
+    # EDH fixtures (1-day, 3h-sampled, and 2-day crossing months). Set just
+    # above the observed worst-case abs diff so any regression bigger than the
+    # GRIB-pack precision floor is caught. ``rtol`` is held at 0 — these are
+    # pure atol bounds.
+    TOLERANCES: dict[str, float] = {
+        "albedo": 1e-3,
+        "dewpoint temperature": 0.13,
+        "height": 0.2,
+        "influx_diffuse": 0.3,
+        "influx_direct": 0.15,
+        "influx_toa": 0.3,
+        "roughness": 3e-4,
+        "runoff": 1e-7,
+        "soil temperature": 0.13,
+        "solar_altitude": 1e-9,
+        "solar_azimuth": 1e-9,
+        "temperature": 0.13,
+        "wnd100m": 0.01,
+        "wnd_azimuth": 5e-4,
+        "wnd_shear_exp": 4e-4,
+    }
 
     @staticmethod
     def _assert_compatible_cutouts(reference, candidate):
@@ -691,8 +714,16 @@ class TestERA5NCAR:
         assert cand_units == ref_units
 
     @staticmethod
-    def _assert_allclose(reference, candidate, variables, *, atol, rtol=1e-7):
+    def _assert_allclose(reference, candidate, variables, *, atol, rtol=0):
+        """
+        Assert per-variable closeness.
+
+        ``atol`` is either a scalar applied to every var, or a mapping
+        ``{var_name: atol}``. ``rtol`` defaults to 0 (per-var atol is the
+        precision floor; see :data:`TestERA5EDH.TOLERANCES`).
+        """
         for var in variables:
+            v_atol = atol[var] if isinstance(atol, dict) else atol
             if var == "wnd_azimuth":
                 # wind_azimuth is an angle, so it wraps around zero. we must
                 # take the modulo to get an accurate numerical difference
@@ -702,141 +733,66 @@ class TestERA5NCAR:
                 xr.testing.assert_allclose(
                     diff,
                     xr.zeros_like(diff),
-                    atol=atol,
+                    atol=v_atol,
                     rtol=rtol,
                 )
             else:
                 xr.testing.assert_allclose(
                     candidate[var],
                     reference[var],
-                    atol=atol,
+                    atol=v_atol,
                     rtol=rtol,
                 )
 
     @staticmethod
-    def test_all_features_identical(cutout_era5, cutout_era5_ncar):
+    def test_all_features_identical(cutout_era5, cutout_era5_edh):
         """
-        At native 0.25° resolution era5_ncar should match era5 across every feature.
+        At native 0.25° resolution era5_edh should match era5 across every feature
+        within the per-variable tolerances.
         """
-        TestERA5NCAR._assert_compatible_cutouts(cutout_era5, cutout_era5_ncar)
+        TestERA5EDH._assert_compatible_cutouts(cutout_era5, cutout_era5_edh)
         common = sorted(cutout_era5.data.data_vars)
-        TestERA5NCAR._assert_allclose(
+        TestERA5EDH._assert_allclose(
             cutout_era5.data,
-            cutout_era5_ncar.data,
+            cutout_era5_edh.data,
             common,
-            atol=1e-4,
+            atol=TestERA5EDH.TOLERANCES,
         )
 
     @staticmethod
     def test_all_features_3h_sampling_identical(
-        cutout_era5_3h_sampling, cutout_era5_ncar_3h_sampling
+        cutout_era5_3h_sampling, cutout_era5_edh_3h_sampling
     ):
         """
-        era5_ncar should preserve coarser hourly sampling and match ERA5 values.
+        era5_edh should preserve coarser hourly sampling and match ERA5 values.
         """
-        assert pd.infer_freq(cutout_era5_ncar_3h_sampling.data.time) == "3h"
-        TestERA5NCAR._assert_compatible_cutouts(
-            cutout_era5_3h_sampling, cutout_era5_ncar_3h_sampling
+        assert pd.infer_freq(cutout_era5_edh_3h_sampling.data.time) == "3h"
+        TestERA5EDH._assert_compatible_cutouts(
+            cutout_era5_3h_sampling, cutout_era5_edh_3h_sampling
         )
         common = sorted(cutout_era5_3h_sampling.data.data_vars)
-        TestERA5NCAR._assert_allclose(
+        TestERA5EDH._assert_allclose(
             cutout_era5_3h_sampling.data,
-            cutout_era5_ncar_3h_sampling.data,
+            cutout_era5_edh_3h_sampling.data,
             common,
-            atol=1e-4,
+            atol=TestERA5EDH.TOLERANCES,
         )
 
     @staticmethod
     def test_all_features_2days_crossing_months_identical(
-        cutout_era5_2days_crossing_months, cutout_era5_ncar_2days_crossing_months
+        cutout_era5_2days_crossing_months, cutout_era5_edh_2days_crossing_months
     ):
         """
-        era5_ncar should match ERA5 across month boundaries.
+        era5_edh should match ERA5 across month boundaries.
         """
-        TestERA5NCAR._assert_compatible_cutouts(
+        TestERA5EDH._assert_compatible_cutouts(
             cutout_era5_2days_crossing_months,
-            cutout_era5_ncar_2days_crossing_months,
+            cutout_era5_edh_2days_crossing_months,
         )
         common = sorted(cutout_era5_2days_crossing_months.data.data_vars)
-        TestERA5NCAR._assert_allclose(
+        TestERA5EDH._assert_allclose(
             cutout_era5_2days_crossing_months.data,
-            cutout_era5_ncar_2days_crossing_months.data,
+            cutout_era5_edh_2days_crossing_months.data,
             common,
-            atol=1e-4,
+            atol=TestERA5EDH.TOLERANCES,
         )
-
-    @staticmethod
-    def test_all_features_coarse_identical(cutout_era5_coarse, cutout_era5_ncar_coarse):
-        """
-        Coarse and 'weird' resolution tests is where CDS and NCAR start to diverge.
-        NCAR stores data on a regular 0.25/0.25 degree grid, and other resolutions
-        are produced locally by linear interpolation.
-        CDS has a sophisticated interpolation library called MIR, which uses raw
-        ERA5 spectral data.
-
-        The results are close-ish at the coarse resolution test, but at the 'weird'
-        resolution they start to diverge
-        """
-        TestERA5NCAR._assert_compatible_cutouts(
-            cutout_era5_coarse, cutout_era5_ncar_coarse
-        )
-        common = sorted(cutout_era5_coarse.data.data_vars)
-        # Cached fixture max_abs is ~1.8e-3, dominated by influx variables.
-        TestERA5NCAR._assert_allclose(
-            cutout_era5_coarse.data,
-            cutout_era5_ncar_coarse.data,
-            common,
-            atol=2e-3,
-            rtol=1e-5,
-        )
-
-    @staticmethod
-    @pytest.mark.skipif(
-        os.name == "nt",
-        reason="This test breaks on windows machine on CI due to unknown reasons.",
-    )
-    def test_all_features_weird_resolution_similar(
-        cutout_era5_weird_resolution, cutout_era5_ncar_weird_resolution
-    ):
-        """
-        Coarse and 'weird' resolution tests is where CDS and NCAR start to diverge.
-        NCAR stores data on a regular 0.25/0.25 degree grid, and other resolutions
-        are produced locally by linear interpolation.
-        CDS has a sophisticated interpolation library called MIR, which uses raw
-        ERA5 spectral data.
-
-        The results are close-ish at the coarse resolution test, but at the 'weird'
-        resolution they start to diverge.
-        """
-        # tolerances measured for this particular cutout. hard-coded
-        # to test for any regressions
-        WEIRD_RESOLUTION_TOLERANCES = {
-            "albedo": 2.0,
-            "dewpoint temperature": 0.25,
-            "height": 14.0,
-            "influx_diffuse": 0.6,
-            "influx_direct": 2.0,
-            "influx_toa": 0.06,
-            "roughness": 0.06,
-            "runoff": 1.5e-5,
-            "soil temperature": 0.2,
-            "solar_altitude": 0.0,
-            "solar_azimuth": 0.0,
-            "temperature": 0.2,
-            "wnd100m": 0.25,
-            "wnd_azimuth": 0.03,
-            "wnd_shear_exp": 0.03,
-        }
-        TestERA5NCAR._assert_compatible_cutouts(
-            cutout_era5_weird_resolution, cutout_era5_ncar_weird_resolution
-        )
-        assert set(WEIRD_RESOLUTION_TOLERANCES) == set(
-            cutout_era5_weird_resolution.data.data_vars
-        )
-        for var, atol in WEIRD_RESOLUTION_TOLERANCES.items():
-            TestERA5NCAR._assert_allclose(
-                cutout_era5_weird_resolution.data,
-                cutout_era5_ncar_weird_resolution.data,
-                [var],
-                atol=atol,
-            )
