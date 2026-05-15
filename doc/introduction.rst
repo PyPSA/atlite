@@ -88,21 +88,22 @@ Datasets
 The standard data source we currently employ is ECMWF's ERA5 dataset
 (reanalysis weather data in a ca. 30 km x 30 km and hourly resolution).
 This dataset is easily available at no additional costs and requires only
-minimal setup from the user in comparison to other datasets. We offer two methods for accessing ERA5.
+minimal setup from the user in comparison to other datasets. See  :doc:`installation instructions <installation>`) to learn
+how to set it up.
+
+We offer two methods for accessing ERA5.
+
+- Earth Data Hub hosts `a mirror <https://earthdatahub.destine.eu/collections/era5/datasets/reanalysis-era5-single-levels>`_
+  of ERA5 which allows for immediate downloads.
+  It is the most convenient source for most users unless you need
+  to download the data at an unusual resolution. See `this example <https://atlite.readthedocs.io/en/master/examples/comparing_era5_sources_cds_vs_edh.html>`_
+  to learn how to use the EDH mirror and understand where it may not be the best choice.
 
 - ECMWF ADS API (European Centre for Medium-Range Weather Forecasts
-  Climate Data Store) is the original source for the dataset. It requires
-  some setup (see :doc:`installation instructions <installation>`), and
+  Climate Data Store) is the original source for ERA5. Unfortunately, CDS 
   downloads may spend hours in a processing queue on the server. See
   `this example <https://atlite.readthedocs.io/en/master/examples/create_cutout.html>`_
   to learn how to create an ERA5 cutout.
-
-- NSF NCAR (National Science Foundation National Center for Atmospheric
-  Research) hosts `a mirror <https://gdex.ucar.edu/datasets/d633000/>`_
-  of ERA5. It does not require authentication, and downloads begin
-  instantaneously. It is the most convenient source for most users unless you need
-  to download the data at an odd resolution. See `this example <https://atlite.readthedocs.io/en/master/examples/comparing_era5_sources_cds_vs_ncar.html>`_
-  to learn how to use the NCAR mirror and understand where it may not be the best choice.
 
 Previously and in the future other datasets where and (hopefully) will
 again be usable, including

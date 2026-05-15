@@ -40,6 +40,30 @@ If you're feeling adventurous, you can also install the latest master branch fro
 
     pip install git+https://github.com/PyPSA/atlite.git
 
+ERA5 dataset credentials
+========================
+
+To download weather data, you need to obtain credentials for a source of ERA5 data. 
+
+We currently support two methods for dataset access:
+
+Earth Data Hub (recommended)
+-----------------------------
+
+1. Create an account at https://earthdatahub.destine.eu
+2. Go to https://earthdatahub.destine.eu/account-settings#my-personal-access-tokens
+3. Click on the "i" icon next to a token in the "My personal access tokens" section
+4. Click on "Download .netrc". Save the resulting file.
+5. For Linux/Mac users - save the file as  ``.netrc`` in your home folder. For Windows users, follow the instructions `here <https://earthdatahub.destine.eu/getting-started#configuring-netrc>`_
+
+Climate data store (fallback)
+-------------------------------
+
+1. Create an acocount at https://cds.climate.copernicus.eu/
+2. Go to https://cds.climate.copernicus.eu/how-to-api
+3. Copy the text inside the code callout in the "Setup the CDS Api key" section
+4. Save it in a file called ``.cdsapirc`` in your home folder. (No instructions for Windows users)
+
 
 Computational resources
 =======================
