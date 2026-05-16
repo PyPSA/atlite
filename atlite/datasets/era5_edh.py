@@ -74,12 +74,21 @@ _FEATURE_VARS: dict[str, list[str]] = {
 
 def _open_edh() -> xr.Dataset:
     """
-    Open the ERA5 dataset hosted on Earth Data Hub
+    Open the ERA5 dataset hosted on Earth Data Hub.
 
     Returns
     -------
     xarray.Dataset
-        Dataset object
+        Dataset object, dask-backed with the store's native
+        ``(4320, 64, 64)`` chunks.
+
+    Notes
+    -----
+    The store is opened with its native chunking and rechunked later, after
+    spatial/temporal subsetting (see :func:`_rename_and_clean_coords`). Opening
+    with a fine ``chunks`` argument instead would size the dask graph to the
+    *whole* 1940..today store (~750k steps -> millions of tasks per variable),
+    which costs gigabytes of graph overhead regardless of cutout size.
     """
     _DATASET_URL = "https://data.earthdatahub.destine.eu/era5/reanalysis-era5-single-levels-v0.zarr"
     # passed to aiohttp to enable authentication via .netrc file in $HOME
@@ -164,20 +173,33 @@ def _subset_temporal(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
     return sub.rename({"valid_time": "time"})
 
 
-def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
+def _rename_and_clean_coords(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
     """
-    Rename ``latitude``/``longitude`` to atlite's ``y``/``x`` with aliases.
+    Rename ``latitude``/``longitude`` to atlite's ``y``/``x`` and apply the
+    cutout's dask chunking.
 
     Parameters
     ----------
     ds : xarray.Dataset
-        Dataset with ``latitude`` and ``longitude`` coords.
+        Dataset with ``latitude`` and ``longitude`` coords, already subset to
+        the cutout's bbox and time range.
+    cutout : atlite.Cutout
+        Cutout whose ``chunks`` (set via ``Cutout(..., chunks=...)``) control
+        the dask block size of the returned data, mirroring how the ``era5``
+        (CDS) module threads ``cutout.chunks`` into its readers.
 
     Returns
     -------
     xarray.Dataset
-        Dataset with ``y``, ``x`` (rounded to 5 decimals, both ascending)
-        and ``lat``/``lon`` aliases.
+        Dataset with ``y``, ``x`` (rounded to 5 decimals, both ascending) and
+        ``lat``/``lon`` aliases, rechunked to ``cutout.chunks``.
+
+    Notes
+    -----
+    The rechunk runs here, on the already-subset array, not on the raw store.
+    ``ds`` now spans only the cutout (a few native time chunks), so the
+    rechunk graph is small. Rechunking the full 1940..today store instead
+    would build a multi-million-task graph and exhaust memory.
     """
     ds = ds.rename({"latitude": "y", "longitude": "x"})
     # EDH stores latitude descending; atlite expects ascending.
@@ -187,6 +209,14 @@ def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
         y=np.round(ds.y.astype(float), 5),
     )
     ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
+    chunks = {k: v for k, v in (cutout.chunks or {}).items() if k in ds.dims}
+    if chunks:
+        # unify_chunks reconciles the 1-D index coordinates -- which .chunk()
+        # turns into single-chunk dask arrays -- with data variables whose
+        # spatial dims may be multi-chunk, e.g. after the 0/360 seam concat
+        # in _subset_spatial. Without it, ds.chunksizes raises
+        # "inconsistent chunks along dimension x".
+        ds = ds.chunk(chunks).unify_chunks()
     return ds
 
 
@@ -208,15 +238,19 @@ def get_data_wind(cutout: Cutout) -> xr.Dataset:
     ds = _open_edh()[_FEATURE_VARS["wind"]]
     ds = _subset_spatial(ds, cutout)
     ds = _subset_temporal(ds, cutout)
-    ds = _rename_and_clean_coords(ds)
+    ds = _rename_and_clean_coords(ds, cutout)
 
     for h in (10, 100):
         ds[f"wnd{h}m"] = np.sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
             units="m s**-1", long_name=f"{h} metre wind speed"
         )
+    # Dividing by the float64 scalar np.log(0.1) promotes the result to
+    # float64; cast back to float32 -- the shear exponent needs no more.
     ds["wnd_shear_exp"] = (
-        np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
-    ).assign_attrs(units="", long_name="wind shear exponent")
+        (np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100))
+        .astype(np.float32)
+        .assign_attrs(units="", long_name="wind shear exponent")
+    )
 
     azimuth = xr.apply_ufunc(np.arctan2, ds["u100"], ds["v100"], dask="allowed")
     ds["wnd_azimuth"] = xr.where(
@@ -249,7 +283,7 @@ def get_data_influx(cutout: Cutout) -> xr.Dataset:
     ds = _open_edh()[_FEATURE_VARS["influx"]]
     ds = _subset_spatial(ds, cutout)
     ds = _subset_temporal(ds, cutout)
-    ds = _rename_and_clean_coords(ds)
+    ds = _rename_and_clean_coords(ds, cutout)
 
     ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
     ds["albedo"] = (
@@ -272,6 +306,9 @@ def get_data_influx(cutout: Cutout) -> xr.Dataset:
         warnings.simplefilter("ignore", DeprecationWarning)
         sp = SolarPosition(ds, time_shift=pd.to_timedelta("-30 minutes"))
     sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
+    # SolarPosition computes in float64; float32 is ample for stored solar
+    # geometry (~1e-6 rad) and halves these variables on disk.
+    sp = sp.astype(np.float32)
 
     return xr.merge([ds, sp])
 
@@ -294,7 +331,7 @@ def get_data_temperature(cutout: Cutout) -> xr.Dataset:
     ds = _open_edh()[_FEATURE_VARS["temperature"]]
     ds = _subset_spatial(ds, cutout)
     ds = _subset_temporal(ds, cutout)
-    ds = _rename_and_clean_coords(ds)
+    ds = _rename_and_clean_coords(ds, cutout)
     ds = ds.rename(
         {
             "t2m": "temperature",
@@ -324,7 +361,7 @@ def get_data_runoff(cutout: Cutout) -> xr.Dataset:
     ds = _open_edh()[_FEATURE_VARS["runoff"]]
     ds = _subset_spatial(ds, cutout)
     ds = _subset_temporal(ds, cutout)
-    ds = _rename_and_clean_coords(ds)
+    ds = _rename_and_clean_coords(ds, cutout)
     ds = ds.rename({"ro": "runoff"})
     ds["runoff"].attrs["units"] = "m"
     return ds
@@ -346,7 +383,7 @@ def get_data_height(cutout: Cutout) -> xr.Dataset:
     """
     ds = _open_edh()[_FEATURE_VARS["height"]].isel(valid_time=0, drop=True)
     ds = _subset_spatial(ds, cutout)
-    ds = _rename_and_clean_coords(ds)
+    ds = _rename_and_clean_coords(ds, cutout)
     ds = _add_height(ds)
     ds["height"].attrs["units"] = "m**2 s**-2"
     return ds
