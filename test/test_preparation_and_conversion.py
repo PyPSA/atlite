@@ -675,8 +675,11 @@ class TestERA5EDH:
         "roughness": 3e-4,
         "runoff": 1e-7,
         "soil temperature": 0.13,
-        "solar_altitude": 1e-9,
-        "solar_azimuth": 1e-9,
+        # solar_* are computed (SolarPosition), not downloaded, so both modules
+        # produce the same values; the only difference is era5-edh storing them
+        # as float32 — hence the float32 quantisation floor, not 1e-9.
+        "solar_altitude": 1e-5,
+        "solar_azimuth": 1e-5,
         "temperature": 0.13,
         "wnd100m": 0.01,
         "wnd_azimuth": 5e-4,

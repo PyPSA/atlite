@@ -20,6 +20,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+# TODO: remove all Any refs, pass explicit vars around
 import numpy as np
 import pandas as pd
 import xarray as xr
