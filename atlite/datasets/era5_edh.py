@@ -82,22 +82,13 @@ def _open_edh() -> xr.Dataset:
     xarray.Dataset
         Dataset object, dask-backed with the store's native
         ``(4320, 64, 64)`` chunks.
-
-    Notes
-    -----
-    The store is opened with its native chunking and rechunked later, after
-    spatial/temporal subsetting (see :func:`_rename_and_clean_coords`). Opening
-    with a fine ``chunks`` argument instead would size the dask graph to the
-    *whole* 1940..today store (~750k steps -> millions of tasks per variable),
-    which costs gigabytes of graph overhead regardless of cutout size.
     """
-    _DATASET_URL = "https://data.earthdatahub.destine.eu/era5/reanalysis-era5-single-levels-v0.zarr"
-    # passed to aiohttp to enable authentication via .netrc file in $HOME
-    _STORAGE_OPTIONS: dict[str, Any] = {"client_kwargs": {"trust_env": True}}
 
     ds = xr.open_dataset(
-        _DATASET_URL,
-        storage_options=_STORAGE_OPTIONS,
+        "https://data.earthdatahub.destine.eu/era5/reanalysis-era5-single-levels-v0.zarr",
+        storage_options={
+            "client_kwargs": {"trust_env": True}
+        },  # requried for .netrc auth
         chunks={},
         engine="zarr",
     )
@@ -110,14 +101,17 @@ def _open_edh() -> xr.Dataset:
 
 def _subset_spatial(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
     """
-    Select the cutout's bounding box from an EDH dataset.
+    Select the cutout's bounding box from a dataset. Convert from
+    atlite to era5 coordinates.
 
-    The cutout uses atlite's coordinate system (longitude -180..180,
-    latitude -90..90, ascending). EDH stores ERA5 with longitude 0..360
-    ascending and latitude 90..-90 descending. This translates the bbox
-    into EDH coordinates, handles wrap-around at the 0/360 seam by
-    fetching the two halves and concatenating, then rewraps longitudes
-    on the result back to -180..180.
+    atlite coordinate system:
+        - x: -180:180
+        - y: -90:90
+
+    era5 coordinate system:
+        - x: 0:360
+        - y: -90:90
+
 
     Parameters
     ----------
@@ -153,9 +147,7 @@ def _subset_spatial(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
 
 def _subset_temporal(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
     """
-    Select the cutout's time slice from an EDH dataset.
-
-    Renames the time axis from EDH's ``valid_time`` to atlite's ``time``.
+    Select the cutout's time slice.
 
     Parameters
     ----------
@@ -215,8 +207,7 @@ def _rename_and_clean_coords(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
         # unify_chunks reconciles the 1-D index coordinates -- which .chunk()
         # turns into single-chunk dask arrays -- with data variables whose
         # spatial dims may be multi-chunk, e.g. after the 0/360 seam concat
-        # in _subset_spatial. Without it, ds.chunksizes raises
-        # "inconsistent chunks along dimension x".
+        # in _subset_spatial.
         ds = ds.chunk(chunks).unify_chunks()
     return ds
 

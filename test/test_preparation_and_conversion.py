@@ -675,9 +675,6 @@ class TestERA5EDH:
         "roughness": 3e-4,
         "runoff": 1e-7,
         "soil temperature": 0.13,
-        # solar_* are computed (SolarPosition), not downloaded, so both modules
-        # produce the same values; the only difference is era5-edh storing them
-        # as float32 — hence the float32 quantisation floor, not 1e-9.
         "solar_altitude": 1e-5,
         "solar_azimuth": 1e-5,
         "temperature": 0.13,
@@ -720,10 +717,6 @@ class TestERA5EDH:
     def _assert_allclose(reference, candidate, variables, *, atol, rtol=0):
         """
         Assert per-variable closeness.
-
-        ``atol`` is either a scalar applied to every var, or a mapping
-        ``{var_name: atol}``. ``rtol`` defaults to 0 (per-var atol is the
-        precision floor; see :data:`TestERA5EDH.TOLERANCES`).
         """
         for var in variables:
             v_atol = atol[var] if isinstance(atol, dict) else atol
