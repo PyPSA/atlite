@@ -1074,27 +1074,20 @@ def regrid(
     dtypes = {da.dtype for da in data_vars}
     assert len(dtypes) == 1, "regrid can only reproject datasets with homogeneous dtype"
 
-    return cast(
-        "xr.Dataset | xr.DataArray",
-        (
-            xr
-            .apply_ufunc(
-                _reproject,
-                ds,
-                input_core_dims=[[namey, namex]],
-                output_core_dims=[["yout", "xout"]],
-                output_dtypes=[dtypes.pop()],
-                dask_gufunc_kwargs={
-                    "output_sizes": {"yout": dst_shape[0], "xout": dst_shape[1]}
-                },
-                dask="parallelized",
-                kwargs=kwargs,
-            )
-            .rename({"yout": namey, "xout": namex})
-            .assign_coords(**{
-                namey: (namey, dimy.data, ds.coords[namey].attrs),
-                namex: (namex, dimx.data, ds.coords[namex].attrs),
-            })
-            .assign_attrs(**ds.attrs)
-        ),
+    result = xr.apply_ufunc(
+        _reproject,
+        ds,
+        input_core_dims=[[namey, namex]],
+        output_core_dims=[["yout", "xout"]],
+        output_dtypes=[dtypes.pop()],
+        dask_gufunc_kwargs={
+            "output_sizes": {"yout": dst_shape[0], "xout": dst_shape[1]}
+        },
+        dask="parallelized",
+        kwargs=kwargs,
     )
+    result = result.rename({"yout": namey, "xout": namex}).assign_coords({
+        namey: (namey, dimy.data, ds.coords[namey].attrs),
+        namex: (namex, dimx.data, ds.coords[namex].attrs),
+    })
+    return cast("xr.Dataset | xr.DataArray", result.assign_attrs(**ds.attrs))

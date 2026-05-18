@@ -13,7 +13,6 @@ from shutil import rmtree
 from tempfile import mkdtemp, mkstemp
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import pandas as pd
 import xarray as xr
 from dask import compute as dask_compute
@@ -67,13 +66,13 @@ def get_features(
     xarray.Dataset
         Merged dataset containing the requested features.
     """
-    parameters: dict[str, Any] = cutout.data.attrs
-    lock: SerializableLock = SerializableLock()
-    datasets: list[Any] = []
-    get_data: Callable[..., Any] = datamodules[module].get_data
+    parameters = cutout.data.attrs
+    lock = SerializableLock()
+    datasets = []
+    get_data = datamodules[module].get_data
 
     for feature in features:
-        feature_data: Any = delayed(get_data)(
+        feature_data = delayed(get_data)(
             cutout,
             feature,
             tmpdir=tmpdir,
@@ -89,14 +88,13 @@ def get_features(
 
     ds: xr.Dataset = xr.merge(datasets, compat="equals")
     for v in ds:
-        da: xr.DataArray = ds[v]
+        da = ds[v]
         da.attrs["module"] = module
-        fd: Iterable[tuple[str, Any]] = datamodules[module].features.items()
+        fd = datamodules[module].features.items()
         da.attrs["feature"] = [k for k, l in fd if v in l].pop()
 
         if da.chunks is not None:
-            chunksizes: list[int] = [c[0] for c in da.chunks]
-            da.encoding["chunksizes"] = chunksizes
+            da.encoding["chunksizes"] = [c[0] for c in da.chunks]
 
     return ds
 
@@ -119,8 +117,8 @@ def available_features(module: str | Sequence[str] | None = None) -> pd.Series[s
         obtained.
 
     """
-    features: dict[str, Any] = {name: m.features for name, m in datamodules.items()}
-    features_frame: pd.Series[Any] = (
+    features = {name: m.features for name, m in datamodules.items()}
+    features_frame = (
         pd
         .DataFrame(features)
         .unstack()
@@ -268,33 +266,28 @@ def cutout_prepare(
 
     if tmpdir is None:
         raise ValueError("tmpdir cannot be None")
-    temp_dir_path: Path = Path(tmpdir)
+    temp_dir_path = Path(tmpdir)
     if not temp_dir_path.is_dir():
         raise FileNotFoundError(f"The tmpdir: {temp_dir_path} does not exist.")
     logger.info("Storing temporary files in %s", tmpdir)
 
-    modules_array: np.ndarray[Any, np.dtype[Any]] = atleast_1d(cutout.module)
-    modules_list: list[str] = modules_array.tolist()
-    features_normalized: np.ndarray[Any, np.dtype[Any]] | slice = (
-        atleast_1d(features) if features else slice(None)
-    )
-    prepared: set[str] = set(atleast_1d(cutout.data.attrs["prepared_features"]))
+    modules_list = atleast_1d(cutout.module).tolist()
+    features_normalized = atleast_1d(features) if features else slice(None)
+    prepared = set(atleast_1d(cutout.data.attrs["prepared_features"]))
 
-    target: pd.Series[str] = (
+    target = (
         available_features(modules_list).loc[:, features_normalized].drop_duplicates()
     )
 
     for module in target.index.unique("module"):
-        missing_vars: pd.Series[str] = target[module]
+        missing_vars = target[module]
         if not overwrite:
             missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
         if missing_vars.empty:
             continue
         logger.info("Calculating and writing with module %s:", module)
-        missing_features: np.ndarray[Any, np.dtype[Any]] = missing_vars.index.unique(
-            "feature"
-        )
-        ds: xr.Dataset = get_features(
+        missing_features = missing_vars.index.unique("feature")
+        ds = get_features(
             cutout,
             module,
             missing_features,
@@ -306,7 +299,7 @@ def cutout_prepare(
         prepared |= set(missing_features)
 
         cutout.data.attrs.update({"prepared_features": list(prepared)})
-        attrs: dict[str, Any] = non_bool_dict(cutout.data.attrs)
+        attrs = non_bool_dict(cutout.data.attrs)
         attrs.update(ds.attrs)
 
         if compression:
@@ -315,16 +308,12 @@ def cutout_prepare(
 
         ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
 
-        directory: str
-        filename: str
         directory, filename = os.path.split(str(cutout.path))
-        fd: int
-        tmp: str
         fd, tmp = mkstemp(suffix=filename, dir=directory)
         os.close(fd)
 
         logger.debug("Writing cutout to file...")
-        write_job: Any = ds.to_netcdf(tmp, compute=False)
+        write_job = ds.to_netcdf(tmp, compute=False)
         if show_progress:
             with ProgressBar(minimum=2):
                 write_job.compute(**dask_kwargs)

@@ -12,11 +12,7 @@ import xarray as xr
 from pyproj import CRS
 
 NDArray: TypeAlias = np.ndarray[Any, np.dtype[np.floating[Any]]]
-NDArrayInt: TypeAlias = np.ndarray[Any, np.dtype[np.signedinteger[Any]]]
-NDArrayBool: TypeAlias = np.ndarray[Any, np.dtype[np.bool_]]
 PathLike: TypeAlias = str | Path
-NumericArray: TypeAlias = NDArray | xr.DataArray
-Number: TypeAlias = int | float | np.number[Any]
 CrsLike: TypeAlias = str | int | CRS | dict[str, Any]
 ConvertResult: TypeAlias = (
     xr.DataArray | xr.Dataset | tuple[xr.DataArray | xr.Dataset, xr.DataArray]

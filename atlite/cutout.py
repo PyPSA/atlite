@@ -38,7 +38,6 @@ if TYPE_CHECKING:
     from atlite._types import (
         CrsLike,
         NDArray,
-        Number,
         PathLike,
     )
 
@@ -594,7 +593,7 @@ class Cutout:
         return xr.DataArray(1, [self.coords["y"], self.coords["x"]])
 
     def uniform_density_layout(
-        self, capacity_density: Number, crs: CrsLike | None = None
+        self, capacity_density: float, crs: CrsLike | None = None
     ) -> xr.DataArray:
         """
         Get a capacity layout from a uniform capacity density.

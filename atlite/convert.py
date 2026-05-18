@@ -224,7 +224,9 @@ def convert_and_aggregate(
                 "given for `per_unit` or `return_capacity`"
             )
 
-        agg = "sum" if aggregate_time == "legacy" else aggregate_time
+        agg: Literal["sum", "mean"] | None = (
+            "sum" if aggregate_time == "legacy" else aggregate_time
+        )
         res = _aggregate_time(da, agg)
         return maybe_progressbar(res, show_progress, **dask_kwargs)
 
@@ -1765,6 +1767,25 @@ def convert_line_rating(
     return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
 
 
+def line_azimuth_degrees(shape: Any) -> float:
+    """
+    Return the line azimuth in degrees, measured clockwise from north.
+
+    Parameters
+    ----------
+    shape : shapely.geometry.base.BaseGeometry
+        Line geometry with at least two coordinates.
+
+    Returns
+    -------
+    float
+        Azimuth in degrees in the range ``(-180, 180]``.
+    """
+    coords = np.array(shape.coords)
+    start, end = coords[0], coords[-1]
+    return float(np.degrees(np.arctan2(start[0] - end[0], start[1] - end[1])))
+
+
 def line_rating(
     cutout, shapes, line_resistance, show_progress=False, dask_kwargs=None, **params
 ):
@@ -1857,26 +1878,7 @@ def line_rating(
 
     data = cutout.data.stack(spatial=["y", "x"])
 
-    def get_azimuth(shape):
-        """
-        Return the line azimuth in degrees from its end points.
-
-        Parameters
-        ----------
-        shape : shapely.geometry.base.BaseGeometry
-            Line geometry.
-
-        Returns
-        -------
-        float
-            Azimuth angle in degrees computed from the line end points.
-        """
-        coords = np.array(shape.coords)
-        start = coords[0]
-        end = coords[-1]
-        return np.degrees(np.arctan2(start[0] - end[0], start[1] - end[1]))
-
-    azimuth = shapes.apply(get_azimuth)
+    azimuth = shapes.apply(line_azimuth_degrees)
     azimuth = azimuth.where(azimuth >= 0, azimuth + 180.0)
 
     params.setdefault("D", 0.028)
