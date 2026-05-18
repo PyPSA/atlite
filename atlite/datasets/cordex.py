@@ -97,12 +97,14 @@ def prepare_data_cordex(
         ds = ds.sel(x=xs, y=ys)
 
         if newname in {"influx", "outflux"}:
+            # shift averaged data to beginning of bin
             ds = ds.assign_coords(
                 time=(
                     pd.to_datetime(ds.coords["time"].values) - pd.Timedelta(hours=1.5)
                 )
             )
         elif newname in {"runoff"}:
+            # shift and fill 6hr average data to beginning of 3hr bins
             t = pd.to_datetime(ds.coords["time"].values)
             ds = ds.reindex(method="bfill", time=(t - pd.Timedelta(hours=3.0)).union(t))
 

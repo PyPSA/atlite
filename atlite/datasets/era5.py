@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
     from dask.utils import SerializableLock
 
-    from atlite._types import ERA5RetrievalParams, PathLike
+    from atlite._types import PathLike
 
 # Null context for running a with statements wihout any context
 try:
@@ -129,7 +129,7 @@ def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dat
     return ds.drop_vars(["expver", "number"], errors="ignore")
 
 
-def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+def get_data_wind(retrieval_params: dict[str, Any]) -> xr.Dataset:
     """
     Retrieve and compute wind speed variables from ERA5.
 
@@ -138,7 +138,7 @@ def get_data_wind(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
 
     Parameters
     ----------
-    retrieval_params : ERA5RetrievalParams
+    retrieval_params : dict[str, Any]
         CDS API retrieval parameters including area, time, and format.
 
     Returns
@@ -192,7 +192,7 @@ def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
-def get_data_influx(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+def get_data_influx(retrieval_params: dict[str, Any]) -> xr.Dataset:
     """
     Retrieve and compute solar radiation variables from ERA5.
 
@@ -201,7 +201,7 @@ def get_data_influx(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
 
     Parameters
     ----------
-    retrieval_params : ERA5RetrievalParams
+    retrieval_params : dict[str, Any]
         CDS API retrieval parameters including area, time, and format.
 
     Returns
@@ -271,7 +271,7 @@ def sanitize_influx(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
-def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+def get_data_temperature(retrieval_params: dict[str, Any]) -> xr.Dataset:
     """
     Retrieve temperature variables from ERA5.
 
@@ -279,7 +279,7 @@ def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
 
     Parameters
     ----------
-    retrieval_params : ERA5RetrievalParams
+    retrieval_params : dict[str, Any]
         CDS API retrieval parameters including area, time, and format.
 
     Returns
@@ -304,13 +304,13 @@ def get_data_temperature(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
     })
 
 
-def get_data_runoff(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+def get_data_runoff(retrieval_params: dict[str, Any]) -> xr.Dataset:
     """
     Retrieve runoff data from ERA5.
 
     Parameters
     ----------
-    retrieval_params : ERA5RetrievalParams
+    retrieval_params : dict[str, Any]
         CDS API retrieval parameters including area, time, and format.
 
     Returns
@@ -342,13 +342,13 @@ def sanitize_runoff(ds: xr.Dataset) -> xr.Dataset:
     return ds
 
 
-def get_data_height(retrieval_params: ERA5RetrievalParams) -> xr.Dataset:
+def get_data_height(retrieval_params: dict[str, Any]) -> xr.Dataset:
     """
     Retrieve geopotential and convert to terrain height.
 
     Parameters
     ----------
-    retrieval_params : ERA5RetrievalParams
+    retrieval_params : dict[str, Any]
         CDS API retrieval parameters including area, time, and format.
 
     Returns
@@ -531,6 +531,10 @@ def open_with_grib_conventions(
     xr.Dataset
         Opened dataset with standardized dimensions.
     """
+    # Open grib file as dataset.
+    # Options below normalize different ERA5 grib variants into consistent
+    # netCDF-compatible hypercubes. Options relevant only to e.g. wave-model
+    # data have been removed to keep this routine focused on the products we use.
     ds = xr.open_dataset(
         grib_file,
         engine="cfgrib",
@@ -549,6 +553,13 @@ def open_with_grib_conventions(
         add_finalizer(ds, grib_file)
 
     def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
+        """Expand missing dimensions while preserving their original order.
+
+        Returns
+        -------
+        xr.Dataset
+            Dataset with the requested dimensions present.
+        """
         dims_required = [
             c for c in dataset.coords if c in expand_dims + list(dataset.dims)
         ]
@@ -608,6 +619,18 @@ def retrieve_data(
     xr.Dataset
         Downloaded ERA5 data.
 
+    Examples
+    --------
+    >>> ds = retrieve_data(
+    ...     product='reanalysis-era5-single-levels',
+    ...     chunks={'time': 1, 'x': 100, 'y': 100},
+    ...     tmpdir='/tmp',
+    ...     lock=None,
+    ...     year='2020',
+    ...     month='01',
+    ...     variable=['10m_u_component_of_wind', '10m_v_component_of_wind'],
+    ...     data_format='netcdf',
+    ... )
     """
     request: dict[str, Any] = {
         "product_type": ["reanalysis"],
@@ -697,7 +720,7 @@ def get_data(
 
     sanitize = creation_parameters.get("sanitize", True)
 
-    retrieval_params: ERA5RetrievalParams = {
+    retrieval_params: dict[str, Any] = {
         "product": "reanalysis-era5-single-levels",
         "area": _area(coords),
         "chunks": cutout.chunks,
@@ -707,7 +730,7 @@ def get_data(
         "data_format": data_format,
     }
 
-    func: Callable[[ERA5RetrievalParams], xr.Dataset] | None = globals().get(
+    func: Callable[[dict[str, Any]], xr.Dataset] | None = globals().get(
         f"get_data_{feature}"
     )
     sanitize_func: Callable[[xr.Dataset], xr.Dataset] | None = globals().get(
@@ -717,7 +740,7 @@ def get_data(
     logger.info("Requesting data for feature %s...", feature)
 
     def retrieve_once(time: dict[str, Any]) -> xr.Dataset:
-        ds = func({**retrieval_params, **time})  # type: ignore[misc, typeddict-item]
+        ds = func({**retrieval_params, **time})  # type: ignore[misc]
         if sanitize and sanitize_func is not None:
             ds = sanitize_func(ds)
         return ds

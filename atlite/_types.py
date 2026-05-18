@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal, TypeAlias, TypedDict
+from typing import Any, Literal, TypeAlias
 
 import numpy as np
 import xarray as xr
@@ -29,18 +29,3 @@ IrradiationType: TypeAlias = Literal["total", "direct", "diffuse", "ground"]
 HeatPumpSource: TypeAlias = Literal["air", "soil"]
 OrientationName: TypeAlias = Literal["latitude_optimal", "constant", "latitude"]
 DataFormat: TypeAlias = Literal["grib", "netcdf"]
-
-
-class ERA5RetrievalParams(TypedDict, total=False):
-    product: str
-    area: list[float]
-    grid: str
-    chunks: dict[str, int] | None
-    tmpdir: str | Path | None
-    lock: Any | None
-    data_format: Literal["grib", "netcdf"]
-    year: list[str]
-    month: list[str] | str
-    day: list[str] | str
-    time: str | list[str]
-    variable: str | list[str]
