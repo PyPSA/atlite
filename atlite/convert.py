@@ -37,6 +37,7 @@ from atlite.resource import (
     get_windturbineconfig,
     windturbine_smooth,
 )
+from atlite.utils import ensure_coords
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +255,7 @@ def convert_and_aggregate(
         if isinstance(shapes, geoseries_like) and index is None:
             index = shapes.index
 
-        matrix = cutout.indicatormatrix(shapes, shapes_crs)
+        matrix = cutout.indicatormatrix(shapes, shapes_crs).tocsr()
 
     if layout is not None:
         assert isinstance(layout, xr.DataArray)
@@ -265,15 +266,17 @@ def convert_and_aggregate(
         else:
             matrix = csr_matrix(matrix) * spdiag(layout)
 
-    # From here on, matrix is defined and ensured to be a csr matrix.
-    if index is None:
-        index = pd.RangeIndex(matrix.shape[0])
+    # guaranteed by code flow above, helps type checker
+    assert isinstance(matrix, csr_matrix)
 
-    results = aggregate_matrix(da, matrix=matrix, index=index)
+    coords = ensure_coords(pd.RangeIndex(matrix.shape[0]) if index is None else index)
+    if len(coords.dims) > 1:
+        raise ValueError(f"index must have a single dimension, not: {coords.dims}")
+    results = aggregate_matrix(da, matrix=matrix, index=coords)
 
     if per_unit or return_capacity:
         caps = matrix.sum(-1)
-        capacity = xr.DataArray(np.asarray(caps).flatten(), [index])
+        capacity = xr.DataArray(np.asarray(caps).flatten(), coords)
         capacity.attrs["units"] = "MW"
 
     if per_unit:

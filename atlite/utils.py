@@ -30,6 +30,39 @@ DataArray: TypeAlias = xr.DataArray
 Dataset: TypeAlias = xr.Dataset
 
 
+def ensure_coords(index: pd.Index | xr.Coordinates) -> xr.Coordinates:
+    """
+    Convert an index or multiindex to coordinates.
+
+    Parameters
+    ----------
+    index : pd.Index or xr.Coordinates
+        The index or multiindex to convert.
+
+    Returns
+    -------
+    xr.Coordinates
+        The converted coordinates.
+
+    Raises
+    ------
+    ValueError
+        If the index is not a pandas index or xarray coordinates.
+
+    """
+    if isinstance(index, pd.MultiIndex):
+        coords = xr.Coordinates.from_pandas_multiindex(index, index.name or "dim_0")
+    elif isinstance(index, pd.Index):
+        coords = xr.Coordinates({index.name or "dim_0": index})
+    elif isinstance(index, xr.Coordinates):
+        coords = index
+    else:
+        raise ValueError(
+            f"index must be a pandas index or xarray coordinates, not: {index}"
+        )
+    return coords
+
+
 def migrate_from_cutout_directory(old_cutout_dir: PathLike, path: PathLike) -> Dataset:
     """
     Convert an old-style cutout directory to a new-style netCDF file.

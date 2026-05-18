@@ -8,7 +8,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 import dask
+import pandas as pd
 import xarray as xr
+
+from atlite.utils import ensure_coords
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -18,7 +21,7 @@ if TYPE_CHECKING:
 def aggregate_matrix(
     da: xr.DataArray,
     matrix: spmatrix,
-    index: pd.Index,
+    index: xr.Coordinates | pd.Index,
 ) -> xr.DataArray:
     """
     Aggregate spatial data with a sparse matrix.
@@ -29,7 +32,7 @@ def aggregate_matrix(
         DataArray with spatial dimensions ``y`` and ``x``.
     matrix : scipy.sparse.spmatrix
         Aggregation matrix mapping flattened spatial cells to ``index``.
-    index : pandas.Index
+    index : xarray.Coordinates | pandas.Index
         Index defining the aggregated dimension.
 
     Returns
@@ -37,8 +40,8 @@ def aggregate_matrix(
     xarray.DataArray
         Aggregated data indexed by ``index`` and, if present, time.
     """
-    if index.name is None:
-        index = index.rename("dim_0")
+    coords = ensure_coords(index)
+
     if isinstance(da.data, dask.array.core.Array):
         da = da.stack(spatial=("y", "x"))
         da = da.chunk({"spatial": -1})
@@ -46,11 +49,11 @@ def aggregate_matrix(
             lambda da: da * matrix.T,
             da,
             input_core_dims=[["spatial"]],
-            output_core_dims=[[index.name]],
+            output_core_dims=[list(coords.dims)],
             dask="parallelized",
             output_dtypes=[da.dtype],
-            dask_gufunc_kwargs={"output_sizes": {index.name: index.size}},
-        ).assign_coords(**{index.name: index})
+            dask_gufunc_kwargs={"output_sizes": coords.sizes},
+        ).assign_coords(coords)
         return cast("xr.DataArray", result)
     da = da.stack(spatial=("y", "x")).transpose("spatial", "time")
     return xr.DataArray(matrix * da, [index, da.coords["time"]])

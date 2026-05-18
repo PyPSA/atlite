@@ -17,11 +17,30 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g. 
    ``pip install git+https://github.com/pypsa/atlite``.
 
+`v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
+=======================================================================================
+
+**Bug fixes**
+
+* Fix backwards compatibility of ``aggregate_matrix``.
+
+`v0.6.0 <https://github.com/PyPSA/atlite/releases/tag/v0.6.0>`__ (15th April 2026)
+=======================================================================================
+
+**Features**
 
 * Add ``aggregate_time={"sum", "mean", None}`` to ``convert_and_aggregate`` for temporal 
   aggregation with and without spatial aggregation, and deprecate ``capacity_factor``/``capacity_factor_timeseries`` 
   in favor of it
-   
+
+**Bug fixes**
+
+* Fix regression when ``ExclusionContainer`` encounters a raster with an invalid CRS
+  (https://github.com/PyPSA/atlite/pull/500).
+
+* Fix MultiIndex specific ``FutureWarning`` in ``convert_and_aggregate`` (https://github.com/PyPSA/atlite/pull/501).
+
+
 `v0.5.0 <https://github.com/PyPSA/atlite/releases/tag/v0.5.0>`__ (13th March 2026)
 =======================================================================================   
    
