@@ -14,16 +14,19 @@ Chunks: (4320, 64, 64)
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import warnings
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
-# TODO: remove all Any refs, pass explicit vars around
 import numpy as np
 import pandas as pd
 import xarray as xr
+import zarr
+from dask.utils import SerializableLock
+from fsspec.implementations.http import HTTPFileSystem
 
 from atlite.datasets.era5 import (
     _add_height,
@@ -73,6 +76,45 @@ _FEATURE_VARS: dict[str, list[str]] = {
 }
 
 
+_EDH_URL = (
+    "https://data.earthdatahub.destine.eu/era5/reanalysis-era5-single-levels-v0.zarr"
+)
+
+
+class _RetryingHTTPFileSystem(HTTPFileSystem):
+    """
+    ``HTTPFileSystem`` that retries transient transport errors on chunk reads.
+
+    The EDH dataset is accessed via Zarr over HTTPS using an ``fsspec`` filesystem.
+    The default HTTPFileSystem in Zarr doesn't imoplement retries. On large downloads
+    this can crash a whole cutout. This class patches the default filesystem to
+    retry on errors caused by transient connection issues
+    """
+
+    _retry_attempts = 8
+
+    async def _cat_file(self, url, start=None, end=None, **kwargs):  # type: ignore[no-untyped-def]
+        import aiohttp
+
+        transient = (
+            aiohttp.ClientPayloadError,
+            aiohttp.ClientConnectionError,
+            TimeoutError,
+        )
+        for attempt in range(self._retry_attempts):
+            try:
+                return await super()._cat_file(url, start=start, end=end, **kwargs)
+            except transient as exc:
+                if attempt == self._retry_attempts - 1:
+                    raise
+                delay = min(2**attempt, 30)
+                logger.warning(
+                    f"EDH chunk fetch failed ({exc!r}); retry "
+                    f"{attempt + 1}/{self._retry_attempts - 1} in {delay}s"
+                )
+                await asyncio.sleep(delay)
+
+
 def _open_edh() -> xr.Dataset:
     """
     Open the ERA5 dataset hosted on Earth Data Hub.
@@ -83,15 +125,11 @@ def _open_edh() -> xr.Dataset:
         Dataset object, dask-backed with the store's native
         ``(4320, 64, 64)`` chunks.
     """
-
-    ds = xr.open_dataset(
-        "https://data.earthdatahub.destine.eu/era5/reanalysis-era5-single-levels-v0.zarr",
-        storage_options={
-            "client_kwargs": {"trust_env": True}
-        },  # requried for .netrc auth
-        chunks={},
-        engine="zarr",
-    )
+    # trust_env: lets aiohttp pick up the EDH credentials from ~/.netrc.
+    # uses a patched HTTPFileSystem to allow for retries
+    fs = _RetryingHTTPFileSystem(asynchronous=True, client_kwargs={"trust_env": True})
+    store = zarr.storage.FsspecStore(fs, path=_EDH_URL)
+    ds = xr.open_dataset(store, chunks={}, engine="zarr")
     # get rid of unnecessary coordinates
     for coord in ("number", "surface"):
         if coord in ds.coords:
@@ -101,7 +139,7 @@ def _open_edh() -> xr.Dataset:
 
 def _subset_spatial(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
     """
-    Select the cutout's bounding box from a dataset. Convert from
+    Select the cutout's bounding box . Convert from
     atlite to era5 coordinates.
 
     atlite coordinate system:
@@ -142,7 +180,9 @@ def _subset_spatial(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
 
     sub = sub.sel(latitude=slice(float(y.max()), float(y.min())))
     new_lon = ((sub.longitude + 180) % 360) - 180
-    return sub.assign_coords(longitude=new_lon)
+    # Rewrapping can leave longitude non-monotonic (wide seam-straddling
+    # bboxes); sort so downstream slicing and grid logic stay correct.
+    return sub.assign_coords(longitude=new_lon).sortby("longitude")
 
 
 def _subset_temporal(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
@@ -212,6 +252,36 @@ def _rename_and_clean_coords(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
     return ds
 
 
+def _load_feature(cutout: Cutout, feature: str, static: bool = False) -> xr.Dataset:
+    """
+    Open the EDH store, pull the feature's raw variables and subset them to
+    the cutout's bbox (and time range, unless ``static``).
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid and time range.
+    feature : str
+        Feature name; key into ``_FEATURE_VARS``.
+    static : bool, optional
+        If True, collapse the time axis to its first step and skip the
+        temporal subset (for time-invariant features such as ``height``).
+
+    Returns
+    -------
+    xarray.Dataset
+        Raw feature variables on atlite's ``y``/``x`` grid, rechunked to
+        ``cutout.chunks``.
+    """
+    ds = _open_edh()[_FEATURE_VARS[feature]]
+    if static:
+        ds = ds.isel(valid_time=0, drop=True)
+    ds = _subset_spatial(ds, cutout)
+    if not static:
+        ds = _subset_temporal(ds, cutout)
+    return _rename_and_clean_coords(ds, cutout)
+
+
 def get_data_wind(cutout: Cutout) -> xr.Dataset:
     """
     Retrieve and prepare wind variables.
@@ -227,10 +297,7 @@ def get_data_wind(cutout: Cutout) -> xr.Dataset:
         Dataset containing ``wnd100m``, ``wnd_shear_exp``, ``wnd_azimuth`` and
         ``roughness``.
     """
-    ds = _open_edh()[_FEATURE_VARS["wind"]]
-    ds = _subset_spatial(ds, cutout)
-    ds = _subset_temporal(ds, cutout)
-    ds = _rename_and_clean_coords(ds, cutout)
+    ds = _load_feature(cutout, "wind")
 
     for h in (10, 100):
         ds[f"wnd{h}m"] = np.sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
@@ -244,10 +311,12 @@ def get_data_wind(cutout: Cutout) -> xr.Dataset:
         .assign_attrs(units="", long_name="wind shear exponent")
     )
 
-    azimuth = xr.apply_ufunc(np.arctan2, ds["u100"], ds["v100"], dask="allowed")
-    ds["wnd_azimuth"] = xr.where(
-        azimuth >= 0, azimuth, azimuth + 2 * np.pi
-    ).assign_attrs(units="m s**-1", long_name="100 metre U wind component")
+    # span the whole circle: 0 is north, π/2 east, π south, 3π/2 west. The
+    # `+ 2π` float64 scalar promotes the result; cast back to float32.
+    azimuth = np.arctan2(ds["u100"], ds["v100"])
+    ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi).astype(
+        np.float32
+    )
 
     ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
     ds = ds.rename({"fsr": "roughness"})
@@ -272,10 +341,7 @@ def get_data_influx(cutout: Cutout) -> xr.Dataset:
         Dataset containing ``influx_toa``, ``influx_direct``, ``influx_diffuse``,
         ``albedo``, ``solar_altitude`` and ``solar_azimuth``.
     """
-    ds = _open_edh()[_FEATURE_VARS["influx"]]
-    ds = _subset_spatial(ds, cutout)
-    ds = _subset_temporal(ds, cutout)
-    ds = _rename_and_clean_coords(ds, cutout)
+    ds = _load_feature(cutout, "influx")
 
     ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
     ds["albedo"] = (
@@ -320,10 +386,7 @@ def get_data_temperature(cutout: Cutout) -> xr.Dataset:
         Dataset containing ``temperature``, ``soil temperature`` and
         ``dewpoint temperature``.
     """
-    ds = _open_edh()[_FEATURE_VARS["temperature"]]
-    ds = _subset_spatial(ds, cutout)
-    ds = _subset_temporal(ds, cutout)
-    ds = _rename_and_clean_coords(ds, cutout)
+    ds = _load_feature(cutout, "temperature")
     ds = ds.rename(
         {
             "t2m": "temperature",
@@ -350,10 +413,7 @@ def get_data_runoff(cutout: Cutout) -> xr.Dataset:
     xarray.Dataset
         Dataset containing ``runoff``.
     """
-    ds = _open_edh()[_FEATURE_VARS["runoff"]]
-    ds = _subset_spatial(ds, cutout)
-    ds = _subset_temporal(ds, cutout)
-    ds = _rename_and_clean_coords(ds, cutout)
+    ds = _load_feature(cutout, "runoff")
     ds = ds.rename({"ro": "runoff"})
     ds["runoff"].attrs["units"] = "m"
     return ds
@@ -373,9 +433,7 @@ def get_data_height(cutout: Cutout) -> xr.Dataset:
     xarray.Dataset
         Dataset containing ``height``.
     """
-    ds = _open_edh()[_FEATURE_VARS["height"]].isel(valid_time=0, drop=True)
-    ds = _subset_spatial(ds, cutout)
-    ds = _rename_and_clean_coords(ds, cutout)
+    ds = _load_feature(cutout, "height", static=True)
     ds = _add_height(ds)
     ds["height"].attrs["units"] = "m**2 s**-2"
     return ds
@@ -400,8 +458,8 @@ def get_data(
     cutout: Cutout,
     feature: str,
     tmpdir: str | Path | None = None,
-    lock: Any = None,
-    **creation_parameters: Any,
+    lock: SerializableLock | None = None,
+    **creation_parameters: object,
 ) -> xr.Dataset:
     """
     Retrieve ERA5 feature data from Earth Data Hub.
@@ -413,11 +471,11 @@ def get_data(
     feature : str
         Feature name to retrieve. Must be one of ``features``.
     tmpdir : str or pathlib.Path, optional
-        Currently unused. Reserved for an optional intermediate zarr cache
-        gated by a future ``cache_dir`` creation parameter.
-    lock : object, optional
-        Accepted for signature compatibility with
-        :func:`atlite.datasets.era5.get_data`. Not used.
+        Unused; accepted for interface compatibility with
+        :func:`atlite.datasets.era5.get_data`.
+    lock : dask.utils.SerializableLock, optional
+        Unused; accepted for interface compatibility with
+        :func:`atlite.datasets.era5.get_data`.
     **creation_parameters
         Additional creation parameters. ``sanitize`` controls whether the
         standard atlite sanitizers are applied (default True).
@@ -434,8 +492,8 @@ def get_data(
     NotImplementedError
         If ``feature`` is not yet implemented.
     """
-    _NATIVE_RES = 0.25
-    if not (np.isclose(cutout.dx, _NATIVE_RES) and np.isclose(cutout.dy, _NATIVE_RES)):
+    native_res = 0.25
+    if not (np.isclose(cutout.dx, native_res) and np.isclose(cutout.dy, native_res)):
         raise ValueError(
             "era5-edh only supports the native 0.25°×0.25° grid. "
             "For other resolutions, use module='era5' (CDS)."
@@ -451,6 +509,6 @@ def get_data(
         ds = _SANITIZERS[feature](ds)
 
     if feature not in static_features:
-        ds = ds.reindex(time=cutout.coords["time"])
+        ds = ds.sel(time=cutout.coords["time"])
 
     return ds
