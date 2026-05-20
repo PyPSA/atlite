@@ -11,7 +11,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import warnings
 from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -49,7 +48,7 @@ if TYPE_CHECKING:
 
 
 def get_windturbineconfig(
-    turbine: str | Path | dict, add_cutout_windspeed: bool = False
+    turbine: str | Path | dict, add_cutout_windspeed: bool = True
 ) -> TurbineConfig:
     """
     Load the wind 'turbine' configuration.
@@ -69,7 +68,7 @@ def get_windturbineconfig(
             a user provided config dict. Needs to have the keys "POW", "V", "P", and
             "hub_height". Values for "POW" and "V" need to be list or np.ndarray with
             equal length.
-    add_cutout_windspeed : bool
+    add_cutout_windspeed : bool = True
         If True and in case the power curve does not end with a zero, will add zero power
         output at the highest wind speed in the power curve. If False, a warning will be
         raised if the power curve does not have a cut-out wind speed.
@@ -80,14 +79,10 @@ def get_windturbineconfig(
         Config with details on the turbine
 
     """
-    assert isinstance(turbine, (str | Path | dict))
-
-    if add_cutout_windspeed is False:
-        msg = (
-            "'add_cutout_windspeed' for wind turbine\npower curves will default to "
-            "True in atlite relase v0.2.15."
+    if not isinstance(turbine, (str | Path | dict)):
+        raise KeyError(
+            f"`turbine` must be a str, pathlib.Path or dict, but is {type(turbine)}."
         )
-        warnings.warn(msg, FutureWarning)
 
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
         conf = get_oedb_windturbineconfig(turbine[len("oedb:") :])

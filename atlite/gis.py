@@ -88,7 +88,7 @@ def reproject_shapes(shapes, crs1, crs2):
     """
     Project a collection of shapes from one crs to another.
     """
-    transformer = Transformer.from_crs(crs1, crs2)
+    transformer = Transformer.from_crs(crs1, crs2, always_xy=True)
 
     def _reproject_shape(shape):
         return transform(transformer.transform, shape)
@@ -477,11 +477,18 @@ class ExclusionContainer:
                 raster = rio.open(raster)
             else:
                 assert isinstance(raster, rio.DatasetReader)
-            if not raster.crs.is_valid if raster.crs is not None else True:
+
+            # Check if the raster has a valid CRS
+            if raster.crs is None or not (
+                raster.crs.is_geographic or raster.crs.is_projected
+            ):
                 if d["crs"]:
                     raster._crs = CRS(d["crs"])
                 else:
-                    raise ValueError(f"CRS of {raster} is invalid, please provide it.")
+                    raise ValueError(
+                        f"CRS of {raster} is neither geographic nor projected, "
+                        f"please provide it manually:\n{raster.crs}"
+                    )
             d["raster"] = raster
 
         for d in self.geometries:

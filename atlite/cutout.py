@@ -19,7 +19,6 @@ from pathlib import Path
 from tempfile import mktemp
 from warnings import warn
 
-import dask
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -98,9 +97,10 @@ class Cutout:
             Time range to include in the cutout, e.g. "2011" or
             ("2011-01-05", "2011-01-25")
             This is necessary when building a new cutout.
-        bounds : GeoSeries.bounds | DataFrame, optional
-            The outer bounds of the cutout or as a DataFrame
-            containing (min.long, min.lat, max.long, max.lat).
+        bounds : DataFrame | Tuple, optional
+            The outer bounds of the cutout containing (min.long, min.lat, max.long, max.lat)
+            or a single-row DataFrame with [["minx", "miny", "maxx", "maxy"]] column values.
+            From GeoPandas DataFrames and Series, this is easily accessible through `.geometry.bounds`.
         x : slice, optional
             Outer longitudinal bounds for the cutout (west, east).
         y : slice, optional
@@ -163,7 +163,18 @@ class Cutout:
             logger.info(f"Building new cutout {path}")
 
             if "bounds" in cutoutparams:
-                x1, y1, x2, y2 = cutoutparams.pop("bounds")
+                bounds = cutoutparams.pop("bounds")
+                # If its a dataframe, we will extract the values
+                if isinstance(bounds, pd.DataFrame) and bounds.shape[0] == 1:
+                    x1, y1, x2, y2 = bounds.iloc[0][
+                        ["minx", "miny", "maxx", "maxy"]
+                    ].to_list()
+                elif isinstance(bounds, tuple):  # If its a tuple
+                    x1, y1, x2, y2 = bounds
+                else:
+                    raise ValueError(
+                        "`bounds` must be a tuple or a DataFrame with a single row entry."
+                    )
                 cutoutparams.update(x=slice(x1, x2), y=slice(y1, y2))
 
             try:
@@ -621,18 +632,22 @@ class Cutout:
         >>> pv.plot()
 
         """
-        with dask.config.set(**{"array.slicing.split_large_chunks": False}):
-            nearest = (
-                self.uniform_layout()
-                .chunk()
-                .sel({"x": data.x.values, "y": data.y.values}, "nearest")
-            )
 
-        data = (
-            data.assign(x=nearest.x.data, y=nearest.y.data)
-            .groupby(["y", "x"])[col]
-            .sum()
-        )
+        x_grid = self.data.x.values
+        y_grid = self.data.y.values
+
+        # Find nearest grid indices
+        ix = np.searchsorted(x_grid, data.x.values, side="left")
+        iy = np.searchsorted(y_grid, data.y.values, side="left")
+
+        # clip if outside of cutout
+        ix = np.clip(ix, 0, len(x_grid) - 1)
+        iy = np.clip(iy, 0, len(y_grid) - 1)
+        # move to best distance - assumes equal size steps
+        ix = ix - (data.x.values - x_grid[ix - 1] < x_grid[ix] - data.x.values)
+        iy = iy - (data.y.values - y_grid[iy - 1] < y_grid[iy] - data.y.values)
+
+        data = data.assign(x=x_grid[ix], y=y_grid[iy]).groupby(["y", "x"])[col].sum()
         return data.to_xarray().reindex_like(self.data).fillna(0)
 
     availabilitymatrix = compute_availabilitymatrix
