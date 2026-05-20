@@ -11,11 +11,17 @@ Release Notes
 Upcoming Release
 ================
 
-.. warning:: 
-  
-   The features listed below are not released yet, but will be part of the next release! 
-   To use the features already you have to install the ``master`` branch, e.g. 
+.. warning::
+
+   The features listed below are not released yet, but will be part of the next release!
+   To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
+
+* The method ``runoff(normalize_using_yearly=...)`` now supports handling of
+  partial years when normalizing runoff data based on annual data. The
+  normalization is applied proportionally based on the time overlap. A warning
+  is shown for partial years noting the strong assumption of evenly distributed
+  runoff throughout the year.
 
 `v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
 =======================================================================================
@@ -29,8 +35,8 @@ Upcoming Release
 
 **Features**
 
-* Add ``aggregate_time={"sum", "mean", None}`` to ``convert_and_aggregate`` for temporal 
-  aggregation with and without spatial aggregation, and deprecate ``capacity_factor``/``capacity_factor_timeseries`` 
+* Add ``aggregate_time={"sum", "mean", None}`` to ``convert_and_aggregate`` for temporal
+  aggregation with and without spatial aggregation, and deprecate ``capacity_factor``/``capacity_factor_timeseries``
   in favor of it
 
 **Bug fixes**
@@ -42,8 +48,8 @@ Upcoming Release
 
 
 `v0.5.0 <https://github.com/PyPSA/atlite/releases/tag/v0.5.0>`__ (13th March 2026)
-=======================================================================================   
-   
+=======================================================================================
+
 **Breaking**
 
 * Default ``add_cutout_windspeed`` to ``True`` in ``get_windturbineconfig``, meaning power curves
@@ -108,14 +114,14 @@ Upcoming Release
   active support is only provided for the most recent versions (see `here
   <https://endoflife.date/python>`_). It is recommended to upgrade to the latest
   Python version if possible. Note that there might be some issues with
-  Windows and Python 3.13, which are not yet resolved. 
+  Windows and Python 3.13, which are not yet resolved.
   (https://github.com/PyPSA/atlite/pull/418)
 
 * Added support for ``numpy>=2``. (https://github.com/PyPSA/atlite/pull/419)
 
 **Bug fixes**
 
-* Fix mismatched dim lengths during rechunking. 
+* Fix mismatched dim lengths during rechunking.
   (https://github.com/PyPSA/atlite/pull/423)
 
 * Exclude versions 1.4.0 and 1.4.1 of ``rasterio`` due to a bug in these
@@ -127,13 +133,13 @@ Upcoming Release
 
 **Features**
 
-* Add power law interpolation method as a new argument to `cutout.wind` 
+* Add power law interpolation method as a new argument to `cutout.wind`
   (`#402 <https://github.com/PyPSA/atlite/pull/402>`_)
 
-* Use ``dask.array`` functions in favour of ``numpy`` functions 
+* Use ``dask.array`` functions in favour of ``numpy`` functions
   (`#367 <https://github.com/PyPSA/atlite/pull/367>`_)
 
-* Improved CI, testing, linting and build process 
+* Improved CI, testing, linting and build process
   (`#388 <https://github.com/PyPSA/atlite/pull/388>`_,
   `#392 <https://github.com/PyPSA/atlite/pull/392>`_,
   `#394 <https://github.com/PyPSA/atlite/pull/394>`_,
@@ -144,7 +150,7 @@ Upcoming Release
 
 * Adapt ERA5T merge to new CDS API (`#391 <https://github.com/PyPSA/atlite/pull/391>`_)
 
-* Fixes issues with dependeny updates 
+* Fixes issues with dependeny updates
   (`#381 <https://github.com/PyPSA/atlite/pull/381>`_,
   `#387 <https://github.com/PyPSA/atlite/pull/387>`_)
 
