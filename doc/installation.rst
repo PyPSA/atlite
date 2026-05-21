@@ -45,7 +45,7 @@ ERA5 dataset credentials
 
 To download weather data, you need to obtain credentials for a source of ERA5 data. 
 
-We currently support two methods for dataset access:
+We currently support two methods for dataset access.
 
 Earth Data Hub (recommended)
 -----------------------------

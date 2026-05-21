@@ -88,7 +88,7 @@ Datasets
 The standard data source we currently employ is ECMWF's ERA5 dataset
 (reanalysis weather data in a ca. 30 km x 30 km and hourly resolution).
 This dataset is easily available at no additional costs and requires only
-minimal setup from the user in comparison to other datasets. See  :doc:`installation instructions <installation>`) to learn
+minimal setup from the user in comparison to other datasets. See  :doc:`installation instructions <installation>` to learn
 how to set it up.
 
 We offer two methods for accessing ERA5.
@@ -101,11 +101,11 @@ We offer two methods for accessing ERA5.
 
 - ECMWF ADS API (European Centre for Medium-Range Weather Forecasts
   Climate Data Store) is the original source for ERA5. Unfortunately, CDS 
-  downloads may spend hours in a processing queue on the server. See
+  downloads may spend hours in a processing queue on the server, so we only recommend using the CDS source if you really need to. See
   `this example <https://atlite.readthedocs.io/en/master/examples/create_cutout.html>`_
   to learn how to create an ERA5 cutout.
 
-Previously and in the future other datasets where and (hopefully) will
+Previously and in the future other datasets were and (hopefully) will
 again be usable, including
 
 * the *NCEP Climate Forecast System* dataset

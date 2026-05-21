@@ -2,14 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 """
-Download ERA5 data from the Earth Data Hub (EDH). EDH stores a mirror
-of ERA5 in a convenient Zarr format. Dataset parameters:
-URL: https://data.earthdatahub.destine.eu/era5/reanalysis-era5-single-levels-v0.zarr
-Auth: .netrc in user $HOME folder
-Time coord: valid_time, hourly, 1940-01-01 → today,
-Latitude: descending 90 → -90, step -0.25, length 721.
-Longitude: 0–360 ascending, step 0.25, length 1440.
-Chunks: (4320, 64, 64)
+Download ERA5 data from the Earth Data Hub (EDH).
+
+EDH stores a mirror of ERA5 in a Zarr format. Dataset parameters:
+
+- URL: https://data.earthdatahub.destine.eu/era5/reanalysis-era5-single-levels-v0.zarr
+- Auth: .netrc in the user's home directory.
+- Time coordinate: ``valid_time``, hourly, from 1940-01-01 to the present.
+- Latitude: descending from 90.0 to -90.0 in 0.25 degree steps, 721 points.
+- Longitude: ascending from 0.0 to 359.75 in 0.25 degree steps, 1440 points.
+- Native chunks: ``valid_time=4320, latitude=64, longitude=64``.
 """
 
 from __future__ import annotations
@@ -86,12 +88,13 @@ class _RetryingHTTPFileSystem(HTTPFileSystem):
     ``HTTPFileSystem`` that retries transient transport errors on chunk reads.
 
     The EDH dataset is accessed via Zarr over HTTPS using an ``fsspec`` filesystem.
-    The default HTTPFileSystem in Zarr doesn't imoplement retries. On large downloads
+    The default HTTPFileSystem in Zarr doesn't implement retries. On large downloads
     this can crash a whole cutout. This class patches the default filesystem to
-    retry on errors caused by transient connection issues
+    retry on errors caused by transient connection issues.
     """
 
     _retry_attempts = 8
+    _retry_statuses = {408, 425, 429, 500, 502, 503, 504}
 
     async def _cat_file(self, url, start=None, end=None, **kwargs):  # type: ignore[no-untyped-def]
         import aiohttp
@@ -99,12 +102,18 @@ class _RetryingHTTPFileSystem(HTTPFileSystem):
         transient = (
             aiohttp.ClientPayloadError,
             aiohttp.ClientConnectionError,
+            aiohttp.ClientResponseError,
             TimeoutError,
         )
         for attempt in range(self._retry_attempts):
             try:
                 return await super()._cat_file(url, start=start, end=end, **kwargs)
             except transient as exc:
+                if (
+                    isinstance(exc, aiohttp.ClientResponseError)
+                    and exc.status not in self._retry_statuses
+                ):
+                    raise
                 if attempt == self._retry_attempts - 1:
                     raise
                 delay = min(2**attempt, 30)
@@ -126,9 +135,9 @@ def _open_edh() -> xr.Dataset:
         ``(4320, 64, 64)`` chunks.
     """
     # trust_env: lets aiohttp pick up the EDH credentials from ~/.netrc.
-    # uses a patched HTTPFileSystem to allow for retries
+    # Use a patched HTTPFileSystem to allow for retries.
     fs = _RetryingHTTPFileSystem(asynchronous=True, client_kwargs={"trust_env": True})
-    store = zarr.storage.FsspecStore(fs, path=_EDH_URL)
+    store = zarr.storage.FsspecStore(fs, read_only=True, path=_EDH_URL)
     ds = xr.open_dataset(store, chunks={}, engine="zarr")
     # get rid of unnecessary coordinates
     for coord in ("number", "surface"):
@@ -139,23 +148,23 @@ def _open_edh() -> xr.Dataset:
 
 def _subset_spatial(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
     """
-    Select the cutout's bounding box . Convert from
-    atlite to era5 coordinates.
+    Select the cutout's bounding box and convert from atlite coordinates to
+    EDH coordinates.
 
     atlite coordinate system:
         - x: -180:180
         - y: -90:90
 
-    era5 coordinate system:
+    EDH coordinate system:
         - x: 0:360
-        - y: -90:90
-
+        - y: 90:-90
 
     Parameters
     ----------
     ds : xarray.Dataset
-        Dataset on the EDH grid with ``latitude`` (descending) and
-        ``longitude`` (0..360 ascending) coordinates.
+        Dataset on the EDH grid with descending ``latitude`` coordinates and
+        ascending ``longitude`` coordinates in the half-open interval
+        ``[0, 360)``.
     cutout : atlite.Cutout
         Cutout defining the target bbox via its ``x``/``y`` coords.
 
