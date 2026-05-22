@@ -657,7 +657,7 @@ class TestGebco:
 class TestERA5EDH:
     """
     we assume that era5.py cutouts are correct, and only test whether era5_edh.py cutouts
-    have the same structure and contain the saem numerical values
+    have the same structure and contain the same numerical values
     """
 
     # Per-variable absolute tolerances measured against CDS across all three
