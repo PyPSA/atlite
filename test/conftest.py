@@ -19,11 +19,25 @@ GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
 
 
+_EDH_HOST = "data.earthdatahub.destine.eu"
+
+
 def _edh_reachable() -> bool:
     try:
         import socket
 
-        socket.create_connection(("data.earthdatahub.destine.eu", 443), timeout=10)
+        socket.create_connection((_EDH_HOST, 443), timeout=10)
+        return True
+    except Exception:
+        return False
+
+
+def _edh_credentials_available() -> bool:
+    """Check whether DestinE/EDH credentials are reachable via env or netrc."""
+    try:
+        from atlite.datasets.era5_edh import _get_edh_credentials
+
+        _get_edh_credentials()
         return True
     except Exception:
         return False
@@ -196,8 +210,11 @@ def cutout_sarah_weird_resolution(cutouts_path):
 
 def _prepare_era5_edh_cutout(path, prepare_kwargs=None, **kwargs):
     cutout = Cutout(path=path, module="era5-edh", bounds=BOUNDS, **kwargs)
-    if not path.exists() and not _edh_reachable():
-        pytest.skip("EDH not reachable and no cached cutout available")
+    if not path.exists() and not (_edh_credentials_available() and _edh_reachable()):
+        pytest.skip(
+            "EDH credentials missing or host not reachable, "
+            "and no cached cutout available"
+        )
     cutout.prepare(tmpdir=str(path.parent), **(prepare_kwargs or {}))
     return cutout
 

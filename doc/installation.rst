@@ -53,8 +53,10 @@ Earth Data Hub (recommended)
 1. Create an account at https://earthdatahub.destine.eu
 2. Go to https://earthdatahub.destine.eu/account-settings#my-personal-access-tokens
 3. Click on the "i" icon next to a token in the "My personal access tokens" section
-4. Click on "Download .netrc". Save the resulting file.
-5. For Linux/Mac users - save the file as  ``.netrc`` in your home folder. For Windows users, follow the instructions `here <https://earthdatahub.destine.eu/getting-started#configuring-netrc>`_
+4. Click on "Download .netrc". Save the resulting file in the project folder or in your home folder (or append to an existing ``.netrc``)
+   Alternatively, you can store the API key in this file as a ``EARTHDATAHUB_API_KEY`` environmental variable
+5. For Linux/Mac users, if using ``.netrc`` in your home folder, ensure that is has ``0600`` (owner read/write only) permissions
+   This doesn't apply if storing the file in your project folder
 
 Climate data store (fallback)
 -------------------------------
@@ -62,8 +64,9 @@ Climate data store (fallback)
 1. Create an acocount at https://cds.climate.copernicus.eu/
 2. Go to https://cds.climate.copernicus.eu/how-to-api
 3. Copy the text inside the code callout in the "Setup the CDS Api key" section
-4. Save it in a file called ``.cdsapirc`` in your home folder. (No instructions for Windows users)
-
+4. Save it in a file called ``.cdsapirc`` in your home folder
+   Alternatively, you can define ``CDSAPI_URL`` and ``CDSAPI_KEY`` environmental variables based on the
+   contents of the ``.cdsapirc`` file
 
 Computational resources
 =======================

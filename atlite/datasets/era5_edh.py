@@ -7,7 +7,8 @@ Download ERA5 data from the Earth Data Hub (EDH).
 EDH stores a mirror of ERA5 in a Zarr format. Dataset parameters:
 
 - URL: https://data.earthdatahub.destine.eu/era5/reanalysis-era5-single-levels-v0.zarr
-- Auth: .netrc in the user's home directory.
+- Auth: ``EARTHDATAHUB_API_KEY`` env var, or a netrc entry in ``./.netrc``
+  or ``~/.netrc`` (must be ``chmod 600``).
 - Time coordinate: ``valid_time``, hourly, from 1940-01-01 to the present.
 - Latitude: descending from 90.0 to -90.0 in 0.25 degree steps, 721 points.
 - Longitude: ascending from 0.0 to 359.75 in 0.25 degree steps, 1440 points.
@@ -16,8 +17,10 @@ EDH stores a mirror of ERA5 in a Zarr format. Dataset parameters:
 
 from __future__ import annotations
 
-import asyncio
+import base64
 import logging
+import netrc
+import os
 import warnings
 from collections.abc import Callable
 from pathlib import Path
@@ -26,9 +29,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 import xarray as xr
-import zarr
 from dask.utils import SerializableLock
-from fsspec.implementations.http import HTTPFileSystem
+from obstore.store import HTTPStore
+from zarr.storage import ObjectStore
 
 from atlite.datasets.era5 import (
     _add_height,
@@ -83,50 +86,74 @@ _EDH_URL = (
 )
 
 
-class _RetryingHTTPFileSystem(HTTPFileSystem):
+def _get_edh_credentials() -> tuple[str, str]:
     """
-    ``HTTPFileSystem`` that retries transient transport errors on chunk reads.
+    Resolve EDH ``(login, password)`` from a ``.netrc`` file.
 
-    The EDH dataset is accessed via Zarr over HTTPS using an ``fsspec`` filesystem.
-    The default HTTPFileSystem in Zarr doesn't implement retries. On large downloads
-    this can crash a whole cutout. This class patches the default filesystem to
-    retry on errors caused by transient connection issues.
+    Lookup order:
+
+    1. ``EARTHDATAHUB_API_KEY`` environment variable (login defaults to ``edh``).
+    2. ``./.netrc`` in the current working directory.
+    3. The user's home-directory netrc, resolved by :mod:`netrc` itself
+
+    Netrc files are parsed with :mod:`netrc`, which requires ``chmod 600`` on
+    entries that carry a password.
+
+    Raises
+    ------
+    RuntimeError
+        If no credentials are found.
     """
+    key = os.environ.get("EARTHDATAHUB_API_KEY")
+    if key:
+        return "edh", key
 
-    _retry_attempts = 8
-    _retry_statuses = {408, 425, 429, 500, 502, 503, 504}
+    host = _EDH_URL.split("/")[2]
+    # None lets netrc.netrc() find the home-folder file itself, which is
+    # platform-aware (.netrc on Unix, _netrc on Windows).
+    candidates: list[str | None] = [str(Path.cwd() / ".netrc"), None]
 
-    async def _cat_file(self, url, start=None, end=None, **kwargs):  # type: ignore[no-untyped-def]
-        import aiohttp
+    for arg in candidates:
+        try:
+            auth = netrc.netrc(arg).authenticators(host)
+        except FileNotFoundError:
+            continue
+        except netrc.NetrcParseError as err:
+            label = arg or "home netrc"
+            logger.error(
+                "Could not parse %s (%s). Earth Data Hub credentials in this "
+                "file will be ignored. If it holds your DestinE API key, "
+                "ensure it is chmod 600 and retry.",
+                label,
+                err,
+            )
+            continue
+        if auth is None:
+            continue
+        login, _account, password = auth
+        if password is not None:
+            return login or "", password
 
-        transient = (
-            aiohttp.ClientPayloadError,
-            aiohttp.ClientConnectionError,
-            aiohttp.ClientResponseError,
-            TimeoutError,
-        )
-        for attempt in range(self._retry_attempts):
-            try:
-                return await super()._cat_file(url, start=start, end=end, **kwargs)
-            except transient as exc:
-                if (
-                    isinstance(exc, aiohttp.ClientResponseError)
-                    and exc.status not in self._retry_statuses
-                ):
-                    raise
-                if attempt == self._retry_attempts - 1:
-                    raise
-                delay = min(2**attempt, 30)
-                logger.warning(
-                    f"EDH chunk fetch failed ({exc!r}); retry "
-                    f"{attempt + 1}/{self._retry_attempts - 1} in {delay}s"
-                )
-                await asyncio.sleep(delay)
+    raise RuntimeError(
+        f"Earth Data Hub access needs a DestinE API key. Provide it by either:\n"
+        f"  1) setting the EARTHDATAHUB_API_KEY environment variable, or\n"
+        f"  2) adding an entry to your netrc (./.netrc, ~/.netrc, or ~/_netrc\n"
+        f"     on Windows; must be chmod 600):\n"
+        f"        machine {host}\n"
+        f"        login edh\n"
+        f"        password <your-api-key>\n"
+        f"Get or refresh your key at https://earthdatahub.destine.eu/account-settings"
+    )
 
 
 def _open_edh() -> xr.Dataset:
     """
     Open the ERA5 dataset hosted on Earth Data Hub.
+
+    The dataset is a remote Zarr store read over HTTPS through ``obstore``.
+    ``obstore`` is faster than the ``fsspec`` store natively used by xarray
+    and implements retries, which is important for large cutouts where we
+    make hundreds of requests and one of them is likely to fail.
 
     Returns
     -------
@@ -134,11 +161,18 @@ def _open_edh() -> xr.Dataset:
         Dataset object, dask-backed with the store's native
         ``(4320, 64, 64)`` chunks.
     """
-    # trust_env: lets aiohttp pick up the EDH credentials from ~/.netrc.
-    # Use a patched HTTPFileSystem to allow for retries.
-    fs = _RetryingHTTPFileSystem(asynchronous=True, client_kwargs={"trust_env": True})
-    store = zarr.storage.FsspecStore(fs, read_only=True, path=_EDH_URL)
-    ds = xr.open_dataset(store, chunks={}, engine="zarr")
+    # uses obstore.HTTPStore for performance and because it implements retries unlike
+    # native fsspec.HTTPStore
+    login, password = _get_edh_credentials()
+    auth = base64.b64encode(f"{login}:{password}".encode()).decode()
+    store = HTTPStore.from_url(
+        _EDH_URL,
+        client_options={"default_headers": {"Authorization": f"Basic {auth}"}},
+        retry_config={
+            "max_retries": 8
+        },  # we observed O(1) ClientPayloadError during multi h downloads
+    )
+    ds = xr.open_dataset(ObjectStore(store, read_only=True), chunks={}, engine="zarr")
     # get rid of unnecessary coordinates
     for coord in ("number", "surface"):
         if coord in ds.coords:

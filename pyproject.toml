@@ -49,9 +49,9 @@ dependencies = [
     "cdsapi>=0.7.4",
     "cfgrib>=0.9.15.0",
     "h5netcdf>=1.6.1",
-    "zarr>=2.18.3",
-    "eccodeslib>=2.46.2.19",
-    "aiohttp>=3.13.5",
+    "zarr>=3",
+    "obstore>=0.9",
+    "eccodeslib>=2.46.2.19; platform_system != 'Windows'",
 ]
 
 [project.urls]
