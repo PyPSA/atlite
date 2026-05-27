@@ -215,7 +215,7 @@ def _prepare_era5_edh_cutout(path, prepare_kwargs=None, **kwargs):
             "EDH credentials missing or host not reachable, "
             "and no cached cutout available"
         )
-    cutout.prepare(tmpdir=str(path.parent), **(prepare_kwargs or {}))
+    cutout.prepare(**(prepare_kwargs or {}))
     return cutout
 
 
