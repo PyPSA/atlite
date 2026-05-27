@@ -26,7 +26,7 @@ classifiers=[
     "Operating System :: OS Independent",
 
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "typing-extensions",
     "numpy",
