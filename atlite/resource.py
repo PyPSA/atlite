@@ -33,9 +33,7 @@ SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 
 if TYPE_CHECKING:
-    from typing import TypedDict
-
-    from typing_extensions import NotRequired
+    from typing import NotRequired, TypedDict
 
     class TurbineConfig(TypedDict):
         V: np.ndarray
