@@ -23,6 +23,7 @@ import netrc
 import os
 import warnings
 from collections.abc import Callable
+from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -169,7 +170,13 @@ def _open_edh() -> xr.Dataset:
         _EDH_URL,
         client_options={"default_headers": {"Authorization": f"Basic {auth}"}},
         retry_config={
-            "max_retries": 8
+            "max_retries": 8,
+            "retry_timeout": timedelta(minutes=10),
+            "backoff": {
+                "init_backoff": timedelta(seconds=5),
+                "max_backoff": timedelta(minutes=2),
+                "base": 2,
+            },
         },  # we observed O(1) ClientPayloadError during multi h downloads
     )
     ds = xr.open_dataset(ObjectStore(store, read_only=True), chunks={}, engine="zarr")
@@ -223,9 +230,12 @@ def _subset_spatial(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
 
     sub = sub.sel(latitude=slice(float(y.max()), float(y.min())))
     new_lon = ((sub.longitude + 180) % 360) - 180
+    sub = sub.assign_coords(longitude=new_lon)
     # Rewrapping can leave longitude non-monotonic (wide seam-straddling
-    # bboxes); sort so downstream slicing and grid logic stay correct.
-    return sub.assign_coords(longitude=new_lon).sortby("longitude")
+    # bboxes); sort only when needed to avoid an unnecessary Dask graph layer.
+    if new_lon.size > 1 and np.any(np.diff(new_lon.values) < 0):
+        sub = sub.sortby("longitude")
+    return sub
 
 
 def _subset_temporal(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
@@ -249,33 +259,22 @@ def _subset_temporal(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
     return sub.rename({"valid_time": "time"})
 
 
-def _rename_and_clean_coords(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
+def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
     """
     Rename ``latitude``/``longitude`` to atlite's ``y``/``x`` and apply the
-    cutout's dask chunking.
+    working chunk shape used by the rest of the pipeline.
 
     Parameters
     ----------
     ds : xarray.Dataset
         Dataset with ``latitude`` and ``longitude`` coords, already subset to
         the cutout's bbox and time range.
-    cutout : atlite.Cutout
-        Cutout whose ``chunks`` (set via ``Cutout(..., chunks=...)``) control
-        the dask block size of the returned data, mirroring how the ``era5``
-        (CDS) module threads ``cutout.chunks`` into its readers.
 
     Returns
     -------
     xarray.Dataset
-        Dataset with ``y``, ``x`` (rounded to 5 decimals, both ascending) and
-        ``lat``/``lon`` aliases, rechunked to ``cutout.chunks``.
-
-    Notes
-    -----
-    The rechunk runs here, on the already-subset array, not on the raw store.
-    ``ds`` now spans only the cutout (a few native time chunks), so the
-    rechunk graph is small. Rechunking the full 1940..today store instead
-    would build a multi-million-task graph and exhaust memory.
+        Dataset with ``y``, ``x`` (both ascending) and
+        ``lat``/``lon`` aliases, rechunked.
     """
     ds = ds.rename({"latitude": "y", "longitude": "x"})
     # EDH stores latitude descending; atlite expects ascending.
@@ -285,7 +284,11 @@ def _rename_and_clean_coords(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
         y=np.round(ds.y.astype(float), 5),
     )
     ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
-    chunks = {k: v for k, v in (cutout.chunks or {}).items() if k in ds.dims}
+    # rechunk. EDH-sized chunks are large and result in a large RAM footprint.
+    # we rechunk to a size that is 1/6th in the time dimension, keeping
+    # the 64x64 spatial dimensions. If changing this, it's best to
+    # use a chunk size that cleanly divides the original 4320x64x64 dimension
+    chunks = {k: v for k, v in {"time": 720, "y": 64, "x": 64}.items() if k in ds.dims}
     if chunks:
         # unify_chunks reconciles the 1-D index coordinates -- which .chunk()
         # turns into single-chunk dask arrays -- with data variables whose
@@ -319,9 +322,10 @@ def _load_feature(cutout: Cutout, feature: str, static: bool = False) -> xr.Data
     ds = _open_edh()[_FEATURE_VARS[feature]]
     if static:
         ds = ds.isel(valid_time=0, drop=True)
-    ds = _subset_spatial(ds, cutout)
-    if not static:
+        ds = _subset_spatial(ds, cutout)
+    else:
         ds = _subset_temporal(ds, cutout)
+        ds = _subset_spatial(ds, cutout)
     return _rename_and_clean_coords(ds, cutout)
 
 
