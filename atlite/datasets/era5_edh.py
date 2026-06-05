@@ -288,7 +288,7 @@ def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
     # we rechunk to a size that is 1/6th in the time dimension, keeping
     # the 64x64 spatial dimensions. If changing this, it's best to
     # use a chunk size that cleanly divides the original 4320x64x64 dimension
-    chunks = {k: v for k, v in {"time": 720, "y": 64, "x": 64}.items() if k in ds.dims}
+    chunks = {k: v for k, v in {"time": 360, "y": 64, "x": 64}.items() if k in ds.dims}
     if chunks:
         # unify_chunks reconciles the 1-D index coordinates -- which .chunk()
         # turns into single-chunk dask arrays -- with data variables whose
@@ -326,7 +326,7 @@ def _load_feature(cutout: Cutout, feature: str, static: bool = False) -> xr.Data
     else:
         ds = _subset_temporal(ds, cutout)
         ds = _subset_spatial(ds, cutout)
-    return _rename_and_clean_coords(ds, cutout)
+    return _rename_and_clean_coords(ds)
 
 
 def get_data_wind(cutout: Cutout) -> xr.Dataset:

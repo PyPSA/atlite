@@ -110,6 +110,7 @@ If you would like to cite the atlite software, please refer to `this paper <http
 
    examples/create_cutout.ipynb
    examples/comparing_era5_sources_cds_vs_edh.ipynb
+   examples/large_cutouts_with_era5_edh.ipynb
    examples/create_cutout_SARAH.ipynb
    examples/historic-comparison-germany.ipynb
    examples/building_stock_weather_aggregation.ipynb
