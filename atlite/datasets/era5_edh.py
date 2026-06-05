@@ -87,64 +87,69 @@ _EDH_URL = (
 )
 
 
-def _get_edh_credentials() -> tuple[str, str]:
+def _get_edh_auth_header() -> str:
     """
-    Resolve EDH ``(login, password)`` from a ``.netrc`` file.
+    Resolve EDH credentials and return the HTTP Basic ``Authorization`` header.
 
-    Lookup order:
+    Credential lookup order:
 
     1. ``EARTHDATAHUB_API_KEY`` environment variable (login defaults to ``edh``).
     2. ``./.netrc`` in the current working directory.
     3. The user's home-directory netrc, resolved by :mod:`netrc` itself
 
     Netrc files are parsed with :mod:`netrc`, which requires ``chmod 600`` on
-    entries that carry a password.
+    entries that carry a password. Shared by the obstore store opened in
+    :func:`_open_edh` and the connectivity probe in the test suite.
 
     Raises
     ------
     RuntimeError
         If no credentials are found.
     """
+    host = _EDH_URL.split("/")[2]
+
     key = os.environ.get("EARTHDATAHUB_API_KEY")
     if key:
-        return "edh", key
+        login, password = "edh", key
+    else:
+        login = password = None
+        # None lets netrc.netrc() find the home-folder file itself, which is
+        # platform-aware (.netrc on Unix, _netrc on Windows).
+        candidates: list[str | None] = [str(Path.cwd() / ".netrc"), None]
+        for arg in candidates:
+            try:
+                auth = netrc.netrc(arg).authenticators(host)
+            except FileNotFoundError:
+                continue
+            except netrc.NetrcParseError as err:
+                label = arg or "home netrc"
+                logger.error(
+                    "Could not parse %s (%s). Earth Data Hub credentials in "
+                    "this file will be ignored. If it holds your DestinE API "
+                    "key, ensure it is chmod 600 and retry.",
+                    label,
+                    err,
+                )
+                continue
+            if auth is not None and auth[2] is not None:
+                login, _account, password = auth
+                login = login or ""
+                break
 
-    host = _EDH_URL.split("/")[2]
-    # None lets netrc.netrc() find the home-folder file itself, which is
-    # platform-aware (.netrc on Unix, _netrc on Windows).
-    candidates: list[str | None] = [str(Path.cwd() / ".netrc"), None]
+    if password is None:
+        raise RuntimeError(
+            f"Earth Data Hub access needs a DestinE API key. Provide it by either:\n"
+            f"  1) setting the EARTHDATAHUB_API_KEY environment variable, or\n"
+            f"  2) adding an entry to your netrc (./.netrc, ~/.netrc, or ~/_netrc\n"
+            f"     on Windows; must be chmod 600):\n"
+            f"        machine {host}\n"
+            f"        login edh\n"
+            f"        password <your-api-key>\n"
+            f"Get or refresh your key at https://earthdatahub.destine.eu/account-settings"
+        )
 
-    for arg in candidates:
-        try:
-            auth = netrc.netrc(arg).authenticators(host)
-        except FileNotFoundError:
-            continue
-        except netrc.NetrcParseError as err:
-            label = arg or "home netrc"
-            logger.error(
-                "Could not parse %s (%s). Earth Data Hub credentials in this "
-                "file will be ignored. If it holds your DestinE API key, "
-                "ensure it is chmod 600 and retry.",
-                label,
-                err,
-            )
-            continue
-        if auth is None:
-            continue
-        login, _account, password = auth
-        if password is not None:
-            return login or "", password
-
-    raise RuntimeError(
-        f"Earth Data Hub access needs a DestinE API key. Provide it by either:\n"
-        f"  1) setting the EARTHDATAHUB_API_KEY environment variable, or\n"
-        f"  2) adding an entry to your netrc (./.netrc, ~/.netrc, or ~/_netrc\n"
-        f"     on Windows; must be chmod 600):\n"
-        f"        machine {host}\n"
-        f"        login edh\n"
-        f"        password <your-api-key>\n"
-        f"Get or refresh your key at https://earthdatahub.destine.eu/account-settings"
-    )
+    auth = base64.b64encode(f"{login}:{password}".encode()).decode()
+    return f"Basic {auth}"
 
 
 def _open_edh() -> xr.Dataset:
@@ -164,11 +169,9 @@ def _open_edh() -> xr.Dataset:
     """
     # uses obstore.HTTPStore for performance and because it implements retries unlike
     # native fsspec.HTTPStore
-    login, password = _get_edh_credentials()
-    auth = base64.b64encode(f"{login}:{password}".encode()).decode()
     store = HTTPStore.from_url(
         _EDH_URL,
-        client_options={"default_headers": {"Authorization": f"Basic {auth}"}},
+        client_options={"default_headers": {"Authorization": _get_edh_auth_header()}},
         retry_config={
             "max_retries": 8,
             "retry_timeout": timedelta(minutes=10),

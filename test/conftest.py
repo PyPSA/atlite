@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: MIT
 
 import os
+import random
+import time
+import urllib.request
 from datetime import date
 from pathlib import Path
 
@@ -10,6 +13,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from atlite import Cutout
+from atlite.datasets.era5_edh import _EDH_URL, _get_edh_auth_header
 
 TIME = "2013-01-01"
 BOUNDS = (-4, 56, 1.5, 62)
@@ -19,28 +23,30 @@ GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
 
 
-_EDH_HOST = "data.earthdatahub.destine.eu"
+def _edh_reachable(max_attempts: int = 8) -> bool:
+    """Check that EDH is reachable and serving us data, with credentials."""
 
-
-def _edh_reachable() -> bool:
     try:
-        import socket
+        req = urllib.request.Request(
+            f"{_EDH_URL}/.zmetadata",
+            headers={"Authorization": _get_edh_auth_header()},
+        )
+    except RuntimeError:
+        return False  # no credentials configured
 
-        socket.create_connection((_EDH_HOST, 443), timeout=10)
-        return True
-    except Exception:
-        return False
-
-
-def _edh_credentials_available() -> bool:
-    """Check whether DestinE/EDH credentials are reachable via env or netrc."""
-    try:
-        from atlite.datasets.era5_edh import _get_edh_credentials
-
-        _get_edh_credentials()
-        return True
-    except Exception:
-        return False
+    # in some contexts EDH bounces requests, e.g. if multiple CI instances
+    # are trying to reach it at the same time. here we retry with exponential
+    # backoff and some jitter to eliminate contention
+    for attempt in range(max_attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                if resp.status < 400:
+                    return True
+        except Exception:
+            pass
+        if attempt < max_attempts - 1:
+            time.sleep(min(30, 2 ** (attempt + 1)) + random.uniform(0, 1))
+    return False
 
 
 def pytest_addoption(parser):
@@ -210,7 +216,7 @@ def cutout_sarah_weird_resolution(cutouts_path):
 
 def _prepare_era5_edh_cutout(path, prepare_kwargs=None, **kwargs):
     cutout = Cutout(path=path, module="era5-edh", bounds=BOUNDS, **kwargs)
-    if not path.exists() and not (_edh_credentials_available() and _edh_reachable()):
+    if not path.exists() and not _edh_reachable():
         pytest.skip(
             "EDH credentials missing or host not reachable, "
             "and no cached cutout available"
