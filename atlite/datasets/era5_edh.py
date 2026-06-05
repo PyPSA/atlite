@@ -108,6 +108,8 @@ def _get_edh_auth_header() -> str:
     """
     host = _EDH_URL.split("/")[2]
 
+    login: str | None
+    password: str | None
     key = os.environ.get("EARTHDATAHUB_API_KEY")
     if key:
         login, password = "edh", key
@@ -148,8 +150,8 @@ def _get_edh_auth_header() -> str:
             f"Get or refresh your key at https://earthdatahub.destine.eu/account-settings"
         )
 
-    auth = base64.b64encode(f"{login}:{password}".encode()).decode()
-    return f"Basic {auth}"
+    token = base64.b64encode(f"{login}:{password}".encode()).decode()
+    return f"Basic {token}"
 
 
 def _open_edh() -> xr.Dataset:
