@@ -1058,9 +1058,6 @@ def _hydro_from_discharge(
     plants : pd.DataFrame
         Run-of-river plants or dams with lon, lat columns.
     """
-    print("<" * 100)
-    print("Extracting discharge time series for nearest grid points to plants...")
-    print("<" * 100)
     discharge = cutout.data.discharge
     inflow = xr.DataArray(
         np.zeros((len(plants), discharge.indexes["time"].size)),
