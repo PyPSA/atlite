@@ -2,12 +2,14 @@
 #
 # SPDX-License-Identifier: MIT
 
+"""Shared pytest fixtures for atlite tests."""
+
 import os
 from datetime import date
 from pathlib import Path
 
 import pytest
-from dateutil.relativedelta import relativedelta
+from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
 
 from atlite import Cutout
 
@@ -35,8 +37,7 @@ def cutouts_path(tmp_path_factory, pytestconfig):
         path = Path(custom_path)
         path.mkdir(parents=True, exist_ok=True)
         return path
-    else:
-        return tmp_path_factory.mktemp("atlite_cutouts")
+    return tmp_path_factory.mktemp("atlite_cutouts")
 
 
 def _prepare_era5_cutout(path, prepare_kwargs=None, **kwargs):
@@ -110,18 +111,16 @@ def cutout_era5_weird_resolution(cutouts_path):
 @pytest.fixture(scope="session")
 def cutout_era5_reduced(cutouts_path):
     tmp_path = cutouts_path / "cutout_era5_reduced.nc"
-    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
-    return cutout
+    return Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
 
 
 @pytest.fixture(scope="session")
 def cutout_era5_overwrite(cutouts_path, cutout_era5_reduced):
     tmp_path = cutouts_path / "cutout_era5_overwrite.nc"
-    cutout = Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
+    return Cutout(path=tmp_path, module="era5", bounds=BOUNDS, time=TIME)
     # cutout.data = cutout.data.drop_vars("influx_direct")
     # cutout.prepare("influx", overwrite=True)
     # TODO Needs to be fixed
-    return cutout
 
 
 @pytest.fixture(scope="session")

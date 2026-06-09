@@ -33,16 +33,16 @@ from atlite.resource import cspinstallations, solarpanels, windturbines
 __version__ = version("atlite")
 # e.g. "0.17.0" # TODO, in the network structure it should use the dev version
 match = re.match(r"(\d+\.\d+(\.\d+)?)", __version__)
-assert match, f"Could not determine release_version of pypsa: {__version__}"
+assert match, f"Could not determine release_version of atlite: {__version__}"
 release_version = match.group(0)
 
 __all__ = [
-    Cutout,
-    ExclusionContainer,
-    compute_indicatormatrix,
-    regrid,
-    cspinstallations,
-    solarpanels,
-    windturbines,
-    __version__,
+    "Cutout",
+    "ExclusionContainer",
+    "compute_indicatormatrix",
+    "regrid",
+    "cspinstallations",
+    "solarpanels",
+    "windturbines",
+    "__version__",
 ]

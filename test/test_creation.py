@@ -50,12 +50,12 @@ def test_shape(ref):
 
 def test_extent(ref):
     reference_extent = [-4.125, 1.625, 55.875, 61.125]
-    assert all([x == y for x, y in zip(ref.extent, reference_extent)])
+    assert all(x == y for x, y in zip(ref.extent, reference_extent, strict=False))
 
 
 def test_bounds(ref):
     reference_extent = [-4.125, 55.875, 1.625, 61.125]
-    assert all([x == y for x, y in zip(ref.bounds, reference_extent)])
+    assert all(x == y for x, y in zip(ref.bounds, reference_extent, strict=False))
 
 
 def test_transform(ref):
@@ -147,7 +147,7 @@ def test_dx_dy_dt():
     )
     assert dx == cutout.dx
     assert dy == cutout.dy
-    assert "h" == cutout.dt
+    assert cutout.dt == "h"
 
 
 def test_available_features(ref):
