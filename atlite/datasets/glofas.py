@@ -317,14 +317,10 @@ def retrieval_times(coords, static=False, monthly_requests=False):
     """
     time = coords["time"].to_index()
     if static:
-        # Make sure that day and month are in two digit format
-        day = str(time[0].day) if time[0].day >= 10 else f"0{time[0].day}"
-        month = str(time[0].month) if time[0].month >= 10 else f"0{time[0].month}"
         return {
-            "hyear": str(time[0].year),
-            "hmonth": month,
-            "hday": day,
-            "time": time[0].strftime("%H:00"),
+            "hyear": time[0].strftime("%Y"),
+            "hmonth": time[0].strftime("%m"),
+            "hday": time[0].strftime("%d"),
         }
 
     # Prepare request for all months and years
@@ -333,22 +329,18 @@ def retrieval_times(coords, static=False, monthly_requests=False):
         t = time[time.year == year]
         if monthly_requests:
             for month in t.month.unique():
-                # Make sure that day and month are in two digit format
-                days = list(t[t.month == month].day.unique())
-                days_str = [str(d) if d >= 10 else f"0{d}" for d in days]
                 query = {
                     "hyear": str(year),
-                    "hmonth": str(month) if month >= 10 else f"0{month}",
-                    "hday": days_str,
+                    "hmonth": list(t[t.month == month].strftime("%m").unique()),
+                    "hday": list(t[t.month == month].strftime("%d").unique()),
                 }
                 times.append(query)
         else:
-            # Make sure that day and month are in two digit format
-            days = list(t.day.unique())
-            days_str = [str(d) if d >= 10 else f"0{d}" for d in days]
-            months = list(t.month.unique())
-            months_str = [str(m) if m >= 10 else f"0{m}" for m in months]
-            query = {"hyear": str(year), "hmonth": months_str, "hday": days_str}
+            query = {
+                "hyear": str(year),
+                "hmonth": list(t.strftime("%m").unique()),
+                "hday": list(t.strftime("%d").unique()),
+            }
             times.append(query)
     return times
 
