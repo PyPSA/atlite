@@ -29,10 +29,9 @@ SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
 CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 
 if TYPE_CHECKING:
-    from typing import TypedDict
+    from typing import NotRequired, TypedDict
 
     import xarray as xr
-    from typing_extensions import NotRequired
 
     from atlite._types import NDArray, PathLike
 

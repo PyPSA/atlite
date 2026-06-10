@@ -30,7 +30,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 import xarray as xr
-from dask.utils import SerializableLock
 from obstore.store import HTTPStore
 from zarr.storage import ObjectStore
 
@@ -43,6 +42,8 @@ from atlite.datasets.era5 import (
 from atlite.pv.solar_position import SolarPosition
 
 if TYPE_CHECKING:
+    from dask.utils import SerializableLock
+
     from atlite.cutout import Cutout
 
 
@@ -100,6 +101,11 @@ def _get_edh_auth_header() -> str:
     Netrc files are parsed with :mod:`netrc`, which requires ``chmod 600`` on
     entries that carry a password. Shared by the obstore store opened in
     :func:`_open_edh` and the connectivity probe in the test suite.
+
+    Returns
+    -------
+    str
+        The ``Authorization: Basic ...`` header value.
 
     Raises
     ------
@@ -194,8 +200,7 @@ def _open_edh() -> xr.Dataset:
 
 def _subset_spatial(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
     """
-    Select the cutout's bounding box and convert from atlite coordinates to
-    EDH coordinates.
+    Select the cutout's bounding box and convert atlite coordinates to EDH coordinates.
 
     atlite coordinate system:
         - x: -180:180
@@ -266,8 +271,7 @@ def _subset_temporal(ds: xr.Dataset, cutout: Cutout) -> xr.Dataset:
 
 def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
     """
-    Rename ``latitude``/``longitude`` to atlite's ``y``/``x`` and apply the
-    working chunk shape used by the rest of the pipeline.
+    Rename ``latitude``/``longitude`` to ``y``/``x`` and apply the working chunk shape.
 
     Parameters
     ----------
@@ -305,8 +309,7 @@ def _rename_and_clean_coords(ds: xr.Dataset) -> xr.Dataset:
 
 def _load_feature(cutout: Cutout, feature: str, static: bool = False) -> xr.Dataset:
     """
-    Open the EDH store, pull the feature's raw variables and subset them to
-    the cutout's bbox (and time range, unless ``static``).
+    Open the EDH store and subset a feature's raw variables to the cutout's bbox.
 
     Parameters
     ----------
@@ -439,13 +442,11 @@ def get_data_temperature(cutout: Cutout) -> xr.Dataset:
         ``dewpoint temperature``.
     """
     ds = _load_feature(cutout, "temperature")
-    ds = ds.rename(
-        {
-            "t2m": "temperature",
-            "stl4": "soil temperature",
-            "d2m": "dewpoint temperature",
-        }
-    )
+    ds = ds.rename({
+        "t2m": "temperature",
+        "stl4": "soil temperature",
+        "d2m": "dewpoint temperature",
+    })
     for name in ("temperature", "soil temperature", "dewpoint temperature"):
         ds[name].attrs["units"] = "K"
     return ds
@@ -553,7 +554,7 @@ def get_data(
     if feature not in _HANDLERS:
         raise NotImplementedError(f"Feature {feature!r} not supported by era5_edh")
 
-    logger.info(f"Requesting data for feature {feature}...")
+    logger.info("Requesting data for feature %s...", feature)
     ds = _HANDLERS[feature](cutout)
 
     sanitize = creation_parameters.get("sanitize", True)

@@ -625,8 +625,10 @@ class TestGebco:
 
 class TestERA5EDH:
     """
-    we assume that era5.py cutouts are correct, and only test whether era5_edh.py cutouts
-    have the same structure and contain the same numerical values
+    era5_edh cutouts should match era5 cutouts in structure and values.
+
+    We assume era5.py cutouts are correct, and only test whether era5_edh.py
+    cutouts have the same structure and contain the same numerical values.
     """
 
     # Per-variable absolute tolerances measured against CDS across all three
@@ -684,9 +686,7 @@ class TestERA5EDH:
 
     @staticmethod
     def _assert_allclose(reference, candidate, variables, *, atol, rtol=0):
-        """
-        Assert per-variable closeness.
-        """
+        """Assert per-variable closeness."""
         for var in variables:
             v_atol = atol[var] if isinstance(atol, dict) else atol
             if var == "wnd_azimuth":
@@ -728,9 +728,7 @@ class TestERA5EDH:
     def test_all_features_3h_sampling_identical(
         cutout_era5_3h_sampling, cutout_era5_edh_3h_sampling
     ):
-        """
-        era5_edh should preserve coarser hourly sampling and match ERA5 values.
-        """
+        """era5_edh should preserve coarser hourly sampling and match ERA5 values."""
         assert pd.infer_freq(cutout_era5_edh_3h_sampling.data.time) == "3h"
         TestERA5EDH._assert_compatible_cutouts(
             cutout_era5_3h_sampling, cutout_era5_edh_3h_sampling
@@ -747,9 +745,7 @@ class TestERA5EDH:
     def test_all_features_2days_crossing_months_identical(
         cutout_era5_2days_crossing_months, cutout_era5_edh_2days_crossing_months
     ):
-        """
-        era5_edh should match ERA5 across month boundaries.
-        """
+        """era5_edh should match ERA5 across month boundaries."""
         TestERA5EDH._assert_compatible_cutouts(
             cutout_era5_2days_crossing_months,
             cutout_era5_edh_2days_crossing_months,

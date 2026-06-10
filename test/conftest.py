@@ -26,8 +26,14 @@ CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
 
 
 def _edh_reachable(max_attempts: int = 8) -> bool:
-    """Check that EDH is reachable and serving us data, with credentials."""
+    """
+    Check that EDH is reachable and serving us data, with credentials.
 
+    Returns
+    -------
+    bool
+        True if EDH responded successfully, False otherwise.
+    """
     try:
         req = urllib.request.Request(
             f"{_EDH_URL}/.zmetadata",
