@@ -2,9 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""
-atlite datasets.
-"""
+"""atlite datasets."""
 
 from atlite.datasets import era5, era5_edh, gebco, sarah
 
