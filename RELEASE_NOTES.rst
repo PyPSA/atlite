@@ -23,18 +23,17 @@ Upcoming Release
   ``convert_line_rating`` interpreted ``psi`` as degrees. Azimuths are now
   computed in degrees, matching the documented unit.
 
+**Features**
+
+* Add an Earth Data Hub (EDH) source for ERA5 as a new dataset ``atlite/datasets/era5_edh.py``.
+  EDH provides data without a processing queue.
+
 `v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
 =======================================================================================
 
 **Bug fixes**
 
 * Fix backwards compatibility of ``aggregate_matrix``.
-
-**Features**
-
-* Add an Earth Data Hub (EDH) source for ERA5 as a new dataset ``atlite/datasets/era5_edh.py``.
-  EDH provides data without a processing queue.
-
 
 `v0.6.0 <https://github.com/PyPSA/atlite/releases/tag/v0.6.0>`__ (15th April 2026)
 =======================================================================================
