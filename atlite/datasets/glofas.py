@@ -97,7 +97,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
             "dis24": "discharge",
         }
     )
-    # round coords since cds coords are float32 which would lead to mismatches
+    # round coords since cds coords are float64 which would lead to mismatches
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
     )
@@ -230,8 +230,8 @@ def retrieve_data(
     ...     chunks={'time': 1, 'x': 100, 'y': 100},
     ...     tmpdir='/tmp',
     ...     lock=None,
-    ...     year='2020',
-    ...     month='01',
+    ...     hyear='2020',
+    ...     hmonth='01',
     ...     variable=['river_discharge_in_the_last_24_hours'],
     ...     data_format='grib'
     ... )
@@ -375,20 +375,15 @@ def get_data(
     concurrent_requests : bool, optional
         If True, the monthly data requests are posted concurrently.
         Only has an effect if `monthly_requests` is True.
-        **creation_parameters :
-                Additional keyword arguments:
-                - 'sanitize' (default True): sets sanitization of the data on or off.
-                - 'time_fill_method' (default "nearest"): strategy used to align the
-                    returned dataset to cutout time coordinates. Supported values are
-                    xarray reindex methods (e.g. "nearest", "pad", "backfill") and
-                    "interpolate" (or "interp") for time interpolation.
-                - 'time_interp_method' (default "linear"): interpolation method passed
-                    to xarray when 'time_fill_method' is "interpolate".
+    **creation_parameters :
+        Additional keyword arguments:
+        - 'sanitize' (default True): sets sanitization of the data on or off.
 
     Returns
     -------
     xarray.Dataset
-        Dataset of dask arrays of the retrieved variables.
+        Dataset of dask arrays of the retrieved variables at the native GLOFAS
+        resolution (daily values on the native grid).
 
     """
     coords = cutout.coords
@@ -411,6 +406,8 @@ def get_data(
             **time,
         )
         ds = _rename_and_clean_coords(ds)
+        # dis24 is timestamped at the end of its 24h window; shift to the flow day
+        ds = ds.assign_coords(time=ds["time"] - np.timedelta64(1, "D"))
         if sanitize:
             ds["discharge"] = ds["discharge"].clip(min=0.0).fillna(0.0)
         return ds
@@ -422,15 +419,6 @@ def get_data(
     else:
         datasets = list(map(retrieve_once, time_chunks))
 
-    ds = xr.concat(datasets, dim="time").sortby("time")
-    fill_method = creation_parameters.get("time_fill_method", "interpolate")
-    if fill_method is None:
-        return ds.reindex(time=coords["time"])
-    if isinstance(fill_method, str) and fill_method.lower() in {
-        "interpolate",
-        "interp",
-    }:
-        interp_method = creation_parameters.get("time_interp_method", "linear")
-        interpolated = ds.interp(time=coords["time"], method=interp_method)
-        return interpolated.bfill("time").ffill("time")
-    return ds.reindex(time=coords["time"], method=fill_method)
+    # Keep discharge at its native GLOFAS resolution. Interpolation needs to happen
+    # later to avoid interpolating the whole grid here.
+    return xr.concat(datasets, dim="time").sortby("time")
