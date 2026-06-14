@@ -1048,33 +1048,43 @@ def _hydro_from_runoff(
 def _hydro_from_discharge(
     cutout,
     plants,
+    time=None,
 ):
     """
-    Get inflow time-series for `plants` by extracting the discharge time series for
-    the nearest grid points.
+    Get inflow time-series for `plants` from GLOFAS discharge by snapping each
+    plant to the nearest grid cell that holds data and interpolating onto the
+    target time index.
 
     Parameters
     ----------
     plants : pd.DataFrame
         Run-of-river plants or dams with lon, lat columns.
+    time : pd.DatetimeIndex, optional
+        Time index to interpolate the plant inflow onto. Defaults to the cutout's
+        own time index.
     """
+    if time is None:
+        time = cutout.coords["time"]
     discharge = cutout.data.discharge
-    inflow = xr.DataArray(
-        np.zeros((len(plants), discharge.indexes["time"].size)),
-        [("plant", plants.index), discharge.coords["time"]],
+    # snap plants to GLOFAS cells with data (cutout grid points may be all-NaN)
+    present = discharge.isel(time=0).notnull()
+    discharge = discharge.isel(
+        x=np.flatnonzero(present.any("y").values),
+        y=np.flatnonzero(present.any("x").values),
     )
-    for plant in plants.itertuples():
-        # Extract the discharge time series for the nearest point
-        inflow.loc[dict(plant=plant.Index)] = discharge.sel(
-            x=plant.lon, y=plant.lat, method="nearest"
-        )
-    return inflow
+    x = xr.DataArray(plants["lon"].values, dims="plant", coords={"plant": plants.index})
+    y = xr.DataArray(plants["lat"].values, dims="plant", coords={"plant": plants.index})
+    inflow = discharge.sel(x=x, y=y, method="nearest").compute()
+    inflow = inflow.dropna("time", how="all").interp(time=time)
+    inflow = inflow.ffill("time").bfill("time")
+    return inflow.transpose("plant", "time")
 
 
 def hydro(
     cutout,
     plants,
     module="auto",
+    time=None,
     hydrobasins=None,
     flowspeed=1,
     weight_with_height=False,
@@ -1092,6 +1102,9 @@ def hydro(
     module : str
         The method to compute hydro time series. "auto" will prefere discharge but fall back to runoff-based computation
         "glofas" will use discharge directly, "era5" will use runoff-based computation
+    time : pd.DatetimeIndex, optional
+        Time index to interpolate the plant inflow onto. Only relevant for
+        discharge-based computation. Defaults to the cutout's own time index.
     hydrobasins : str|gpd.GeoDataFrame
         Filename or GeoDataFrame of one level of the HydroBASINS dataset. Only required
         for runoff-based computation.
@@ -1112,6 +1125,7 @@ def hydro(
             return _hydro_from_discharge(
                 cutout,
                 plants,
+                time=time,
             )
         if hydrobasins is None or "runoff" not in cutout.available_features.values:
             raise ValueError(
@@ -1135,6 +1149,7 @@ def hydro(
         return _hydro_from_discharge(
             cutout,
             plants,
+            time=time,
         )
     elif module.lower() == "era5":
         # Check if hydrobasins is provided, otherwise raise error
