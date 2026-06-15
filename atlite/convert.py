@@ -1119,15 +1119,15 @@ def hydro(
     **kwargs
         Additional arguments for runoff-based computation. Only relevant for runoff-based computation.
     """
-    if module == "auto":
+    if module.lower() == "auto":
         # Check if discharge data is available in cutout, otherwise use runoff
-        if "discharge" in cutout.available_features.values:
+        if "discharge" in cutout.data.data_vars:
             return _hydro_from_discharge(
                 cutout,
                 plants,
                 time=time,
             )
-        if hydrobasins is None or "runoff" not in cutout.available_features.values:
+        if hydrobasins is None or "runoff" not in cutout.data.data_vars:
             raise ValueError(
                 "For runoff-based hydro time series, hydrobasins and runoff data must be provided."
             )
@@ -1142,7 +1142,7 @@ def hydro(
         )
     elif module.lower() == "glofas":
         # Check if discharge data is available in cutout, otherwise raise error
-        if "discharge" not in cutout.data_vars:
+        if "discharge" not in cutout.data.data_vars:
             raise ValueError(
                 "For GloFAS-based hydro time series, the cutout must include discharge data."
             )
