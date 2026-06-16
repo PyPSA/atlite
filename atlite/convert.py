@@ -980,106 +980,6 @@ def runoff(
     return result
 
 
-def _hydro_from_runoff(
-    cutout,
-    plants,
-    hydrobasins,
-    flowspeed=1,
-    weight_with_height=False,
-    show_progress=False,
-    **kwargs,
-):
-    """
-    Compute inflow time-series for `plants` by aggregating over catchment
-    basins from `hydrobasins`
-
-    Parameters
-    ----------
-    plants : pd.DataFrame
-        Run-of-river plants or dams with lon, lat columns.
-    hydrobasins : str|gpd.GeoDataFrame
-        Filename or GeoDataFrame of one level of the HydroBASINS dataset.
-    flowspeed : float
-        Average speed of water flows to estimate the water travel time from
-        basin to plant (default: 1 m/s).
-    weight_with_height : bool
-        Whether surface runoff should be weighted by potential height (probably
-        better for coarser resolution).
-    show_progress : bool
-        Whether to display progressbars.
-
-    References
-    ----------
-    [1] Liu, Hailiang, et al. "A validated high-resolution hydro power
-    time-series model for energy systems analysis." arXiv preprint
-    arXiv:1901.08476 (2019).
-
-    [2] Lehner, B., Grill G. (2013): Global river hydrography and network
-    routing: baseline data and new approaches to study the world’s large river
-    systems. Hydrological Processes, 27(15): 2171–2186. Data is available at
-    www.hydrosheds.org.
-
-    """
-    basins = hydrom.determine_basins(plants, hydrobasins, show_progress=show_progress)
-
-    matrix = cutout.indicatormatrix(basins.shapes)
-    # compute the average surface runoff in each basin
-    # Fix NaN and Inf values to 0.0 to avoid numerical issues
-    matrix_normalized = np.nan_to_num(
-        matrix / matrix.sum(axis=1), nan=0.0, posinf=0.0, neginf=0.0
-    )
-    runoff = cutout.runoff(
-        matrix=matrix_normalized,
-        index=basins.shapes.index,
-        weight_with_height=weight_with_height,
-        show_progress=show_progress,
-        **kwargs,
-    )
-    # The hydrological parameters are in units of "m of water per day" and so
-    # they should be multiplied by 1000 and the basin area to convert to m3
-    # d-1 = m3 h-1 / 24
-    runoff *= xr.DataArray(basins.shapes.to_crs(dict(proj="cea")).area)
-
-    return hydrom.shift_and_aggregate_runoff_for_plants(
-        basins, runoff, flowspeed, show_progress
-    )
-
-
-def _hydro_from_discharge(
-    cutout,
-    plants,
-    time=None,
-):
-    """
-    Get inflow time-series for `plants` from GLOFAS discharge by snapping each
-    plant to the nearest grid cell that holds data and interpolating onto the
-    target time index.
-
-    Parameters
-    ----------
-    plants : pd.DataFrame
-        Run-of-river plants or dams with lon, lat columns.
-    time : pd.DatetimeIndex, optional
-        Time index to interpolate the plant inflow onto. Defaults to the cutout's
-        own time index.
-    """
-    if time is None:
-        time = cutout.coords["time"]
-    discharge = cutout.data.discharge
-    # snap plants to GLOFAS cells with data (cutout grid points may be all-NaN)
-    present = discharge.isel(time=0).notnull()
-    discharge = discharge.isel(
-        x=np.flatnonzero(present.any("y").values),
-        y=np.flatnonzero(present.any("x").values),
-    )
-    x = xr.DataArray(plants["lon"].values, dims="plant", coords={"plant": plants.index})
-    y = xr.DataArray(plants["lat"].values, dims="plant", coords={"plant": plants.index})
-    inflow = discharge.sel(x=x, y=y, method="nearest").compute()
-    inflow = inflow.dropna("time", how="all").interp(time=time)
-    inflow = inflow.ffill("time").bfill("time")
-    return inflow.transpose("plant", "time")
-
-
 def hydro(
     cutout,
     plants,
@@ -1122,7 +1022,7 @@ def hydro(
     if module.lower() == "auto":
         # Check if discharge data is available in cutout, otherwise use runoff
         if "discharge" in cutout.data.data_vars:
-            return _hydro_from_discharge(
+            return hydrom._hydro_from_discharge(
                 cutout,
                 plants,
                 time=time,
@@ -1131,7 +1031,7 @@ def hydro(
             raise ValueError(
                 "For runoff-based hydro time series, hydrobasins and runoff data must be provided."
             )
-        return _hydro_from_runoff(
+        return hydrom._hydro_from_runoff(
             cutout,
             plants,
             hydrobasins,
@@ -1146,7 +1046,7 @@ def hydro(
             raise ValueError(
                 "For GloFAS-based hydro time series, the cutout must include discharge data."
             )
-        return _hydro_from_discharge(
+        return hydrom._hydro_from_discharge(
             cutout,
             plants,
             time=time,
@@ -1157,7 +1057,7 @@ def hydro(
             raise ValueError(
                 "For ERA5-based hydro time series, the hydrobasins dataset must be provided."
             )
-        return _hydro_from_runoff(
+        return hydrom._hydro_from_runoff(
             cutout,
             plants,
             hydrobasins,
