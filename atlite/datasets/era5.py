@@ -329,7 +329,7 @@ def retrieve_data(
     Download data like ERA5 from the Climate Data Store (CDS).
 
     If you want to track the state of your request go to
-    https://cds-beta.climate.copernicus.eu/requests?tab=all
+    https://ewds.climate.copernicus.eu/requests?tab=all
 
     Parameters
     ----------

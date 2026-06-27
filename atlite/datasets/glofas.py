@@ -89,7 +89,7 @@ def retrieve_data(
     Download data like Glofas from the Climate Data Store (CDS).
 
     If you want to track the state of your request go to
-    https://cds-beta.climate.copernicus.eu/requests?tab=all
+    https://ewds.climate.copernicus.eu/requests?tab=all
 
     Parameters
     ----------
@@ -105,7 +105,7 @@ def retrieve_data(
         Lock for thread-safe file writing. Default is None.
     updates : dict
         Additional parameters for the request.
-        Must include 'year', 'month', and 'variable'.
+        Must include 'hyear', 'hmonth', 'hday', and 'variable'.
         Can include e.g. 'data_format'.
 
     Returns
