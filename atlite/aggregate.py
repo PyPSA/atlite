@@ -14,7 +14,6 @@ import xarray as xr
 from atlite.utils import ensure_coords
 
 if TYPE_CHECKING:
-    import pandas as pd
     from scipy.sparse import spmatrix
 
 
