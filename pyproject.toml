@@ -27,7 +27,6 @@ classifiers=[
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "typing-extensions",
     "numpy",
     "scipy",
     "pandas>=0.25",
