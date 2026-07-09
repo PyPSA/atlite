@@ -27,6 +27,7 @@ from rasterio.mask import mask
 from rasterio.plot import show
 from rasterio.warp import transform_bounds
 from scipy.ndimage import binary_dilation as dilation
+from scipy.ndimage import distance_transform_edt
 from shapely.ops import transform
 from shapely.strtree import STRtree
 from tqdm import tqdm
@@ -462,8 +463,12 @@ def shape_availability(
         if d["invert"]:
             masked_ = ~masked_
         if d["buffer"]:
-            iterations = int(d["buffer"] / excluder.res) + 1
-            masked_ = dilation(masked_, iterations=iterations)
+            if d["buffer_geometry"] == "circular":
+                radius = d["buffer"] / excluder.res
+                masked_ = distance_transform_edt(~masked_) <= radius
+            elif d["buffer_geometry"] == "diamond":
+                iterations = int(d["buffer"] / excluder.res) + 1
+                masked_ = dilation(masked_, iterations=iterations)
 
         exclusions = exclusions | masked_
 
@@ -557,6 +562,7 @@ class ExclusionContainer:
         | Callable[[NDArray], NDArray]
         | None = None,
         buffer: float = 0,
+        buffer_geometry: str = "diamond",
         invert: bool = False,
         nodata: int = 255,
         allow_no_overlap: bool = False,
@@ -579,6 +585,21 @@ class ExclusionContainer:
             Buffer around the excluded areas in units of ExclusionContainer.crs.
             Use this to create a buffer around the excluded/included area.
             The default is 0.
+        buffer_geometry : {"diamond", "circular"}, optional
+            Shape of the buffer kernel applied to raster exclusions:
+
+            * ``"diamond"`` (default) – uses :func:`scipy.ndimage.binary_dilation`
+              with the default 4-connected cross structuring element, which
+              produces a diamond (L1-metric) footprint.  Equivalent to the
+              historic behaviour.
+            * ``"circular"`` – uses :func:`scipy.ndimage.distance_transform_edt`
+              to compute exact Euclidean distances, giving a true circular
+              (L2-metric) buffer.  This is both more geometrically accurate and
+              significantly faster for large buffers because it runs in O(pixels)
+              regardless of buffer size, whereas the diamond approach scales as
+              O(buffer/res × pixels).
+
+            Only used when ``buffer > 0``.
         nodata : int, optional
             Value to use for nodata pixels. The default is 255.
         invert : bool, optional
@@ -596,6 +617,7 @@ class ExclusionContainer:
             "raster": raster,
             "codes": codes,
             "buffer": buffer,
+            "buffer_geometry": buffer_geometry,
             "invert": invert,
             "nodata": nodata,
             "allow_no_overlap": allow_no_overlap,
