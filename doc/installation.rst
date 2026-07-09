@@ -61,7 +61,7 @@ Earth Data Hub (recommended)
 Climate data store (fallback)
 -------------------------------
 
-1. Create an acocount at https://cds.climate.copernicus.eu/
+1. Create an account at https://cds.climate.copernicus.eu/
 2. Go to https://cds.climate.copernicus.eu/how-to-api
 3. Copy the text inside the code callout in the "Setup the CDS Api key" section
 4. Save it in a file called ``.cdsapirc`` in your home folder
