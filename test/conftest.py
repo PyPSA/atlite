@@ -8,6 +8,7 @@ import os
 import random
 import time
 import urllib.request
+import warnings
 from datetime import date
 from pathlib import Path
 
@@ -25,7 +26,7 @@ GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
 
 
-def _edh_reachable(max_attempts: int = 4) -> bool:
+def _edh_reachable(max_attempts: int = 8) -> bool:
     """
     Check that EDH is reachable and serving us data, with credentials.
 
@@ -47,13 +48,19 @@ def _edh_reachable(max_attempts: int = 4) -> bool:
     # backoff and some jitter to eliminate contention
     for attempt in range(max_attempts):
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 if resp.status < 400:
                     return True
         except Exception:
             pass
         if attempt < max_attempts - 1:
-            time.sleep(2**attempt + random.uniform(0, 1))
+            time.sleep(min(30, 2 ** (attempt + 1)) + random.uniform(0, 1))
+    warnings.warn(
+        "EDH credentials are configured but EDH did not respond; "
+        "EDH tests will be skipped",
+        RuntimeWarning,
+        stacklevel=2,
+    )
     return False
 
 
