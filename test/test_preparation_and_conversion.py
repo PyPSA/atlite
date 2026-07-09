@@ -20,7 +20,7 @@ import pandas as pd
 import pytest
 import urllib3
 import xarray as xr
-from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
+from dateutil.relativedelta import relativedelta
 from shapely.geometry import LineString as Line
 from shapely.geometry import Point
 

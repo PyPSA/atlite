@@ -291,7 +291,7 @@ class Cutout:
 
     @property
     def transform(self) -> rio.Affine:
-        """Get the affine transform of the cutout."""
+        """Affine transform of the cutout."""
         return rio.Affine(
             self.dx,
             0,
@@ -303,7 +303,7 @@ class Cutout:
 
     @property
     def transform_r(self) -> rio.Affine:
-        """Get the affine transform of the cutout with reverse y-order."""
+        """Affine transform of the cutout with reverse y-order."""
         return rio.Affine(
             self.dx,
             0,
@@ -339,7 +339,7 @@ class Cutout:
 
     @property
     def prepared_features(self) -> pd.Series[Any]:
-        """Get the list of prepared features in the cutout."""
+        """List of prepared features in the cutout."""
         index = [
             (self.data[v].attrs["module"], self.data[v].attrs["feature"])
             for v in self.data

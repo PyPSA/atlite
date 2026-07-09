@@ -13,7 +13,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
+from dateutil.relativedelta import relativedelta
 
 from atlite import Cutout
 from atlite.datasets.era5_edh import _EDH_URL, _get_edh_auth_header
