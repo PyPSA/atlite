@@ -9,7 +9,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from dateutil.relativedelta import relativedelta  # type: ignore[import-untyped]
+from dateutil.relativedelta import relativedelta
 
 from atlite import Cutout
 

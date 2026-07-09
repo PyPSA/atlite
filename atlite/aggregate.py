@@ -8,12 +8,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 import dask
-import pandas as pd
 import xarray as xr
 
 from atlite.utils import ensure_coords
 
 if TYPE_CHECKING:
+    import pandas as pd
     from scipy.sparse import spmatrix
 
 
