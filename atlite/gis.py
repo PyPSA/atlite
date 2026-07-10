@@ -431,6 +431,10 @@ def shape_availability(
     transform : rasterio.Affine
         Affine transform of the mask.
 
+    Raises
+    ------
+    ValueError
+        If an unsupported buffer geometry is encountered.
     """
     if not excluder.all_open:
         excluder.open_files()
@@ -463,12 +467,23 @@ def shape_availability(
         if d["invert"]:
             masked_ = ~masked_
         if d["buffer"]:
-            if d["buffer_geometry"] == "circular":
-                radius = d["buffer"] / excluder.res
-                masked_ = distance_transform_edt(~masked_) <= radius
-            elif d["buffer_geometry"] == "diamond":
+            buffer_geom = d.get("buffer_geometry", "diamond")
+            if buffer_geom == "circular":
+                if masked_.any():
+                    radius = d["buffer"] / excluder.res
+                    masked_ = distance_transform_edt(~masked_) <= radius
+                else:
+                    # If mask is empty, distance_transform_edt treats the boundary
+                    # as background, which would incorrectly exclude border pixels.
+                    pass
+            elif buffer_geom == "diamond":
                 iterations = int(d["buffer"] / excluder.res) + 1
                 masked_ = dilation(masked_, iterations=iterations)
+            else:
+                raise ValueError(
+                    f"Unsupported buffer geometry: '{buffer_geom}'. "
+                    "Must be one of 'diamond' or 'circular'."
+                )
 
         exclusions = exclusions | masked_
 
@@ -590,11 +605,11 @@ class ExclusionContainer:
 
             * ``"diamond"`` (default) – uses :func:`scipy.ndimage.binary_dilation`
               with the default 4-connected cross structuring element, which
-              produces a diamond (L1-metric) footprint.  Equivalent to the
+              produces a diamond (L1-metric) footprint. Equivalent to the
               historic behaviour.
             * ``"circular"`` – uses :func:`scipy.ndimage.distance_transform_edt`
               to compute exact Euclidean distances, giving a true circular
-              (L2-metric) buffer.  This is both more geometrically accurate and
+              (L2-metric) buffer. This is both more geometrically accurate and
               significantly faster for large buffers because it runs in O(pixels)
               regardless of buffer size, whereas the diamond approach scales as
               O(buffer/res × pixels).
@@ -612,7 +627,17 @@ class ExclusionContainer:
         crs : rasterio.CRS/EPSG
             CRS of the raster. Specify this if the raster has invalid crs.
 
+        Raises
+        ------
+        ValueError
+            If ``buffer_geometry`` is not one of 'diamond' or 'circular'.
         """
+        if buffer_geometry not in ("diamond", "circular"):
+            raise ValueError(
+                f"Invalid buffer_geometry: '{buffer_geometry}'. "
+                "Must be one of 'diamond' or 'circular'."
+            )
+
         d: dict[str, Any] = {
             "raster": raster,
             "codes": codes,
