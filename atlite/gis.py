@@ -1081,8 +1081,7 @@ def regrid(
         output_core_dims=[["yout", "xout"]],
         output_dtypes=[dtypes.pop()],
         dask_gufunc_kwargs={
-            "output_sizes": {"yout": dst_shape[0], "xout": dst_shape[1]},
-            "allow_rechunk": True,
+            "output_sizes": {"yout": dst_shape[0], "xout": dst_shape[1]}
         },
         dask="parallelized",
         kwargs=kwargs,
