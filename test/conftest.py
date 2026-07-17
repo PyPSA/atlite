@@ -7,6 +7,7 @@
 import os
 import random
 import time
+import urllib.error
 import urllib.request
 import warnings
 from datetime import date
@@ -49,9 +50,18 @@ def _edh_reachable(max_attempts: int = 8) -> bool:
     for attempt in range(max_attempts):
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
-                if resp.status < 400:
-                    return True
-        except Exception:
+                return bool(resp.status < 400)
+        except urllib.error.HTTPError as err:
+            # 4xx are permanent (bad/expired credentials); don't retry.
+            if err.code < 500:
+                warnings.warn(
+                    f"EDH rejected the request ({err.code}); check your "
+                    "credentials. EDH tests will be skipped",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                return False
+        except (urllib.error.URLError, TimeoutError):
             pass
         if attempt < max_attempts - 1:
             time.sleep(min(30, 2 ** (attempt + 1)) + random.uniform(0, 1))

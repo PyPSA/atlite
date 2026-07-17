@@ -9,6 +9,7 @@ Created on Mon May 11 11:15:41 2020.
 @author: fabian
 """
 
+import base64
 import os
 import sys
 from datetime import date
@@ -26,6 +27,7 @@ from shapely.geometry import Point
 
 import atlite
 from atlite import Cutout
+from atlite.datasets.era5_edh import _EDH_URL, _get_edh_auth_header, get_data
 
 urllib3.disable_warnings()
 
@@ -709,51 +711,76 @@ class TestERA5EDH:
                     rtol=rtol,
                 )
 
-    @staticmethod
-    def test_all_features_identical(cutout_era5, cutout_era5_edh):
+    @pytest.mark.parametrize(
+        ("era5_fixture", "edh_fixture"),
+        [
+            ("cutout_era5", "cutout_era5_edh"),
+            ("cutout_era5_3h_sampling", "cutout_era5_edh_3h_sampling"),
+            (
+                "cutout_era5_2days_crossing_months",
+                "cutout_era5_edh_2days_crossing_months",
+            ),
+        ],
+    )
+    def test_all_features_identical(self, request, era5_fixture, edh_fixture):
         """
         At native 0.25° resolution era5_edh should match era5 across every feature
-        within the per-variable tolerances.
+        within the per-variable tolerances, including 3h sampling and month crossings.
         """
-        TestERA5EDH._assert_compatible_cutouts(cutout_era5, cutout_era5_edh)
-        common = sorted(cutout_era5.data.data_vars)
-        TestERA5EDH._assert_allclose(
-            cutout_era5.data,
-            cutout_era5_edh.data,
+        reference = request.getfixturevalue(era5_fixture)
+        candidate = request.getfixturevalue(edh_fixture)
+        self._assert_compatible_cutouts(reference, candidate)
+        common = sorted(reference.data.data_vars)
+        self._assert_allclose(
+            reference.data,
+            candidate.data,
             common,
-            atol=TestERA5EDH.TOLERANCES,
+            atol=self.TOLERANCES,
         )
 
     @staticmethod
-    def test_all_features_3h_sampling_identical(
-        cutout_era5_3h_sampling, cutout_era5_edh_3h_sampling
-    ):
-        """era5_edh should preserve coarser hourly sampling and match ERA5 values."""
+    def test_3h_sampling_preserved(cutout_era5_edh_3h_sampling):
+        """era5_edh should preserve coarser hourly sampling."""
         assert pd.infer_freq(cutout_era5_edh_3h_sampling.data.time) == "3h"
-        TestERA5EDH._assert_compatible_cutouts(
-            cutout_era5_3h_sampling, cutout_era5_edh_3h_sampling
-        )
-        common = sorted(cutout_era5_3h_sampling.data.data_vars)
-        TestERA5EDH._assert_allclose(
-            cutout_era5_3h_sampling.data,
-            cutout_era5_edh_3h_sampling.data,
-            common,
-            atol=TestERA5EDH.TOLERANCES,
-        )
+
+
+class TestERA5EDHOffline:
+    """Unit tests for era5_edh that need neither network nor credentials."""
 
     @staticmethod
-    def test_all_features_2days_crossing_months_identical(
-        cutout_era5_2days_crossing_months, cutout_era5_edh_2days_crossing_months
-    ):
-        """era5_edh should match ERA5 across month boundaries."""
-        TestERA5EDH._assert_compatible_cutouts(
-            cutout_era5_2days_crossing_months,
-            cutout_era5_edh_2days_crossing_months,
+    def test_non_native_resolution_raises(cutouts_path):
+        cutout = Cutout(
+            path=cutouts_path / "cutout_era5-edh_coarse.nc",
+            module="era5-edh",
+            bounds=BOUNDS,
+            time=TIME,
+            dx=0.5,
+            dy=0.5,
         )
-        common = sorted(cutout_era5_2days_crossing_months.data.data_vars)
-        TestERA5EDH._assert_allclose(
-            cutout_era5_2days_crossing_months.data,
-            cutout_era5_edh_2days_crossing_months.data,
-            common,
-            atol=TestERA5EDH.TOLERANCES,
-        )
+        with pytest.raises(ValueError, match="0.25"):
+            get_data(cutout, "wind")
+
+    @staticmethod
+    def test_auth_header_from_env(monkeypatch):
+        monkeypatch.setenv("EARTHDATAHUB_API_KEY", "my-key")
+        expected = "Basic " + base64.b64encode(b"edh:my-key").decode()
+        assert _get_edh_auth_header() == expected
+
+    @staticmethod
+    def test_auth_header_from_netrc(monkeypatch, tmp_path):
+        monkeypatch.delenv("EARTHDATAHUB_API_KEY", raising=False)
+        host = _EDH_URL.split("/")[2]
+        netrc_file = tmp_path / ".netrc"
+        netrc_file.write_text(f"machine {host}\nlogin edh\npassword secret\n")
+        netrc_file.chmod(0o600)
+        monkeypatch.chdir(tmp_path)
+        expected = "Basic " + base64.b64encode(b"edh:secret").decode()
+        assert _get_edh_auth_header() == expected
+
+    @staticmethod
+    def test_auth_header_missing_credentials_raises(monkeypatch, tmp_path):
+        monkeypatch.delenv("EARTHDATAHUB_API_KEY", raising=False)
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(os.path, "expanduser", lambda _: str(tmp_path))
+        with pytest.raises(RuntimeError, match="DestinE API key"):
+            _get_edh_auth_header()

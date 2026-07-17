@@ -21,25 +21,24 @@ import base64
 import logging
 import netrc
 import os
-import warnings
 from collections.abc import Callable
 from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 import xarray as xr
 from obstore.store import HTTPStore
 from zarr.storage import ObjectStore
 
 from atlite.datasets.era5 import (
     _add_height,
+    _process_influx,
+    _process_wind,
     sanitize_influx,
     sanitize_runoff,
     sanitize_wind,
 )
-from atlite.pv.solar_position import SolarPosition
 
 if TYPE_CHECKING:
     from dask.utils import SerializableLock
@@ -73,7 +72,6 @@ features: dict[str, list[str]] = {
 static_features: set[str] = {"height"}
 
 
-# Per-feature raw variables to pull from the EDH zarr.
 _FEATURE_VARS: dict[str, list[str]] = {
     "wind": ["u10", "v10", "u100", "v100", "fsr"],
     "influx": ["ssrd", "ssr", "fdir", "tisr"],
@@ -175,8 +173,6 @@ def _open_edh() -> xr.Dataset:
         Dataset object, dask-backed with the store's native
         ``(4320, 64, 64)`` chunks.
     """
-    # uses obstore.HTTPStore for performance and because it implements retries unlike
-    # native fsspec.HTTPStore
     store = HTTPStore.from_url(
         _EDH_URL,
         client_options={"default_headers": {"Authorization": _get_edh_auth_header()}},
@@ -191,7 +187,6 @@ def _open_edh() -> xr.Dataset:
         },  # we observed O(1) ClientPayloadError during multi h downloads
     )
     ds = xr.open_dataset(ObjectStore(store, read_only=True), chunks={}, engine="zarr")
-    # get rid of unnecessary coordinates
     for coord in ("number", "surface"):
         if coord in ds.coords:
             ds = ds.reset_coords(coord, drop=True)
@@ -328,12 +323,8 @@ def _load_feature(cutout: Cutout, feature: str, static: bool = False) -> xr.Data
         ``cutout.chunks``.
     """
     ds = _open_edh()[_FEATURE_VARS[feature]]
-    if static:
-        ds = ds.isel(valid_time=0, drop=True)
-        ds = _subset_spatial(ds, cutout)
-    else:
-        ds = _subset_temporal(ds, cutout)
-        ds = _subset_spatial(ds, cutout)
+    ds = ds.isel(valid_time=0, drop=True) if static else _subset_temporal(ds, cutout)
+    ds = _subset_spatial(ds, cutout)
     return _rename_and_clean_coords(ds)
 
 
@@ -352,29 +343,7 @@ def get_data_wind(cutout: Cutout) -> xr.Dataset:
         Dataset containing ``wnd100m``, ``wnd_shear_exp``, ``wnd_azimuth`` and
         ``roughness``.
     """
-    ds = _load_feature(cutout, "wind")
-
-    for h in (10, 100):
-        ds[f"wnd{h}m"] = np.sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
-            units="m s**-1", long_name=f"{h} metre wind speed"
-        )
-    # Dividing by the float64 scalar np.log(0.1) promotes the result to
-    # float64; cast back to float32 -- the shear exponent needs no more.
-    ds["wnd_shear_exp"] = (
-        (np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100))
-        .astype(np.float32)
-        .assign_attrs(units="", long_name="wind shear exponent")
-    )
-
-    # span the whole circle: 0 is north, π/2 east, π south, 3π/2 west. The
-    # `+ 2π` float64 scalar promotes the result; cast back to float32.
-    azimuth = np.arctan2(ds["u100"], ds["v100"])
-    ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi).astype(
-        np.float32
-    )
-
-    ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
-    ds = ds.rename({"fsr": "roughness"})
+    ds = _process_wind(_load_feature(cutout, "wind"), single_precision=True)
     ds["roughness"] = ds["roughness"].assign_attrs(
         units="m", long_name="Forecast surface roughness"
     )
@@ -396,34 +365,7 @@ def get_data_influx(cutout: Cutout) -> xr.Dataset:
         Dataset containing ``influx_toa``, ``influx_direct``, ``influx_diffuse``,
         ``albedo``, ``solar_altitude`` and ``solar_azimuth``.
     """
-    ds = _load_feature(cutout, "influx")
-
-    ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
-    ds["albedo"] = (
-        ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
-        .fillna(0.0)
-        .assign_attrs(units="(0 - 1)", long_name="Albedo")
-    )
-    ds["influx_diffuse"] = (ds["ssrd"] - ds["influx_direct"]).assign_attrs(
-        units="J m**-2", long_name="Surface diffuse solar radiation downwards"
-    )
-    ds = ds.drop_vars(["ssrd", "ssr"])
-
-    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
-        ds[a] = ds[a] / 3600.0
-        ds[a].attrs["units"] = "W m**-2"
-
-    # ERA5 radiation is the mean over the previous hour; centre solar position
-    # on the interval midpoint (see PyPSA/atlite#158).
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        sp = SolarPosition(ds, time_shift=pd.to_timedelta("-30 minutes"))
-    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
-    # SolarPosition computes in float64; float32 is ample for stored solar
-    # geometry (~1e-6 rad) and halves these variables on disk.
-    sp = sp.astype(np.float32)
-
-    return xr.merge([ds, sp])
+    return _process_influx(_load_feature(cutout, "influx"), single_precision=True)
 
 
 def get_data_temperature(cutout: Cutout) -> xr.Dataset:
@@ -531,7 +473,9 @@ def get_data(
         :func:`atlite.datasets.era5.get_data`.
     **creation_parameters
         Additional creation parameters. ``sanitize`` controls whether the
-        standard atlite sanitizers are applied (default True).
+        standard atlite sanitizers are applied (default True). CDS-only
+        parameters (``data_format``, ``monthly_requests``,
+        ``concurrent_requests``) are accepted and ignored.
 
     Returns
     -------
