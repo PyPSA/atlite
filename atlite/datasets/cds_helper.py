@@ -7,38 +7,97 @@ Shared helpers for datasets downloaded via the Climate Data Store (CDS).
 Used by both the era5 and glofas dataset modules.
 """
 
+from __future__ import annotations
+
 import logging
-import os
 import weakref
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, cast
 
 import xarray as xr
+
+if TYPE_CHECKING:
+    from atlite._types import PathLike
 
 logger = logging.getLogger(__name__)
 
 
-def noisy_unlink(path):
+def _area(coords: dict[str, xr.DataArray]) -> list[float]:
     """
-    Delete file at given path.
+    Extract CDS API bounding box from coordinates.
+
+    Parameters
+    ----------
+    coords : dict[str, xr.DataArray]
+        Coordinate arrays with 'x' (longitude) and 'y' (latitude).
+
+    Returns
+    -------
+    list[float]
+        Bounding box as [north, west, south, east].
     """
-    logger.debug(f"Deleting file {path}")
-    try:
-        os.unlink(path)
-    except PermissionError:
-        logger.error(f"Unable to delete file {path}, as it is still in use.")
-
-
-def _area(coords):
-    # North, West, South, East. Default: global
     x0, x1 = coords["x"].min().item(), coords["x"].max().item()
     y0, y1 = coords["y"].min().item(), coords["y"].max().item()
     return [y1, x0, y0, x1]
 
 
-def sanitize_chunks(chunks, **dim_mapping):
-    dim_mapping = dict(time="valid_time", x="longitude", y="latitude") | dim_mapping
+def noisy_unlink(path: PathLike) -> None:
+    """
+    Remove a file with debug logging, handling PermissionError gracefully.
+
+    Parameters
+    ----------
+    path : PathLike
+        Path to the file to delete.
+    """
+    logger.debug("Deleting file %s", path)
+    try:
+        Path(path).unlink()
+    except PermissionError:
+        logger.error("Unable to delete file %s, as it is still in use.", path)
+
+
+def add_finalizer(ds: xr.Dataset, target: PathLike) -> None:
+    """
+    Register a weak-reference callback to delete a temp file on garbage collection.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset whose lifetime controls the temp file.
+    target : PathLike
+        Path to the temporary file to clean up.
+    """
+    logger.debug("Adding finalizer for %s", target)
+    assert ds._close is not None
+    weakref.finalize(cast("Any", ds._close).__self__.ds, noisy_unlink, target)
+
+
+def sanitize_chunks(chunks: Any, **dim_mapping: str) -> Any:
+    """
+    Remap internal dimension names to CDS dimension names in chunk specs.
+
+    Translates atlite dimension names (time, x, y) to the corresponding
+    CDS names (valid_time, longitude, latitude).
+
+    Parameters
+    ----------
+    chunks : Any
+        Chunk specification. If not a dict, returned as-is.
+    **dim_mapping : str
+        Additional or override dimension name mappings.
+
+    Returns
+    -------
+    Any
+        Remapped chunk dict, or original value if not a dict.
+    """
+    dim_mapping = {
+        "time": "valid_time",
+        "x": "longitude",
+        "y": "latitude",
+    } | dim_mapping
     if not isinstance(chunks, dict):
-        # preserve "auto" or None
         return chunks
 
     return {
@@ -48,40 +107,36 @@ def sanitize_chunks(chunks, **dim_mapping):
     }
 
 
-def add_finalizer(ds: xr.Dataset, target: str | Path):
-    logger.debug(f"Adding finalizer for {target}")
-    weakref.finalize(ds._close.__self__.ds, noisy_unlink, target)
-
-
 def open_with_grib_conventions(
-    grib_file: str | Path, chunks=None, tmpdir: str | Path | None = None
+    grib_file: PathLike,
+    chunks: dict[str, int] | None = None,
+    tmpdir: PathLike | None = None,
 ) -> xr.Dataset:
     """
-    Convert a grib file downloaded from the CDS to netcdf conventions locally.
+    Open a GRIB file using cfgrib with standardized coordinate conventions.
 
-    The function does the same thing as the CDS backend does, but locally.
-    This is needed, as the grib file is the recommended download file type for CDS, with conversion to netcdf locally.
-    The routine is a reduced version based on the documentation here:
-    https://confluence.ecmwf.int/display/CKB/GRIB+to+netCDF+conversion+on+new+CDS+and+ADS+systems#GRIBtonetCDFconversiononnewCDSandADSsystems-jupiternotebook
+    Performs the same conversion as the CDS backend, but locally.
+    Based on the documentation at
+    https://confluence.ecmwf.int/display/CKB/GRIB+to+netCDF+conversion+on+new+CDS+and+ADS+systems
 
     Parameters
     ----------
-    grib_file : str | Path
-        Path to the grib file to be converted.
-    chunks
-        Chunks
-    tmpdir : Path, optional
-        If None adds a finalizer to the dataset object
+    grib_file : PathLike
+        Path to the GRIB file.
+    chunks : dict[str, int] or None, optional
+        Dask chunk specification for lazy loading.
+    tmpdir : PathLike or None, optional
+        If set, the file is kept (managed externally).
 
     Returns
     -------
     xr.Dataset
+        Opened dataset with standardized dimensions.
     """
-    #
-    # Open grib file as dataset
-    # Options to open different datasets into a datasets of consistent hypercubes which are compatible netCDF
-    # There are options that might be relevant for e.g. for wave model data, that have been removed here
-    # to keep the code cleaner and shorter
+    # Open grib file as dataset.
+    # Options below normalize different grib variants into consistent
+    # netCDF-compatible hypercubes. Options relevant only to e.g. wave-model
+    # data have been removed to keep this routine focused on the products we use.
     ds = xr.open_dataset(
         grib_file,
         engine="cfgrib",
@@ -100,9 +155,12 @@ def open_with_grib_conventions(
         add_finalizer(ds, grib_file)
 
     def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
-        """
-        Expand dimensions in an xarray dataset, ensuring that the new dimensions are not already in the dataset
-        and that the order of dimensions is preserved.
+        """Expand missing dimensions while preserving their original order.
+
+        Returns
+        -------
+        xr.Dataset
+            Dataset with the requested dimensions present.
         """
         dims_required = [
             c for c in dataset.coords if c in expand_dims + list(dataset.dims)
@@ -116,7 +174,6 @@ def open_with_grib_conventions(
         return dataset
 
     logger.debug("Converting grib file to netcdf format")
-    # Variables and dimensions to rename if they exist in the dataset
     rename_vars = {
         "time": "forecast_reference_time",
         "step": "forecast_period",
@@ -126,7 +183,6 @@ def open_with_grib_conventions(
     rename_vars = {k: v for k, v in rename_vars.items() if k in ds}
     ds = ds.rename(rename_vars)
 
-    # safely expand dimensions in an xarray dataset to ensure that data for the new dimensions are in the dataset
     ds = safely_expand_dims(ds, ["valid_time", "pressure_level", "model_level"])
 
     return ds

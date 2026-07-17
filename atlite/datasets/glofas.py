@@ -13,6 +13,7 @@ import os
 import zipfile
 from pathlib import Path
 from tempfile import mkstemp
+from typing import Any
 
 import cdsapi
 import numpy as np
@@ -36,8 +37,8 @@ except ImportError:
     # for Python verions < 3.7:
     import contextlib
 
-    @contextlib.contextmanager
-    def nullcontext():
+    @contextlib.contextmanager  # type: ignore[no-redef]
+    def nullcontext():  # noqa: D103
         yield
 
 
@@ -57,15 +58,18 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
 
     Optionally (add_lon_lat, default:True) preserves latitude and
     longitude columns as 'lat' and 'lon'.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with standardized coordinates.
     """
-    ds = ds.rename(
-        {
-            "longitude": "x",
-            "latitude": "y",
-            "valid_time": "time",
-            "dis24": "discharge",
-        }
-    )
+    ds = ds.rename({
+        "longitude": "x",
+        "latitude": "y",
+        "valid_time": "time",
+        "dis24": "discharge",
+    })
     # round coords since cds coords are float64 which would lead to mismatches
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
@@ -73,9 +77,7 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     ds = maybe_swap_spatial_dims(ds)
     if add_lon_lat:
         ds = ds.assign_coords(lon=ds.coords["x"], lat=ds.coords["y"])
-    ds = ds.drop_vars(["expver", "number"], errors="ignore")
-
-    return ds
+    return ds.drop_vars(["expver", "number"], errors="ignore")
 
 
 def retrieve_data(
@@ -83,7 +85,7 @@ def retrieve_data(
     chunks: dict[str, int] | None = None,
     tmpdir: str | Path | None = None,
     lock: SerializableLock | None = None,
-    **updates,
+    **updates: Any,
 ) -> xr.Dataset:
     """
     Download data like Glofas from the Climate Data Store (CDS).
@@ -140,11 +142,11 @@ def retrieve_data(
         "Need to specify at least 'variable', 'hyear' and 'hmonth'"
     )
 
-    logger.debug(f"Requesting {product} with API request: {request}")
+    logger.debug("Requesting %s with API request: %s", product, request)
     # Url needs to be set manually here, overrides url from .cdsapirc (for use with multiple modules)
     client = cdsapi.Client(
         info_callback=logger.debug,
-        debug=logging.DEBUG >= logging.root.level,
+        debug=logging.root.level <= logging.DEBUG,
         url="https://ewds.climate.copernicus.eu/api",
     )
     result = client.retrieve(product, request)
@@ -161,15 +163,16 @@ def retrieve_data(
         timestr = f"{request['hyear']}-{request['hmonth']}"
         variables = atleast_1d(request["variable"])
         varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
-        logger.info(f"CDS: Downloading variables\n\t{varstr}\n")
+        logger.info("CDS: Downloading variables\n\t%s\n", varstr)
         result.download(target)
 
     # Extract data if downloaded as zip file
     if request.get("download_format") == "zip":
+        extract_dir = Path(target).parent / Path(target).stem
         with zipfile.ZipFile(target, "r") as zip_ref:
-            zip_ref.extractall(Path(tmpdir) / Path(target).stem)
-        os.unlink(target)  # delete the zip file after extraction
-        target = Path(tmpdir) / Path(Path(target).stem) / Path("data" + suffix)
+            zip_ref.extractall(extract_dir)
+        Path(target).unlink()  # delete the zip file after extraction
+        target = str(extract_dir / f"data{suffix}")
 
     # Convert from grib to netcdf locally, same conversion as in CDS backend
     if request["data_format"] == "grib":
@@ -177,7 +180,7 @@ def retrieve_data(
     else:
         ds = xr.open_dataset(target, chunks=sanitize_chunks(chunks))
         if tmpdir is None:
-            add_finalizer(target)
+            add_finalizer(ds, target)
     return ds
 
 

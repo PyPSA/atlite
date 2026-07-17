@@ -201,8 +201,7 @@ def _hydro_from_runoff(
     **kwargs,
 ):
     """
-    Compute inflow time-series for `plants` by aggregating over catchment
-    basins from `hydrobasins` (ERA5 runoff-based computation).
+    Compute plant inflow by aggregating ERA5 runoff over catchment basins.
 
     Parameters
     ----------
@@ -218,6 +217,11 @@ def _hydro_from_runoff(
         better for coarser resolution).
     show_progress : bool
         Whether to display progressbars.
+
+    Returns
+    -------
+    xr.DataArray
+        Inflow time-series for each plant.
 
     References
     ----------
@@ -249,7 +253,7 @@ def _hydro_from_runoff(
     # The hydrological parameters are in units of "m of water per day" and so
     # they should be multiplied by 1000 and the basin area to convert to m3
     # d-1 = m3 h-1 / 24
-    runoff *= xr.DataArray(basins.shapes.to_crs(dict(proj="cea")).area)
+    runoff *= xr.DataArray(basins.shapes.to_crs({"proj": "cea"}).area)
 
     return shift_and_aggregate_runoff_for_plants(
         basins, runoff, flowspeed, show_progress
@@ -262,9 +266,10 @@ def _hydro_from_discharge(
     time=None,
 ):
     """
-    Get inflow time-series for `plants` from GLOFAS discharge by snapping each
-    plant to the nearest grid cell that holds data and interpolating onto the
-    target time index.
+    Get plant inflow from GLOFAS discharge by snapping to the nearest data cell.
+
+    Snaps each plant to the nearest grid cell that holds data and interpolates
+    onto the target time index.
 
     Parameters
     ----------
@@ -273,6 +278,11 @@ def _hydro_from_discharge(
     time : pd.DatetimeIndex, optional
         Time index to interpolate the plant inflow onto. Defaults to the cutout's
         own time index.
+
+    Returns
+    -------
+    xr.DataArray
+        Inflow time-series for each plant.
     """
     if time is None:
         time = cutout.coords["time"]

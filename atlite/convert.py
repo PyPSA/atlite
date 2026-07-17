@@ -1604,8 +1604,10 @@ def hydro(
     **kwargs,
 ):
     """
-    Get inflow time-series for `plants` by either extracting the discharge time series for
-    the nearest grid points or by computing runoff-based inflow time series
+    Get inflow time-series for `plants` from discharge or runoff data.
+
+    Either extracts the discharge time series for the nearest grid points or
+    computes runoff-based inflow time series.
 
     Parameters
     ----------
@@ -1637,6 +1639,11 @@ def hydro(
     -------
     xr.DataArray
         Inflow time-series for each plant.
+
+    Raises
+    ------
+    ValueError
+        If required data for the selected module is missing or the module is unknown.
     """
     if module.lower() == "auto":
         # Check if discharge data is available in cutout, otherwise use runoff
