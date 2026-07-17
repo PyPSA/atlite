@@ -12,6 +12,7 @@ Created on Wed May  6 15:23:13 2020.
 # IDEAS for tests
 
 import functools
+import pickle
 import warnings
 
 import geopandas as gpd
@@ -646,3 +647,60 @@ def test_plot_shape_availability(ref, raster):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         excluder.plot_shape_availability(shapes)
+
+
+class TestRasterBufferGeometry:
+    """Diamond vs. circular raster buffering: validation, serialization, edge cases."""
+
+    res = 0.01
+
+    @pytest.fixture
+    def shapes(self, ref):
+        return gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
+
+    def test_serialization_roundtrip_preserves_geometry(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        excluder.add_raster(raster, buffer=self.res, buffer_geometry="circular")
+
+        restored = pickle.loads(pickle.dumps(excluder))
+        assert restored.rasters[0]["buffer_geometry"] == "circular"
+
+    def test_missing_geometry_key_defaults_to_diamond(self, shapes, raster):
+        legacy = ExclusionContainer(shapes.crs, res=self.res)
+        legacy.add_raster(raster, buffer=self.res, buffer_geometry="circular")
+        del legacy.rasters[0]["buffer_geometry"]
+
+        diamond = ExclusionContainer(shapes.crs, res=self.res)
+        diamond.add_raster(raster, buffer=self.res, buffer_geometry="diamond")
+
+        masked_legacy, _ = shape_availability(shapes, legacy)
+        masked_diamond, _ = shape_availability(shapes, diamond)
+        assert (masked_legacy == masked_diamond).all()
+
+    def test_circular_buffer_on_empty_mask_keeps_borders(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        excluder.add_raster(
+            raster, codes=[-1], buffer=self.res * 5, buffer_geometry="circular"
+        )
+        masked, _ = shape_availability(shapes, excluder)
+        assert masked.all()
+
+    def test_invalid_geometry_rejected_at_registration(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        with pytest.raises(ValueError, match="Invalid buffer_geometry"):
+            excluder.add_raster(raster, buffer=self.res, buffer_geometry="hexagon")
+
+    def test_invalid_geometry_rejected_at_computation(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        excluder.rasters.append({
+            "raster": raster,
+            "codes": None,
+            "buffer": self.res,
+            "buffer_geometry": "hexagon",
+            "invert": False,
+            "nodata": 255,
+            "allow_no_overlap": False,
+            "crs": None,
+        })
+        with pytest.raises(ValueError, match="Unsupported buffer geometry"):
+            shape_availability(shapes, excluder)
