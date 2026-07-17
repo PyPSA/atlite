@@ -159,19 +159,17 @@ def retrieve_data(
         fd, target = mkstemp(suffix=suffix, dir=tmpdir)
         os.close(fd)
 
-        # Inform user about data being downloaded as "* variable (year-month)"
         timestr = f"{request['hyear']}-{request['hmonth']}"
         variables = atleast_1d(request["variable"])
         varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
         logger.info("CDS: Downloading variables\n\t%s\n", varstr)
         result.download(target)
 
-    # Extract data if downloaded as zip file
     if request.get("download_format") == "zip":
         extract_dir = Path(target).parent / Path(target).stem
         with zipfile.ZipFile(target, "r") as zip_ref:
             zip_ref.extractall(extract_dir)
-        Path(target).unlink()  # delete the zip file after extraction
+        Path(target).unlink()
         target = str(extract_dir / f"data{suffix}")
 
     # Convert from grib to netcdf locally, same conversion as in CDS backend

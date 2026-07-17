@@ -1595,12 +1595,13 @@ def runoff(
 def hydro(
     cutout,
     plants,
-    module="auto",
-    time=None,
     hydrobasins=None,
     flowspeed=1,
     weight_with_height=False,
     show_progress=False,
+    *,
+    module="auto",
+    time=None,
     **kwargs,
 ):
     """
@@ -1615,12 +1616,6 @@ def hydro(
         The cutout to process.
     plants : pd.DataFrame
         Run-of-river plants or dams with lon, lat columns.
-    module : str
-        The method to compute hydro time series. "auto" will prefere discharge but fall back to runoff-based computation
-        "glofas" will use discharge directly, "era5" will use runoff-based computation
-    time : pd.DatetimeIndex, optional
-        Time index to interpolate the plant inflow onto. Only relevant for
-        discharge-based computation. Defaults to the cutout's own time index.
     hydrobasins : str|gpd.GeoDataFrame
         Filename or GeoDataFrame of one level of the HydroBASINS dataset. Only required
         for runoff-based computation.
@@ -1632,8 +1627,15 @@ def hydro(
         better for coarser resolution). Only relevant for runoff-based computation.
     show_progress : bool
         Whether to display progressbars. Only relevant for runoff-based computation.
+    module : str
+        The method to compute hydro time series. "auto" will prefer discharge but fall
+        back to runoff-based computation, "glofas" uses discharge directly, "era5" uses
+        runoff-based computation.
+    time : pd.DatetimeIndex, optional
+        Time index to interpolate the plant inflow onto. Only relevant for
+        discharge-based computation. Defaults to the cutout's own time index.
     **kwargs
-        Additional arguments for runoff-based computation. Only relevant for runoff-based computation.
+        Additional arguments for runoff-based computation.
 
     Returns
     -------
@@ -1645,40 +1647,18 @@ def hydro(
     ValueError
         If required data for the selected module is missing or the module is unknown.
     """
-    if module.lower() == "auto":
-        # Check if discharge data is available in cutout, otherwise use runoff
-        if "discharge" in cutout.data.data_vars:
-            return hydrom._hydro_from_discharge(
-                cutout,
-                plants,
-                time=time,
-            )
-        if hydrobasins is None or "runoff" not in cutout.data.data_vars:
-            raise ValueError(
-                "For runoff-based hydro time series, hydrobasins and runoff data must be provided."
-            )
-        return hydrom._hydro_from_runoff(
-            cutout,
-            plants,
-            hydrobasins,
-            flowspeed=flowspeed,
-            weight_with_height=weight_with_height,
-            show_progress=show_progress,
-            **kwargs,
-        )
-    if module.lower() == "glofas":
-        # Check if discharge data is available in cutout, otherwise raise error
+    module = module.lower()
+    if module == "auto":
+        module = "glofas" if "discharge" in cutout.data.data_vars else "era5"
+
+    if module == "glofas":
         if "discharge" not in cutout.data.data_vars:
             raise ValueError(
                 "For GloFAS-based hydro time series, the cutout must include discharge data."
             )
-        return hydrom._hydro_from_discharge(
-            cutout,
-            plants,
-            time=time,
-        )
-    if module.lower() == "era5":
-        # Check if hydrobasins is provided, otherwise raise error
+        return hydrom._hydro_from_discharge(cutout, plants, time=time)
+
+    if module == "era5":
         if hydrobasins is None:
             raise ValueError(
                 "For ERA5-based hydro time series, the hydrobasins dataset must be provided."
@@ -1692,6 +1672,7 @@ def hydro(
             show_progress=show_progress,
             **kwargs,
         )
+
     raise ValueError(f'Unknown hydro module option "{module}".')
 
 

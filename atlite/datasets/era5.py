@@ -435,7 +435,7 @@ def retrieve_data(
     Download ERA5 data from the CDS API and return as an xarray Dataset.
 
     If you want to track the state of your request go to
-    https://ewds.climate.copernicus.eu/requests?tab=all
+    https://cds.climate.copernicus.eu/requests?tab=all
 
     Parameters
     ----------
