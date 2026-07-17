@@ -17,6 +17,13 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Features**
+
+* Add ``buffer_geometry`` argument to ``ExclusionContainer.add_raster``. Choose
+  between the historic ``"diamond"`` buffer (default) and a new ``"circular"``
+  buffer that computes a geometrically accurate Euclidean buffer, correct in
+  diagonal directions.
+
 **Bug fixes**
 
 * Fix ``Cutout.line_rating`` passing line azimuth in radians while
