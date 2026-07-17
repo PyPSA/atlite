@@ -24,16 +24,17 @@ Upcoming Release
   buffer that computes a geometrically accurate Euclidean buffer, correct in
   diagonal directions.
 
+* Add an Earth Data Hub (EDH) source for ERA5 as a new dataset module ``era5-edh``,
+  which serves data without the CDS processing queue. Configure a DestinE API key
+  (see :doc:`installation`) and pass ``module="era5-edh"`` when creating a cutout.
+  Only the native 0.25°×0.25° grid is supported; use ``module="era5"`` (CDS) for
+  other resolutions.
+
 **Bug fixes**
 
 * Fix ``Cutout.line_rating`` passing line azimuth in radians while
   ``convert_line_rating`` interpreted ``psi`` as degrees. Azimuths are now
   computed in degrees, matching the documented unit.
-
-**Features**
-
-* Add an Earth Data Hub (EDH) source for ERA5 as a new dataset ``atlite/datasets/era5_edh.py``.
-  EDH provides data without a processing queue.
 
 `v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
 =======================================================================================
