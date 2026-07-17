@@ -6,52 +6,16 @@
 atlite
 ======
 
-|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |MIT-image| |reuse| |black| |pre-commit.ci| |joss| |discord| |stackoverflow|
+|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |MIT-image| |reuse| |ruff| |pre-commit.ci| |joss| |discord| |stackoverflow|
 
 atlite is a `free software`_, `xarray`_-based Python library for
 converting weather data (like wind speeds, solar influx) into energy systems data.
 It is designed to be lightweight, keeping computing resource requirements (CPU, RAM) usage low.
 It is therefore well suited to be used with big weather datasets.
 
-.. atlite is designed to be modular, so that it can work with any weather
-.. datasets. It currently has modules for the following datasets:
-
-.. * `NCEP Climate Forecast System <http://rda.ucar.edu/datasets/ds094.1/>`_ hourly
-..   historical reanalysis weather data available on a 0.2 x 0.2 degree global grid
-.. * `ECMWF ERA5
-..   <https://software.ecmwf.int/wiki/display/CKB/ERA5+data+documentation>`_ hourly
-..   historical reanalysis weather data on an approximately 0.25 x 0.25 deg global
-..   grid
-.. * `EURO-CORDEX Climate Change Projection <http://www.euro-cordex.net/>`_
-..   three-hourly up until 2100, available on a 0.11 x 0.11 degree grid for Europe
-.. * `CMSAF SARAH-2
-..   <https://wui.cmsaf.eu/safira/action/viewDoiDetails?acronym=SARAH_V002>`_
-..   half-hourly historical surface radiation on a 0.05 x 0.05 deg grid available
-..   for Europe and Africa (automatically interpolated to a 0.2 deg grid and
-..   combined with ERA5 temperature).
-
-
 atlite can process the following weather data fields and can convert them into following power-system relevant time series for any subsets of a full weather database.
 
 .. image:: doc/workflow_chart.png
-
-.. * Temperature
-.. * Downward short-wave radiation
-.. * Upward short-wave radiation
-.. * Wind
-.. * Runoff
-.. * Surface roughness
-.. * Height maps
-.. * Soil temperature
-.. * Dewpoint temperature
-
-
-.. * Wind power generation for a given turbine type
-.. * Solar PV power generation for a given panel type
-.. * Solar thermal collector heat output
-.. * Hydroelectric inflow (simplified)
-.. * Heating demand (based on the degree-day approximation)
-
 
 atlite was initially developed by the `Renewable Energy Group
 <https://fias.uni-frankfurt.de/physics/schramm/renewable-energy-system-and-network-analysis/>`_
@@ -63,10 +27,20 @@ Research Initiative
 <http://forschung-stromnetze.info/projekte/grundlagen-und-konzepte-fuer-effiziente-dezentrale-stromnetze/>`_.
 
 
+With `atlite` we want to provide an interface between the meteorological and energy systems modelling communities.
+
+Traditionally the MET and ESM communities have not been interacting much.
+The outputs and learning of one community were only slowly adapted into the other community.
+
+With `atlite` we want bridge between the communities:
+We want to make it easy to use and integrate outputs of the MET communities into energy system models, by offering standardized ways of accessing weather/climate datasets and converting them to weather-dependent inputs for ESMs.
+
+For major next development goals, consult our `vision and roadmap project <https://github.com/orgs/PyPSA/projects/12/views/1>`_ or check our list of possible `enhancements <https://github.com/PyPSA/atlite/issues/?q=is%3Aissue%20state%3Aopen%20label%3A%22type%3A%20enhancement%22>`_.
+
 Installation
 ============
 
-To install you need a working installation running Python 3.6 or above
+To install you need a working installation running Python 3.10 or above
 and we strongly recommend using either miniconda or anaconda for package
 management.
 
@@ -93,18 +67,6 @@ to install the most recent upstream version from GitHub
 
 Documentation
 ===============
-.. * Install atlite from conda-forge or pypi.
-.. * Download one of the weather datasets listed above (ERA5 is downloaded
-..   automatically on-demand after the ECMWF
-..   `cdsapi<https://cds.climate.copernicus.eu/api-how-to>` client is
-..   properly installed)
-.. * Create a cutout, i.e. a geographical rectangle and a selection of
-..   times, e.g. all hours in 2011 and 2012, to narrow down the scope -
-..   see `examples/create_cutout.py <examples/create_cutout.py>`_
-.. * Select a sparse matrix of the geographical points inside the cutout
-..   you want to aggregate for your time series, and pass it to the
-..   appropriate converter function - see `examples/ <examples/>`_
-
 
 Please check the `documentation <https://atlite.readthedocs.io/en/latest>`_.
 
@@ -170,9 +132,9 @@ See the individual files for license details.
    :target: https://github.com/PyPSA/atlite/actions/workflows/test.yaml
 .. |reuse| image:: https://api.reuse.software/badge/github.com/pypsa/atlite
    :target: https://api.reuse.software/info/github.com/pypsa/atlite
-.. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
-   :alt: Code style: black
+.. |ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+   :target: https://github.com/astral-sh/ruff
+   :alt: Code style: ruff
 .. |pre-commit.ci| image:: https://results.pre-commit.ci/badge/github/PyPSA/atlite/master.svg
    :target: https://results.pre-commit.ci/latest/github/PyPSA/atlite/master
    :alt: pre-commit.ci status

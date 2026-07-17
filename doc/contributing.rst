@@ -20,6 +20,9 @@ share news, or chat with the community.
 You are invited to submit pull requests / issues to our
 `Github repository <https://github.com/pypsa/atlite>`_.
 
+For major next development goals, you can consult our `vision and roadmap project <https://github.com/orgs/PyPSA/projects/12/views/1>`_ 
+or check the list of possible `enhancements <https://github.com/PyPSA/atlite/issues/?q=is%3Aissue%20state%3Aopen%20label%3A%22type%3A%20enhancement%22>`_.
+
 For linting, formatting and checking your code contributions
 against our guidelines (e.g. we use `Black <https://github.com/psf/black>`_ as code style
 and aim for `REUSE compliance <https://reuse.software/>`_,
