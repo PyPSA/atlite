@@ -15,13 +15,20 @@ repos:
 # Run ruff to lint and format
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Ruff version.
-  rev: v0.15.9
+  rev: v0.15.20
   hooks:
     # Run the linter.
   - id: ruff
     args: [--fix]
     # Run the formatter.
   - id: ruff-format
+
+# Type checking with mypy
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v2.1.0
+  hooks:
+  - id: mypy
+    additional_dependencies: ['types-PyYAML', 'types-requests']
 
 # Find common spelling mistakes in comments and docstrings
 - repo: https://github.com/codespell-project/codespell

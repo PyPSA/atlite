@@ -11,14 +11,27 @@ Release Notes
 Upcoming Release
 ================
 
-.. warning:: 
-  
-   The features listed below are not released yet, but will be part of the next release! 
-   To use the features already you have to install the ``master`` branch, e.g. 
+.. warning::
+
+   The features listed below are not released yet, but will be part of the next release!
+   To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Bug fixes**
+
+* Fix ``Cutout.line_rating`` passing line azimuth in radians while
+  ``convert_line_rating`` interpreted ``psi`` as degrees. Azimuths are now
+  computed in degrees, matching the documented unit.
+
+`v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
+=======================================================================================
+
+**Bug fixes**
+
+* Fix backwards compatibility of ``aggregate_matrix``.
+
 `v0.6.0 <https://github.com/PyPSA/atlite/releases/tag/v0.6.0>`__ (15th April 2026)
-=======================================================================================   
+=======================================================================================
 
 **Features**
 
