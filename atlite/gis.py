@@ -601,20 +601,20 @@ class ExclusionContainer:
             Use this to create a buffer around the excluded/included area.
             The default is 0.
         buffer_geometry : {"diamond", "circular"}, optional
-            Shape of the buffer kernel applied to raster exclusions:
+            Shape of the buffer applied around raster exclusions. Only used
+            when ``buffer > 0``. The default is ``"diamond"``.
 
-            * ``"diamond"`` (default) – uses :func:`scipy.ndimage.binary_dilation`
-              with the default 4-connected cross structuring element, which
-              produces a diamond (L1-metric) footprint. Equivalent to the
-              historic behaviour.
-            * ``"circular"`` – uses :func:`scipy.ndimage.distance_transform_edt`
-              to compute exact Euclidean distances, giving a true circular
-              (L2-metric) buffer. This is both more geometrically accurate and
-              significantly faster for large buffers because it runs in O(pixels)
-              regardless of buffer size, whereas the diamond approach scales as
-              O(buffer/res × pixels).
-
-            Only used when ``buffer > 0``.
+            * ``"diamond"`` – dilates the mask with
+              :func:`scipy.ndimage.binary_dilation`, expanding it by one pixel
+              in the four cardinal directions per iteration. The footprint is a
+              diamond (L1 metric), so the buffer distance is only accurate along
+              the grid axes and overreaches diagonally. This is the historic
+              behaviour.
+            * ``"circular"`` – marks every pixel whose exact Euclidean distance
+              to the mask (via :func:`scipy.ndimage.distance_transform_edt`) is
+              within ``buffer``, giving a geometrically accurate circular
+              (L2 metric) buffer. Prefer this when diagonal accuracy matters;
+              note that in practice it is typically slower than ``"diamond"``.
         nodata : int, optional
             Value to use for nodata pixels. The default is 255.
         invert : bool, optional

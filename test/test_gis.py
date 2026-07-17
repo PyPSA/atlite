@@ -12,6 +12,7 @@ Created on Wed May  6 15:23:13 2020.
 # IDEAS for tests
 
 import functools
+import pickle
 import warnings
 
 import geopandas as gpd
@@ -648,64 +649,58 @@ def test_plot_shape_availability(ref, raster):
         excluder.plot_shape_availability(shapes)
 
 
-def test_exclusion_container_serialization_backward_compatibility(ref, raster):
-    """Test pickle serialization of ExclusionContainer and backward compatibility with older configurations."""
-    import pickle
+class TestRasterBufferGeometry:
+    """Diamond vs. circular raster buffering: validation, serialization, edge cases."""
 
-    shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
     res = 0.01
 
-    # 1. Test serialization/deserialization cycle
-    excluder = ExclusionContainer(ref.crs, res=res)
-    excluder.add_raster(raster, buffer=res, buffer_geometry="circular")
+    @pytest.fixture
+    def shapes(self, ref):
+        return gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
 
-    serialized = pickle.dumps(excluder)
-    deserialized = pickle.loads(serialized)
+    def test_serialization_roundtrip_preserves_geometry(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        excluder.add_raster(raster, buffer=self.res, buffer_geometry="circular")
 
-    assert deserialized.rasters[0]["buffer_geometry"] == "circular"
+        restored = pickle.loads(pickle.dumps(excluder))
+        assert restored.rasters[0]["buffer_geometry"] == "circular"
 
-    # 2. Test backward compatibility: remove buffer_geometry to simulate older saved versions
-    del deserialized.rasters[0]["buffer_geometry"]
+    def test_missing_geometry_key_defaults_to_diamond(self, shapes, raster):
+        legacy = ExclusionContainer(shapes.crs, res=self.res)
+        legacy.add_raster(raster, buffer=self.res, buffer_geometry="circular")
+        del legacy.rasters[0]["buffer_geometry"]
 
-    # This should evaluate successfully by defaulting to "diamond" rather than raising a KeyError
-    masked, transform = shape_availability(shapes, deserialized)
-    assert masked.any()
+        diamond = ExclusionContainer(shapes.crs, res=self.res)
+        diamond.add_raster(raster, buffer=self.res, buffer_geometry="diamond")
 
+        masked_legacy, _ = shape_availability(shapes, legacy)
+        masked_diamond, _ = shape_availability(shapes, diamond)
+        assert (masked_legacy == masked_diamond).all()
 
-def test_raster_circular_buffer_correctness(ref, raster):
-    """Test empty/all-False mask behavior and basic correct sizing of circular buffer."""
-    shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
-    res = 0.01
+    def test_circular_buffer_on_empty_mask_keeps_borders(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        excluder.add_raster(
+            raster, codes=[-1], buffer=self.res * 5, buffer_geometry="circular"
+        )
+        masked, _ = shape_availability(shapes, excluder)
+        assert masked.all()
 
-    # 1. Test empty mask does not exclude borders (boundary effect fix)
-    empty_excluder = ExclusionContainer(ref.crs, res=res)
-    empty_excluder.add_raster(
-        raster, codes=[-1], buffer=res * 5, buffer_geometry="circular"
-    )
-    masked, transform = shape_availability(shapes, empty_excluder)
-    assert masked.all()
+    def test_invalid_geometry_rejected_at_registration(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        with pytest.raises(ValueError, match="Invalid buffer_geometry"):
+            excluder.add_raster(raster, buffer=self.res, buffer_geometry="hexagon")
 
-
-def test_raster_buffer_geometry_validation(ref, raster):
-    """Test that invalid buffer_geometry choices raise a ValueError."""
-    shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
-    res = 0.01
-    excluder = ExclusionContainer(ref.crs, res=res)
-
-    # Validation at registration time
-    with pytest.raises(ValueError, match="Invalid buffer_geometry"):
-        excluder.add_raster(raster, buffer=res, buffer_geometry="hexagon")
-
-    # Validation at computation time (e.g. if loaded from bad external source / modified manually)
-    excluder.rasters.append({
-        "raster": raster,
-        "codes": None,
-        "buffer": res,
-        "buffer_geometry": "hexagon",
-        "invert": False,
-        "nodata": 255,
-        "allow_no_overlap": False,
-        "crs": None,
-    })
-    with pytest.raises(ValueError, match="Unsupported buffer geometry"):
-        shape_availability(shapes, excluder)
+    def test_invalid_geometry_rejected_at_computation(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        excluder.rasters.append({
+            "raster": raster,
+            "codes": None,
+            "buffer": self.res,
+            "buffer_geometry": "hexagon",
+            "invert": False,
+            "nodata": 255,
+            "allow_no_overlap": False,
+            "crs": None,
+        })
+        with pytest.raises(ValueError, match="Unsupported buffer geometry"):
+            shape_availability(shapes, excluder)
