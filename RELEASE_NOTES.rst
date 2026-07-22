@@ -24,6 +24,10 @@ Upcoming Release
   buffer that computes a geometrically accurate Euclidean buffer, correct in
   diagonal directions.
 
+* Implement glofas dataset which contains daily river discharge. ``cutout.hydro()`` now 
+  returns discharge if ``cutout.module`` contains ``"glofas"``.
+  (https://github.com/PyPSA/atlite/pull/498)
+
 **Bug fixes**
 
 * Fix ``Cutout.line_rating`` passing line azimuth in radians while

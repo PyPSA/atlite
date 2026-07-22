@@ -30,7 +30,3 @@ paper
 .vscode
 AGENTS.md
 uv.lock
-
-tmp
-test_ba
-data
