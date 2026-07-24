@@ -53,7 +53,9 @@ def _edh_reachable(max_attempts: int = 8) -> bool:
                 return bool(resp.status < 400)
         except urllib.error.HTTPError as err:
             # 4xx are permanent (bad/expired credentials); don't retry.
-            if err.code < 500:
+            # 429 (Too Many Requests) is the exception: it signals contention,
+            # so back off and retry like a 5xx.
+            if err.code < 500 and err.code != 429:
                 warnings.warn(
                     f"EDH rejected the request ({err.code}); check your "
                     "credentials. EDH tests will be skipped",
