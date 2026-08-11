@@ -177,7 +177,6 @@ def retrieve_data(
         (extracted,) = extract_dir.glob("data*")
         target = str(extracted)
 
-
     # Convert from grib to netcdf locally, same conversion as in CDS backend
     if request["data_format"] == "grib2":
         ds = open_with_grib_conventions(target, chunks=chunks, tmpdir=tmpdir)
