@@ -594,19 +594,19 @@ class TestGlofas:
         ).coords
         # static: only the first timestamp
         assert glofas.retrieval_times(coords, static=True) == {
-            "hyear": "2020",
-            "hmonth": "01",
-            "hday": "30",
+            "year": "2020",
+            "month": "01",
+            "day": "30",
         }
         # default: one request per year, grouping all its months and days
         (yearly,) = glofas.retrieval_times(coords)
-        assert yearly["hyear"] == "2020"
-        assert yearly["hmonth"] == ["01", "02"]
-        assert yearly["hday"] == ["30", "31", "01", "02"]
+        assert yearly["year"] == "2020"
+        assert yearly["month"] == ["01", "02"]
+        assert yearly["day"] == ["30", "31", "01", "02"]
         # monthly: one request per (year, month)
         monthly = glofas.retrieval_times(coords, monthly_requests=True)
-        assert [m["hmonth"] for m in monthly] == [["01"], ["02"]]
-        assert [m["hday"] for m in monthly] == [["30", "31"], ["01", "02"]]
+        assert [m["month"] for m in monthly] == [["01"], ["02"]]
+        assert [m["day"] for m in monthly] == [["30", "31"], ["01", "02"]]
 
     @staticmethod
     def test_rename_and_clean_coords():
