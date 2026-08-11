@@ -64,12 +64,15 @@ def _rename_and_clean_coords(ds, add_lon_lat=True):
     xr.Dataset
         Dataset with standardized coordinates.
     """
-    ds = ds.rename({
+    rename = {
         "longitude": "x",
         "latitude": "y",
         "valid_time": "time",
+        # discharge follows the GRIB shortName: 'avg_dis' for time_mean, 'dis24' otherwise
+        "avg_dis": "discharge",
         "dis24": "discharge",
-    })
+    }
+    ds = ds.rename({k: v for k, v in rename.items() if k in ds})
     # round coords since cds coords are float64 which would lead to mismatches
     ds = ds.assign_coords(
         x=np.round(ds.x.astype(float), 5), y=np.round(ds.y.astype(float), 5)
@@ -107,7 +110,7 @@ def retrieve_data(
         Lock for thread-safe file writing. Default is None.
     updates : dict
         Additional parameters for the request.
-        Must include 'hyear', 'hmonth', 'hday', and 'variable'.
+        Must include 'year', 'month', 'day', and 'variable'.
         Can include e.g. 'data_format'.
 
     Returns
@@ -122,9 +125,9 @@ def retrieve_data(
     ...     chunks={'time': 1, 'x': 100, 'y': 100},
     ...     tmpdir='/tmp',
     ...     lock=None,
-    ...     hyear='2020',
-    ...     hmonth='01',
-    ...     variable=['river_discharge_in_the_last_24_hours'],
+    ...     year='2020',
+    ...     month='01',
+    ...     variable=['average_river_discharge_in_the_last_24_hours'],
     ...     data_format='grib'
     ... )
     """
@@ -132,14 +135,15 @@ def retrieve_data(
         "system_version": ["version_4_0"],
         "hydrological_model": ["lisflood"],
         "product_type": ["consolidated"],
-        "variable": ["river_discharge_in_the_last_24_hours"],
-        "data_format": "grib",
+        "variable": ["average_river_discharge_in_the_last_24_hours"],
+        "timespan": ["time_mean"],
+        "data_format": "grib2",
         "download_format": "zip",
     }
     request.update(updates)
 
-    assert {"hyear", "hmonth", "variable"}.issubset(request), (
-        "Need to specify at least 'variable', 'hyear' and 'hmonth'"
+    assert {"year", "month", "variable"}.issubset(request), (
+        "Need to specify at least 'variable', 'year' and 'month'"
     )
 
     logger.debug("Requesting %s with API request: %s", product, request)
@@ -159,7 +163,7 @@ def retrieve_data(
         fd, target = mkstemp(suffix=suffix, dir=tmpdir)
         os.close(fd)
 
-        timestr = f"{request['hyear']}-{request['hmonth']}"
+        timestr = f"{request['year']}-{request['month']}"
         variables = atleast_1d(request["variable"])
         varstr = "\n\t".join([f"{v} ({timestr})" for v in variables])
         logger.info("CDS: Downloading variables\n\t%s\n", varstr)
@@ -170,10 +174,12 @@ def retrieve_data(
         with zipfile.ZipFile(target, "r") as zip_ref:
             zip_ref.extractall(extract_dir)
         Path(target).unlink()
-        target = str(extract_dir / f"data{suffix}")
+        (extracted,) = extract_dir.glob("data*")
+        target = str(extracted)
+
 
     # Convert from grib to netcdf locally, same conversion as in CDS backend
-    if request["data_format"] == "grib":
+    if request["data_format"] == "grib2":
         ds = open_with_grib_conventions(target, chunks=chunks, tmpdir=tmpdir)
     else:
         ds = xr.open_dataset(target, chunks=sanitize_chunks(chunks))
@@ -209,9 +215,9 @@ def retrieval_times(coords, static=False, monthly_requests=False):
     time = coords["time"].to_index()
     if static:
         return {
-            "hyear": time[0].strftime("%Y"),
-            "hmonth": time[0].strftime("%m"),
-            "hday": time[0].strftime("%d"),
+            "year": time[0].strftime("%Y"),
+            "month": time[0].strftime("%m"),
+            "day": time[0].strftime("%d"),
         }
 
     # Prepare request for all months and years
@@ -221,16 +227,16 @@ def retrieval_times(coords, static=False, monthly_requests=False):
         if monthly_requests:
             for month in t.month.unique():
                 query = {
-                    "hyear": str(year),
-                    "hmonth": list(t[t.month == month].strftime("%m").unique()),
-                    "hday": list(t[t.month == month].strftime("%d").unique()),
+                    "year": str(year),
+                    "month": list(t[t.month == month].strftime("%m").unique()),
+                    "day": list(t[t.month == month].strftime("%d").unique()),
                 }
                 times.append(query)
         else:
             query = {
-                "hyear": str(year),
-                "hmonth": list(t.strftime("%m").unique()),
-                "hday": list(t.strftime("%d").unique()),
+                "year": str(year),
+                "month": list(t.strftime("%m").unique()),
+                "day": list(t.strftime("%d").unique()),
             }
             times.append(query)
     return times
@@ -241,7 +247,7 @@ def get_data(
     feature,
     tmpdir="tmp",
     lock=None,
-    data_format="grib",
+    data_format="grib2",
     monthly_requests=False,
     concurrent_requests=False,
     **creation_parameters,
@@ -287,17 +293,17 @@ def get_data(
         "chunks": cutout.chunks,
         "tmpdir": tmpdir,
         "lock": lock,
-        "data_format": data_format,
+        "data_format": "netcdf",
     }
 
     def retrieve_once(time):
         ds = retrieve_data(
-            variable=["river_discharge_in_the_last_24_hours"],
+            variable=["average_river_discharge_in_the_last_24_hours"],
             **retrieval_params,
             **time,
         )
         ds = _rename_and_clean_coords(ds)
-        # dis24 is timestamped at the end of its 24h window; shift to the flow day
+        # discharge is timestamped at the end of its 24h window; shift to the flow day
         ds = ds.assign_coords(time=ds["time"] - np.timedelta64(1, "D"))
         if sanitize:
             ds["discharge"] = ds["discharge"].clip(min=0.0).fillna(0.0)
