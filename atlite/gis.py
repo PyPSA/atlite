@@ -340,14 +340,17 @@ def projected_mask(
         return masked, transform_
 
     assert shape is not None and crs is not None
+    # Pre-fill instead of passing dst_nodata: GDAL perturbs source values which
+    # collide with dst_nodata (e.g. 0) to the smallest representable non-zero value.
+    dest = np.full(shape, nodata, dtype=np.float64)
     return rio.warp.reproject(  # type: ignore[no-any-return]
         masked,
-        empty(shape),
+        dest,
         src_crs=raster.crs,
         dst_crs=crs,
         src_transform=transform_,
         dst_transform=transform,
-        dst_nodata=nodata,
+        init_dest_nodata=False,
     )
 
 
