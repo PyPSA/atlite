@@ -118,6 +118,12 @@ def retrieve_data(
     xarray.Dataset
         Dataset with the retrieved variables.
 
+    Raises
+    ------
+    ValueError
+        When the downloaded ZIP does not contain exactly one file matching
+        the 'data*' pattern.
+
     Examples
     --------
     >>> ds = retrieve_data(
@@ -174,8 +180,12 @@ def retrieve_data(
         with zipfile.ZipFile(target, "r") as zip_ref:
             zip_ref.extractall(extract_dir)
         Path(target).unlink()
-        (extracted,) = extract_dir.glob("data*")
-        target = str(extracted)
+        matches = list(extract_dir.glob("data*"))
+        if len(matches) != 1:
+            raise ValueError(
+                f"Expected 1 file matching 'data*' in ZIP, found {len(matches)}"
+            )
+        target = str(matches[0])
 
     # Convert from grib to netcdf locally, same conversion as in CDS backend
     if request["data_format"] == "grib2":
