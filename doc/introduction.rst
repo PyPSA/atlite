@@ -18,7 +18,7 @@ relevant quantities, mainly you can create data for
   `Open Energy Database <https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library>`_.
 * **Solar (PV)** power generation: Using predefined or custom panel properties.
 * **Solar (thermal)** heat generation from solar collectors.
-* **Hydro (run-off)** power generation.
+* **Hydro (run-off / discharge)** power generation.
 * **Heating and cooling demand** (based on degree-day approx.).
 
 How it works
@@ -105,7 +105,12 @@ We offer two methods for accessing ERA5.
   `this example <https://atlite.readthedocs.io/en/master/examples/create_cutout.html>`_
   to learn how to create an ERA5 cutout.
 
-Previously and in the future other datasets were and (hopefully) will
+For hydro data, `ECMWF's GloFAS dataset <https://ewds.climate.copernicus.eu/datasets/cems-glofas-historical>`_
+is also available. It contains daily river discharge data and can complement the ERA5 dataset for hydro.
+It uses the same API key as ERA5, its api endpoint is automatically set up by atlite.
+It will be used if `cutout.module` contains `"glofas"`.
+
+Previously and in the future other datasets where and (hopefully) will
 again be usable, including
 
 * the *NCEP Climate Forecast System* dataset

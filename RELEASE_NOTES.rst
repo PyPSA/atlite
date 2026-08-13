@@ -29,12 +29,19 @@ Upcoming Release
   (see :doc:`installation`) and pass ``module="era5-edh"`` when creating a cutout.
   Only the native 0.25°×0.25° grid is supported; use ``module="era5"`` (CDS) for
   other resolutions.
+* Implement glofas dataset which contains daily river discharge. ``cutout.hydro()`` now 
+  returns discharge if ``cutout.module`` contains ``"glofas"``.
+  (https://github.com/PyPSA/atlite/pull/498)
 
 **Bug fixes**
 
 * Fix ``Cutout.line_rating`` passing line azimuth in radians while
   ``convert_line_rating`` interpreted ``psi`` as degrees. Azimuths are now
   computed in degrees, matching the documented unit.
+
+* Fix raster exclusions being wrongly applied with rasterio 1.5.1, which
+  perturbs source values colliding with the reprojection nodata value. Rasters
+  added with ``nodata=0`` excluded their whole extent.
 
 `v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
 =======================================================================================

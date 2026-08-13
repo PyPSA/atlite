@@ -27,6 +27,8 @@ from shapely.geometry import Point
 
 import atlite
 from atlite import Cutout
+from atlite.datasets import glofas
+from atlite.datasets.cds_helper import _area, sanitize_chunks
 from atlite.datasets.era5_edh import _EDH_URL, _get_edh_auth_header, get_data
 
 urllib3.disable_warnings()
@@ -567,6 +569,66 @@ class TestERA5:
     @staticmethod
     def test_line_rating_era5(cutout_era5):
         return line_rating_test(cutout_era5)
+
+
+class TestGlofas:
+    @staticmethod
+    def test_area():
+        """_area returns the CDS bounding box as [north, west, south, east]."""
+        coords = {"x": xr.DataArray([1.0, 2.0, 3.0]), "y": xr.DataArray([50.0, 51.0])}
+        assert _area(coords) == [51.0, 1.0, 50.0, 3.0]
+
+    @staticmethod
+    def test_sanitize_chunks():
+        """Chunk dims are remapped to CDS names; non-dict specs pass through."""
+        assert sanitize_chunks({"time": 1, "x": 10, "y": 20}) == {
+            "valid_time": 1,
+            "longitude": 10,
+            "latitude": 20,
+        }
+        assert sanitize_chunks("auto") == "auto"
+
+    @staticmethod
+    def test_retrieval_times():
+        """Time coords are grouped into static / yearly / monthly CDS requests."""
+        coords = xr.Dataset(
+            coords={"time": pd.date_range("2020-01-30", "2020-02-02")}
+        ).coords
+        # static: only the first timestamp
+        assert glofas.retrieval_times(coords, static=True) == {
+            "year": "2020",
+            "month": "01",
+            "day": "30",
+        }
+        # default: one request per year, grouping all its months and days
+        (yearly,) = glofas.retrieval_times(coords)
+        assert yearly["year"] == "2020"
+        assert yearly["month"] == ["01", "02"]
+        assert yearly["day"] == ["30", "31", "01", "02"]
+        # monthly: one request per (year, month)
+        monthly = glofas.retrieval_times(coords, monthly_requests=True)
+        assert [m["month"] for m in monthly] == [["01"], ["02"]]
+        assert [m["day"] for m in monthly] == [["30", "31"], ["01", "02"]]
+
+    @staticmethod
+    def test_rename_and_clean_coords():
+        """dis24/lon/lat/valid_time are renamed, coords rounded, lon/lat mirrored."""
+        ds = xr.Dataset(
+            {"dis24": (("valid_time", "latitude", "longitude"), np.ones((1, 2, 2)))},
+            coords={
+                "valid_time": pd.date_range("2020-01-01", periods=1),
+                "latitude": [50.0, 51.0],
+                "longitude": [0.123456789, 1.0],
+                "number": 0,
+            },
+        )
+        out = glofas._rename_and_clean_coords(ds)
+        assert "discharge" in out.data_vars
+        assert set(out.dims) >= {"time", "x", "y"}
+        assert "number" not in out.coords  # dropped
+        assert out.x.values[0] == pytest.approx(0.12346)  # rounded to 5 decimals
+        np.testing.assert_array_equal(out.lon.values, out.x.values)  # lon mirrors x
+        np.testing.assert_array_equal(out.lat.values, out.y.values)
 
 
 @pytest.mark.skipif(
