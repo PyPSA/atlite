@@ -210,7 +210,8 @@ def SurfaceOrientation(
     solar_position: xr.Dataset,
     orientation: Callable[
         [xr.DataArray, xr.DataArray, xr.Dataset], dict[str, xr.DataArray]
-    ],
+    ]
+    | dict[str, Any],
     tracking: TrackingType | None = None,
 ) -> xr.Dataset:
     """
@@ -254,6 +255,8 @@ def SurfaceOrientation(
     """
     lon = radians(ds["lon"])
     lat = radians(ds["lat"])
+    if not callable(orientation):
+        orientation = get_orientation(orientation)
 
     orientation_dict = orientation(lon, lat, solar_position)
     surface_slope = orientation_dict["slope"]

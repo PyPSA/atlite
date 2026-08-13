@@ -1131,7 +1131,10 @@ def regrid(
         output_core_dims=[["yout", "xout"]],
         output_dtypes=[dtypes.pop()],
         dask_gufunc_kwargs={
-            "output_sizes": {"yout": dst_shape[0], "xout": dst_shape[1]}
+            "output_sizes": {"yout": dst_shape[0], "xout": dst_shape[1]},
+            # reproject needs the full spatial plane, so core dims must be a
+            # single chunk; allow dask to merge multi-chunk spatial inputs.
+            "allow_rechunk": True,
         },
         dask="parallelized",
         kwargs=kwargs,
