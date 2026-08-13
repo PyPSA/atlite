@@ -189,3 +189,113 @@ def shift_and_aggregate_runoff_for_plants(
             inflow_plant += runoff.sel(hid=b).roll(time=nhours.at[b])
 
     return inflow
+
+
+def _hydro_from_runoff(
+    cutout,
+    plants,
+    hydrobasins,
+    flowspeed=1,
+    weight_with_height=False,
+    show_progress=False,
+    **kwargs,
+):
+    """
+    Compute plant inflow by aggregating ERA5 runoff over catchment basins.
+
+    Parameters
+    ----------
+    plants : pd.DataFrame
+        Run-of-river plants or dams with lon, lat columns.
+    hydrobasins : str|gpd.GeoDataFrame
+        Filename or GeoDataFrame of one level of the HydroBASINS dataset.
+    flowspeed : float
+        Average speed of water flows to estimate the water travel time from
+        basin to plant (default: 1 m/s).
+    weight_with_height : bool
+        Whether surface runoff should be weighted by potential height (probably
+        better for coarser resolution).
+    show_progress : bool
+        Whether to display progressbars.
+
+    Returns
+    -------
+    xr.DataArray
+        Inflow time-series for each plant.
+
+    References
+    ----------
+    [1] Liu, Hailiang, et al. "A validated high-resolution hydro power
+    time-series model for energy systems analysis." arXiv preprint
+    arXiv:1901.08476 (2019).
+
+    [2] Lehner, B., Grill G. (2013): Global river hydrography and network
+    routing: baseline data and new approaches to study the world’s large river
+    systems. Hydrological Processes, 27(15): 2171–2186. Data is available at
+    www.hydrosheds.org.
+
+    """
+    basins = determine_basins(plants, hydrobasins, show_progress=show_progress)
+
+    matrix = cutout.indicatormatrix(basins.shapes)
+    # compute the average surface runoff in each basin
+    # Fix NaN and Inf values to 0.0 to avoid numerical issues
+    matrix_normalized = np.nan_to_num(
+        matrix / matrix.sum(axis=1), nan=0.0, posinf=0.0, neginf=0.0
+    )
+    runoff = cutout.runoff(
+        matrix=matrix_normalized,
+        index=basins.shapes.index,
+        weight_with_height=weight_with_height,
+        show_progress=show_progress,
+        **kwargs,
+    )
+    # The hydrological parameters are in units of "m of water per day" and so
+    # they should be multiplied by 1000 and the basin area to convert to m3
+    # d-1 = m3 h-1 / 24
+    runoff *= xr.DataArray(basins.shapes.to_crs({"proj": "cea"}).area)
+
+    return shift_and_aggregate_runoff_for_plants(
+        basins, runoff, flowspeed, show_progress
+    )
+
+
+def _hydro_from_discharge(
+    cutout,
+    plants,
+    time=None,
+):
+    """
+    Get plant inflow from GLOFAS discharge by snapping to the nearest data cell.
+
+    Snaps each plant to the nearest grid cell that holds data and interpolates
+    onto the target time index.
+
+    Parameters
+    ----------
+    plants : pd.DataFrame
+        Run-of-river plants or dams with lon, lat columns.
+    time : pd.DatetimeIndex, optional
+        Time index to interpolate the plant inflow onto. Defaults to the cutout's
+        own time index.
+
+    Returns
+    -------
+    xr.DataArray
+        Inflow time-series for each plant.
+    """
+    if time is None:
+        time = cutout.coords["time"]
+    discharge = cutout.data.discharge
+    # snap plants to GLOFAS cells with data (cutout grid points may be all-NaN)
+    present = discharge.isel(time=0).notnull()
+    discharge = discharge.isel(
+        x=np.flatnonzero(present.any("y").values),
+        y=np.flatnonzero(present.any("x").values),
+    )
+    x = xr.DataArray(plants["lon"].values, dims="plant", coords={"plant": plants.index})
+    y = xr.DataArray(plants["lat"].values, dims="plant", coords={"plant": plants.index})
+    inflow = discharge.sel(x=x, y=y, method="nearest").compute()
+    inflow = inflow.dropna("time", how="all").interp(time=time)
+    inflow = inflow.ffill("time").bfill("time")
+    return inflow.transpose("plant", "time")

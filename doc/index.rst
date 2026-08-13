@@ -118,6 +118,7 @@ If you would like to cite the atlite software, please refer to `this paper <http
    examples/logfiles_and_messages.ipynb
    examples/solarpv_tracking_options.ipynb
    examples/working-with-csp.ipynb
+   examples/glofas_hydro_inflow.ipynb
    examples/more_examples.rst
 
 .. toctree::
