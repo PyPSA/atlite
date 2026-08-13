@@ -34,6 +34,10 @@ Upcoming Release
   ``convert_line_rating`` interpreted ``psi`` as degrees. Azimuths are now
   computed in degrees, matching the documented unit.
 
+* Fix raster exclusions being wrongly applied with rasterio 1.5.1, which
+  perturbs source values colliding with the reprojection nodata value. Rasters
+  added with ``nodata=0`` excluded their whole extent.
+
 `v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
 =======================================================================================
 
