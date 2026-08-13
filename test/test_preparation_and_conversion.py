@@ -9,6 +9,7 @@ Created on Mon May 11 11:15:41 2020.
 @author: fabian
 """
 
+import base64
 import os
 import sys
 from datetime import date
@@ -19,12 +20,16 @@ import numpy as np
 import pandas as pd
 import pytest
 import urllib3
+import xarray as xr
 from dateutil.relativedelta import relativedelta
 from shapely.geometry import LineString as Line
 from shapely.geometry import Point
 
 import atlite
 from atlite import Cutout
+from atlite.datasets import glofas
+from atlite.datasets.cds_helper import _area, sanitize_chunks
+from atlite.datasets.era5_edh import _EDH_URL, _get_edh_auth_header, get_data
 
 urllib3.disable_warnings()
 
@@ -566,6 +571,66 @@ class TestERA5:
         return line_rating_test(cutout_era5)
 
 
+class TestGlofas:
+    @staticmethod
+    def test_area():
+        """_area returns the CDS bounding box as [north, west, south, east]."""
+        coords = {"x": xr.DataArray([1.0, 2.0, 3.0]), "y": xr.DataArray([50.0, 51.0])}
+        assert _area(coords) == [51.0, 1.0, 50.0, 3.0]
+
+    @staticmethod
+    def test_sanitize_chunks():
+        """Chunk dims are remapped to CDS names; non-dict specs pass through."""
+        assert sanitize_chunks({"time": 1, "x": 10, "y": 20}) == {
+            "valid_time": 1,
+            "longitude": 10,
+            "latitude": 20,
+        }
+        assert sanitize_chunks("auto") == "auto"
+
+    @staticmethod
+    def test_retrieval_times():
+        """Time coords are grouped into static / yearly / monthly CDS requests."""
+        coords = xr.Dataset(
+            coords={"time": pd.date_range("2020-01-30", "2020-02-02")}
+        ).coords
+        # static: only the first timestamp
+        assert glofas.retrieval_times(coords, static=True) == {
+            "year": "2020",
+            "month": "01",
+            "day": "30",
+        }
+        # default: one request per year, grouping all its months and days
+        (yearly,) = glofas.retrieval_times(coords)
+        assert yearly["year"] == "2020"
+        assert yearly["month"] == ["01", "02"]
+        assert yearly["day"] == ["30", "31", "01", "02"]
+        # monthly: one request per (year, month)
+        monthly = glofas.retrieval_times(coords, monthly_requests=True)
+        assert [m["month"] for m in monthly] == [["01"], ["02"]]
+        assert [m["day"] for m in monthly] == [["30", "31"], ["01", "02"]]
+
+    @staticmethod
+    def test_rename_and_clean_coords():
+        """dis24/lon/lat/valid_time are renamed, coords rounded, lon/lat mirrored."""
+        ds = xr.Dataset(
+            {"dis24": (("valid_time", "latitude", "longitude"), np.ones((1, 2, 2)))},
+            coords={
+                "valid_time": pd.date_range("2020-01-01", periods=1),
+                "latitude": [50.0, 51.0],
+                "longitude": [0.123456789, 1.0],
+                "number": 0,
+            },
+        )
+        out = glofas._rename_and_clean_coords(ds)
+        assert "discharge" in out.data_vars
+        assert set(out.dims) >= {"time", "x", "y"}
+        assert "number" not in out.coords  # dropped
+        assert out.x.values[0] == pytest.approx(0.12346)  # rounded to 5 decimals
+        np.testing.assert_array_equal(out.lon.values, out.x.values)  # lon mirrors x
+        np.testing.assert_array_equal(out.lat.values, out.y.values)
+
+
 @pytest.mark.skipif(
     not Path(SARAH_DIR).exists(), reason="'sarah_dir' is not a valid path"
 )
@@ -620,3 +685,164 @@ class TestGebco:
     def test_all_non_na_gebco(cutout_gebco):
         """Every cells should have data."""
         assert np.isfinite(cutout_gebco.data).all()
+
+
+class TestERA5EDH:
+    """
+    era5_edh cutouts should match era5 cutouts in structure and values.
+
+    We assume era5.py cutouts are correct, and only test whether era5_edh.py
+    cutouts have the same structure and contain the same numerical values.
+    """
+
+    # Per-variable absolute tolerances measured against CDS across all three
+    # EDH fixtures (1-day, 3h-sampled, and 2-day crossing months). Set just
+    # above the observed worst-case abs diff so any regression bigger than the
+    # GRIB-pack precision floor is caught. ``rtol`` is held at 0 — these are
+    # pure atol bounds.
+    TOLERANCES: dict[str, float] = {
+        "albedo": 1e-3,
+        "dewpoint temperature": 0.13,
+        "height": 0.2,
+        "influx_diffuse": 0.3,
+        "influx_direct": 0.15,
+        "influx_toa": 0.3,
+        "roughness": 3e-4,
+        "runoff": 1e-7,
+        "soil temperature": 0.13,
+        "solar_altitude": 1e-5,
+        "solar_azimuth": 1e-5,
+        "temperature": 0.13,
+        "wnd100m": 0.01,
+        "wnd_azimuth": 5e-4,
+        "wnd_shear_exp": 4e-4,
+    }
+
+    @staticmethod
+    def _assert_compatible_cutouts(reference, candidate):
+        ref = reference.data
+        cand = candidate.data
+
+        assert set(cand.data_vars) == set(ref.data_vars)
+        assert set(cand.coords) == set(ref.coords)
+        assert dict(cand.sizes) == dict(ref.sizes)
+        assert set(candidate.prepared_features) == set(reference.prepared_features)
+        assert set(cand.attrs["prepared_features"]) == set(
+            ref.attrs["prepared_features"]
+        )
+
+        for attr in ("dx", "dy"):
+            if attr in cand.attrs or attr in ref.attrs:
+                assert cand.attrs.get(attr) == ref.attrs.get(attr)
+
+        for coord in sorted(ref.coords):
+            xr.testing.assert_equal(cand.coords[coord], ref.coords[coord])
+
+        for var in sorted(ref.data_vars):
+            assert cand[var].dims == ref[var].dims
+            assert cand[var].attrs["feature"] == ref[var].attrs["feature"]
+            assert cand[var].attrs["module"] == cand.attrs["module"]
+            assert ref[var].attrs["module"] == ref.attrs["module"]
+
+        cand_units = {var: cand[var].attrs.get("units") for var in sorted(cand)}
+        ref_units = {var: ref[var].attrs.get("units") for var in sorted(ref)}
+        assert cand_units == ref_units
+
+    @staticmethod
+    def _assert_allclose(reference, candidate, variables, *, atol, rtol=0):
+        """Assert per-variable closeness."""
+        for var in variables:
+            v_atol = atol[var] if isinstance(atol, dict) else atol
+            if var == "wnd_azimuth":
+                # wind_azimuth is an angle, so it wraps around zero. we must
+                # take the modulo to get an accurate numerical difference
+                diff = abs(
+                    (candidate[var] - reference[var] + np.pi) % (2 * np.pi) - np.pi
+                )
+                xr.testing.assert_allclose(
+                    diff,
+                    xr.zeros_like(diff),
+                    atol=v_atol,
+                    rtol=rtol,
+                )
+            else:
+                xr.testing.assert_allclose(
+                    candidate[var],
+                    reference[var],
+                    atol=v_atol,
+                    rtol=rtol,
+                )
+
+    @pytest.mark.parametrize(
+        ("era5_fixture", "edh_fixture"),
+        [
+            ("cutout_era5", "cutout_era5_edh"),
+            ("cutout_era5_3h_sampling", "cutout_era5_edh_3h_sampling"),
+            (
+                "cutout_era5_2days_crossing_months",
+                "cutout_era5_edh_2days_crossing_months",
+            ),
+        ],
+    )
+    def test_all_features_identical(self, request, era5_fixture, edh_fixture):
+        """
+        At native 0.25° resolution era5_edh should match era5 across every feature
+        within the per-variable tolerances, including 3h sampling and month crossings.
+        """
+        reference = request.getfixturevalue(era5_fixture)
+        candidate = request.getfixturevalue(edh_fixture)
+        self._assert_compatible_cutouts(reference, candidate)
+        common = sorted(reference.data.data_vars)
+        self._assert_allclose(
+            reference.data,
+            candidate.data,
+            common,
+            atol=self.TOLERANCES,
+        )
+
+    @staticmethod
+    def test_3h_sampling_preserved(cutout_era5_edh_3h_sampling):
+        """era5_edh should preserve coarser hourly sampling."""
+        assert pd.infer_freq(cutout_era5_edh_3h_sampling.data.time) == "3h"
+
+
+class TestERA5EDHOffline:
+    """Unit tests for era5_edh that need neither network nor credentials."""
+
+    @staticmethod
+    def test_non_native_resolution_raises(cutouts_path):
+        cutout = Cutout(
+            path=cutouts_path / "cutout_era5-edh_coarse.nc",
+            module="era5-edh",
+            bounds=BOUNDS,
+            time=TIME,
+            dx=0.5,
+            dy=0.5,
+        )
+        with pytest.raises(ValueError, match="0.25"):
+            get_data(cutout, "wind")
+
+    @staticmethod
+    def test_auth_header_from_env(monkeypatch):
+        monkeypatch.setenv("EARTHDATAHUB_API_KEY", "my-key")
+        expected = "Basic " + base64.b64encode(b"edh:my-key").decode()
+        assert _get_edh_auth_header() == expected
+
+    @staticmethod
+    def test_auth_header_from_netrc(monkeypatch, tmp_path):
+        monkeypatch.delenv("EARTHDATAHUB_API_KEY", raising=False)
+        host = _EDH_URL.split("/")[2]
+        netrc_file = tmp_path / ".netrc"
+        netrc_file.write_text(f"machine {host}\nlogin edh\npassword secret\n")
+        netrc_file.chmod(0o600)
+        monkeypatch.chdir(tmp_path)
+        expected = "Basic " + base64.b64encode(b"edh:secret").decode()
+        assert _get_edh_auth_header() == expected
+
+    @staticmethod
+    def test_auth_header_missing_credentials_raises(monkeypatch, tmp_path):
+        monkeypatch.delenv("EARTHDATAHUB_API_KEY", raising=False)
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(os.path, "expanduser", lambda _: str(tmp_path))
+        with pytest.raises(RuntimeError, match="DestinE API key"):
+            _get_edh_auth_header()

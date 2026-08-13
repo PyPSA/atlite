@@ -13,8 +13,6 @@ from __future__ import annotations
 import logging
 import os
 import warnings
-import weakref
-from pathlib import Path
 from tempfile import mkstemp
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -23,9 +21,14 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from dask import compute, delayed
-from dask.array import arctan2, sqrt
 from numpy import atleast_1d
 
+from atlite.datasets.cds_helper import (
+    _area,
+    add_finalizer,
+    open_with_grib_conventions,
+    sanitize_chunks,
+)
 from atlite.gis import maybe_swap_spatial_dims
 from atlite.pv.solar_position import SolarPosition
 
@@ -129,6 +132,40 @@ def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dat
     return ds.drop_vars(["expver", "number"], errors="ignore")
 
 
+def _process_wind(ds: xr.Dataset, single_precision: bool = False) -> xr.Dataset:
+    """
+    Derive wind speed, shear exponent, azimuth and roughness from raw components.
+
+    Shared by the CDS (:mod:`atlite.datasets.era5`) and EDH
+    (:mod:`atlite.datasets.era5_edh`) backends. Operates on a dataset carrying
+    the raw ``u10``/``v10``/``u100``/``v100``/``fsr`` variables.
+    ``single_precision`` casts the float64-promoted shear and azimuth back to
+    float32 (used by EDH to halve on-disk size).
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variables: wnd100m, wnd_shear_exp, wnd_azimuth, roughness.
+    """
+    for h in (10, 100):
+        units = ds[f"u{h}"].attrs.get("units", "m s**-1")
+        ds[f"wnd{h}m"] = np.sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
+            units=units, long_name=f"{h} metre wind speed"
+        )
+    shear = (np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)).assign_attrs(
+        units="", long_name="wind shear exponent"
+    )
+    ds["wnd_shear_exp"] = shear.astype(np.float32) if single_precision else shear
+
+    # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
+    azimuth = np.arctan2(ds["u100"], ds["v100"])
+    azimuth = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
+    ds["wnd_azimuth"] = azimuth.astype(np.float32) if single_precision else azimuth
+
+    ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
+    return ds.rename({"fsr": "roughness"})
+
+
 def get_data_wind(retrieval_params: dict[str, Any]) -> xr.Dataset:
     """
     Retrieve and compute wind speed variables from ERA5.
@@ -157,21 +194,7 @@ def get_data_wind(retrieval_params: dict[str, Any]) -> xr.Dataset:
         **retrieval_params,
     )
     ds = _rename_and_clean_coords(ds)
-
-    for h in [10, 100]:
-        ds[f"wnd{h}m"] = sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
-            units=ds[f"u{h}"].attrs["units"], long_name=f"{h} metre wind speed"
-        )
-    ds["wnd_shear_exp"] = (
-        np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
-    ).assign_attrs(units="", long_name="wind shear exponent")
-
-    # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
-    azimuth = arctan2(ds["u100"], ds["v100"])
-    ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
-
-    ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
-    return ds.rename({"fsr": "roughness"})
+    return _process_wind(ds)
 
 
 def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
@@ -190,6 +213,53 @@ def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
     """
     ds["roughness"] = ds["roughness"].where(ds["roughness"] >= 0.0, 2e-4)
     return ds
+
+
+def _process_influx(ds: xr.Dataset, single_precision: bool = False) -> xr.Dataset:
+    """
+    Derive influx variables and solar position from raw radiation fields.
+
+    Shared by the CDS (:mod:`atlite.datasets.era5`) and EDH
+    (:mod:`atlite.datasets.era5_edh`) backends. Operates on a dataset carrying
+    the raw ``ssrd``/``ssr``/``fdir``/``tisr`` variables. ``single_precision``
+    casts the solar-position fields back to float32 (used by EDH to halve
+    on-disk size).
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variables: influx_toa, influx_direct, influx_diffuse,
+        albedo, solar_altitude, solar_azimuth.
+    """
+    ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
+    ds["albedo"] = (
+        ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
+        .fillna(0.0)
+        .assign_attrs(units="(0 - 1)", long_name="Albedo")
+    )
+    ds["influx_diffuse"] = (ds["ssrd"] - ds["influx_direct"]).assign_attrs(
+        units="J m**-2", long_name="Surface diffuse solar radiation downwards"
+    )
+    ds = ds.drop_vars(["ssrd", "ssr"])
+
+    # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
+    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
+        ds[a] = ds[a] / (60.0 * 60.0)
+        ds[a].attrs["units"] = "W m**-2"
+
+    # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00
+    # are labelled as "14:00". Account by calculating the SolarPosition for the
+    # center of the interval for aggregation.
+    # See https://github.com/PyPSA/atlite/issues/158
+    # Suppress DeprecationWarning from new SolarPosition calculation (#199)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        sp = SolarPosition(ds, time_shift=pd.to_timedelta("-30 minutes"))
+    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
+    if single_precision:
+        sp = sp.astype(np.float32)
+
+    return xr.merge([ds, sp])
 
 
 def get_data_influx(retrieval_params: dict[str, Any]) -> xr.Dataset:
@@ -221,35 +291,7 @@ def get_data_influx(retrieval_params: dict[str, Any]) -> xr.Dataset:
     )
 
     ds = _rename_and_clean_coords(ds)
-
-    ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
-    ds["albedo"] = (
-        ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
-        .fillna(0.0)
-        .assign_attrs(units="(0 - 1)", long_name="Albedo")
-    )
-    ds["influx_diffuse"] = (ds["ssrd"] - ds["influx_direct"]).assign_attrs(
-        units="J m**-2", long_name="Surface diffuse solar radiation downwards"
-    )
-    ds = ds.drop_vars(["ssrd", "ssr"])
-
-    # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
-    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
-        ds[a] = ds[a] / (60.0 * 60.0)
-        ds[a].attrs["units"] = "W m**-2"
-
-    # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00
-    # are labelled as "14:00". Account by calculating the SolarPosition for the
-    # center of the interval for aggregation.
-    # See https://github.com/PyPSA/atlite/issues/158
-    # Suppress DeprecationWarning from new SolarPosition calculation (#199)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        time_shift = pd.to_timedelta("-30 minutes")
-        sp = SolarPosition(ds, time_shift=time_shift)
-    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
-
-    return xr.merge([ds, sp])
+    return _process_influx(ds)
 
 
 def sanitize_influx(ds: xr.Dataset) -> xr.Dataset:
@@ -362,25 +404,6 @@ def get_data_height(retrieval_params: dict[str, Any]) -> xr.Dataset:
     return _add_height(ds)
 
 
-def _area(coords: dict[str, xr.DataArray]) -> list[float]:
-    """
-    Extract CDS API bounding box from coordinates.
-
-    Parameters
-    ----------
-    coords : dict[str, xr.DataArray]
-        Coordinate arrays with 'x' (longitude) and 'y' (latitude).
-
-    Returns
-    -------
-    list[float]
-        Bounding box as [north, west, south, east].
-    """
-    x0, x1 = coords["x"].min().item(), coords["x"].max().item()
-    y0, y1 = coords["y"].min().item(), coords["y"].max().item()
-    return [y1, x0, y0, x1]
-
-
 def retrieval_times(
     coords: dict[str, xr.DataArray],
     static: bool = False,
@@ -439,153 +462,6 @@ def retrieval_times(
     return times
 
 
-def noisy_unlink(path: PathLike) -> None:
-    """
-    Remove a file with debug logging, handling PermissionError gracefully.
-
-    Parameters
-    ----------
-    path : PathLike
-        Path to the file to delete.
-    """
-    logger.debug("Deleting file %s", path)
-    try:
-        Path(path).unlink()
-    except PermissionError:
-        logger.error("Unable to delete file %s, as it is still in use.", path)
-
-
-def add_finalizer(ds: xr.Dataset, target: PathLike) -> None:
-    """
-    Register a weak-reference callback to delete a temp file on garbage collection.
-
-    Parameters
-    ----------
-    ds : xr.Dataset
-        Dataset whose lifetime controls the temp file.
-    target : PathLike
-        Path to the temporary file to clean up.
-    """
-    logger.debug("Adding finalizer for %s", target)
-    assert ds._close is not None
-    weakref.finalize(cast("Any", ds._close).__self__.ds, noisy_unlink, target)
-
-
-def sanitize_chunks(chunks: Any, **dim_mapping: str) -> Any:
-    """
-    Remap internal dimension names to ERA5/CDS dimension names in chunk specs.
-
-    Translates atlite dimension names (time, x, y) to the corresponding
-    ERA5 names (valid_time, longitude, latitude).
-
-    Parameters
-    ----------
-    chunks : Any
-        Chunk specification. If not a dict, returned as-is.
-    **dim_mapping : str
-        Additional or override dimension name mappings.
-
-    Returns
-    -------
-    Any
-        Remapped chunk dict, or original value if not a dict.
-    """
-    dim_mapping = {
-        "time": "valid_time",
-        "x": "longitude",
-        "y": "latitude",
-    } | dim_mapping
-    if not isinstance(chunks, dict):
-        return chunks
-
-    return {
-        extname: chunks[intname]
-        for intname, extname in dim_mapping.items()
-        if intname in chunks
-    }
-
-
-def open_with_grib_conventions(
-    grib_file: PathLike,
-    chunks: dict[str, int] | None = None,
-    tmpdir: PathLike | None = None,
-) -> xr.Dataset:
-    """
-    Open a GRIB file using cfgrib with standardized coordinate conventions.
-
-    Performs the same conversion as the CDS backend, but locally.
-    Based on the documentation at
-    https://confluence.ecmwf.int/display/CKB/GRIB+to+netCDF+conversion+on+new+CDS+and+ADS+systems
-
-    Parameters
-    ----------
-    grib_file : PathLike
-        Path to the GRIB file.
-    chunks : dict[str, int] or None, optional
-        Dask chunk specification for lazy loading.
-    tmpdir : PathLike or None, optional
-        If set, the file is kept (managed externally).
-
-    Returns
-    -------
-    xr.Dataset
-        Opened dataset with standardized dimensions.
-    """
-    # Open grib file as dataset.
-    # Options below normalize different ERA5 grib variants into consistent
-    # netCDF-compatible hypercubes. Options relevant only to e.g. wave-model
-    # data have been removed to keep this routine focused on the products we use.
-    ds = xr.open_dataset(
-        grib_file,
-        engine="cfgrib",
-        time_dims=["valid_time"],
-        ignore_keys=["edition"],
-        coords_as_attributes=[
-            "surface",
-            "depthBelowLandLayer",
-            "entireAtmosphere",
-            "heightAboveGround",
-            "meanSea",
-        ],
-        chunks=sanitize_chunks(chunks),
-    )
-    if tmpdir is None:
-        add_finalizer(ds, grib_file)
-
-    def safely_expand_dims(dataset: xr.Dataset, expand_dims: list[str]) -> xr.Dataset:
-        """Expand missing dimensions while preserving their original order.
-
-        Returns
-        -------
-        xr.Dataset
-            Dataset with the requested dimensions present.
-        """
-        dims_required = [
-            c for c in dataset.coords if c in expand_dims + list(dataset.dims)
-        ]
-        dims_missing = [
-            (c, i) for i, c in enumerate(dims_required) if c not in dataset.dims
-        ]
-        dataset = dataset.expand_dims(
-            dim=[x[0] for x in dims_missing], axis=[x[1] for x in dims_missing]
-        )
-        return dataset
-
-    logger.debug("Converting grib file to netcdf format")
-    rename_vars = {
-        "time": "forecast_reference_time",
-        "step": "forecast_period",
-        "isobaricInhPa": "pressure_level",
-        "hybrid": "model_level",
-    }
-    rename_vars = {k: v for k, v in rename_vars.items() if k in ds}
-    ds = ds.rename(rename_vars)
-
-    ds = safely_expand_dims(ds, ["valid_time", "pressure_level", "model_level"])
-
-    return ds
-
-
 def retrieve_data(
     product: str,
     chunks: dict[str, int] | None = None,
@@ -596,8 +472,8 @@ def retrieve_data(
     """
     Download ERA5 data from the CDS API and return as an xarray Dataset.
 
-    The ongoing and past requests can be tracked at
-    https://cds-beta.climate.copernicus.eu/requests?tab=all.
+    If you want to track the state of your request go to
+    https://cds.climate.copernicus.eu/requests?tab=all
 
     Parameters
     ----------

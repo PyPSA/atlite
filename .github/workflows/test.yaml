@@ -55,6 +55,7 @@ jobs:
       MPLBACKEND: Agg  # https://github.com/orgs/community/discussions/26434
       CDSAPI_URL: ${{ vars.CDSAPI_URL }}
       CDSAPI_KEY: ${{ secrets.CDSAPI_TOKEN }}
+      EARTHDATAHUB_API_KEY: ${{ secrets.EARTHDATAHUB_API_KEY}}
 
     steps:
     - name: Setup cache and secrets (Linux & MacOS)

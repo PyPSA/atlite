@@ -1611,14 +1611,20 @@ def runoff(
 def hydro(
     cutout,
     plants,
-    hydrobasins,
+    hydrobasins=None,
     flowspeed=1,
     weight_with_height=False,
     show_progress=False,
+    *,
+    module="auto",
+    time=None,
     **kwargs,
 ):
     """
-    Compute inflow time series for plants by aggregating over catchment basins.
+    Get inflow time-series for `plants` from discharge or runoff data.
+
+    Either extracts the discharge time series for the nearest grid points or
+    computes runoff-based inflow time series.
 
     Parameters
     ----------
@@ -1627,58 +1633,63 @@ def hydro(
     plants : pd.DataFrame
         Run-of-river plants or dams with lon, lat columns.
     hydrobasins : str|gpd.GeoDataFrame
-        Filename or GeoDataFrame of one level of the HydroBASINS dataset.
+        Filename or GeoDataFrame of one level of the HydroBASINS dataset. Only required
+        for runoff-based computation.
     flowspeed : float
         Average speed of water flows to estimate the water travel time from
-        basin to plant (default: 1 m/s).
+        basin to plant (default: 1 m/s). Only relevant for runoff-based computation.
     weight_with_height : bool
         Whether surface runoff should be weighted by potential height (probably
-        better for coarser resolution).
+        better for coarser resolution). Only relevant for runoff-based computation.
     show_progress : bool
-        Whether to display progressbars.
+        Whether to display progressbars. Only relevant for runoff-based computation.
+    module : str
+        The method to compute hydro time series. "auto" will prefer discharge but fall
+        back to runoff-based computation, "glofas" uses discharge directly, "era5" uses
+        runoff-based computation.
+    time : pd.DatetimeIndex, optional
+        Time index to interpolate the plant inflow onto. Only relevant for
+        discharge-based computation. Defaults to the cutout's own time index.
     **kwargs
-        Additional keyword arguments passed to `convert_and_aggregate`.
+        Additional arguments for runoff-based computation.
 
     Returns
     -------
     xr.DataArray
         Inflow time-series for each plant.
 
-    References
-    ----------
-    [1] Liu, Hailiang, et al. "A validated high-resolution hydro power
-    time-series model for energy systems analysis." arXiv preprint
-    arXiv:1901.08476 (2019).
-
-    [2] Lehner, B., Grill G. (2013): Global river hydrography and network
-    routing: baseline data and new approaches to study the world’s large river
-    systems. Hydrological Processes, 27(15): 2171–2186. Data is available at
-    www.hydrosheds.org.
-
+    Raises
+    ------
+    ValueError
+        If required data for the selected module is missing or the module is unknown.
     """
-    basins = hydrom.determine_basins(plants, hydrobasins, show_progress=show_progress)
+    module = module.lower()
+    if module == "auto":
+        module = "glofas" if "discharge" in cutout.data.data_vars else "era5"
 
-    matrix = cutout.indicatormatrix(basins.shapes)
-    # compute the average surface runoff in each basin
-    # Fix NaN and Inf values to 0.0 to avoid numerical issues
-    matrix_normalized = np.nan_to_num(
-        matrix / matrix.sum(axis=1), nan=0.0, posinf=0.0, neginf=0.0
-    )
-    runoff = cutout.runoff(
-        matrix=matrix_normalized,
-        index=basins.shapes.index,
-        weight_with_height=weight_with_height,
-        show_progress=show_progress,
-        **kwargs,
-    )
-    # The hydrological parameters are in units of "m of water per day" and so
-    # they should be multiplied by 1000 and the basin area to convert to m3
-    # d-1 = m3 h-1 / 24
-    runoff *= xr.DataArray(basins.shapes.to_crs({"proj": "cea"}).area)
+    if module == "glofas":
+        if "discharge" not in cutout.data.data_vars:
+            raise ValueError(
+                "For GloFAS-based hydro time series, the cutout must include discharge data."
+            )
+        return hydrom._hydro_from_discharge(cutout, plants, time=time)
 
-    return hydrom.shift_and_aggregate_runoff_for_plants(
-        basins, runoff, flowspeed, show_progress
-    )
+    if module == "era5":
+        if hydrobasins is None:
+            raise ValueError(
+                "For ERA5-based hydro time series, the hydrobasins dataset must be provided."
+            )
+        return hydrom._hydro_from_runoff(
+            cutout,
+            plants,
+            hydrobasins,
+            flowspeed=flowspeed,
+            weight_with_height=weight_with_height,
+            show_progress=show_progress,
+            **kwargs,
+        )
+
+    raise ValueError(f'Unknown hydro module option "{module}".')
 
 
 def convert_line_rating(

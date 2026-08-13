@@ -27,6 +27,7 @@ from rasterio.mask import mask
 from rasterio.plot import show
 from rasterio.warp import transform_bounds
 from scipy.ndimage import binary_dilation as dilation
+from scipy.ndimage import distance_transform_edt
 from shapely.ops import transform
 from shapely.strtree import STRtree
 from tqdm import tqdm
@@ -339,14 +340,17 @@ def projected_mask(
         return masked, transform_
 
     assert shape is not None and crs is not None
+    # Pre-fill instead of passing dst_nodata: GDAL perturbs source values which
+    # collide with dst_nodata (e.g. 0) to the smallest representable non-zero value.
+    dest = np.full(shape, nodata, dtype=np.float64)
     return rio.warp.reproject(  # type: ignore[no-any-return]
         masked,
-        empty(shape),
+        dest,
         src_crs=raster.crs,
         dst_crs=crs,
         src_transform=transform_,
         dst_transform=transform,
-        dst_nodata=nodata,
+        init_dest_nodata=False,
     )
 
 
@@ -430,6 +434,10 @@ def shape_availability(
     transform : rasterio.Affine
         Affine transform of the mask.
 
+    Raises
+    ------
+    ValueError
+        If an unsupported buffer geometry is encountered.
     """
     if not excluder.all_open:
         excluder.open_files()
@@ -462,8 +470,23 @@ def shape_availability(
         if d["invert"]:
             masked_ = ~masked_
         if d["buffer"]:
-            iterations = int(d["buffer"] / excluder.res) + 1
-            masked_ = dilation(masked_, iterations=iterations)
+            buffer_geom = d.get("buffer_geometry", "diamond")
+            if buffer_geom == "circular":
+                if masked_.any():
+                    radius = d["buffer"] / excluder.res
+                    masked_ = distance_transform_edt(~masked_) <= radius
+                else:
+                    # If mask is empty, distance_transform_edt treats the boundary
+                    # as background, which would incorrectly exclude border pixels.
+                    pass
+            elif buffer_geom == "diamond":
+                iterations = int(d["buffer"] / excluder.res) + 1
+                masked_ = dilation(masked_, iterations=iterations)
+            else:
+                raise ValueError(
+                    f"Unsupported buffer geometry: '{buffer_geom}'. "
+                    "Must be one of 'diamond' or 'circular'."
+                )
 
         exclusions = exclusions | masked_
 
@@ -557,6 +580,7 @@ class ExclusionContainer:
         | Callable[[NDArray], NDArray]
         | None = None,
         buffer: float = 0,
+        buffer_geometry: str = "diamond",
         invert: bool = False,
         nodata: int = 255,
         allow_no_overlap: bool = False,
@@ -579,6 +603,21 @@ class ExclusionContainer:
             Buffer around the excluded areas in units of ExclusionContainer.crs.
             Use this to create a buffer around the excluded/included area.
             The default is 0.
+        buffer_geometry : {"diamond", "circular"}, optional
+            Shape of the buffer applied around raster exclusions. Only used
+            when ``buffer > 0``. The default is ``"diamond"``.
+
+            * ``"diamond"`` – dilates the mask with
+              :func:`scipy.ndimage.binary_dilation`, expanding it by one pixel
+              in the four cardinal directions per iteration. The footprint is a
+              diamond (L1 metric), so the buffer distance is only accurate along
+              the grid axes and overreaches diagonally. This is the historic
+              behaviour.
+            * ``"circular"`` – marks every pixel whose exact Euclidean distance
+              to the mask (via :func:`scipy.ndimage.distance_transform_edt`) is
+              within ``buffer``, giving a geometrically accurate circular
+              (L2 metric) buffer. Prefer this when diagonal accuracy matters;
+              note that in practice it is typically slower than ``"diamond"``.
         nodata : int, optional
             Value to use for nodata pixels. The default is 255.
         invert : bool, optional
@@ -591,11 +630,22 @@ class ExclusionContainer:
         crs : rasterio.CRS/EPSG
             CRS of the raster. Specify this if the raster has invalid crs.
 
+        Raises
+        ------
+        ValueError
+            If ``buffer_geometry`` is not one of 'diamond' or 'circular'.
         """
+        if buffer_geometry not in ("diamond", "circular"):
+            raise ValueError(
+                f"Invalid buffer_geometry: '{buffer_geometry}'. "
+                "Must be one of 'diamond' or 'circular'."
+            )
+
         d: dict[str, Any] = {
             "raster": raster,
             "codes": codes,
             "buffer": buffer,
+            "buffer_geometry": buffer_geometry,
             "invert": invert,
             "nodata": nodata,
             "allow_no_overlap": allow_no_overlap,
