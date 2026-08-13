@@ -21,7 +21,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from dask import compute, delayed
-from dask.array import arctan2, sqrt
 from numpy import atleast_1d
 
 from atlite.datasets.cds_helper import (
@@ -133,6 +132,40 @@ def _rename_and_clean_coords(ds: xr.Dataset, add_lon_lat: bool = True) -> xr.Dat
     return ds.drop_vars(["expver", "number"], errors="ignore")
 
 
+def _process_wind(ds: xr.Dataset, single_precision: bool = False) -> xr.Dataset:
+    """
+    Derive wind speed, shear exponent, azimuth and roughness from raw components.
+
+    Shared by the CDS (:mod:`atlite.datasets.era5`) and EDH
+    (:mod:`atlite.datasets.era5_edh`) backends. Operates on a dataset carrying
+    the raw ``u10``/``v10``/``u100``/``v100``/``fsr`` variables.
+    ``single_precision`` casts the float64-promoted shear and azimuth back to
+    float32 (used by EDH to halve on-disk size).
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variables: wnd100m, wnd_shear_exp, wnd_azimuth, roughness.
+    """
+    for h in (10, 100):
+        units = ds[f"u{h}"].attrs.get("units", "m s**-1")
+        ds[f"wnd{h}m"] = np.sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
+            units=units, long_name=f"{h} metre wind speed"
+        )
+    shear = (np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)).assign_attrs(
+        units="", long_name="wind shear exponent"
+    )
+    ds["wnd_shear_exp"] = shear.astype(np.float32) if single_precision else shear
+
+    # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
+    azimuth = np.arctan2(ds["u100"], ds["v100"])
+    azimuth = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
+    ds["wnd_azimuth"] = azimuth.astype(np.float32) if single_precision else azimuth
+
+    ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
+    return ds.rename({"fsr": "roughness"})
+
+
 def get_data_wind(retrieval_params: dict[str, Any]) -> xr.Dataset:
     """
     Retrieve and compute wind speed variables from ERA5.
@@ -161,21 +194,7 @@ def get_data_wind(retrieval_params: dict[str, Any]) -> xr.Dataset:
         **retrieval_params,
     )
     ds = _rename_and_clean_coords(ds)
-
-    for h in [10, 100]:
-        ds[f"wnd{h}m"] = sqrt(ds[f"u{h}"] ** 2 + ds[f"v{h}"] ** 2).assign_attrs(
-            units=ds[f"u{h}"].attrs["units"], long_name=f"{h} metre wind speed"
-        )
-    ds["wnd_shear_exp"] = (
-        np.log(ds["wnd10m"] / ds["wnd100m"]) / np.log(10 / 100)
-    ).assign_attrs(units="", long_name="wind shear exponent")
-
-    # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
-    azimuth = arctan2(ds["u100"], ds["v100"])
-    ds["wnd_azimuth"] = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
-
-    ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
-    return ds.rename({"fsr": "roughness"})
+    return _process_wind(ds)
 
 
 def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
@@ -194,6 +213,53 @@ def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
     """
     ds["roughness"] = ds["roughness"].where(ds["roughness"] >= 0.0, 2e-4)
     return ds
+
+
+def _process_influx(ds: xr.Dataset, single_precision: bool = False) -> xr.Dataset:
+    """
+    Derive influx variables and solar position from raw radiation fields.
+
+    Shared by the CDS (:mod:`atlite.datasets.era5`) and EDH
+    (:mod:`atlite.datasets.era5_edh`) backends. Operates on a dataset carrying
+    the raw ``ssrd``/``ssr``/``fdir``/``tisr`` variables. ``single_precision``
+    casts the solar-position fields back to float32 (used by EDH to halve
+    on-disk size).
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variables: influx_toa, influx_direct, influx_diffuse,
+        albedo, solar_altitude, solar_azimuth.
+    """
+    ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
+    ds["albedo"] = (
+        ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
+        .fillna(0.0)
+        .assign_attrs(units="(0 - 1)", long_name="Albedo")
+    )
+    ds["influx_diffuse"] = (ds["ssrd"] - ds["influx_direct"]).assign_attrs(
+        units="J m**-2", long_name="Surface diffuse solar radiation downwards"
+    )
+    ds = ds.drop_vars(["ssrd", "ssr"])
+
+    # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
+    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
+        ds[a] = ds[a] / (60.0 * 60.0)
+        ds[a].attrs["units"] = "W m**-2"
+
+    # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00
+    # are labelled as "14:00". Account by calculating the SolarPosition for the
+    # center of the interval for aggregation.
+    # See https://github.com/PyPSA/atlite/issues/158
+    # Suppress DeprecationWarning from new SolarPosition calculation (#199)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        sp = SolarPosition(ds, time_shift=pd.to_timedelta("-30 minutes"))
+    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
+    if single_precision:
+        sp = sp.astype(np.float32)
+
+    return xr.merge([ds, sp])
 
 
 def get_data_influx(retrieval_params: dict[str, Any]) -> xr.Dataset:
@@ -225,35 +291,7 @@ def get_data_influx(retrieval_params: dict[str, Any]) -> xr.Dataset:
     )
 
     ds = _rename_and_clean_coords(ds)
-
-    ds = ds.rename({"fdir": "influx_direct", "tisr": "influx_toa"})
-    ds["albedo"] = (
-        ((ds["ssrd"] - ds["ssr"]) / ds["ssrd"].where(ds["ssrd"] != 0))
-        .fillna(0.0)
-        .assign_attrs(units="(0 - 1)", long_name="Albedo")
-    )
-    ds["influx_diffuse"] = (ds["ssrd"] - ds["influx_direct"]).assign_attrs(
-        units="J m**-2", long_name="Surface diffuse solar radiation downwards"
-    )
-    ds = ds.drop_vars(["ssrd", "ssr"])
-
-    # Convert from energy to power J m**-2 -> W m**-2 and clip negative fluxes
-    for a in ("influx_direct", "influx_diffuse", "influx_toa"):
-        ds[a] = ds[a] / (60.0 * 60.0)
-        ds[a].attrs["units"] = "W m**-2"
-
-    # ERA5 variables are mean values for previous hour, i.e. 13:01 to 14:00
-    # are labelled as "14:00". Account by calculating the SolarPosition for the
-    # center of the interval for aggregation.
-    # See https://github.com/PyPSA/atlite/issues/158
-    # Suppress DeprecationWarning from new SolarPosition calculation (#199)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        time_shift = pd.to_timedelta("-30 minutes")
-        sp = SolarPosition(ds, time_shift=time_shift)
-    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
-
-    return xr.merge([ds, sp])
+    return _process_influx(ds)
 
 
 def sanitize_influx(ds: xr.Dataset) -> xr.Dataset:

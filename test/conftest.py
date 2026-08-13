@@ -5,6 +5,11 @@
 """Shared pytest fixtures for atlite tests."""
 
 import os
+import random
+import time
+import urllib.error
+import urllib.request
+import warnings
 from datetime import date
 from pathlib import Path
 
@@ -12,6 +17,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from atlite import Cutout
+from atlite.datasets.era5_edh import _EDH_URL, _get_edh_auth_header
 
 TIME = "2013-01-01"
 BOUNDS = (-4, 56, 1.5, 62)
@@ -19,6 +25,55 @@ SARAH_DIR = os.getenv("SARAH_DIR", "/home/vres/climate-data/sarah_v2")
 GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 
 CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
+
+
+def _edh_reachable(max_attempts: int = 8) -> bool:
+    """
+    Check that EDH is reachable and serving us data, with credentials.
+
+    Returns
+    -------
+    bool
+        True if EDH responded successfully, False otherwise.
+    """
+    try:
+        req = urllib.request.Request(
+            f"{_EDH_URL}/.zmetadata",
+            headers={"Authorization": _get_edh_auth_header()},
+        )
+    except RuntimeError:
+        return False  # no credentials configured
+
+    # in some contexts EDH bounces requests, e.g. if multiple CI instances
+    # are trying to reach it at the same time. here we retry with exponential
+    # backoff and some jitter to eliminate contention
+    for attempt in range(max_attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return bool(resp.status < 400)
+        except urllib.error.HTTPError as err:
+            # 4xx are permanent (bad/expired credentials); don't retry.
+            # 429 (Too Many Requests) is the exception: it signals contention,
+            # so back off and retry like a 5xx.
+            if err.code < 500 and err.code != 429:
+                warnings.warn(
+                    f"EDH rejected the request ({err.code}); check your "
+                    "credentials. EDH tests will be skipped",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                return False
+        except (urllib.error.URLError, TimeoutError):
+            pass
+        if attempt < max_attempts - 1:
+            time.sleep(min(30, 2 ** (attempt + 1)) + random.uniform(0, 1))
+    warnings.warn(
+        "EDH credentials are configured but EDH did not respond; "
+        "EDH tests will be skipped",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    return False
 
 
 def pytest_addoption(parser):
@@ -181,6 +236,47 @@ def cutout_sarah_weird_resolution(cutouts_path):
     )
     cutout.prepare()
     return cutout
+
+
+def _prepare_era5_edh_cutout(path, prepare_kwargs=None, **kwargs):
+    cutout = Cutout(path=path, module="era5-edh", bounds=BOUNDS, **kwargs)
+    if not path.exists() and not _edh_reachable():
+        pytest.skip(
+            "EDH credentials missing or host not reachable, "
+            "and no cached cutout available"
+        )
+    cutout.prepare(**(prepare_kwargs or {}))
+    return cutout
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_edh(cutouts_path):
+    return _prepare_era5_edh_cutout(cutouts_path / "cutout_era5-edh.nc", time=TIME)
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_edh_3h_sampling(cutouts_path):
+    time = [
+        f"{TIME} 00:00",
+        f"{TIME} 03:00",
+        f"{TIME} 06:00",
+        f"{TIME} 09:00",
+        f"{TIME} 12:00",
+        f"{TIME} 15:00",
+        f"{TIME} 18:00",
+        f"{TIME} 21:00",
+    ]
+    return _prepare_era5_edh_cutout(
+        cutouts_path / "cutout_era5-edh_3h_sampling.nc", time=time
+    )
+
+
+@pytest.fixture(scope="session")
+def cutout_era5_edh_2days_crossing_months(cutouts_path):
+    return _prepare_era5_edh_cutout(
+        cutouts_path / "cutout_era5-edh_2days_crossing_months.nc",
+        time=slice("2013-02-28", "2013-03-01"),
+    )
 
 
 @pytest.fixture(scope="session")

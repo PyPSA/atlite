@@ -88,13 +88,22 @@ Datasets
 The standard data source we currently employ is ECMWF's ERA5 dataset
 (reanalysis weather data in a ca. 30 km x 30 km and hourly resolution).
 This dataset is easily available at no additional costs and requires only
-minimal setup from the user in comparison to other datasets.
-It is downloaded automatically on-demand after the
-`ECMWF ADS API <https://cds.climate.copernicus.eu/how-to-api>`_
-(European Centre for Medium-Range Weather Forecasts Climate Data Store
-Application Program Interface) client is properly installed. See separate,
-linked installation guide for details, especially for correctly setting up
-your CDS API key.
+minimal setup from the user in comparison to other datasets. See  :doc:`installation instructions <installation>` to learn
+how to set it up.
+
+We offer two methods for accessing ERA5.
+
+- Earth Data Hub hosts `a mirror <https://earthdatahub.destine.eu/collections/era5/datasets/reanalysis-era5-single-levels>`_
+  of ERA5 which allows for immediate downloads.
+  It is the most convenient source for most users unless you need
+  to download the data at an unusual resolution. See `this example <https://atlite.readthedocs.io/en/master/examples/comparing_era5_sources_cds_vs_edh.html>`_
+  to learn how to use the EDH mirror and understand where it may not be the best choice.
+
+- ECMWF ADS API (European Centre for Medium-Range Weather Forecasts
+  Climate Data Store) is the original source for ERA5. Unfortunately, CDS 
+  downloads may spend hours in a processing queue on the server, so we only recommend using the CDS source if you really need to. See
+  `this example <https://atlite.readthedocs.io/en/master/examples/create_cutout.html>`_
+  to learn how to create an ERA5 cutout.
 
 For hydro data, `ECMWF's GloFAS dataset <https://ewds.climate.copernicus.eu/datasets/cems-glofas-historical>`_
 is also available. It contains daily river discharge data and can complement the ERA5 dataset for hydro.
