@@ -1100,11 +1100,9 @@ def wind(
     )
 
 
-# wave
 def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
-    r"""
-    Convert wave height (Hs) and wave peak period (Tp) data into normalized power output
-    using the device-specific Wave Energy Converter (WEC) power matrix.
+    """
+    Convert wave height and peak period data into normalized WEC power output.
 
     This function matches each combination of significant wave height and peak period
     in the dataset to a corresponding power output from the WEC power matrix.
@@ -1119,9 +1117,10 @@ def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
         wave_period: peak wave period (s)
     converter : dict
         Dictionary defining the WEC characteristics, including:
-        Power_Matrix: a power matrix dictionary stored in `resources\wecgenerator`
+        Power_Matrix: a power matrix dictionary stored in ``resources/wecgenerator``.
     time_chunk_size : int
-        Size of time chunks for processing large datasets, to limit memory spikes. Default is 100.
+        Size of time chunks for processing large datasets, to limit memory spikes.
+        Default is 100.
 
     Returns
     -------
