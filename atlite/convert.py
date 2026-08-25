@@ -1102,7 +1102,7 @@ def wind(
 
 # wave
 def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
-    r"""
+    """
     Convert wave height (Hs) and wave peak period (Tp) data into normalized power output
     using the device-specific Wave Energy Converter (WEC) power matrix.
 
@@ -1132,6 +1132,7 @@ def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
     -----
     A progress message is printed every one million cases to track computation.
     """
+    
     power_matrix = (
         pd.DataFrame.from_dict(converter["Power_Matrix"])
         .stack()
@@ -1157,9 +1158,8 @@ def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
     da = xr.concat(results, dim="time")
     da.attrs["units"] = "kWh/kWp"
     da = da.rename("specific generation")
-    da = da.fillna(0)
 
-    return da
+    return da.fillna(0)
 
 
 def wave(cutout, converter, **params):
