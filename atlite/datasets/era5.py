@@ -70,6 +70,7 @@ features = {
     ],
     "temperature": ["temperature", "soil temperature", "dewpoint temperature"],
     "runoff": ["runoff"],
+    "wave": ["wave_height", "wave_period"],
 }
 
 static_features = {"height"}
@@ -381,6 +382,93 @@ def sanitize_runoff(ds: xr.Dataset) -> xr.Dataset:
         Dataset with non-negative runoff values.
     """
     ds["runoff"] = ds["runoff"].clip(min=0.0)
+    return ds
+
+
+def get_data_wave_height(retrieval_params):
+    """
+    Retrieve and compute wave height variable from ERA5.
+
+    Parameters
+    ----------
+    retrieval_params
+        CDS API retrieval parameters including area, time, and format.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variable: wave_height.
+    """
+    ds = retrieve_data(
+        variable=[
+            "significant_height_of_combined_wind_waves_and_swell",
+        ],
+        **retrieval_params,
+    )
+    ds = _rename_and_clean_coords(ds)
+
+    return ds.rename({"swh": "wave_height"})
+
+
+def sanitize_wave_height(ds):
+    """
+    Clip wave height values to 0.0.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing the 'wave_height' variable.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with negative 'wave_height' values clipped to zero.
+    """
+    ds["wave_height"] = ds["wave_height"].clip(min=0.0)
+
+    return ds
+
+
+def get_data_wave_period(retrieval_params):
+    """
+    Retrieve and compute wave period variable from ERA5.
+
+    Parameters
+    ----------
+    retrieval_params
+        CDS API retrieval parameters including area, time, and format.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variable: wave_period.
+    """
+    ds = retrieve_data(
+        variable=["peak_wave_period"],
+        **retrieval_params,
+    )
+
+    ds = _rename_and_clean_coords(ds)
+
+    return ds.rename({"pp1d": "wave_period"})
+
+
+def sanitize_wave_period(ds):
+    """
+    Clip wave period values to 0.0.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing the 'wave_period' variable.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with negative 'wave_period' values clipped to zero.
+    """
+    ds["wave_period"] = ds["wave_period"].clip(min=0.0)
+
     return ds
 
 
