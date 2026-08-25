@@ -28,7 +28,24 @@ features = {"hs": "wave_height", "fp": "wave_period"}
 
 
 def _rename_and_clean_coords(ds, cutout):
-    """Rename 'longitude' and 'latitude' columns to 'x' and 'y', fix roundings and grid dimensions."""
+    """
+    Standardize coordinate names and clean up auxiliary variables.
+
+    Renames longitude/latitude/valid_time to x/y/time, rounds spatial
+    coordinates, and drops 'expver'/'number' if present.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Raw ERA5 dataset with original coordinate names.
+    add_lon_lat : bool, optional
+        Whether to add 'lon'/'lat' as coordinate aliases. Default True.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with standardized coordinates.
+    """
     coords = cutout.coords
 
     if "longitude" in ds and "latitude" in ds:
@@ -44,21 +61,59 @@ def _rename_and_clean_coords(ds, cutout):
 
 
 def sanitize_wave_height(ds):
-    """Sanitize retrieved wave height data."""
+    """
+    Clip wave period values to 0.0.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing the 'wave_height' variable.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with negative 'wave_height' values clipped to zero.
+    """
     ds["wave_height"] = ds["wave_height"].clip(min=0.0)
     
     return ds
 
 
 def sanitize_wave_period(ds):
-    """Sanitize retrieved wave height data."""
+    """
+    Clip wave period values to 0.0.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Dataset containing the 'wave_period' variable.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with negative 'wave_period' values clipped to zero.
+    """
     ds["wave_period"] = ds["wave_period"].clip(min=0.0)
     
     return ds
 
 
 def _bounds(coords, pad: float = 0) -> dict[str, slice]:
-    """Convert coordinate bounds to slice and pad if requested."""
+    """
+    Convert coordinate bounds to slices, optionally extending the bounds by a padding value.
+
+    Parameters
+    ----------
+    coords : dict
+        Dictionary containing 'x' and 'y' coordinate arrays.
+    pad : float, default=0
+        Value by which to extend the minimum and maximum bounds of both coordinates.
+
+    Returns
+    -------
+    dict[str, slice]
+        Dictionary containing 'x' and 'y' slices spanning the coordinate bounds.
+    """
     x0, x1 = coords["x"].min().item() - pad, coords["x"].max().item() + pad
     y0, y1 = coords["y"].min().item() - pad, coords["y"].max().item() + pad
 
@@ -86,7 +141,13 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     -------
     xarray.Dataset
         Dataset of dask arrays of the retrieved variables.
+
+    Raises
+    ------
+    ValueError
+        If the path is incorrect.
     """
+    
     if "data_path" not in creation_parameters:
         logger.error('Argument "data_path" not defined')
         raise ValueError('Argument "data_path" not defined')

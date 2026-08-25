@@ -141,9 +141,22 @@ def get_windturbineconfig(
 
 def get_waveenergyconverter(converter):
     """
-    Load the wave energy converter power matrix
-    the configuration can either be one from local storage then 'wec_type' is
-    considered part of the file base name '<wec_type>.yaml'
+    Load the wave energy converter power matrix.
+
+    The configuration can either be loaded from local storage, in which case
+    'wec_type' is considered part of the file base name
+    '<wec_type>.yaml'.
+
+    Parameters
+    ----------
+    converter : (str | Path)
+        Path to the wave energy converter configuration or identifier of the
+        converter configuration to load.
+
+    Returns
+    -------
+    dict
+        Wave energy converter configuration containing the power matrix.
     """
     assert isinstance(converter, (str | Path))
 
