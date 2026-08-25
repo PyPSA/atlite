@@ -75,7 +75,7 @@ def sanitize_wave_height(ds):
         Dataset with negative 'wave_height' values clipped to zero.
     """
     ds["wave_height"] = ds["wave_height"].clip(min=0.0)
-    
+
     return ds
 
 
@@ -94,7 +94,7 @@ def sanitize_wave_period(ds):
         Dataset with negative 'wave_period' values clipped to zero.
     """
     ds["wave_period"] = ds["wave_period"].clip(min=0.0)
-    
+
     return ds
 
 
