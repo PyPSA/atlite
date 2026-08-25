@@ -1133,7 +1133,8 @@ def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
     A progress message is printed every one million cases to track computation.
     """
     power_matrix = (
-        pd.DataFrame.from_dict(converter["Power_Matrix"])
+        pd.DataFrame
+        .from_dict(converter["Power_Matrix"])
         .stack()
         .rename_axis(index=["wave_height", "wave_period"])
         .where(lambda x: x > 0)

@@ -153,7 +153,7 @@ def get_waveenergyconverter(converter):
     elif isinstance(converter, Path):
         converter_path = converter
 
-    with open(converter_path) as f:
+    with Path(converter_path).open() as f:
         conf = yaml.safe_load(f)
 
     return conf
@@ -595,9 +595,9 @@ def get_oedb_windturbineconfig(
 # Global caches
 _oedb_turbines = None
 windturbines = arrowdict({p.stem: p for p in WINDTURBINE_DIRECTORY.glob("*.yaml")})
-waveenergyconverter = arrowdict(
-    {p.stem: p for p in WAVEENERGYCONVERTER_DIRECTORY.glob("*.yaml")}
-)
+waveenergyconverter = arrowdict({
+    p.stem: p for p in WAVEENERGYCONVERTER_DIRECTORY.glob("*.yaml")
+})
 solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
 cspinstallations = arrowdict({
     p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.yaml")

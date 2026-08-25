@@ -93,7 +93,6 @@ def get_data(cutout, feature, tmpdir, **creation_parameters):
     xarray.Dataset
         Dataset of dask arrays of the retrieved variables.
     """
-
     if "data_path" not in creation_parameters:
         logger.error('Argument "data_path" not defined')
         raise ValueError('Argument "data_path" not defined')
