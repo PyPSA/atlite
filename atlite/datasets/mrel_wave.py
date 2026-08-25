@@ -46,14 +46,14 @@ def _rename_and_clean_coords(ds, cutout):
 def sanitize_wave_height(ds):
     """Sanitize retrieved wave height data."""
     ds["wave_height"] = ds["wave_height"].clip(min=0.0)
-    
+
     return ds
 
 
 def sanitize_wave_period(ds):
     """Sanitize retrieved wave height data."""
     ds["wave_period"] = ds["wave_period"].clip(min=0.0)
-    
+
     return ds
 
 
