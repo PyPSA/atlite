@@ -4,7 +4,7 @@
 
 """atlite datasets."""
 
-from atlite.datasets import era5, era5_edh, gebco, glofas, sarah, mrel_wave
+from atlite.datasets import era5, era5_edh, gebco, glofas, mrel_wave, sarah
 
 modules = {
     "era5": era5,
