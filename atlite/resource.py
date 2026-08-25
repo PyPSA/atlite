@@ -1,10 +1,7 @@
 # SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 #
 # SPDX-License-Identifier: MIT
-"""
-Module for providing access to external ressources, like windturbine or pv
-panel configurations.
-"""
+"""Module for accessing external resources like wind turbine and PV panel configurations."""
 
 from __future__ import annotations
 
@@ -13,7 +10,7 @@ import logging
 import re
 from operator import itemgetter
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -26,7 +23,6 @@ from atlite.utils import arrowdict
 
 logger = logging.getLogger(name=__name__)
 
-
 RESOURCE_DIRECTORY = Path(__file__).parent / "resources"
 WINDTURBINE_DIRECTORY = RESOURCE_DIRECTORY / "windturbine"
 SOLARPANEL_DIRECTORY = RESOURCE_DIRECTORY / "solarpanel"
@@ -34,22 +30,46 @@ CSPINSTALLATION_DIRECTORY = RESOURCE_DIRECTORY / "cspinstallation"
 WAVEENERGYCONVERTER_DIRECTORY = RESOURCE_DIRECTORY / "waveenergyconverter"
 
 if TYPE_CHECKING:
-    from typing import TypedDict
+    from typing import NotRequired, TypedDict
 
-    from typing_extensions import NotRequired
+    import xarray as xr
+
+    from atlite._types import NDArray, PathLike
 
     class TurbineConfig(TypedDict):
-        V: np.ndarray
-        POW: np.ndarray
+        """Wind turbine configuration dictionary."""
+
+        V: NDArray
+        POW: NDArray
         P: float
         hub_height: float | int
         name: NotRequired[str]
         manufacturer: NotRequired[str]
         source: NotRequired[str]
 
+    class PanelConfig(TypedDict):
+        """Solar panel configuration dictionary."""
+
+        model: NotRequired[Literal["huld", "bofinger"]]
+        efficiency: NotRequired[float]
+        A: NotRequired[float]
+        B: NotRequired[float]
+        C: NotRequired[float]
+        name: NotRequired[str]
+        source: NotRequired[str]
+
+    class CSPConfig(TypedDict):
+        """CSP installation configuration dictionary."""
+
+        efficiency: xr.DataArray
+        path: PathLike
+        technology: NotRequired[str]
+        name: NotRequired[str]
+        source: NotRequired[str]
+
 
 def get_windturbineconfig(
-    turbine: str | Path | dict, add_cutout_windspeed: bool = True
+    turbine: str | PathLike | dict[str, Any], add_cutout_windspeed: bool = True
 ) -> TurbineConfig:
     """
     Load the wind 'turbine' configuration.
@@ -79,35 +99,44 @@ def get_windturbineconfig(
     config : dict
         Config with details on the turbine
 
+    Raises
+    ------
+    KeyError
+        If ``turbine`` is not a str, Path, or dict.
+
     """
-    if not isinstance(turbine, (str | Path | dict)):
+    if not isinstance(turbine, (str, Path, dict)):
         raise KeyError(
             f"`turbine` must be a str, pathlib.Path or dict, but is {type(turbine)}."
         )
 
     if isinstance(turbine, str) and turbine.startswith("oedb:"):
-        conf = get_oedb_windturbineconfig(turbine[len("oedb:") :])
+        conf = cast(
+            "dict[str, Any]", get_oedb_windturbineconfig(turbine[len("oedb:") :])
+        )
 
-    elif isinstance(turbine, (str | Path)):
+    elif isinstance(turbine, (str, Path)):
         if isinstance(turbine, str):
             turbine_path = windturbines[turbine.replace(".yaml", "")]
 
         elif isinstance(turbine, Path):
             turbine_path = turbine
 
-        with open(turbine_path) as f:
+        with Path(turbine_path).open() as f:
             conf = yaml.safe_load(f)
-            conf = dict(
-                V=np.array(conf["V"]),
-                POW=np.array(conf["POW"]),
-                hub_height=conf["HUB_HEIGHT"],
-                P=np.max(conf["POW"]),
-            )
+            conf = {
+                "V": np.array(conf["V"]),
+                "POW": np.array(conf["POW"]),
+                "hub_height": conf["HUB_HEIGHT"],
+                "P": np.max(conf["POW"]),
+            }
 
     elif isinstance(turbine, dict):
         conf = turbine
 
-    return _validate_turbine_config_dict(conf, add_cutout_windspeed)
+    return _validate_turbine_config_dict(
+        cast("dict[str, Any]", conf), add_cutout_windspeed
+    )
 
 
 def get_waveenergyconverter(converter):
@@ -130,7 +159,7 @@ def get_waveenergyconverter(converter):
     return conf
 
 
-def get_solarpanelconfig(panel):
+def get_solarpanelconfig(panel: str | PathLike) -> PanelConfig:
     """
     Load the 'panel'.yaml file from local disk and provide a solar panel dict.
 
@@ -148,7 +177,7 @@ def get_solarpanelconfig(panel):
         Config with details on the solarpanel
 
     """
-    assert isinstance(panel, (str | Path))
+    assert isinstance(panel, (str, Path))
 
     if isinstance(panel, str):
         panel_path = solarpanels[panel.replace(".yaml", "")]
@@ -156,16 +185,13 @@ def get_solarpanelconfig(panel):
     elif isinstance(panel, Path):
         panel_path = panel
 
-    with open(panel_path) as f:
-        conf = yaml.safe_load(f)
-
-    return conf
+    with Path(panel_path).open() as f:
+        return cast("PanelConfig", yaml.safe_load(f))
 
 
-def get_cspinstallationconfig(installation):
+def get_cspinstallationconfig(installation: str | PathLike) -> CSPConfig:
     """
-    Load the 'installation'.yaml file from local disk to provide the system
-    efficiencies.
+    Load a CSP installation configuration from a YAML file.
 
     Parameters
     ----------
@@ -181,7 +207,7 @@ def get_cspinstallationconfig(installation):
         Config with details on the CSP installation.
 
     """
-    assert isinstance(installation, (str | Path))
+    assert isinstance(installation, (str, Path))
 
     if isinstance(installation, str):
         installation_path = cspinstallations[installation.replace(".yaml", "")]
@@ -189,27 +215,20 @@ def get_cspinstallationconfig(installation):
     elif isinstance(installation, Path):
         installation_path = installation
 
-    # Load and set expected index columns
-    with open(installation_path) as f:
-        config = yaml.safe_load(f)
+    with Path(installation_path).open() as f:
+        config = cast("dict[str, Any]", yaml.safe_load(f))
     config["path"] = installation_path
 
-    ## Convert efficiency dict to xr.DataArray and convert units to deg -> rad, % -> p.u.
+    # Convert efficiency dict to xr.DataArray and convert units: deg -> rad, % -> p.u.
     da = pd.DataFrame(config["efficiency"]).set_index(["altitude", "azimuth"])
-
-    # Handle as xarray DataArray early - da will be 'return'-ed
     da = da.to_xarray()["value"]
 
-    # Solar altitude + azimuth expected in deg for better readibility
-    # calculations use solar position in rad
-    # Convert da to new coordinates and drop old
+    # Solar altitude + azimuth expected in deg for readability; calculations use rad.
     da = da.rename({"azimuth": "azimuth [deg]", "altitude": "altitude [deg]"})
-    da = da.assign_coords(
-        {
-            "altitude": radians(da["altitude [deg]"]),
-            "azimuth": radians(da["azimuth [deg]"]),
-        }
-    )
+    da = da.assign_coords({
+        "altitude": radians(da["altitude [deg]"]),
+        "azimuth": radians(da["azimuth [deg]"]),
+    })
     da = da.swap_dims({"altitude [deg]": "altitude", "azimuth [deg]": "azimuth"})
 
     da = da.chunk("auto")
@@ -219,33 +238,67 @@ def get_cspinstallationconfig(installation):
 
     config["efficiency"] = da
 
-    return config
+    return cast("CSPConfig", config)
 
 
-def solarpanel_rated_capacity_per_unit(panel):
-    # unit is m^2 here
+def solarpanel_rated_capacity_per_unit(panel: str | PathLike | PanelConfig) -> float:
+    """
+    Return the rated capacity per unit of a solar panel configuration.
 
-    if isinstance(panel, (str | Path)):
+    Parameters
+    ----------
+    panel : str or pathlib.Path or dict
+        Solar panel configuration or reference to one.
+
+    Returns
+    -------
+    float
+        Rated capacity per unit area or per panel, depending on the model.
+
+    Raises
+    ------
+    ValueError
+        If the panel model is unknown.
+    """
+    if isinstance(panel, (str, Path)):
         panel = get_solarpanelconfig(panel)
 
     model = panel.get("model", "huld")
     if model == "huld":
-        return panel["efficiency"]
-    elif model == "bofinger":
+        return cast("float", panel["efficiency"])
+    if model == "bofinger":
         # one unit in the capacity layout is interpreted as one panel of a
-        # capacity (A + 1000 * B + log(1000) * C) * 1000W/m^2 * (k / 1000)
+        # capacity (A + 1000 * B + log(1000) * C) * 1000 W/m^2 * (k / 1000)
         A, B, C = itemgetter("A", "B", "C")(panel)
-        return (A + B * 1000.0 + C * np.log(1000.0)) * 1e3
+        return cast("float", (A + B * 1000.0 + C * np.log(1000.0)) * 1e3)
+    raise ValueError(f"Unknown panel model: {model}")
 
 
-def windturbine_rated_capacity_per_unit(turbine):
-    if isinstance(turbine, (str | Path)):
+def windturbine_rated_capacity_per_unit(
+    turbine: str | PathLike | TurbineConfig,
+) -> float:
+    """
+    Return the rated capacity of a wind turbine configuration.
+
+    Parameters
+    ----------
+    turbine : str or pathlib.Path or dict
+        Wind turbine configuration or reference to one.
+
+    Returns
+    -------
+    float
+        Rated turbine capacity.
+    """
+    if isinstance(turbine, (str, Path)):
         turbine = get_windturbineconfig(turbine)
 
     return turbine["P"]
 
 
-def windturbine_smooth(turbine, params=None):
+def windturbine_smooth(
+    turbine: TurbineConfig, params: dict[str, float] | None | bool = None
+) -> TurbineConfig:
     """
     Smooth the powercurve in `turbine` with a gaussian kernel.
 
@@ -273,27 +326,27 @@ def windturbine_smooth(turbine, params=None):
     if params is None or params is True:
         params = {}
 
-    eta = params.get("eta", 0.95)
-    Delta_v = params.get("Delta_v", 1.27)
-    sigma = params.get("sigma", 2.29)
+    params = cast("dict[str, float]", params)
+    eta: float = params.get("eta", 0.95)
+    Delta_v: float = params.get("Delta_v", 1.27)
+    sigma: float = params.get("sigma", 2.29)
 
-    def kernel(v_0):
-        # all velocities in m/s
-        return (
+    def kernel(v_0: NDArray) -> NDArray:
+        result: NDArray = (
             1.0
             / np.sqrt(2 * np.pi * sigma * sigma)
             * np.exp(-(v_0 - Delta_v) * (v_0 - Delta_v) / (2 * sigma * sigma))
         )
+        return result
 
-    def smooth(velocities, power):
+    def smooth(velocities: NDArray, power: NDArray) -> tuple[NDArray, NDArray]:
         # interpolate kernel and power curve to the same, regular velocity grid
         velocities_reg = np.linspace(-50.0, 50.0, 1001)
         power_reg = np.interp(velocities_reg, velocities, power)
         kernel_reg = kernel(velocities_reg)
 
-        # convolve power and kernel
-        # the downscaling is necessary because scipy expects the velocity
-        # increments to be 1., but here, they are 0.1
+        # the 0.1 downscaling is necessary because scipy expects velocity
+        # increments of 1., but here they are 0.1
         convolution = 0.1 * fftconvolve(power_reg, kernel_reg, mode="same")
 
         # sample down so power curve doesn't get too long
@@ -304,7 +357,7 @@ def windturbine_smooth(turbine, params=None):
 
     turbine = turbine.copy()
     turbine["V"], turbine["POW"] = smooth(turbine["V"], turbine["POW"])
-    turbine["P"] = np.max(turbine["POW"])
+    turbine["P"] = cast("float", float(np.max(turbine["POW"])))
 
     if any(turbine["POW"][np.where(turbine["V"] == 0.0)] > 1e-2):
         logger.warning(
@@ -318,15 +371,17 @@ def windturbine_smooth(turbine, params=None):
     return turbine
 
 
-def _max_v_is_zero_pow(turbine):
-    return np.any(turbine["POW"][turbine["V"] == turbine["V"].max()] == 0)
+def _max_v_is_zero_pow(turbine: TurbineConfig) -> bool:
+    return cast(
+        "bool", bool(np.any(turbine["POW"][turbine["V"] == turbine["V"].max()] == 0))
+    )
 
 
 def _validate_turbine_config_dict(
-    turbine: dict, add_cutout_windspeed: bool
+    turbine: dict[str, Any], add_cutout_windspeed: bool
 ) -> TurbineConfig:
     """
-    Checks the turbine config dict format and power curve.
+    Check the turbine config dict format and power curve.
 
     Parameters
     ----------
@@ -343,6 +398,11 @@ def _validate_turbine_config_dict(
     dict
         validated and potentially modified turbine config dict
 
+    Raises
+    ------
+    ValueError
+        If the turbine config dict is missing required keys or has invalid values.
+
     """
     if not all(key in turbine for key in ("POW", "V", "P", "hub_height")):
         err_msg = (
@@ -351,11 +411,10 @@ def _validate_turbine_config_dict(
         )
         raise ValueError(err_msg)
 
-    if not all(isinstance(turbine[p], (np.ndarray | list)) for p in ("POW", "V")):
+    if not all(isinstance(turbine[p], (np.ndarray, list)) for p in ("POW", "V")):
         err_msg = "turbine entries 'POW' and 'V' must be np.ndarray or list"
         raise ValueError(err_msg)
 
-    # convert lists from user provided turbine dicts to numpy arrays
     if any(isinstance(turbine[p], list) for p in ("POW", "V")):
         turbine["V"] = np.array(turbine["V"])
         turbine["POW"] = np.array(turbine["POW"])
@@ -364,37 +423,37 @@ def _validate_turbine_config_dict(
         err_msg = "turbine wind speed and power arrays do not have equal length."
         raise ValueError(err_msg)
 
+    # Uses `>=` rather than `>` because many power curves have two entries for the
+    # same wind speed at the cut-in and cut-out speeds.
     if not np.all(np.diff(turbine["V"]) >= 0):
-        # This check is not strict as it uses `>=` instead of `>` and thus allows equal
-        # wind speeds in the array. However, many power curves have two entries for the
-        # same wind speed at the cut-in and cut-out speeds which would make them fail if
-        # using `>` only.
         err_msg = (
             "wind speed 'V' in the turbine config dict is expected to be increasing, "
             f"but is currently not in ascending order:\n{turbine['V']}"
         )
         raise ValueError(err_msg)
 
-    if add_cutout_windspeed is True and not _max_v_is_zero_pow(turbine):
+    if add_cutout_windspeed is True and not _max_v_is_zero_pow(
+        cast("TurbineConfig", turbine)
+    ):
         turbine["V"] = np.pad(turbine["V"], (0, 1), "maximum")
         turbine["POW"] = np.pad(turbine["POW"], (0, 1), "constant", constant_values=0)
         logger.info(
-            "adding a cut-out wind speed to the turbine power curve at "
-            f"V={turbine['V'][-1]} m/s."
+            "adding a cut-out wind speed to the turbine power curve at V=%s m/s.",
+            turbine["V"][-1],
         )
 
-    if not _max_v_is_zero_pow(turbine):
+    if not _max_v_is_zero_pow(cast("TurbineConfig", turbine)):
         logger.warning(
             "The power curve does not have a cut-out wind speed, i.e. the power"
             " output corresponding to the\nhighest wind speed is not zero. You can"
             " either change the power curve manually or set\n"
             "'add_cutout_windspeed=True' in the Cutout.wind conversion method."
         )
-    return turbine
+    return cast("TurbineConfig", turbine)
 
 
 def get_oedb_windturbineconfig(
-    search: int | str | None = None, **search_params
+    search: int | str | None = None, **search_params: Any
 ) -> TurbineConfig:
     """
     Download a windturbine configuration from the OEDB database.
@@ -427,6 +486,10 @@ def get_oedb_windturbineconfig(
     >>> get_oedb_windturbineconfig(name="E-53/800", manufacturer="Enercon")
     {'V': ..., 'POW': ..., ...}
 
+    Raises
+    ------
+    RuntimeError
+        If no turbine or multiple turbines match the search.
     """
     # Parse information of different allowed 'turbine' values
     if isinstance(search, int):
@@ -449,9 +512,8 @@ def get_oedb_windturbineconfig(
         _oedb_turbines = df[df.has_power_curve]
 
     logger.info(
-        "Searching turbine power curve in OEDB database using "
-        + ", ".join(f"{k}='{v}'" for (k, v) in search_params.items())
-        + "."
+        "Searching turbine power curve in OEDB database using %s.",
+        ", ".join(f"{k}='{v}'" for (k, v) in search_params.items()),
     )
 
     # Working copy
@@ -476,7 +538,7 @@ def get_oedb_windturbineconfig(
 
     if len(df) < 1:
         raise RuntimeError("No turbine found.")
-    elif len(df) > 1:
+    if len(df) > 1:
         raise RuntimeError(
             f"Provided information corresponds to {len(df)} turbines,"
             " use `id` for an unambiguous search.\n"
@@ -527,7 +589,7 @@ def get_oedb_windturbineconfig(
     name = "{manufacturer}_{name}".format(**turbineconf).translate(charmap)
     windturbines[name] = turbineconf
 
-    return turbineconf
+    return turbineconf  # type: ignore[return-value]
 
 
 # Global caches
@@ -537,6 +599,6 @@ waveenergyconverter = arrowdict(
     {p.stem: p for p in WAVEENERGYCONVERTER_DIRECTORY.glob("*.yaml")}
 )
 solarpanels = arrowdict({p.stem: p for p in SOLARPANEL_DIRECTORY.glob("*.yaml")})
-cspinstallations = arrowdict(
-    {p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.yaml")}
-)
+cspinstallations = arrowdict({
+    p.stem: p for p in CSPINSTALLATION_DIRECTORY.glob("*.yaml")
+})

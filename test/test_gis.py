@@ -12,6 +12,7 @@ Created on Wed May  6 15:23:13 2020.
 # IDEAS for tests
 
 import functools
+import pickle
 import warnings
 
 import geopandas as gpd
@@ -72,7 +73,8 @@ def raster(tmp_path_factory):
     bounds = (X0, Y0, X1, Y1)  # same as in test_gis.py
     res = 0.01
     transform, shape = padded_transform_and_shape(bounds, res)
-    mask = np.random.rand(*shape) < raster_clip
+    rng = np.random.default_rng(42)
+    mask = rng.random(shape) < raster_clip
     mask = mask.astype(rio.int32)
     path = tmp_path / "raster.tif"
     with rio.open(
@@ -96,7 +98,8 @@ def raster_reproject(tmp_path_factory):
     bounds = rio.warp.transform_bounds(4326, 3035, X0, Y0, X1, Y1)
     res = 1000
     transform, shape = padded_transform_and_shape(bounds, res)
-    mask = np.random.rand(*shape) < raster_clip
+    rng = np.random.default_rng(42)
+    mask = rng.random(shape) < raster_clip
     mask = mask.astype(rio.int32)
     path = tmp_path / "raster_reproject.tif"
     with rio.open(
@@ -120,7 +123,8 @@ def raster_codes(tmp_path_factory):
     bounds = (X0, Y0, X1, Y1)  # same as in test_gis.py
     res = 0.01
     transform, shape = padded_transform_and_shape(bounds, res)
-    mask = (np.random.rand(*shape) * 100).astype(int)
+    rng = np.random.default_rng(42)
+    mask = (rng.random(shape) * 100).astype(int)
     mask = mask.astype(rio.int32)
     path = tmp_path / "raster_codes.tif"
     with rio.open(
@@ -139,9 +143,7 @@ def raster_codes(tmp_path_factory):
 
 
 def test_exclusioncontainer_repr(ref):
-    """
-    Test ExclusionContainer.__repr__.
-    """
+    """Test ExclusionContainer.__repr__."""
     excluder = ExclusionContainer(ref.crs, res=0.01)
     assert "Exclusion Container" in repr(excluder)
 
@@ -199,9 +201,7 @@ def test_open_closed_checks(ref, geometry, raster):
 
 
 def test_area(ref):
-    """
-    Test the area of the cutout.
-    """
+    """Test the area of the cutout."""
     area = ref.area(crs=3035)
     assert isinstance(area, xr.DataArray)
     assert area.dims == ("y", "x")
@@ -249,9 +249,7 @@ def test_bounds(ref):
 
 
 def test_regrid():
-    """
-    Test the atlite.gis.regrid function with average resampling.
-    """
+    """Test the atlite.gis.regrid function with average resampling."""
     # define blocks
     A = 0.25
     B = 0.5
@@ -293,9 +291,7 @@ def test_regrid():
 
 
 def test_pad_extent():
-    """
-    Test whether padding works with arrays of dimension > 2.
-    """
+    """Test whether padding works with arrays of dimension > 2."""
     src = np.ones((3, 2))
     src_trans = rio.Affine(1, 0, 0, 0, 1, 0)
     dst_trans = rio.Affine(2, 0, 0, 0, 2, 0)
@@ -379,9 +375,7 @@ def test_availability_matrix_flat_parallel_anonymous_function(ref, raster_codes)
 
 
 def test_availability_matrix_flat_wo_progressbar(ref):
-    """
-    Same as `test_availability_matrix_flat` but without progressbar.
-    """
+    """Same as `test_availability_matrix_flat` but without progressbar."""
     shapes = gpd.GeoSeries(
         [box(X0 + 1, Y0 + 1, X1 - 1, Y1 - 1)], crs=ref.crs
     ).rename_axis("shape")
@@ -410,9 +404,7 @@ def test_availability_matrix_flat_parallel_wo_progressbar(ref):
 
 
 def test_shape_availability_area(ref):
-    """
-    Area of the mask and the shape must be close.
-    """
+    """Area of the mask and the shape must be close."""
     shapes = gpd.GeoSeries([box(X0 + 1, Y0 + 1, X1 - 1, Y1 - 1)], crs=ref.crs)
     res = 100
     excluder = ExclusionContainer(res=res)
@@ -481,9 +473,7 @@ def test_shape_availability_exclude_geometry(ref):
 
 
 def test_shape_availability_exclude_raster(ref, raster):
-    """
-    When excluding the half of the geometry, the eligible area must be half.
-    """
+    """When excluding the half of the geometry, the eligible area must be half."""
     shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
     res = 0.01
 
@@ -518,9 +508,7 @@ def test_shape_availability_exclude_raster(ref, raster):
 
 
 def test_shape_availability_excluder_partial_overlap(ref, raster):
-    """
-    Test behavior, when a raster only overlaps half of the geometry.
-    """
+    """Test behavior, when a raster only overlaps half of the geometry."""
     bounds = X0 - 2, Y0, X0 + 2, Y1
     area = abs((bounds[2] - bounds[0]) * (bounds[3] - bounds[1]))
     shapes = gpd.GeoSeries([box(*bounds)], crs=ref.crs)
@@ -543,9 +531,7 @@ def test_shape_availability_excluder_partial_overlap(ref, raster):
 
 
 def test_shape_availability_excluder_raster_no_overlap(ref, raster):
-    """
-    Check if the allow_no_overlap flag works.
-    """
+    """Check if the allow_no_overlap flag works."""
     bounds = X0 - 10.0, Y0 - 10.0, X0 - 2.0, Y0 - 2.0
     area = abs((bounds[2] - bounds[0]) * (bounds[3] - bounds[1]))
     shapes = gpd.GeoSeries([box(*bounds)], crs=ref.crs)
@@ -627,9 +613,7 @@ def test_availability_matrix_rastered_repro(ref, raster_reproject):
 
 
 def test_shape_availability_exclude_raster_codes(ref, raster_codes):
-    """
-    Test exclusion of multiple raster codes.
-    """
+    """Test exclusion of multiple raster codes."""
     shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
     res = 0.01
 
@@ -653,9 +637,7 @@ def test_shape_availability_exclude_raster_codes(ref, raster_codes):
 
 
 def test_plot_shape_availability(ref, raster):
-    """
-    Test plotting of shape availability.
-    """
+    """Test plotting of shape availability."""
     shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
     res = 0.01
 
@@ -665,3 +647,60 @@ def test_plot_shape_availability(ref, raster):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         excluder.plot_shape_availability(shapes)
+
+
+class TestRasterBufferGeometry:
+    """Diamond vs. circular raster buffering: validation, serialization, edge cases."""
+
+    res = 0.01
+
+    @pytest.fixture
+    def shapes(self, ref):
+        return gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
+
+    def test_serialization_roundtrip_preserves_geometry(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        excluder.add_raster(raster, buffer=self.res, buffer_geometry="circular")
+
+        restored = pickle.loads(pickle.dumps(excluder))
+        assert restored.rasters[0]["buffer_geometry"] == "circular"
+
+    def test_missing_geometry_key_defaults_to_diamond(self, shapes, raster):
+        legacy = ExclusionContainer(shapes.crs, res=self.res)
+        legacy.add_raster(raster, buffer=self.res, buffer_geometry="circular")
+        del legacy.rasters[0]["buffer_geometry"]
+
+        diamond = ExclusionContainer(shapes.crs, res=self.res)
+        diamond.add_raster(raster, buffer=self.res, buffer_geometry="diamond")
+
+        masked_legacy, _ = shape_availability(shapes, legacy)
+        masked_diamond, _ = shape_availability(shapes, diamond)
+        assert (masked_legacy == masked_diamond).all()
+
+    def test_circular_buffer_on_empty_mask_keeps_borders(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        excluder.add_raster(
+            raster, codes=[-1], buffer=self.res * 5, buffer_geometry="circular"
+        )
+        masked, _ = shape_availability(shapes, excluder)
+        assert masked.all()
+
+    def test_invalid_geometry_rejected_at_registration(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        with pytest.raises(ValueError, match="Invalid buffer_geometry"):
+            excluder.add_raster(raster, buffer=self.res, buffer_geometry="hexagon")
+
+    def test_invalid_geometry_rejected_at_computation(self, shapes, raster):
+        excluder = ExclusionContainer(shapes.crs, res=self.res)
+        excluder.rasters.append({
+            "raster": raster,
+            "codes": None,
+            "buffer": self.res,
+            "buffer_geometry": "hexagon",
+            "invert": False,
+            "nodata": 255,
+            "allow_no_overlap": False,
+            "crs": None,
+        })
+        with pytest.raises(ValueError, match="Unsupported buffer geometry"):
+            shape_availability(shapes, excluder)

@@ -19,6 +19,7 @@ examples/*.nc
 examples/*.csv
 examples/*.zip
 examples/*.tif
+benchmarks/
 atlite/version.py
 paper
 .coverage*
@@ -27,4 +28,5 @@ paper
 # Ignore IDE project files
 .idea/
 .vscode
-.vs
+AGENTS.md
+uv.lock
