@@ -167,9 +167,7 @@ def get_waveenergyconverter(converter):
         converter_path = converter
 
     with Path(converter_path).open() as f:
-        conf = yaml.safe_load(f)
-
-    return conf
+        return yaml.safe_load(f)
 
 
 def get_solarpanelconfig(panel: str | PathLike) -> PanelConfig:

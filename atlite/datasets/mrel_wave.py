@@ -38,8 +38,6 @@ def _rename_and_clean_coords(ds, cutout):
     ----------
     ds : xr.Dataset
         Raw ERA5 dataset with original coordinate names.
-    add_lon_lat : bool, optional
-        Whether to add 'lon'/'lat' as coordinate aliases. Default True.
 
     Returns
     -------
