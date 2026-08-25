@@ -96,7 +96,9 @@ def sanitize_wave_period(ds):
     return ds
 
 
-def _bounds(coords, pad: float = 0) -> dict[str, slice]:
+def _bounds(
+    coords: xr.core.coordinates.DatasetCoordinates, pad: float = 0
+) -> dict[str, slice]:
     """
     Convert coordinate bounds to slices, optionally extending the bounds by a padding value.
 

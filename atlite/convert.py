@@ -1100,7 +1100,11 @@ def wind(
     )
 
 
-def convert_wave(ds, converter, time_chunk_size: int = 100) -> xr.DataArray:
+def convert_wave(
+    ds: xr.Dataset,
+    converter: dict,
+    time_chunk_size: int = 100,
+) -> xr.DataArray:
     """
     Convert wave height and peak period data into normalized WEC power output.
 
