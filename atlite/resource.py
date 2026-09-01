@@ -507,7 +507,9 @@ def get_oedb_windturbineconfig(
     if "name" in search_params:
         selector &= df.name.str.contains(search_params["name"], case=False)
     if "turbine_type" in search_params:
-        selector &= df.turbine_type.str.contains(search_params["name"], case=False)
+        selector &= df.turbine_type.str.contains(
+            search_params["turbine_type"], case=False
+        )
     if "manufacturer" in search_params:
         selector &= df.manufacturer.str.contains(
             search_params["manufacturer"], case=False
