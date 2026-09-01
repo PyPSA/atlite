@@ -35,6 +35,11 @@ Upcoming Release
 
 **Bug fixes**
 
+* Fix ``get_oedb_windturbineconfig`` applying the documented ``turbine_type``
+  search parameter to the value of ``name``. Searching by ``turbine_type``
+  alone raised ``KeyError: 'name'``, and combining it with ``name`` silently
+  ignored the requested turbine type.
+
 * Fix ``Cutout.line_rating`` passing line azimuth in radians while
   ``convert_line_rating`` interpreted ``psi`` as degrees. Azimuths are now
   computed in degrees, matching the documented unit.
