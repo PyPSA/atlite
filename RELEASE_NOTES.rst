@@ -32,6 +32,17 @@ Upcoming Release
 * Implement glofas dataset which contains daily river discharge. ``cutout.hydro()`` now 
   returns discharge if ``cutout.module`` contains ``"glofas"``.
   (https://github.com/PyPSA/atlite/pull/498)
+* Rewrite CSP conversion to model the collector geometry. ``convert_csp`` now uses
+  ``SurfaceOrientation`` with tracking (horizontal for parabolic trough, dual-axis for
+  solar tower) instead of the former ``atlite.csp`` module, which was removed. The
+  ``working-with-csp`` example was updated accordingly.
+  (https://github.com/PyPSA/atlite/pull/504)
+* ``SurfaceOrientation`` now also accepts a plain orientation dict
+  (``{"slope": ..., "azimuth": ...}``) in addition to a callable.
+  (https://github.com/PyPSA/atlite/pull/504)
+* Meshgrid ``regrid``/reproject now allows dask to rechunk the spatial input, so that
+  multi-chunk spatial planes are merged before reprojection.
+  (https://github.com/PyPSA/atlite/pull/504)
 
 **Bug fixes**
 
