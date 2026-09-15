@@ -6,7 +6,7 @@
 atlite
 ======
 
-|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |MIT-image| |reuse| |black| |pre-commit.ci| |joss| |discord| |stackoverflow|
+|PyPI version| |Conda version| |Documentation Status| |ci| |codecov| |standard-readme compliant| |MIT-image| |reuse| |ruff| |pre-commit.ci| |joss| |discord| |stackoverflow|
 
 atlite is a `free software`_, `xarray`_-based Python library for
 converting weather data (like wind speeds, solar influx) into energy systems data.
@@ -40,7 +40,7 @@ For major next development goals, consult our `vision and roadmap project <https
 Installation
 ============
 
-To install you need a working installation running Python 3.6 or above
+To install you need a working installation running Python 3.10 or above
 and we strongly recommend using either miniconda or anaconda for package
 management.
 
@@ -132,9 +132,9 @@ See the individual files for license details.
    :target: https://github.com/PyPSA/atlite/actions/workflows/test.yaml
 .. |reuse| image:: https://api.reuse.software/badge/github.com/pypsa/atlite
    :target: https://api.reuse.software/info/github.com/pypsa/atlite
-.. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
-   :alt: Code style: black
+.. |ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+   :target: https://github.com/astral-sh/ruff
+   :alt: Code style: ruff
 .. |pre-commit.ci| image:: https://results.pre-commit.ci/badge/github/PyPSA/atlite/master.svg
    :target: https://results.pre-commit.ci/latest/github/PyPSA/atlite/master
    :alt: pre-commit.ci status

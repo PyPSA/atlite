@@ -11,8 +11,10 @@ Created on Mon Oct 18 15:11:42 2021.
 
 import numpy as np
 import pandas as pd
+import pytest
+from shapely.geometry import LineString, Point
 
-from atlite.convert import convert_line_rating
+from atlite.convert import convert_line_rating, line_azimuth_degrees
 
 
 def test_ieee_sample_case():
@@ -103,9 +105,7 @@ def test_suedkabel_sample_case():
 
 
 def test_right_angle_in_different_configuration():
-    """
-    Test different configurations of angle difference of 90 degree.
-    """
+    """Test different configurations of angle difference of 90 degree."""
     ds = {
         "temperature": 313,
         "wnd100m": 0.61,
@@ -149,9 +149,7 @@ def test_right_angle_in_different_configuration():
 
 
 def test_angle_increase():
-    """
-    Test an increasing angle which should lead to an increasing capacity.
-    """
+    """Test an increasing angle which should lead to an increasing capacity."""
     ds = {
         "temperature": 313,
         "wnd100m": 0.61,
@@ -180,3 +178,19 @@ def test_angle_increase():
     # check point reflection
     assert np.isclose(res.iloc[:19], res.iloc[:17:-1], atol=1e-10, rtol=1e-10).all()
     assert np.isclose(res.iloc[:19], res.iloc[18:], atol=1e-10, rtol=1e-10).all()
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "expected"),
+    [
+        ((0.0, 0.0), (0.0, 1.0), 180.0),  # N-pointing line
+        ((0.0, 0.0), (0.0, -1.0), 0.0),  # S-pointing line
+        ((0.0, 0.0), (1.0, 0.0), -90.0),  # E-pointing
+        ((0.0, 0.0), (-1.0, 0.0), 90.0),  # W-pointing
+        ((0.0, 0.0), (1.0, 1.0), -135.0),  # NE diagonal
+    ],
+)
+def test_line_azimuth_degrees(start, end, expected):
+    """`line_azimuth_degrees` returns degrees consistent with `convert_line_rating`'s `psi`."""
+    shape = LineString([Point(*start), Point(*end)])
+    assert np.isclose(line_azimuth_degrees(shape), expected)

@@ -18,7 +18,7 @@ relevant quantities, mainly you can create data for
   `Open Energy Database <https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library>`_.
 * **Solar (PV)** power generation: Using predefined or custom panel properties.
 * **Solar (thermal)** heat generation from solar collectors.
-* **Hydro (run-off)** power generation.
+* **Hydro (run-off / discharge)** power generation.
 * **Heating and cooling demand** (based on degree-day approx.).
 
 How it works
@@ -88,13 +88,27 @@ Datasets
 The standard data source we currently employ is ECMWF's ERA5 dataset
 (reanalysis weather data in a ca. 30 km x 30 km and hourly resolution).
 This dataset is easily available at no additional costs and requires only
-minimal setup from the user in comparison to other datasets.
-It is downloaded automatically on-demand after the
-`ECMWF ADS API <https://cds.climate.copernicus.eu/how-to-api>`_
-(European Centre for Medium-Range Weather Forecasts Climate Data Store
-Application Program Interface) client is properly installed. See separate,
-linked installation guide for details, especially for correctly setting up
-your CDS API key.
+minimal setup from the user in comparison to other datasets. See  :doc:`installation instructions <installation>` to learn
+how to set it up.
+
+We offer two methods for accessing ERA5.
+
+- Earth Data Hub hosts `a mirror <https://earthdatahub.destine.eu/collections/era5/datasets/reanalysis-era5-single-levels>`_
+  of ERA5 which allows for immediate downloads.
+  It is the most convenient source for most users unless you need
+  to download the data at an unusual resolution. See `this example <https://atlite.readthedocs.io/en/master/examples/comparing_era5_sources_cds_vs_edh.html>`_
+  to learn how to use the EDH mirror and understand where it may not be the best choice.
+
+- ECMWF ADS API (European Centre for Medium-Range Weather Forecasts
+  Climate Data Store) is the original source for ERA5. Unfortunately, CDS 
+  downloads may spend hours in a processing queue on the server, so we only recommend using the CDS source if you really need to. See
+  `this example <https://atlite.readthedocs.io/en/master/examples/create_cutout.html>`_
+  to learn how to create an ERA5 cutout.
+
+For hydro data, `ECMWF's GloFAS dataset <https://ewds.climate.copernicus.eu/datasets/cems-glofas-historical>`_
+is also available. It contains daily river discharge data and can complement the ERA5 dataset for hydro.
+It uses the same API key as ERA5, its api endpoint is automatically set up by atlite.
+It will be used if `cutout.module` contains `"glofas"`.
 
 Previously and in the future other datasets where and (hopefully) will
 again be usable, including
