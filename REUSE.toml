@@ -20,3 +20,9 @@ path = "doc/examples/**.nblink"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Contributors to atlite <https://github.com/pypsa/atlite>"
 SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = "examples/profiles_and_efficiencies_from_sam/**.csv"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Contributors to atlite <https://github.com/pypsa/atlite>"
+SPDX-License-Identifier = "CC-BY-4.0"
