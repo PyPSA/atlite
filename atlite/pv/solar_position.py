@@ -114,8 +114,11 @@ def SolarPosition(ds: xr.Dataset, time_shift: str | pd.Timedelta = "0H") -> xr.D
     alt = arcsin(
         (sin(dec) * sin(lat) + cos(dec) * cos(lat) * cos(h)).clip(min=-1.0, max=1.0)
     ).rename("altitude")
-    alt.attrs["time shift"] = f"{time_shift}"
-    alt.attrs["units"] = "rad"
+    alt.attrs = {
+        "time shift": f"{time_shift}",
+        "units": "rad",
+        "long_name": "solar altitude",
+    }
 
     az = arccos(
         ((sin(dec) * cos(lat) - cos(dec) * sin(lat) * cos(h)) / cos(alt)).clip(
@@ -123,8 +126,11 @@ def SolarPosition(ds: xr.Dataset, time_shift: str | pd.Timedelta = "0H") -> xr.D
         )
     )
     az = az.where(h <= 0, 2 * pi - az).rename("azimuth")
-    az.attrs["time shift"] = f"{time_shift}"
-    az.attrs["units"] = "rad"
+    az.attrs = {
+        "time shift": f"{time_shift}",
+        "units": "rad",
+        "long_name": "solar azimuth",
+    }
 
     vars = {da.name: da for da in [alt, az]}
     return xr.Dataset(vars)

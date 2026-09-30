@@ -98,7 +98,7 @@ def _add_height(ds: xr.Dataset) -> xr.Dataset:
     z = ds["z"]
     if "time" in z.coords:
         z = z.isel(time=0, drop=True)
-    ds["height"] = z / g0
+    ds["height"] = (z / g0).assign_attrs(units="m", long_name="Height")
     return ds.drop_vars("z")
 
 
@@ -159,7 +159,9 @@ def _process_wind(ds: xr.Dataset, single_precision: bool = False) -> xr.Dataset:
 
     # span the whole circle: 0 is north, π/2 is east, -π is south, 3π/2 is west
     azimuth = np.arctan2(ds["u100"], ds["v100"])
-    azimuth = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi)
+    azimuth = azimuth.where(azimuth >= 0, azimuth + 2 * np.pi).assign_attrs(
+        units="rad", long_name="100 metre wind azimuth"
+    )
     ds["wnd_azimuth"] = azimuth.astype(np.float32) if single_precision else azimuth
 
     ds = ds.drop_vars(["u100", "v100", "u10", "v10", "wnd10m"])
