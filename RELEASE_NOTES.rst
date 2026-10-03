@@ -75,6 +75,11 @@ Upcoming Release
   component) and ``solar_altitude``/``solar_azimuth`` (inherited ``latitude``).
   Only metadata changes, values are unchanged
   (https://github.com/PyPSA/atlite/pull/521).
+* Fix ``aggregate_matrix`` (used by ``convert_and_aggregate`` with ``matrix``,
+  ``shapes`` or ``layout``) raising a ``TypeError`` with xarray 2026.9.0. For
+  data not backed by dask, a ``pandas.MultiIndex`` passed as ``index`` to
+  ``convert_and_aggregate`` is now kept; before, it was replaced by its level names
+  (https://github.com/PyPSA/atlite/pull/524).
 
 `v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
 =======================================================================================

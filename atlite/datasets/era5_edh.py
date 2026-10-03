@@ -429,9 +429,7 @@ def get_data_height(cutout: Cutout) -> xr.Dataset:
         Dataset containing ``height``.
     """
     ds = _load_feature(cutout, "height", static=True)
-    ds = _add_height(ds)
-    ds["height"].attrs["units"] = "m**2 s**-2"
-    return ds
+    return _add_height(ds)
 
 
 _HANDLERS: dict[str, Handler] = {
