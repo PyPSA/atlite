@@ -46,6 +46,11 @@ Upcoming Release
 
 **Bug fixes**
 
+* Fix the ``units`` and ``long_name`` attributes of the ERA5 variables ``height``
+  (was geopotential ``m**2 s**-2``), ``wnd_azimuth`` (was the ``u100`` wind
+  component) and ``solar_altitude``/``solar_azimuth`` (inherited ``latitude``).
+  Only metadata changes, values are unchanged (`#509 <https://github.com/PyPSA/atlite/issues/509>`_).
+
 * Fix ``get_oedb_windturbineconfig`` applying the documented ``turbine_type``
   search parameter to the value of ``name``. Searching by ``turbine_type``
   alone raised ``KeyError: 'name'``, and combining it with ``name`` silently
