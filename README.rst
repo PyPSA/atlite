@@ -40,7 +40,7 @@ For major next development goals, consult our `vision and roadmap project <https
 Installation
 ============
 
-To install you need a working installation running Python 3.10 or above
+To install you need a working installation running Python 3.11 or above
 and we strongly recommend using either miniconda or anaconda for package
 management.
 
