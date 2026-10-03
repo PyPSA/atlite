@@ -55,4 +55,7 @@ def aggregate_matrix(
         ).assign_coords(coords)
         return cast("xr.DataArray", result)
     da = da.stack(spatial=("y", "x")).transpose("spatial", "time")
-    return xr.DataArray(matrix * da, [index, da.coords["time"]])
+    result = xr.DataArray(
+        matrix * da, dims=[*coords.dims, "time"], coords={"time": da.coords["time"]}
+    )
+    return result.assign_coords(coords)

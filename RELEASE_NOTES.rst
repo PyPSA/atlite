@@ -17,52 +17,69 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
-**Features**
+`v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
+=======================================================================================
 
-* Add ``buffer_geometry`` argument to ``ExclusionContainer.add_raster``. Choose
-  between the historic ``"diamond"`` buffer (default) and a new ``"circular"``
-  buffer that computes a geometrically accurate Euclidean buffer, correct in
-  diagonal directions.
+**Breaking**
+
+* Drop support for Python 3.10. atlite now requires Python 3.11 or above
+  (https://github.com/PyPSA/atlite/pull/507).
+* Add the required dependencies ``zarr>=3``, ``obstore>=0.9`` and ``eccodeslib``
+  (not on Windows) (https://github.com/PyPSA/atlite/pull/507).
+* Rewrite CSP conversion to model the collector geometry. ``convert_csp`` now uses
+  ``SurfaceOrientation`` with tracking (horizontal for parabolic trough, dual-axis for
+  solar tower) instead of the former ``atlite.csp`` module, which was removed. This
+  changes the CSP output. The ``working-with-csp`` example was updated accordingly
+  (https://github.com/PyPSA/atlite/pull/504).
+
+**Features**
 
 * Add an Earth Data Hub (EDH) source for ERA5 as a new dataset module ``era5-edh``,
   which serves data without the CDS processing queue. Configure a DestinE API key
   (see :doc:`installation`) and pass ``module="era5-edh"`` when creating a cutout.
   Only the native 0.25°×0.25° grid is supported; use ``module="era5"`` (CDS) for
-  other resolutions.
-* Implement glofas dataset which contains daily river discharge. ``cutout.hydro()`` now 
-  returns discharge if ``cutout.module`` contains ``"glofas"``.
-  (https://github.com/PyPSA/atlite/pull/498)
-* Rewrite CSP conversion to model the collector geometry. ``convert_csp`` now uses
-  ``SurfaceOrientation`` with tracking (horizontal for parabolic trough, dual-axis for
-  solar tower) instead of the former ``atlite.csp`` module, which was removed. The
-  ``working-with-csp`` example was updated accordingly.
-  (https://github.com/PyPSA/atlite/pull/504)
+  other resolutions (https://github.com/PyPSA/atlite/pull/507).
+* Add the GloFAS dataset with daily river discharge. ``cutout.hydro()`` now returns
+  discharge if ``cutout.module`` contains ``"glofas"``
+  (https://github.com/PyPSA/atlite/pull/498).
+* Add ``buffer_geometry`` argument to ``ExclusionContainer.add_raster``. Choose
+  between the historic ``"diamond"`` buffer (default) and a new ``"circular"``
+  buffer that computes a geometrically accurate Euclidean buffer, correct in
+  diagonal directions (https://github.com/PyPSA/atlite/pull/513).
 * ``SurfaceOrientation`` now also accepts a plain orientation dict
-  (``{"slope": ..., "azimuth": ...}``) in addition to a callable.
-  (https://github.com/PyPSA/atlite/pull/504)
-* Meshgrid ``regrid``/reproject now allows dask to rechunk the spatial input, so that
-  multi-chunk spatial planes are merged before reprojection.
-  (https://github.com/PyPSA/atlite/pull/504)
+  (``{"slope": ..., "azimuth": ...}``) in addition to a callable
+  (https://github.com/PyPSA/atlite/pull/504).
+* Add type annotations and NumPy-style docstrings across the code base, checked
+  with ``mypy`` and stricter ``ruff`` rules. String options now use ``Literal``
+  types (https://github.com/PyPSA/atlite/pull/492).
 
 **Bug fixes**
 
-* Fix the ``units`` and ``long_name`` attributes of the ERA5 variables ``height``
-  (was geopotential ``m**2 s**-2``), ``wnd_azimuth`` (was the ``u100`` wind
-  component) and ``solar_altitude``/``solar_azimuth`` (inherited ``latitude``).
-  Only metadata changes, values are unchanged (`#509 <https://github.com/PyPSA/atlite/issues/509>`_).
-
+* Fix ``Cutout.line_rating`` passing line azimuth in radians while
+  ``convert_line_rating`` interpreted ``psi`` as degrees. Azimuths are now
+  computed in degrees, matching the documented unit
+  (https://github.com/PyPSA/atlite/pull/492).
+* Fix raster exclusions being wrongly applied with rasterio 1.5.1, which
+  perturbs source values colliding with the reprojection nodata value. Rasters
+  added with ``nodata=0`` excluded their whole extent
+  (https://github.com/PyPSA/atlite/pull/518).
+* Fix ``regrid`` failing on inputs with multiple spatial chunks (e.g. SARAH).
+  Dask now merges the spatial chunks before reprojection
+  (https://github.com/PyPSA/atlite/pull/504).
 * Fix ``get_oedb_windturbineconfig`` applying the documented ``turbine_type``
   search parameter to the value of ``name``. Searching by ``turbine_type``
   alone raised ``KeyError: 'name'``, and combining it with ``name`` silently
-  ignored the requested turbine type.
-
-* Fix ``Cutout.line_rating`` passing line azimuth in radians while
-  ``convert_line_rating`` interpreted ``psi`` as degrees. Azimuths are now
-  computed in degrees, matching the documented unit.
-
-* Fix raster exclusions being wrongly applied with rasterio 1.5.1, which
-  perturbs source values colliding with the reprojection nodata value. Rasters
-  added with ``nodata=0`` excluded their whole extent.
+  ignored the requested turbine type (https://github.com/PyPSA/atlite/pull/519).
+* Fix the ``units`` and ``long_name`` attributes of the ERA5 variables ``height``
+  (was geopotential ``m**2 s**-2``), ``wnd_azimuth`` (was the ``u100`` wind
+  component) and ``solar_altitude``/``solar_azimuth`` (inherited ``latitude``).
+  Only metadata changes, values are unchanged
+  (https://github.com/PyPSA/atlite/pull/521).
+* Fix ``aggregate_matrix`` (used by ``convert_and_aggregate`` with ``matrix``,
+  ``shapes`` or ``layout``) raising a ``TypeError`` with xarray 2026.9.0. For
+  data not backed by dask, a ``pandas.MultiIndex`` passed as ``index`` to
+  ``convert_and_aggregate`` is now kept; before, it was replaced by its level names
+  (https://github.com/PyPSA/atlite/pull/524).
 
 `v0.6.1 <https://github.com/PyPSA/atlite/releases/tag/v0.6.1>`__ (21st April 2026)
 =======================================================================================
