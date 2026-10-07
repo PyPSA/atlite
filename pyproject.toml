@@ -33,7 +33,7 @@ dependencies = [
     "bottleneck",
     "numexpr",
     "xarray>=2024.03.0",
-    "netcdf4",
+    "netcdf4>=1.7.4",
     "dask>=2021.10.0",
     "toolz",
     "requests",
