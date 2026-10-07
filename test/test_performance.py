@@ -54,7 +54,7 @@ def ds():
     ],
 )
 def test_convert_pv_is_lazy(ds, kwargs):
-    panel = get_solarpanelconfig("CSi")
+    panel = dict(get_solarpanelconfig("CSi"))
     orientation = get_orientation({"slope": 30.0, "azimuth": 180.0})
     with dask.config.set(scheduler=_forbid_compute):
         da = convert_pv(ds, panel, orientation, **kwargs)

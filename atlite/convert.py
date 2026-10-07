@@ -1912,9 +1912,11 @@ def line_rating(
     if not isinstance(shapes, gpd.GeoSeries):
         shapes = gpd.GeoSeries(shapes).rename_axis("dim_0")
 
+    # CSR format orders the (line, cell) pairs by line
     I = cutout.intersectionmatrix(shapes).tocsr()
-    I.eliminate_zeros()
-    ncells = np.diff(I.indptr)
+    rows, cols = I.nonzero()
+
+    data = cutout.data.stack(spatial=["y", "x"])
 
     azimuth = shapes.apply(line_azimuth_degrees)
     azimuth = azimuth.where(azimuth >= 0, azimuth + 180.0)
@@ -1929,14 +1931,16 @@ def line_rating(
     assert df.notnull().all().all(), "Nan values encountered."
     assert df.columns.equals(pd.Index(["psi", "R", "D", "Ts", "epsilon", "alpha"]))
 
-    # Evaluate all (line, cell) pairs at once, then take the minimum per line
-    data = cutout.data.stack(spatial=["y", "x"]).isel(spatial=I.indices)
-    data = data.rename(spatial="pair").chunk(pair=-1, time=100)
-    pairs = df.iloc[np.repeat(np.arange(len(df)), ncells)]
-    Imax = convert_line_rating(
-        data, **{k: xr.DataArray(v.values, dims="pair") for k, v in pairs.items()}
-    )
-    starts = I.indptr[:-1][ncells > 0]
+    # Compute the rating of each (line, cell) pair
+    pairs = data.isel(spatial=cols).rename(spatial="pair").chunk(pair=-1, time=100)
+    pair_params = {
+        k: xr.DataArray(v.values, dims="pair") for k, v in df.iloc[rows].items()
+    }
+    Imax = convert_line_rating(pairs, **pair_params)
+
+    # Take the minimum over the cells of each line, ignoring NaN like ``.min()``.
+    # The pairs of each line are contiguous and start at ``starts``.
+    lines, starts = np.unique(rows, return_index=True)
     Imax = xr.apply_ufunc(
         lambda a: np.fmin.reduceat(a, starts, axis=-1),
         Imax,
@@ -1945,14 +1949,13 @@ def line_rating(
         dask="parallelized",
         output_dtypes=[Imax.dtype],
         dask_gufunc_kwargs={
-            "output_sizes": {"line": len(starts)},
+            "output_sizes": {"line": len(lines)},
             "allow_rechunk": False,
         },
     )
-    # Lines without intersecting cells get NaN
-    Imax = Imax.assign_coords(line=np.flatnonzero(ncells))
-    Imax = Imax.reindex(line=np.arange(len(df))).transpose("line", "time")
 
+    # Lines without intersecting cells get NaN
+    Imax = Imax.assign_coords(line=lines).reindex(line=range(len(df)))
     dim = df.index.name or "concat_dim"
-    Imax = Imax.rename(line=dim).assign_coords({dim: df.index})
+    Imax = Imax.rename(line=dim).assign_coords({dim: df.index}).transpose(dim, "time")
     return maybe_progressbar(Imax, show_progress, **dask_kwargs).assign_attrs(units="A")
