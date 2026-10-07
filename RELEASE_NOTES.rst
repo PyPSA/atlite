@@ -26,8 +26,9 @@ Upcoming Release
   variables prepared earlier. Reading the new cutouts requires ``netCDF4>=1.7.4``
   (pip) or a ``libnetcdf`` with the zstd plugin (conda-forge). To keep the old
   behaviour, pass ``compression={"compression": "zlib", "complevel": 9,
-  "shuffle": True}`` (https://github.com/PyPSA/atlite/issues/508).
-* Raise the minimum version of ``netCDF4`` to 1.7.4.
+  "shuffle": True}`` (https://github.com/PyPSA/atlite/pull/529).
+* Raise the minimum version of ``netCDF4`` to 1.7.4
+  (https://github.com/PyPSA/atlite/pull/529).
 
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================
