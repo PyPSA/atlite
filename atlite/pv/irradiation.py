@@ -159,10 +159,10 @@ def TiltedDiffuseIrrad(
     ) * diffuse
 
     if (
-        logger.isEnabledFor(logging.WARNING)
+        logger.isEnabledFor(logging.DEBUG)
         and ((diffuse_t < 0.0) & (sinaltitude > sin(radians(1.0)))).any()
     ):
-        logger.warning("diffuse_t exhibits negative values above altitude threshold.")
+        logger.debug("diffuse_t exhibits negative values above altitude threshold.")
 
     # fixup: clip all negative values (unclear why it gets negative)
     # note: REatlas does not do the fixup
