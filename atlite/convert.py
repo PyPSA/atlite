@@ -16,10 +16,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
-from dask import compute, delayed
 from dask.array import absolute, arccos, cos, maximum, mod, radians, sin, sqrt
 from dask.diagnostics import ProgressBar
 from numpy import pi
+from scipy.interpolate import RegularGridInterpolator
 from scipy.sparse import csr_matrix
 
 from atlite import hydro as hydrom
@@ -1415,8 +1415,18 @@ def convert_csp(ds, installation):
         raise ValueError(f'Unknown CSP technology option "{tech}".')
 
     # Determine solar_position dependend efficiency for each grid cell and time step
-    efficiency = installation["efficiency"].interp(
-        altitude=solar_position["altitude"], azimuth=solar_position["azimuth"]
+    eff = installation["efficiency"].transpose("altitude", "azimuth")
+    interp = RegularGridInterpolator(
+        (eff["altitude"].values, eff["azimuth"].values),
+        eff.values,
+        bounds_error=False,
+    )
+    efficiency = xr.apply_ufunc(
+        lambda alt, az: interp((alt, az)),
+        solar_position["altitude"],
+        solar_position["azimuth"],
+        dask="parallelized",
+        output_dtypes=[eff.dtype],
     )
 
     # Thermal system output
@@ -1732,8 +1742,8 @@ def convert_line_rating(
     -------
     xr.DataArray or numpy.ndarray
         Maximum current per time step in ampere. When *ds* is an
-        ``xr.Dataset`` the result is aggregated across intersecting cells
-        via ``.min("spatial")``.
+        ``xr.Dataset`` with a ``spatial`` dimension, the result is aggregated
+        across intersecting cells via ``.min("spatial")``.
     """
     Ta = ds["temperature"]
     Tfilm = (Ta + Ts) / 2
@@ -1791,7 +1801,9 @@ def convert_line_rating(
     qs = alpha * Q * A * sin(Phi_s)
 
     Imax = sqrt((qc + qr - qs) / R)
-    return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
+    if isinstance(Imax, xr.DataArray) and "spatial" in Imax.dims:
+        return Imax.min("spatial")
+    return Imax
 
 
 def line_azimuth_degrees(shape: Any) -> float:
@@ -1900,10 +1912,9 @@ def line_rating(
     if not isinstance(shapes, gpd.GeoSeries):
         shapes = gpd.GeoSeries(shapes).rename_axis("dim_0")
 
-    I = cutout.intersectionmatrix(shapes)
-    rows, cols = I.nonzero()
-
-    data = cutout.data.stack(spatial=["y", "x"])
+    I = cutout.intersectionmatrix(shapes).tocsr()
+    I.eliminate_zeros()
+    ncells = np.diff(I.indptr)
 
     azimuth = shapes.apply(line_azimuth_degrees)
     azimuth = azimuth.where(azimuth >= 0, azimuth + 180.0)
@@ -1918,19 +1929,30 @@ def line_rating(
     assert df.notnull().all().all(), "Nan values encountered."
     assert df.columns.equals(pd.Index(["psi", "R", "D", "Ts", "epsilon", "alpha"]))
 
-    dummy = xr.DataArray(np.full(len(data.time), np.nan), coords=(data.time,))
-    res = []
-    for i in range(len(df)):
-        cells_i = cols[rows == i]
-        if cells_i.size:
-            ds = data.isel(spatial=cells_i)
-            res.append(delayed(convert_line_rating)(ds, *df.iloc[i].values))
-        else:
-            res.append(dummy)
-    if show_progress:
-        with ProgressBar(minimum=2):
-            (computed,) = compute(res, **dask_kwargs)
-    else:
-        (computed,) = compute(res, **dask_kwargs)
+    # Evaluate all (line, cell) pairs at once, then take the minimum per line
+    data = cutout.data.stack(spatial=["y", "x"]).isel(spatial=I.indices)
+    data = data.rename(spatial="pair").chunk(pair=-1, time=100)
+    pairs = df.iloc[np.repeat(np.arange(len(df)), ncells)]
+    Imax = convert_line_rating(
+        data, **{k: xr.DataArray(v.values, dims="pair") for k, v in pairs.items()}
+    )
+    starts = I.indptr[:-1][ncells > 0]
+    Imax = xr.apply_ufunc(
+        lambda a: np.fmin.reduceat(a, starts, axis=-1),
+        Imax,
+        input_core_dims=[["pair"]],
+        output_core_dims=[["line"]],
+        dask="parallelized",
+        output_dtypes=[Imax.dtype],
+        dask_gufunc_kwargs={
+            "output_sizes": {"line": len(starts)},
+            "allow_rechunk": False,
+        },
+    )
+    # Lines without intersecting cells get NaN
+    Imax = Imax.assign_coords(line=np.flatnonzero(ncells))
+    Imax = Imax.reindex(line=np.arange(len(df))).transpose("line", "time")
 
-    return xr.concat(computed, dim=df.index).assign_attrs(units="A")
+    dim = df.index.name or "concat_dim"
+    Imax = Imax.rename(line=dim).assign_coords({dim: df.index})
+    return maybe_progressbar(Imax, show_progress, **dask_kwargs).assign_attrs(units="A")

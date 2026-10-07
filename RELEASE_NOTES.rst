@@ -17,6 +17,24 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Performance**
+
+* Open existing cutouts with ``chunks="auto"`` by default instead of ``{"time": 100}``,
+  also after ``Cutout.prepare``. Dask chunks are now aligned with the chunks stored in
+  the NetCDF file. Before, dask chunks that split the stored chunks made the compressed
+  data decompress many times. This makes all conversions much faster for cutouts with
+  large stored chunks. An explicit ``chunks`` argument is
+  still respected. An explicit ``chunks="auto"`` now also
+  respects the stored chunks. Larger chunks can increase peak memory. To reduce it,
+  pass ``chunks``.
+* Keep ``csp`` lazy and chunked. The efficiency interpolation previously merged all time
+  steps into one chunk and added the solar position as four extra coordinates.
+* Keep ``pv`` and ``irradiation`` lazy for ``trigon_model="other"`` and
+  ``tracking="tilted_horizontal"``. Both computed intermediate results eagerly before.
+  The check for negative diffuse irradiation now only runs at log level ``DEBUG``.
+* Compute ``line_rating`` for all lines in one vectorised dask operation instead of one
+  task per line. Before, each line read and decompressed the cutout data again.
+
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================
 
