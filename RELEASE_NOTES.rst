@@ -17,6 +17,14 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Bug fixes**
+
+* Fix ``ExclusionContainer.add_raster`` ignoring ``codes=0``. The code ``0`` was
+  treated like a missing ``codes`` argument, so all non-zero cells were excluded
+  instead of the cells with value ``0``. Numpy arrays are now accepted as
+  ``codes``, and an empty list excludes no cells
+  (https://github.com/PyPSA/atlite/pull/525).
+
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================
 
