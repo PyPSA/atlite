@@ -17,6 +17,13 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Bug fixes**
+
+* Fill missing irradiation data with zero for ``trigon_model="other"``, as for
+  ``trigon_model="simple"``. Before, cells without data, e.g. north of 65° N in SARAH
+  cutouts, returned NaN and made aggregated time series NaN
+  (https://github.com/PyPSA/atlite/pull/528).
+
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================
 
