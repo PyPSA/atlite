@@ -26,14 +26,18 @@ Upcoming Release
   large stored chunks. An explicit ``chunks`` argument is
   still respected. An explicit ``chunks="auto"`` now also
   respects the stored chunks. Larger chunks can increase peak memory. To reduce it,
-  pass ``chunks``.
+  pass ``chunks``
+  (https://github.com/PyPSA/atlite/pull/527).
 * Keep ``csp`` lazy and chunked. The efficiency interpolation previously merged all time
-  steps into one chunk and added the solar position as four extra coordinates.
+  steps into one chunk and added the solar position as four extra coordinates
+  (https://github.com/PyPSA/atlite/pull/527).
 * Keep ``pv`` and ``irradiation`` lazy for ``trigon_model="other"`` and
   ``tracking="tilted_horizontal"``. Both computed intermediate results eagerly before.
-  The check for negative diffuse irradiation now only runs at log level ``DEBUG``.
+  The check for negative diffuse irradiation now only runs at log level ``DEBUG``
+  (https://github.com/PyPSA/atlite/pull/527).
 * Compute ``line_rating`` for all lines in one vectorised dask operation instead of one
-  task per line. Before, each line read and decompressed the cutout data again.
+  task per line. Before, each line read and decompressed the cutout data again
+  (https://github.com/PyPSA/atlite/pull/527).
 
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================
