@@ -17,6 +17,10 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Features**
+
+* Add support for Python 3.14.
+
 **Bug fixes**
 
 * Fix ``ExclusionContainer.add_raster`` ignoring ``codes=0``. The code ``0`` was
