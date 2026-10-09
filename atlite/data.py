@@ -22,6 +22,10 @@ from dask.utils import SerializableLock
 from numpy import atleast_1d
 
 from atlite.datasets import modules as datamodules
+from atlite.schema import (
+    SCHEMA_VERSION_ATTR,
+    require_current_schema_version,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
@@ -252,8 +256,13 @@ def cutout_prepare(
         If ``tmpdir`` is None.
     FileNotFoundError
         If ``tmpdir`` does not exist.
+    atlite.schema.IncompatibleCutoutError
+        If features is to be added to an existing cutout that is not the recommended
+        schema version of the installed versino of ``atlite``.
+    RuntimeError
+        If the data of a module sets the cutout's schema version attribute.
 
-    """
+    """  # noqa: DOC502 (IncompatibleCutoutError is raised by require_current_schema_version)
     if dask_kwargs is None:
         dask_kwargs = {}
 
@@ -263,6 +272,8 @@ def cutout_prepare(
     if cutout.prepared and not overwrite:
         logger.info("Cutout already prepared.")
         return cutout
+
+    require_current_schema_version(cutout.schema_version, cutout.path)
 
     if tmpdir is None:
         raise ValueError("tmpdir cannot be None")
@@ -296,6 +307,10 @@ def cutout_prepare(
             monthly_requests=monthly_requests,
             concurrent_requests=concurrent_requests,
         )
+        if SCHEMA_VERSION_ATTR in ds.attrs:
+            raise RuntimeError(
+                f"Data of module '{module}' must not contain attribute '{SCHEMA_VERSION_ATTR}'."
+            )
         prepared |= set(missing_features)
 
         cutout.data.attrs.update({"prepared_features": list(prepared)})

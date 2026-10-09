@@ -14,6 +14,16 @@ Cutout
     :members:
 
 
+Schema versions and migration
+-----------------------------
+
+.. automodule:: atlite.schema
+    :members:
+
+.. automodule:: atlite.migrate
+    :members: migrate_cutout
+
+
 Data
 ------
 
