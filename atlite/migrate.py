@@ -119,7 +119,6 @@ def migrate_cutout(
         shutil.copyfile(path, target)
 
     try:
-
         # Actual migration loop. Call all migration functions in order
         for current in range(version, CUTOUT_SCHEMA_VERSION):
             logger.info(
