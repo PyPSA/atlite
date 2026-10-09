@@ -20,6 +20,13 @@ Upcoming Release
 **Features**
 
 * Add support for Python 3.14.
+* Feat: Cutouts data format (schema) is now versioned using a the attribute ``atlite_cutout_schema_version``.
+  Newly created cutouts carry the version recommended by the ``atlite`` version used to create them (version 1 at the moment)
+  Old cutouts are still supported but need to be migrated with
+  ``python -m atlite.migrate <path> --output <new path>`` or 
+  ``atlite.migrate.migrate_cutout(path, output=new_path)``.
+  Cutouts that have an incompatible data schema will in the future be rejected and raise a ``IncompatibleCutoutError``.
+  See :doc:`migrating_cutouts` for details (https://github.com/PyPSA/atlite/pull/533).
 
 **Bug fixes**
 
