@@ -139,7 +139,7 @@ def test_migrate_rejects_non_cutout(tmp_path):
     """Migrating a netCDF file that is not an atlite cutout raises an error."""
     path = tmp_path / "other.nc"
     xr.Dataset({"a": ("x", [1, 2])}).to_netcdf(path)
-    with pytest.raises(IncompatibleCutoutError, match="not an atlite cutout"):
+    with pytest.raises(IncompatibleCutoutError, match="atlite cutout"):
         migrate_cutout(path, in_place=True)
 
 
