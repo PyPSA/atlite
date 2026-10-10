@@ -25,7 +25,8 @@ Upcoming Release
 
 * Fix ``compute_indicatormatrix`` and ``compute_intersectionmatrix`` failing with
   ``KeyError`` or indexing mismatched shapes when origin or destination geometries
-  are passed as pandas or geopandas Series with a non-default index.
+  are passed as pandas or geopandas Series with a non-default index
+  (https://github.com/PyPSA/atlite/pull/534).
 * Fix ``ExclusionContainer.add_raster`` ignoring ``codes=0``. The code ``0`` was
   treated like a missing ``codes`` argument, so all non-zero cells were excluded
   instead of the cells with value ``0``. Numpy arrays are now accepted as
