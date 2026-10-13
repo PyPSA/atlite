@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import tempfile
 import zipfile
 from contextlib import nullcontext
@@ -223,7 +224,7 @@ def retrieve_data(
                         with xr.open_dataset(target) as raw:
                             var_datasets.append(raw.load().rename({raw_name: new_name}))
                     finally:
-                        os.remove(target)
+                        pathlib.Path(target).unlink()
                 if len(var_datasets) == 1:
                     datasets.append(var_datasets[0])
                 else:
@@ -231,7 +232,7 @@ def retrieve_data(
                     combined = combined.sortby("time")
                     datasets.append(combined)
     finally:
-        os.remove(archive)
+        pathlib.Path(archive).unlink()
 
     ds = xr.merge(datasets)
     ds = _rename_and_clean_coords(ds)
@@ -282,7 +283,9 @@ def get_data(
         Data for the requested feature, aligned to cutout coordinates.
     """
     if feature not in features:
-        raise NotImplementedError(f"Feature {feature!r} not supported by era5-corrected")
+        raise NotImplementedError(
+            f"Feature {feature!r} not supported by era5-corrected"
+        )
     if (cutout.dx, cutout.dy) != (0.25, 0.25):
         raise NotImplementedError(
             "era5-corrected only supports the native 0.25°×0.25° grid."
@@ -342,9 +345,9 @@ def get_data(
             day=["01"],
             **retrieval_params,
         )
-        return xr.Dataset(
-            {POWER_LAW_NAME: _climatology_to_time(alpha[POWER_LAW_NAME], time)}
-        )
+        return xr.Dataset({
+            POWER_LAW_NAME: _climatology_to_time(alpha[POWER_LAW_NAME], time)
+        })
 
     def retrieve_once(t: dict[str, Any]) -> xr.Dataset:
         return retrieve_data(
