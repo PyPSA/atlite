@@ -80,7 +80,9 @@ def extrapolate_wind_speed(
 
     if from_height is None:
         heights: NDArray = np.asarray([
-            int(str(s)[3:-1]) for s in ds if re.match(r"wnd\d+m", str(s))
+            int(m.group(1))
+            for s in ds
+            if (m := re.fullmatch(r"wnd(\d+)m", str(s)))
         ])
 
         if len(heights) == 0:
