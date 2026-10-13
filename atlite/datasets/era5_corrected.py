@@ -9,17 +9,23 @@ The data is retrieved from the Climate Data Store dataset
 https://cds.climate.copernicus.eu/datasets/sis-energy-global-reanalysis
 
 Only the 100 m wind speed is available, in two variants which are both stored
-in the cutout (feature ``wind_corrected``):
+in the cutout together with the power law coefficients (feature
+``wind_corrected``):
 
 * ``wnd100m_corrected``: bias-corrected 100 m wind speed
   (CDS variable ``100m_wind_speed``)
 * ``wnd100m_corrected_extrapolated``: wind speed extrapolated to 100 m with a
   power law from the bias-corrected lower level wind speed
   (CDS variable ``100m_wind_speed_extrapolated``)
+* ``wnd_shear_exp_corrected``: power law coefficient (alpha) matching the
+  corrected wind speed (CDS variable ``wind_power_law_coefficients``). It is a
+  month-by-hour climatology, repeated for every year of the cutout, and is
+  requested separately from the wind speeds.
 
-Combine the module with ``era5`` to get the roughness needed for hub heights
-other than 100 m. Afterwards choose which 100 m wind speed is used by
-:py:meth:`atlite.Cutout.wind` by assigning it to ``wnd100m``.
+Hub heights other than 100 m need either the power law coefficient (use
+``method="power"`` and assign ``wnd_shear_exp_corrected`` to ``wnd_shear_exp``)
+or the roughness from ``era5`` (logarithmic method). Choose which 100 m wind
+speed is used by :py:meth:`atlite.Cutout.wind` by assigning it to ``wnd100m``.
 
 Example
 -------
@@ -61,13 +67,28 @@ logger = logging.getLogger(__name__)
 # Model and CRS Settings
 crs = 4326
 
-features = {"wind_corrected": ["wnd100m_corrected", "wnd100m_corrected_extrapolated"]}
+features = {
+    "wind_corrected": [
+        "wnd100m_corrected",
+        "wnd100m_corrected_extrapolated",
+        "wnd_shear_exp_corrected",
+    ]
+}
 
 DATASET = "sis-energy-global-reanalysis"
 # CDS variable -> (tag in the delivered file name, name in the cutout)
 WIND_VARIABLES = {
     "100m_wind_speed": ("_mbc_", "wnd100m_corrected"),
     "100m_wind_speed_extrapolated": ("_pwl_", "wnd100m_corrected_extrapolated"),
+}
+# Power law coefficients (alpha) are a month-by-hour climatology, not a time
+# series, and are requested separately to keep the request size small.
+POWER_LAW_VARIABLE = "wind_power_law_coefficients"
+POWER_LAW_NAME = "wnd_shear_exp_corrected"
+# CDS variable -> (file name tag, name in the delivered file, name in the cutout)
+_RAW_VARIABLES = {
+    **{v: (tag, "ws100", name) for v, (tag, name) in WIND_VARIABLES.items()},
+    POWER_LAW_VARIABLE: ("ALPH-coeff", "alpha", POWER_LAW_NAME),
 }
 
 
@@ -184,7 +205,7 @@ def retrieve_data(
         with zipfile.ZipFile(archive) as zf:
             names = list(dict.fromkeys(n for n in zf.namelist() if n.endswith(".nc")))
             for variable in request["variable"]:
-                tag, new_name = WIND_VARIABLES[variable]
+                tag, raw_name, new_name = _RAW_VARIABLES[variable]
                 members = sorted(n for n in names if tag in n)
                 assert members, (
                     f"Expected at least one NetCDF file for {variable}, got none"
@@ -196,7 +217,7 @@ def retrieve_data(
                         with os.fdopen(fd, "wb") as out:
                             out.write(zf.read(member))
                         with xr.open_dataset(target) as raw:
-                            var_datasets.append(raw.load().rename({"ws100": new_name}))
+                            var_datasets.append(raw.load().rename({raw_name: new_name}))
                     finally:
                         os.remove(target)
                 if len(var_datasets) == 1:
@@ -319,4 +340,41 @@ def get_data(
 
     result = xr.concat(datasets, dim="time").sel(time=coords["time"])
     assert isinstance(result, xr.Dataset)
+
+    # The delivered coefficients do not depend on the requested year or month,
+    # so a single request for the first month is sufficient.
+    alpha = retrieve_data(
+        variable=[POWER_LAW_VARIABLE],
+        year=[str(time[0].year)],
+        month=[time[0].strftime("%m")],
+        day=["01"],
+        **retrieval_params,
+    )
+    result[POWER_LAW_NAME] = _climatology_to_time(alpha[POWER_LAW_NAME], time)
     return result
+
+
+def _climatology_to_time(clim: xr.DataArray, time: pd.DatetimeIndex) -> xr.DataArray:
+    """
+    Map a month-by-hour climatology onto the timestamps of a cutout.
+
+    Parameters
+    ----------
+    clim : xr.DataArray
+        Climatology with a 'time' dimension whose timestamps carry the month
+        and hour of day they apply to; the year and day are irrelevant.
+    time : pd.DatetimeIndex
+        Target timestamps.
+
+    Returns
+    -------
+    xr.DataArray
+        Climatology values for every target timestamp.
+    """
+    clim_time = clim.indexes["time"]
+    positions = pd.Index(clim_time.month * 24 + clim_time.hour).get_indexer(
+        time.month * 24 + time.hour
+    )
+    if (positions < 0).any():
+        raise ValueError("Power law coefficients do not cover all months and hours.")
+    return clim.isel(time=positions).assign_coords(time=time)

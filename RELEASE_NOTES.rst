@@ -20,10 +20,12 @@ Upcoming Release
 **Features**
 
 * Add support for Python 3.14.
-* Add the ``era5-corrected`` module providing the bias-corrected C3S Energy ERA5
-  100 m wind speed ([``sis-energy-global-reanalysis``](https://cds.climate.copernicus.eu/datasets/sis-energy-global-reanalysis?tab=overview)) as ``wnd100m_corrected``
-  and ``wnd100m_corrected_extrapolated``. Combine it with ``era5`` to get the shear exponent in order to extrapolate the corrected wind speed. Assign
-  the preferred variable to ``cutout.data["wnd100m"]`` to use it in ``cutout.wind``.
+* Add the ``era5-corrected`` module providing the bias-corrected ([``sis-energy-global-reanalysis``](https://cds.climate.copernicus.eu/datasets/sis-energy-global-reanalysis?tab=overview)) 
+  ERA5 100 m wind speed as ``wnd100m_corrected`` and ``wnd100m_corrected_extrapolated``, plus the power law coefficients as
+  ``wnd_shear_exp_corrected`` (a month-by-hour climatology, fetched in a separate request). 
+  Assign the preferred variables to ``cutout.data["wnd100m"]`` and
+  ``cutout.data["wnd_shear_exp"]`` to use them in ``cutout.wind``. Combine with ``era5`` for ``roughness``
+  (logarithmic extrapolation).
 
 **Bug fixes**
 
