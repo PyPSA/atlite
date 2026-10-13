@@ -57,6 +57,7 @@ crs = 4326
 features: dict[str, list[str]] = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
+    "roughness": ["roughness"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -74,6 +75,7 @@ static_features: set[str] = {"height"}
 
 _FEATURE_VARS: dict[str, list[str]] = {
     "wind": ["u10", "v10", "u100", "v100", "fsr"],
+    "roughness": ["fsr"],
     "influx": ["ssrd", "ssr", "fdir", "tisr"],
     "temperature": ["t2m", "d2m", "stl4"],
     "runoff": ["ro"],
@@ -350,6 +352,27 @@ def get_data_wind(cutout: Cutout) -> xr.Dataset:
     return ds
 
 
+def get_data_roughness(cutout: Cutout) -> xr.Dataset:
+    """
+    Retrieve the forecast surface roughness only.
+
+    Parameters
+    ----------
+    cutout : atlite.Cutout
+        Cutout defining the target grid and time range.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset containing ``roughness``.
+    """
+    ds = _load_feature(cutout, "roughness").rename({"fsr": "roughness"})
+    ds["roughness"] = ds["roughness"].assign_attrs(
+        units="m", long_name="Forecast surface roughness"
+    )
+    return ds
+
+
 def get_data_influx(cutout: Cutout) -> xr.Dataset:
     """
     Retrieve and prepare solar influx variables.
@@ -434,6 +457,7 @@ def get_data_height(cutout: Cutout) -> xr.Dataset:
 
 _HANDLERS: dict[str, Handler] = {
     "wind": get_data_wind,
+    "roughness": get_data_roughness,
     "influx": get_data_influx,
     "temperature": get_data_temperature,
     "runoff": get_data_runoff,
@@ -442,6 +466,7 @@ _HANDLERS: dict[str, Handler] = {
 
 _SANITIZERS: dict[str, Sanitizer] = {
     "wind": sanitize_wind,
+    "roughness": sanitize_wind,
     "influx": sanitize_influx,
     "runoff": sanitize_runoff,
 }

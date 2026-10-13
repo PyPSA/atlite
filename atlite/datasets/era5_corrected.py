@@ -8,19 +8,20 @@ The data is retrieved from the Climate Data Store dataset
 ``sis-energy-global-reanalysis``, see
 https://cds.climate.copernicus.eu/datasets/sis-energy-global-reanalysis
 
-Only the 100 m wind speed is available, in two variants which are both stored
-in the cutout together with the power law coefficients (feature
-``wind_corrected``):
+Only the 100 m wind speed is available, in two variants, each selectable as a
+separate feature:
 
-* ``wnd100m_corrected``: bias-corrected 100 m wind speed
+* ``wind_corrected``: ``wnd100m_corrected``, bias-corrected 100 m wind speed
   (CDS variable ``100m_wind_speed``)
-* ``wnd100m_corrected_extrapolated``: wind speed extrapolated to 100 m with a
-  power law from the bias-corrected lower level wind speed
-  (CDS variable ``100m_wind_speed_extrapolated``)
-* ``wnd_shear_exp_corrected``: power law coefficient (alpha) matching the
-  corrected wind speed (CDS variable ``wind_power_law_coefficients``). It is a
-  month-by-hour climatology, repeated for every year of the cutout, and is
-  requested separately from the wind speeds.
+* ``wind_corrected_extrapolated``: ``wnd100m_corrected_extrapolated``, wind
+  speed extrapolated to 100 m with a power law from the bias-corrected lower
+  level wind speed (CDS variable ``100m_wind_speed_extrapolated``)
+
+The feature ``wind_shear_exp_corrected`` provides ``wnd_shear_exp_corrected``,
+the power law coefficient (alpha) matching the corrected wind speed (CDS
+variable ``wind_power_law_coefficients``). It is a month-by-hour climatology,
+repeated for every year of the cutout, and is requested separately from the
+wind speeds.
 
 Hub heights other than 100 m need either the power law coefficient (use
 ``method="power"`` and assign ``wnd_shear_exp_corrected`` to ``wnd_shear_exp``)
@@ -68,11 +69,9 @@ logger = logging.getLogger(__name__)
 crs = 4326
 
 features = {
-    "wind_corrected": [
-        "wnd100m_corrected",
-        "wnd100m_corrected_extrapolated",
-        "wnd_shear_exp_corrected",
-    ]
+    "wind_corrected": ["wnd100m_corrected"],
+    "wind_corrected_extrapolated": ["wnd100m_corrected_extrapolated"],
+    "wind_shear_exp_corrected": ["wnd_shear_exp_corrected"],
 }
 
 DATASET = "sis-energy-global-reanalysis"
@@ -80,6 +79,11 @@ DATASET = "sis-energy-global-reanalysis"
 WIND_VARIABLES = {
     "100m_wind_speed": ("_mbc_", "wnd100m_corrected"),
     "100m_wind_speed_extrapolated": ("_pwl_", "wnd100m_corrected_extrapolated"),
+}
+# Feature -> CDS wind variable requested for it
+_FEATURE_WIND_VARIABLE = {
+    "wind_corrected": "100m_wind_speed",
+    "wind_corrected_extrapolated": "100m_wind_speed_extrapolated",
 }
 # Power law coefficients (alpha) are a month-by-hour climatology, not a time
 # series, and are requested separately to keep the request size small.
@@ -252,7 +256,8 @@ def get_data(
     cutout : Cutout
         Cutout object defining the spatial and temporal extent.
     feature : str
-        Feature to retrieve. Only 'wind_corrected' is supported.
+        Feature to retrieve: 'wind_corrected', 'wind_corrected_extrapolated'
+        or 'wind_shear_exp_corrected'.
     tmpdir : PathLike
         Directory for temporary download files.
     lock : SerializableLock or None, optional
@@ -268,7 +273,8 @@ def get_data(
     Notes
     -----
     Timeframes longer than 12 months are rejected because the CDS API request
-    would exceed its size limit. Each wind variable is downloaded separately.
+    would exceed its size limit. The wind speed and the power law coefficients
+    are downloaded in separate requests.
 
     Returns
     -------
@@ -326,12 +332,24 @@ def get_data(
             for year in time.year.unique()
         ]
 
+    if feature == "wind_shear_exp_corrected":
+        # The delivered coefficients do not depend on the requested year or
+        # month, so a single request for the first month is sufficient.
+        alpha = retrieve_data(
+            variable=[POWER_LAW_VARIABLE],
+            year=[str(time[0].year)],
+            month=[time[0].strftime("%m")],
+            day=["01"],
+            **retrieval_params,
+        )
+        return xr.Dataset(
+            {POWER_LAW_NAME: _climatology_to_time(alpha[POWER_LAW_NAME], time)}
+        )
+
     def retrieve_once(t: dict[str, Any]) -> xr.Dataset:
-        datasets = [
-            retrieve_data(variable=[variable], **retrieval_params, **t)
-            for variable in WIND_VARIABLES
-        ]
-        return xr.merge(datasets)
+        return retrieve_data(
+            variable=[_FEATURE_WIND_VARIABLE[feature]], **retrieval_params, **t
+        )
 
     if concurrent_requests:
         datasets = compute(*[delayed(retrieve_once)(c) for c in time_chunks])
@@ -340,17 +358,6 @@ def get_data(
 
     result = xr.concat(datasets, dim="time").sel(time=coords["time"])
     assert isinstance(result, xr.Dataset)
-
-    # The delivered coefficients do not depend on the requested year or month,
-    # so a single request for the first month is sufficient.
-    alpha = retrieve_data(
-        variable=[POWER_LAW_VARIABLE],
-        year=[str(time[0].year)],
-        month=[time[0].strftime("%m")],
-        day=["01"],
-        **retrieval_params,
-    )
-    result[POWER_LAW_NAME] = _climatology_to_time(alpha[POWER_LAW_NAME], time)
     return result
 
 
