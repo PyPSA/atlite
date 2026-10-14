@@ -19,11 +19,7 @@ Upcoming Release
 
 **Documentation**
 
-* Fix broken links for the developing working groups and funding information.
-  Archived links are used where project sites are no longer available (CoNDyNet,
-  Stromnetze Research Initiative). Renewable Energy Group link removed as no
-  archived version was found.
-  (https://github.com/PyPSA/atlite/pull/537)
+* Fix broken links in docs (https://github.com/PyPSA/atlite/pull/537).
 
 **Features**
 
