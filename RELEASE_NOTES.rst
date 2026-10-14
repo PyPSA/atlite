@@ -17,6 +17,14 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Documentation**
+
+* Fix broken links for the developing working groups and funding information.
+  Archived links are used where project sites are no longer available (CoNDyNet,
+  Stromnetze Research Initiative). Renewable Energy Group link removed as no
+  archived version was found.
+  (https://github.com/PyPSA/atlite/pull/537)
+
 **Features**
 
 * Add support for Python 3.14.
