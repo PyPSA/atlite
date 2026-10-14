@@ -145,7 +145,7 @@ def pv_test(cutout, time=TIME, skip_optimal_sum_test=False):
 
     # now another solarpanel with bofinger model
     production_other = cutout.pv(
-        atlite.resource.solarpanels.KANENA,
+        atlite.resource.solarpanels.KANEKA,
         "latitude_optimal",
         layout=cap_factor_opt,
     )

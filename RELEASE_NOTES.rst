@@ -17,6 +17,12 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Breaking**
+
+* Rename the solar panel ``KANENA`` to ``KANEKA``, after its manufacturer Kaneka.
+  Configurations and scripts using ``panel="KANENA"`` or
+  ``atlite.solarpanels.KANENA`` must switch to ``KANEKA``.
+
 **Features**
 
 * Add support for Python 3.14.
