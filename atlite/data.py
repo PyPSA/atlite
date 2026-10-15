@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+import gc
 import logging
 import os
+import time
 from functools import wraps
 from pathlib import Path
 from shutil import rmtree
@@ -30,6 +32,19 @@ if TYPE_CHECKING:
     from atlite.cutout import Cutout
 
 logger = logging.getLogger(__name__)
+
+
+def _rename_with_retry(source: Path, target: Path, attempts: int = 20) -> None:
+    """Rename a file, retrying while Windows still holds handles on it."""
+    for attempt in range(attempts):
+        try:
+            source.rename(target)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            gc.collect()
+            time.sleep(0.25)
 
 
 def get_features(
@@ -233,12 +248,12 @@ def cutout_prepare(
     dask_kwargs : dict, default {}
         Dict with keyword arguments passed to `dask.compute`.
     monthly_requests : bool, optional
-        If True, the data is requested on a monthly basis in ERA5. This is useful for
-        large cutouts, where the data is requested in smaller chunks. The
-        default is False
+        If True, ERA5 and ERA5-corrected data are requested on a monthly basis.
+        This is useful for large cutouts, where the data is requested in smaller
+        chunks. The default is False.
     concurrent_requests : bool, optional
-        If True, the monthly data requests are posted concurrently.
-        Only has an effect if `monthly_requests` is True. The default is False.
+        If True, the time-chunked data requests are posted concurrently. The
+        default is False.
 
     Returns
     -------
@@ -319,10 +334,14 @@ def cutout_prepare(
                 write_job.compute(**dask_kwargs)
         else:
             write_job.compute(**dask_kwargs)
+        del write_job
         if cutout.path.exists():
             cutout.data.close()
+            # release lazily opened handles of the old file (Windows cannot
+            # replace files that are still open)
+            gc.collect()
             cutout.path.unlink()
-        Path(tmp).rename(cutout.path)
+        _rename_with_retry(Path(tmp), cutout.path)
 
         cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
 

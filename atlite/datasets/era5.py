@@ -60,6 +60,7 @@ crs = 4326
 features = {
     "height": ["height"],
     "wind": ["wnd100m", "wnd_shear_exp", "wnd_azimuth", "roughness"],
+    "roughness": ["roughness"],
     "influx": [
         "influx_toa",
         "influx_direct",
@@ -197,6 +198,30 @@ def get_data_wind(retrieval_params: dict[str, Any]) -> xr.Dataset:
     )
     ds = _rename_and_clean_coords(ds)
     return _process_wind(ds)
+
+
+def get_data_roughness(retrieval_params: dict[str, Any]) -> xr.Dataset:
+    """
+    Retrieve the forecast surface roughness from ERA5.
+
+    Parameters
+    ----------
+    retrieval_params : dict[str, Any]
+        CDS API retrieval parameters including area, time, and format.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with variable: roughness.
+    """
+    ds = retrieve_data(variable=["forecast_surface_roughness"], **retrieval_params)
+    ds = _rename_and_clean_coords(ds)
+    return ds.rename({"fsr": "roughness"})
+
+
+def sanitize_roughness(ds: xr.Dataset) -> xr.Dataset:
+    """Clip negative roughness values to a minimum of 2e-4."""
+    return sanitize_wind(ds)
 
 
 def sanitize_wind(ds: xr.Dataset) -> xr.Dataset:
