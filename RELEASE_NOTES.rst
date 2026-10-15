@@ -17,6 +17,10 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Documentation**
+
+* Fix broken links in docs (https://github.com/PyPSA/atlite/pull/537).
+
 **Features**
 
 * Add support for Python 3.14.
