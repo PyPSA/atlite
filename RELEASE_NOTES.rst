@@ -17,6 +17,10 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Breaking**
+
+* Rename the solar panel ``KANENA`` to ``KANEKA`` and  ``atlite.solarpanels.KANENA`` to ``atlite.solarpanels.KANEKA`` (https://github.com/PyPSA/atlite/pull/536).
+  
 **Documentation**
 
 * Fix broken links in docs (https://github.com/PyPSA/atlite/pull/537).
