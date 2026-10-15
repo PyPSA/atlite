@@ -76,6 +76,12 @@ jobs:
       with:
         fetch-depth: 0 # Needed for setuptools_scm
 
+    - name: Determine cutout schema version
+      # Cached cutouts are only valid for the schema version they were created with
+      run: |
+        echo "CUTOUT_SCHEMA_VERSION=$(sed -n 's/^CUTOUT_SCHEMA_VERSION = \([0-9]*\).*/\1/p' atlite/schema.py)" >> $GITHUB_ENV
+      shell: bash
+
     - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
       uses: actions/setup-python@v7
       with:
@@ -86,7 +92,7 @@ jobs:
       uses: actions/cache@v6
       with:
         path: ${{ env.CACHE_PATH }}
-        key: retrieved-cutouts-${{ env.today }}
+        key: retrieved-cutouts-schema${{ env.CUTOUT_SCHEMA_VERSION }}-${{ env.today }}
         enableCrossOsArchive: true
 
     - name: Download package
