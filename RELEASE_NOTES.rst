@@ -22,6 +22,10 @@ Upcoming Release
 * Rename the solar panel ``KANENA`` to ``KANEKA``, after its manufacturer Kaneka.
   Configurations and scripts using ``panel="KANENA"`` or
   ``atlite.solarpanels.KANENA`` must switch to ``KANEKA``.
+  
+**Documentation**
+
+* Fix broken links in docs (https://github.com/PyPSA/atlite/pull/537).
 
 **Features**
 
