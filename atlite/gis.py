@@ -388,15 +388,62 @@ def pad_extent(
     -------
     tuple
         Padded array and updated affine transform.
+
+    Raises
+    ------
+    ValueError
+        If no finite, positive cell resolution can be estimated.
+
+    Notes
+    -----
+    Resolution is normally estimated at the upper-left source cell. If that
+    cell cannot be transformed, a small grid of source cells is sampled instead.
+    This can occur when a rectangular raster extends beyond the curved boundary
+    of a projection, even though the geometry it contains is valid.
     """
     if src.size == 0:
         return src, src_transform
 
-    left, top = src_transform * (0, 0)
-    right, bottom = src_transform * (1, 1)
-    covered = transform_bounds(src_crs, dst_crs, left, bottom, right, top)
-    covered_res = min(abs(covered[2] - covered[0]), abs(covered[3] - covered[1]))
-    pad = int(dst_transform[0] // covered_res * 1.1)
+    source_crs = rio.crs.CRS.from_user_input(src_crs)
+    target_crs = rio.crs.CRS.from_user_input(dst_crs)
+
+    for samples in (1, 5):
+        rows, cols = (
+            np.unique(np.linspace(0, size - 1, samples).astype(int))
+            for size in src.shape[-2:]
+        )
+        resolutions = []
+        for row in rows:
+            for col in cols:
+                x0, y0 = src_transform * (col, row)
+                x1, y1 = src_transform * (col + 1, row + 1)
+                covered = transform_bounds(
+                    source_crs,
+                    target_crs,
+                    min(x0, x1),
+                    min(y0, y1),
+                    max(x0, x1),
+                    max(y0, y1),
+                )
+                if not np.isfinite(covered).all():
+                    continue
+                # Reject degenerate cells and bounds wrapping at the dateline.
+                resolution = min(covered[2] - covered[0], covered[3] - covered[1])
+                if np.isfinite(resolution) and resolution > 0:
+                    resolutions.append(resolution)
+        if resolutions:
+            break
+
+    dst_res = abs(dst_transform.a)
+    pad_estimate = dst_res // min(resolutions, default=np.nan) * 1.1
+    if not np.isfinite(pad_estimate) or dst_res <= 0:
+        bounds = rio.transform.array_bounds(*src.shape[-2:], src_transform)
+        raise ValueError(
+            "Cannot estimate a finite, positive resolution for raster padding "
+            f"from {source_crs} to {target_crs}; source bounds={bounds}, "
+            f"source shape={src.shape[-2:]}, destination transform={dst_transform}."
+        )
+    pad = int(pad_estimate)
 
     kwargs.setdefault("mode", "constant")
 
