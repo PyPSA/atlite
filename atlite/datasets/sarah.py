@@ -62,9 +62,7 @@ def _api_time_range(coords: dict[str, Any]) -> tuple[str, str]:
     return start.strftime(fmt), end.strftime(fmt)
 
 
-def _download_nc(
-    product: Any, target: Path, retries: int = SARAH_API_RETRIES
-) -> str:
+def _download_nc(product: Any, target: Path, retries: int = SARAH_API_RETRIES) -> str:
     """Download a product ZIP, extract its NetCDF file and remove the ZIP."""
     zip_path = target.with_suffix(".zip")
     # Extract to a temporary name so an interrupted run never leaves a
@@ -179,7 +177,9 @@ def download_from_api(
     failed = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(_download_nc, product, target_dir / var / f"{product}.nc"): (
+            executor.submit(
+                _download_nc, product, target_dir / var / f"{product}.nc"
+            ): (
                 var,
                 product,
             )
@@ -417,9 +417,7 @@ def get_data(
             end,
             Path(tmpdir) / SARAH_API_SUBDIR,
             max_workers=int(
-                creation_parameters.get(
-                    "sarah_api_workers", SARAH_API_DEFAULT_WORKERS
-                )
+                creation_parameters.get("sarah_api_workers", SARAH_API_DEFAULT_WORKERS)
             ),
         )
     else:
