@@ -50,6 +50,7 @@ SARAH_COLLECTION_ID = "EO:EUM:DAT:0863"
 SARAH_API_SUBDIR = "sarah_raw"
 SARAH_API_PATTERNS = {"SID": "SIDin*", "SIS": "SISin*"}
 SARAH_API_RETRIES = 3
+SARAH_API_DEFAULT_WORKERS = 15
 
 
 def _api_time_range(coords: dict[str, Any]) -> tuple[str, str]:
@@ -102,7 +103,7 @@ def download_from_api(
     start: str,
     end: str,
     target_dir: PathLike,
-    max_workers: int = 15,
+    max_workers: int = SARAH_API_DEFAULT_WORKERS,
 ) -> Path:
     """
     Download SARAH SID and SIS NetCDF files from the EUMETSAT Data Store.
@@ -393,7 +394,7 @@ def get_data(
         Optional keys: ``parallel`` (bool), ``sarah_interpolate`` (bool),
         ``sarah_from_api`` (bool, default False; downloads the files from the
         EUMETSAT API into ``tmpdir`` and ignores ``sarah_dir``),
-        ``sarah_api_workers`` (int, default 10).
+        ``sarah_api_workers`` (int, default 15).
 
     Returns
     -------
@@ -415,7 +416,11 @@ def get_data(
             start,
             end,
             Path(tmpdir) / SARAH_API_SUBDIR,
-            max_workers=int(creation_parameters.get("sarah_api_workers", 10)),
+            max_workers=int(
+                creation_parameters.get(
+                    "sarah_api_workers", SARAH_API_DEFAULT_WORKERS
+                )
+            ),
         )
     else:
         sarah_dir = creation_parameters["sarah_dir"]
