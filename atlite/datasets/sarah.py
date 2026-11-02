@@ -167,7 +167,7 @@ def download_from_api(
 
     # product.size is in kilobytes
     size_gib = sum(size for _, _, size in pending) / 1024**2
-    logger.info(
+    logger.warning(
         "SARAH download: %d products, estimated size %.2f GiB.",
         len(pending),
         size_gib,
