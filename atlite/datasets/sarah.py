@@ -90,7 +90,7 @@ def _download_nc(
             if attempt < retries:
                 time.sleep(5 * attempt)
         else:
-            return "downloaded"
+            return "file extracted"
         finally:
             zip_path.unlink(missing_ok=True)
 
