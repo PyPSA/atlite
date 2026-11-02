@@ -150,8 +150,8 @@ class Cutout:
             ``eumdac`` package and credentials set once via
             ``eumdac set-credentials <consumer_key> <consumer_secret>`` via CLI. The
             estimated download size is logged before the download starts.
-        sarah_api_workers : int, default 15 
-            Number of parallel downloads when ``sarah_from_api=True``. 
+        sarah_api_workers : int, default 15
+            Number of parallel downloads when ``sarah_from_api=True``.
             See https://user.eumetsat.int/resources/user-guides/data-store-detailed-guide#ID-Throttling for maximum number.
         sarah_interpolate : bool, default True
             Whether to interpolate NaN's in the SARAH data. This takes effect for
