@@ -38,6 +38,21 @@ Upcoming Release
 * Compute ``line_rating`` for all lines in one vectorised dask operation instead of one
   task per line. Before, each line read and decompressed the cutout data again
   (https://github.com/PyPSA/atlite/pull/527).
+**Documentation**
+
+* Fix broken links in docs (https://github.com/PyPSA/atlite/pull/537).
+
+**Features**
+
+* Add support for Python 3.14.
+
+**Bug fixes**
+
+* Fix ``ExclusionContainer.add_raster`` ignoring ``codes=0``. The code ``0`` was
+  treated like a missing ``codes`` argument, so all non-zero cells were excluded
+  instead of the cells with value ``0``. Numpy arrays are now accepted as
+  ``codes``, and an empty list excludes no cells
+  (https://github.com/PyPSA/atlite/pull/525).
 
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================

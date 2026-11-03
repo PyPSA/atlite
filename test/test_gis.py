@@ -636,6 +636,23 @@ def test_shape_availability_exclude_raster_codes(ref, raster_codes):
     assert ratio == masked.sum() / masked.size
 
 
+@pytest.mark.parametrize("codes", [0, np.array([0])])
+def test_shape_availability_exclude_raster_code_zero(ref, raster, codes):
+    """Code 0 is excluded like any other code, not treated as a missing code."""
+    shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
+    res = 0.01
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster, codes=[0])
+    expected, transform = shape_availability(shapes, excluder)
+
+    excluder = ExclusionContainer(ref.crs, res=res)
+    excluder.add_raster(raster, codes=codes)
+    masked, transform = shape_availability(shapes, excluder)
+    assert (masked == expected).all()
+    assert round(masked.sum() / masked.size, 2) == raster_clip
+
+
 def test_plot_shape_availability(ref, raster):
     """Test plotting of shape availability."""
     shapes = gpd.GeoSeries([box(X0, Y0, X1, Y1)], crs=ref.crs)
