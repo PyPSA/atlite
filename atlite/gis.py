@@ -185,12 +185,8 @@ def compute_indicatormatrix(
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
     dest = reproject_shapes(dest, dest_crs, orig_crs)
-    orig_list: list[Any] | pd.Series = (
-        list(orig) if not isinstance(orig, pd.Series) else orig
-    )
-    dest_list: list[Any] | pd.Series = (
-        list(dest) if not isinstance(dest, pd.Series) else dest
-    )
+    orig_list: list[Any] = list(orig)
+    dest_list: list[Any] = list(dest)
     indicator = sp.sparse.lil_matrix((len(dest_list), len(orig_list)), dtype=float)
     tree = STRtree(orig_list)
     idx = {hash(o.wkt): i for i, o in enumerate(orig_list)}
@@ -199,9 +195,11 @@ def compute_indicatormatrix(
         for o in tree.query(d):
             # STRtree query returns a list of indices for shapely >= v2.0
             if isinstance(o, (int | np.integer)):
-                o = orig_list[o]
-            if o.intersects(d):
+                j = int(o)
+                o = orig_list[j]
+            else:
                 j = idx[hash(o.wkt)]
+            if o.intersects(d):
                 area = d.intersection(o).area
                 indicator[i, j] = area / o.area
 
@@ -242,12 +240,8 @@ def compute_intersectionmatrix(
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
     dest = reproject_shapes(dest, dest_crs, orig_crs)
-    orig_list: list[Any] | pd.Series = (
-        list(orig) if not isinstance(orig, pd.Series) else orig
-    )
-    dest_list: list[Any] | pd.Series = (
-        list(dest) if not isinstance(dest, pd.Series) else dest
-    )
+    orig_list: list[Any] = list(orig)
+    dest_list: list[Any] = list(dest)
     intersection = sp.sparse.lil_matrix((len(dest_list), len(orig_list)), dtype=float)
     tree = STRtree(orig_list)
     idx = {hash(o.wkt): i for i, o in enumerate(orig_list)}
@@ -256,8 +250,10 @@ def compute_intersectionmatrix(
         for o in tree.query(d):
             # STRtree query returns a list of indices for shapely >= v2.0
             if isinstance(o, (int | np.integer)):
-                o = orig_list[o]
-            j = idx[hash(o.wkt)]
+                j = int(o)
+                o = orig_list[j]
+            else:
+                j = idx[hash(o.wkt)]
             intersection[i, j] = o.intersects(d)
 
     return intersection
