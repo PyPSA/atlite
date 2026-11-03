@@ -459,7 +459,7 @@ def shape_availability(
             masked, transform = projected_mask(
                 d["raster"], geometry, transform, shape, excluder.crs, **kwargs
             )
-        if d["codes"]:
+        if d["codes"] is not None:
             if callable(d["codes"]):
                 masked_ = d["codes"](masked).astype(bool)
             else:
@@ -598,7 +598,7 @@ class ExclusionContainer:
             which takes the mask (np.array) as argument and performs a
             elementwise condition (must not change the shape). The function may
             not be an anonymous (lambda) function.
-            The default is 1.
+            The default is None, which excludes all non-zero cells.
         buffer : int, optional
             Buffer around the excluded areas in units of ExclusionContainer.crs.
             Use this to create a buffer around the excluded/included area.
