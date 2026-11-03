@@ -324,6 +324,6 @@ def cutout_prepare(
             cutout.path.unlink()
         Path(tmp).rename(cutout.path)
 
-        cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
+        cutout.data = xr.open_dataset(cutout.path, chunks="auto")
 
     return cutout
