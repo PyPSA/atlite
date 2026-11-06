@@ -143,7 +143,18 @@ class Cutout:
             effect for 'era5' data loading.
         sarah_dir : str, Path
             Directory of on-disk sarah data. This must be given when using the
-            sarah module.
+            sarah module, unless ``sarah_from_api=True``.
+        sarah_from_api : bool, default False
+            Download the SARAH data from the EUMETSAT Data Store API instead of
+            reading it from ``sarah_dir`` (which is then ignored). The time range
+            is taken from ``time``. The raw files are stored in a temporary
+            directory and deleted once the cutout is prepared. Requires the
+            ``eumdac`` package and credentials set once via
+            ``eumdac set-credentials <consumer_key> <consumer_secret>`` via CLI. The
+            estimated download size is logged before the download starts.
+        sarah_api_workers : int, default 15
+            Number of parallel downloads when ``sarah_from_api=True``.
+            See https://user.eumetsat.int/resources/user-guides/data-store-detailed-guide#ID-Throttling for maximum number.
         sarah_interpolate : bool, default True
             Whether to interpolate NaN's in the SARAH data. This takes effect for
             sarah data which has missing data for areas where dawn and

@@ -60,6 +60,8 @@ Documentation = "https://atlite.readthedocs.io/en/latest/"
 
 [project.optional-dependencies]
 
+sarah-api = ["eumdac"]
+
 dev = ["pre-commit", "pytest", "pytest-cov", "matplotlib", "ruff", "mypy", "types-PyYAML", "types-requests"]
 
 docs = [

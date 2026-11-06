@@ -279,51 +279,59 @@ def cutout_prepare(
         available_features(modules_list).loc[:, features_normalized].drop_duplicates()
     )
 
-    for module in target.index.unique("module"):
-        missing_vars = target[module]
-        if not overwrite:
-            missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
-        if missing_vars.empty:
-            continue
-        logger.info("Calculating and writing with module %s:", module)
-        missing_features = missing_vars.index.unique("feature")
-        ds = get_features(
-            cutout,
-            module,
-            missing_features,
-            data_format=data_format,
-            tmpdir=tmpdir,
-            monthly_requests=monthly_requests,
-            concurrent_requests=concurrent_requests,
-        )
-        prepared |= set(missing_features)
+    try:
+        for module in target.index.unique("module"):
+            missing_vars = target[module]
+            if not overwrite:
+                missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
+            if missing_vars.empty:
+                continue
+            logger.info("Calculating and writing with module %s:", module)
+            missing_features = missing_vars.index.unique("feature")
+            ds = get_features(
+                cutout,
+                module,
+                missing_features,
+                data_format=data_format,
+                tmpdir=tmpdir,
+                monthly_requests=monthly_requests,
+                concurrent_requests=concurrent_requests,
+            )
+            prepared |= set(missing_features)
 
-        cutout.data.attrs.update({"prepared_features": list(prepared)})
-        attrs = non_bool_dict(cutout.data.attrs)
-        attrs.update(ds.attrs)
+            cutout.data.attrs.update({"prepared_features": list(prepared)})
+            attrs = non_bool_dict(cutout.data.attrs)
+            attrs.update(ds.attrs)
 
-        if compression:
-            for v in missing_vars:
-                ds[v].encoding.update(compression)
+            if compression:
+                for v in missing_vars:
+                    ds[v].encoding.update(compression)
 
-        ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
+            ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
 
-        directory, filename = os.path.split(str(cutout.path))
-        fd, tmp = mkstemp(suffix=filename, dir=directory)
-        os.close(fd)
+            directory, filename = os.path.split(str(cutout.path))
+            fd, tmp = mkstemp(suffix=filename, dir=directory)
+            os.close(fd)
 
-        logger.debug("Writing cutout to file...")
-        write_job = ds.to_netcdf(tmp, compute=False)
-        if show_progress:
-            with ProgressBar(minimum=2):
+            logger.debug("Writing cutout to file...")
+            write_job = ds.to_netcdf(tmp, compute=False)
+            if show_progress:
+                with ProgressBar(minimum=2):
+                    write_job.compute(**dask_kwargs)
+            else:
                 write_job.compute(**dask_kwargs)
-        else:
-            write_job.compute(**dask_kwargs)
-        if cutout.path.exists():
-            cutout.data.close()
-            cutout.path.unlink()
-        Path(tmp).rename(cutout.path)
+            if cutout.path.exists():
+                cutout.data.close()
+                cutout.path.unlink()
+            Path(tmp).rename(cutout.path)
 
-        cutout.data = xr.open_dataset(cutout.path, chunks="auto")
+            cutout.data = xr.open_dataset(cutout.path, chunks="auto")
+            del ds, write_job
+    finally:
+        # Remove raw files that modules downloaded into tmpdir (e.g. SARAH API)
+        for module in target.index.unique("module"):
+            module_cleanup = getattr(datamodules[module], "cleanup", None)
+            if module_cleanup is not None:
+                module_cleanup(tmpdir)
 
     return cutout

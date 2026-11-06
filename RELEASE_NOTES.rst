@@ -50,6 +50,10 @@ Upcoming Release
 **Features**
 
 * Add support for Python 3.14.
+* Add ``sarah_from_api`` option to ``Cutout`` to download SARAH data directly from
+  the EUMETSAT Data Store (optional dependency ``eumdac``). The raw files are
+  stored temporarily and removed after the cutout is prepared. The number of
+  parallel downloads is set with ``sarah_api_workers``.
 
 **Bug fixes**
 

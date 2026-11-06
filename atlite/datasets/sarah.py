@@ -5,8 +5,13 @@
 
 from __future__ import annotations
 
+import gc
 import logging
+import shutil
+import time
 import warnings
+import zipfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -39,6 +44,173 @@ features = {
     ],
 }
 static_features: dict[str, list[str]] = {}
+
+# EUMETSAT Data Store collection holding the SARAH-3 products
+SARAH_COLLECTION_ID = "EO:EUM:DAT:0863"
+SARAH_API_SUBDIR = "sarah_raw"
+SARAH_API_PATTERNS = {"SID": "SIDin*", "SIS": "SISin*"}
+SARAH_API_RETRIES = 3
+SARAH_API_DEFAULT_WORKERS = 15
+
+
+def _api_time_range(coords: dict[str, Any]) -> tuple[str, str]:
+    """Return the ISO start/end strings covering the days of the cutout."""
+    index = coords["time"].to_index()
+    start = index[0].floor("D")
+    end = index[-1].floor("D") + pd.Timedelta(hours=23, minutes=30)
+    fmt = "%Y-%m-%dT%H:%M:%SZ"
+    return start.strftime(fmt), end.strftime(fmt)
+
+
+def _download_nc(product: Any, target: Path, retries: int = SARAH_API_RETRIES) -> str:
+    """Download a product ZIP, extract its NetCDF file and remove the ZIP."""
+    zip_path = target.with_suffix(".zip")
+    # Extract to a temporary name so an interrupted run never leaves a
+    # partial ``.nc`` file that looks valid.
+    tmp = target.with_suffix(".part")
+
+    for attempt in range(1, retries + 1):
+        try:
+            with product.open() as src, zip_path.open("wb") as dst:
+                shutil.copyfileobj(src, dst)
+
+            with zipfile.ZipFile(zip_path) as zf:
+                member = next(
+                    name for name in zf.namelist() if name.lower().endswith(".nc")
+                )
+                with zf.open(member) as src, tmp.open("wb") as dst:
+                    shutil.copyfileobj(src, dst)
+
+            tmp.replace(target)
+        except Exception as exc:
+            logger.warning(
+                "%s attempt %d/%d failed: %s", product, attempt, retries, exc
+            )
+            if attempt < retries:
+                time.sleep(5 * attempt)
+        else:
+            return "file extracted"
+        finally:
+            zip_path.unlink(missing_ok=True)
+
+    tmp.unlink(missing_ok=True)
+    return "failed"
+
+
+def download_from_api(
+    start: str,
+    end: str,
+    target_dir: PathLike,
+    max_workers: int = SARAH_API_DEFAULT_WORKERS,
+) -> Path:
+    """
+    Download SARAH SID and SIS NetCDF files from the EUMETSAT Data Store.
+
+    Credentials are read by the EUMDAC library from the file written by
+    ``eumdac set-credentials <consumer_key> <consumer_secret>``.
+
+    Parameters
+    ----------
+    start, end : str
+        ISO timestamps (``YYYY-MM-DDTHH:MM:SSZ``) delimiting the search.
+    target_dir : PathLike
+        Directory in which the ``SID`` and ``SIS`` sub-directories are created.
+    max_workers : int, default 15
+        Number of parallel downloads.
+
+    Returns
+    -------
+    pathlib.Path
+        The directory containing the downloaded files.
+
+    Raises
+    ------
+    ImportError
+        If the optional ``eumdac`` package is not installed.
+    RuntimeError
+        If no credentials are found, nothing matches the time range or any
+        product fails to download.
+    """
+    try:
+        import eumdac
+        from eumdac.cli_helpers import (
+            CredentialsFileNotFoundError,
+            load_credentials,
+        )
+    except ImportError as exc:
+        raise ImportError(
+            "Downloading SARAH data requires the 'eumdac' package. "
+            "Install it with `pip install eumdac`."
+        ) from exc
+
+    try:
+        credentials = load_credentials()
+    except CredentialsFileNotFoundError as exc:
+        raise RuntimeError(
+            "No EUMETSAT credentials found. Set them once with "
+            "`eumdac set-credentials <consumer_key> <consumer_secret>`."
+        ) from exc
+
+    datastore = eumdac.DataStore(eumdac.AccessToken(credentials))
+    collection = datastore.get_collection(SARAH_COLLECTION_ID)
+
+    target_dir = Path(target_dir)
+    pending = [
+        (var, product, product.size)
+        for var, pattern in SARAH_API_PATTERNS.items()
+        for product in collection.search(dtstart=start, dtend=end, title=pattern)
+    ]
+    if not pending:
+        raise RuntimeError(f"No SARAH products found between {start} and {end}.")
+
+    # product.size is in kilobytes
+    size_gib = sum(size for _, _, size in pending) / 1024**2
+    logger.warning(
+        "SARAH download: %d products, estimated size %.2f GiB.",
+        len(pending),
+        size_gib,
+    )
+
+    for var in SARAH_API_PATTERNS:
+        (target_dir / var).mkdir(parents=True, exist_ok=True)
+
+    failed = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(
+                _download_nc, product, target_dir / var / f"{product}.nc"
+            ): (
+                var,
+                product,
+            )
+            for var, product, _ in pending
+        }
+        for i, future in enumerate(as_completed(futures), 1):
+            var, product = futures[future]
+            try:
+                status = future.result()
+            except Exception as exc:
+                logger.warning("%s failed: %s", product, exc)
+                status = "failed"
+            if status == "failed":
+                failed.append(str(product))
+            logger.info("[%d/%d] %s %s -> %s", i, len(pending), var, product, status)
+
+    if failed:
+        raise RuntimeError(f"{len(failed)} SARAH products failed to download: {failed}")
+    return target_dir
+
+
+def cleanup(tmpdir: PathLike) -> None:
+    """
+    Remove the raw SARAH files downloaded from the API into ``tmpdir``.
+
+    Called by :func:`atlite.data.cutout_prepare` once the cutout is written.
+    """
+    # Drop lingering references so file handles of the lazily opened NetCDF
+    # files are released (required on Windows before deleting).
+    gc.collect()
+    shutil.rmtree(Path(tmpdir) / SARAH_API_SUBDIR, ignore_errors=True)
 
 
 def get_filenames(sarah_dir: str | PathLike, coords: dict[str, Any]) -> pd.DataFrame:
@@ -218,8 +390,11 @@ def get_data(
     monthly_requests : bool, default False
         Whether to split requests by month.
     **creation_parameters
-        Must include ``sarah_dir``. Optional keys: ``parallel`` (bool),
-        ``sarah_interpolate`` (bool).
+        Either ``sarah_dir`` or ``sarah_from_api=True`` must be given.
+        Optional keys: ``parallel`` (bool), ``sarah_interpolate`` (bool),
+        ``sarah_from_api`` (bool, default False; downloads the files from the
+        EUMETSAT API into ``tmpdir`` and ignores ``sarah_dir``),
+        ``sarah_api_workers`` (int, default 15).
 
     Returns
     -------
@@ -232,9 +407,21 @@ def get_data(
     coords = cutout.coords
     chunks = cutout.chunks
 
-    sarah_dir = creation_parameters["sarah_dir"]
     creation_parameters.setdefault("parallel", False)
     creation_parameters.setdefault("sarah_interpolate", True)
+
+    if creation_parameters.get("sarah_from_api", False):
+        start, end = _api_time_range(coords)
+        sarah_dir = download_from_api(
+            start,
+            end,
+            Path(tmpdir) / SARAH_API_SUBDIR,
+            max_workers=int(
+                creation_parameters.get("sarah_api_workers", SARAH_API_DEFAULT_WORKERS)
+            ),
+        )
+    else:
+        sarah_dir = creation_parameters["sarah_dir"]
 
     files = get_filenames(sarah_dir, coords)
     open_kwargs = {"chunks": chunks, "parallel": creation_parameters["parallel"]}
