@@ -325,7 +325,7 @@ def cutout_prepare(
                 cutout.path.unlink()
             Path(tmp).rename(cutout.path)
 
-            cutout.data = xr.open_dataset(cutout.path, chunks=cutout.chunks)
+            cutout.data = xr.open_dataset(cutout.path, chunks="auto")
             del ds, write_job
     finally:
         # Remove raw files that modules downloaded into tmpdir (e.g. SARAH API)
