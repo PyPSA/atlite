@@ -392,8 +392,9 @@ def pad_extent(
     if src.size == 0:
         return src, src_transform
 
-    left, top = src_transform * (1, 1)
-    right, bottom = src_transform * (2, 2)
+    rows, cols = src.shape[-2:]
+    left, top = src_transform * (cols // 2, rows // 2)
+    right, bottom = src_transform * (cols // 2 + 1, rows // 2 + 1)
     covered = transform_bounds(src_crs, dst_crs, left, bottom, right, top)
     covered_res = min(abs(covered[2] - covered[0]), abs(covered[3] - covered[1]))
     pad = int(dst_transform[0] // covered_res * 1.1)
