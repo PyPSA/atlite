@@ -388,6 +388,12 @@ def pad_extent(
     -------
     tuple
         Padded array and updated affine transform.
+
+    Raises
+    ------
+    ValueError
+        If the source array is empty or if a finite, positive resolution cannot
+        be estimated for raster padding.
     """
     if src.size == 0:
         return src, src_transform
