@@ -122,7 +122,9 @@ def determine_basins(
         )
     )
 
-    hydrobasins = hydrobasins.set_index("HYBAS_ID")
+    # Legacy: Downstream code used "hid" as dimension name before;
+    # requiring a rename here. See https://github.com/PyPSA/atlite/pull/542 .
+    hydrobasins = hydrobasins.set_index("HYBAS_ID").rename_axis("hid")
 
     meta = hydrobasins[hydrobasins.columns.difference(("geometry",))]
     shapes = hydrobasins["geometry"]
