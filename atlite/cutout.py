@@ -132,9 +132,11 @@ class Cutout:
         dt : str, optional
             Frequency of the time coordinate. The default is 'h'. Valid are all
             pandas offset aliases.
-        chunks : dict
+        chunks : dict or str
             Chunks when opening NetCDF files. For cutout preparation it is recommended
-            to chunk only along the time dimension. Defaults to {'time': 100}
+            to chunk only along the time dimension. Defaults to "auto" for existing
+            cutouts, which aligns the chunks with the chunks stored in the file, and
+            to {'time': 100} for new cutouts.
         data : xr.Dataset
             User provided cutout data. Save the cutout using `Cutout.to_file()`
             afterwards.
@@ -177,7 +179,7 @@ class Cutout:
 
         """  # noqa: DOC502 (IncompatibleCutoutError is raised by check_schema_version)
         path = Path(path).with_suffix(".nc")
-        chunks = cutoutparams.pop("chunks", {"time": 100})
+        chunks = cutoutparams.pop("chunks", "auto" if path.is_file() else {"time": 100})
         if isinstance(chunks, dict):
             storable_chunks = {f"chunksize_{k}": v for k, v in (chunks or {}).items()}
         else:
@@ -187,8 +189,7 @@ class Cutout:
         # Second, data is given -> take it. Third, else -> build a new cutout
         if path.is_file():
             check_schema_version(read_schema_version(path), path)
-            data = xr.open_dataset(str(path))
-            data = data.chunk(chunks)
+            data = xr.open_dataset(str(path), chunks=chunks)
             data.attrs.update(storable_chunks)
             if cutoutparams:
                 warn(
