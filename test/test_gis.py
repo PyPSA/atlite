@@ -315,6 +315,69 @@ def test_pad_extent():
     assert trans_r == dst_trans
 
 
+@pytest.mark.parametrize("longitude", [-179.99, 178])
+@pytest.mark.parametrize("leading_shape", [(), (2,), (2, 1)])
+@pytest.mark.parametrize("mode", ["constant", "edge"])
+@pytest.mark.parametrize("value", [0, 1])
+def test_pad_extent_mollweide(longitude, leading_shape, mode, value):
+    """Handle curved map boundaries, including completely excluded masks."""
+    geometry = gpd.GeoSeries(
+        [box(longitude, 64, longitude + 1.99, 67)], crs=4326
+    ).to_crs("ESRI:54009")
+    transform, shape = padded_transform_and_shape(geometry.total_bounds, 10000)
+    src = np.full(leading_shape + shape, value, dtype=np.uint8)
+    target = rio.Affine(0.3, 0, -180, 0, -0.3, 68)
+
+    if longitude < 0:
+        left, top = transform * (0, 0)
+        right, bottom = transform * (1, 1)
+        bounds = rio.warp.transform_bounds("ESRI:54009", 4326, left, bottom, right, top)
+        assert not np.isfinite(bounds).all()
+
+    padded, padded_transform = pad_extent(
+        src, transform, target, "ESRI:54009", 4326, mode=mode
+    )
+    pad_y = (padded.shape[-2] - src.shape[-2]) // 2
+    pad_x = (padded.shape[-1] - src.shape[-1]) // 2
+    assert pad_x == pad_y > 0
+    assert padded.shape[:-2] == leading_shape
+    assert padded.dtype == src.dtype
+    assert padded_transform * (pad_x, pad_y) == transform * (0, 0)
+    np.testing.assert_array_equal(padded[..., pad_y:-pad_y, pad_x:-pad_x], src)
+    if mode == "constant":
+        assert padded.sum() == src.sum()
+    else:
+        assert (padded == value).all()
+
+
+def test_pad_extent_untransformable():
+    """A raster outside the projection domain must fail with useful context."""
+    transform = rio.Affine(100, 0, 1e9, 0, -100, 1e9)
+    target = rio.Affine(0.3, 0, -180, 0, -0.3, 68)
+    with pytest.raises(ValueError, match="source bounds=.*source shape="):
+        pad_extent(np.zeros((3, 4)), transform, target, "ESRI:54009", 4326)
+
+
+@pytest.mark.parametrize(
+    "bounds",
+    [(np.inf,) * 4, (np.nan,) * 4, (0, 0, 0, 0), (179.9, 60, -179.9, 60.1)],
+)
+def test_pad_extent_no_valid_resolution(monkeypatch, bounds):
+    """Reject nonfinite, degenerate and wrapped bounds before integer conversion."""
+    monkeypatch.setattr("atlite.gis.transform_bounds", lambda *args: bounds)
+    transform = rio.Affine(1, 0, 0, 0, -1, 3)
+    with pytest.raises(ValueError, match="Cannot estimate a finite, positive"):
+        pad_extent(np.zeros((3, 4)), transform, transform, 4326, 4326)
+
+
+def test_pad_extent_empty():
+    src = np.empty((2, 0, 3))
+    transform = rio.Affine(1, 0, 0, 0, -1, 3)
+    padded, padded_transform = pad_extent(src, transform, transform, 4326, 4326)
+    assert padded is src
+    assert padded_transform == transform
+
+
 def test_indicator_matrix(ref):
     # This should be the grid cell at the lower left corner
     cell = ref.grid.geometry[0]
