@@ -58,9 +58,7 @@ Upcoming Release
   instead of the cells with value ``0``. Numpy arrays are now accepted as
   ``codes``, and an empty list excludes no cells
   (https://github.com/PyPSA/atlite/pull/525).
-* Fix ``Cutout.hydro`` failing with ``pandas>=3.1``. pandas 3.1 changed ``.loc`` to keep
-  the original index name, so the basin dimension was named ``HYBAS_ID`` instead of
-  ``hid`` (https://github.com/PyPSA/atlite/pull/542).
+* Fix ``Cutout.hydro`` failing with ``pandas>=3.1`` (https://github.com/PyPSA/atlite/pull/542).
 
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================
