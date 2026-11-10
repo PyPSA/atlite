@@ -122,9 +122,8 @@ def determine_basins(
         )
     )
 
-    # Downstream code selects runoff by the "hid" dimension. Name both the
-    # basin index and the `.loc` indexer below "hid": pandas < 3.1 names the
-    # `.loc` result after the indexer, pandas >= 3.1 after the original index.
+    # Legacy: Downstream code used "hid" as dimension name before;
+    # requiring a rename here. See https://github.com/PyPSA/atlite/pull/542 .
     hydrobasins = hydrobasins.set_index("HYBAS_ID").rename_axis("hid")
 
     meta = hydrobasins[hydrobasins.columns.difference(("geometry",))]
