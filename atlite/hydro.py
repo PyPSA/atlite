@@ -122,7 +122,10 @@ def determine_basins(
         )
     )
 
-    hydrobasins = hydrobasins.set_index("HYBAS_ID")
+    # Downstream code selects runoff by the "hid" dimension. Name both the
+    # basin index and the `.loc` indexer below "hid": pandas < 3.1 names the
+    # `.loc` result after the indexer, pandas >= 3.1 after the original index.
+    hydrobasins = hydrobasins.set_index("HYBAS_ID").rename_axis("hid")
 
     meta = hydrobasins[hydrobasins.columns.difference(("geometry",))]
     shapes = hydrobasins["geometry"]
