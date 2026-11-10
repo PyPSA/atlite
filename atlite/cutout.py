@@ -66,6 +66,13 @@ from atlite.gis import (
     compute_intersectionmatrix,
     get_coords,
 )
+from atlite.schema import (
+    CUTOUT_SCHEMA_VERSION,
+    SCHEMA_VERSION_ATTR,
+    check_schema_version,
+    require_supported_schema_version,
+    schema_version_from_attrs,
+)
 from atlite.utils import CachedAttribute
 
 logger = logging.getLogger(__name__)
@@ -161,8 +168,16 @@ class Cutout:
             If required arguments are missing when building a new cutout.
         ValueError
             If ``bounds`` has an invalid format.
+        atlite.schema.IncompatibleCutoutError
+            If the cutout's schema version is not supported by this version of
+            atlite.
 
-        """
+        Warns
+        -----
+        atlite.schema.OutdatedCutoutWarning
+            If the cutout has an older, still supported schema version.
+
+        """  # noqa: DOC502 (IncompatibleCutoutError is raised by check_schema_version)
         path = Path(path).with_suffix(".nc")
         chunks = cutoutparams.pop("chunks", "auto" if path.is_file() else {"time": 100})
         if isinstance(chunks, dict):
@@ -174,6 +189,7 @@ class Cutout:
         # Second, data is given -> take it. Third, else -> build a new cutout
         if path.is_file():
             data = xr.open_dataset(str(path), chunks=chunks)
+            check_schema_version(schema_version_from_attrs(data.attrs), path)
             data.attrs.update(storable_chunks)
             if cutoutparams:
                 warn(
@@ -183,6 +199,7 @@ class Cutout:
                 )
         elif "data" in cutoutparams:
             data = cutoutparams.pop("data")
+            require_supported_schema_version(schema_version_from_attrs(data.attrs))
         else:
             logger.info("Building new cutout %s", path)
 
@@ -217,6 +234,7 @@ class Cutout:
             coords = get_coords(x, y, time, **cutoutparams)
 
             attrs = {
+                SCHEMA_VERSION_ATTR: CUTOUT_SCHEMA_VERSION,
                 "module": module,
                 "prepared_features": [],
                 **storable_chunks,
@@ -232,6 +250,11 @@ class Cutout:
 
         self.path = path
         self.data = data
+
+    @property
+    def schema_version(self) -> int:
+        """Schema version of the cutout's file format."""
+        return schema_version_from_attrs(self.data.attrs)
 
     @property
     def name(self) -> str:
@@ -435,8 +458,21 @@ class Cutout:
         merged : Cutout
             Merged cutout.
 
+        Raises
+        ------
+        ValueError
+            If the cutouts have different schema versions.
+
         """
         assert isinstance(other, Cutout)
+
+        if self.schema_version != other.schema_version:
+            raise ValueError(
+                f"Cannot merge cutouts with different schema versions "
+                f"({self.schema_version} and {other.schema_version}). "
+                "Migrate both to the current version first, then merge. "
+                "Use `python -m atlite.migrate` or `atlite.migrate.migrate_cutout`."
+            )
 
         if path is None:
             path = mktemp(
