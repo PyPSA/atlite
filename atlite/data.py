@@ -258,7 +258,7 @@ def cutout_prepare(
         If ``tmpdir`` does not exist.
     atlite.schema.IncompatibleCutoutError
         If features is to be added to an existing cutout that is not the recommended
-        schema version of the installed versino of ``atlite``.
+        schema version of the installed version of ``atlite``.
     RuntimeError
         If the data of a module sets the cutout's schema version attribute.
 

@@ -86,6 +86,15 @@ def test_outdated_version_warns_with_commands(tmp_path):
     assert f"migrate_cutout({str(path)!r}, output={str(output)!r})" in message
 
 
+def test_outdated_version_warns_only_on_load(tmp_path):
+    """Selecting from an outdated cutout does not repeat the warning."""
+    with pytest.warns(OutdatedCutoutWarning):
+        cutout = Cutout(write_cutout(tmp_path / "legacy.nc"))
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", OutdatedCutoutWarning)
+        cutout.sel(x=slice(0, 0.25))
+
+
 @pytest.mark.parametrize("version", [CUTOUT_SCHEMA_VERSION + 1, -1])
 def test_unsupported_version_raises(tmp_path, version):
     """Loading or migrating a cutout with an unsupported schema version raises an error."""

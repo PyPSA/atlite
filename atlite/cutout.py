@@ -70,7 +70,7 @@ from atlite.schema import (
     CUTOUT_SCHEMA_VERSION,
     SCHEMA_VERSION_ATTR,
     check_schema_version,
-    read_schema_version,
+    require_supported_schema_version,
     schema_version_from_attrs,
 )
 from atlite.utils import CachedAttribute
@@ -188,8 +188,8 @@ class Cutout:
         # Three cases. First, cutout exists -> take the data.
         # Second, data is given -> take it. Third, else -> build a new cutout
         if path.is_file():
-            check_schema_version(read_schema_version(path), path)
             data = xr.open_dataset(str(path), chunks=chunks)
+            check_schema_version(schema_version_from_attrs(data.attrs), path)
             data.attrs.update(storable_chunks)
             if cutoutparams:
                 warn(
@@ -199,7 +199,7 @@ class Cutout:
                 )
         elif "data" in cutoutparams:
             data = cutoutparams.pop("data")
-            check_schema_version(schema_version_from_attrs(data.attrs))
+            require_supported_schema_version(schema_version_from_attrs(data.attrs))
         else:
             logger.info("Building new cutout %s", path)
 

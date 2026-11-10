@@ -10,7 +10,7 @@ Migrating cutouts
 The structure of cutout files can change between atlite releases.
 Each version of ``atlite`` supports one or multiple cutout versions and to tell these
 apart, every cutout carries a **schema version**.
-Cutouts written the before schema versions were introduced do not have this attribute and
+Cutouts written before schema versions were introduced do not have this attribute and
 are treated as version ``0``.
 
 Migrating a cutout

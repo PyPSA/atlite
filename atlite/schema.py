@@ -8,8 +8,8 @@ Every cutout written by atlite carries an integer schema version in the global
 attribute :data:`SCHEMA_VERSION_ATTR`. Legacy cutouts written before this attribute
 was introduced are treated as having version ``0``.
 
-atlite does not migrates cutouts between versions automatically.
-Loading a cutout with an older but supported version emits a  :class:`OutdatedCutoutWarning`.
+atlite does not migrate cutouts between versions automatically.
+Loading a cutout with an older but supported version emits a :class:`OutdatedCutoutWarning`.
 Loading a cutout with an unsupported version raises a :class:`IncompatibleCutoutError`.
 Outdated cutouts need to be migrated explicitly with ``python -m atlite.migrate`` or
 :func:`atlite.migrate.migrate_cutout`.
@@ -101,10 +101,6 @@ def read_schema_version(path: PathLike) -> int:
         return schema_version_from_attrs(ds.attrs)
 
 
-def _cutout_name(path: PathLike | None) -> str:
-    return "This cutout" if path is None else f"The cutout '{path}'"
-
-
 def migration_instructions(path: PathLike | None = None) -> str:
     """
     Build the instructions for migrating a cutout to the current schema version.
@@ -186,12 +182,7 @@ def require_current_schema_version(version: int, path: PathLike | None = None) -
 
     """
     if version != CUTOUT_SCHEMA_VERSION:
-        raise IncompatibleCutoutError(
-            f"This cutout uses cutout schema version {version}. "
-            f"This version of atlite can only modify cutouts of "
-            f"version {CUTOUT_SCHEMA_VERSION}.\n"
-            "\n" + migration_instructions(path)
-        )
+        raise IncompatibleCutoutError(outdated_cutout_message(version, path))
 
 
 def require_supported_schema_version(
