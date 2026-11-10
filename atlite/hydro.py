@@ -122,7 +122,7 @@ def determine_basins(
         )
     )
 
-    hydrobasins = hydrobasins.set_index("HYBAS_ID")
+    hydrobasins = hydrobasins.set_index("HYBAS_ID").rename_axis("hid")
 
     meta = hydrobasins[hydrobasins.columns.difference(("geometry",))]
     shapes = hydrobasins["geometry"]
