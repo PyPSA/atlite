@@ -19,15 +19,12 @@ Upcoming Release
 
 **Breaking**
 
-* ``Cutout.prepare`` now compresses cutouts with zstd after BitRound
-  quantization to 14 mantissa bits (relative error below 3.1e-5) instead of
-  lossless zlib. Writing is about 10 times faster and files are about half the
-  size. The setting now applies to all variables of the cutout, also to
-  variables prepared earlier. Reading the new cutouts requires ``netCDF4>=1.7.4``
-  (pip) or a ``libnetcdf`` with the zstd plugin (conda-forge). To keep the old
-  behaviour, pass ``compression={"compression": "zlib", "complevel": 9,
-  "shuffle": True}`` (https://github.com/PyPSA/atlite/pull/529).
-* Raise the minimum version of ``netCDF4`` to 1.7.4
+* ``Cutout.prepare`` now applies BitRound quantization to 14 mantissa bits
+  (relative error below 3.1e-5) before zlib compression at level 1 instead of 9.
+  Writing is about 9 times faster and files are about 60% smaller. The setting
+  now applies to all variables of the cutout, also to variables prepared
+  earlier. To keep the old behaviour, pass ``compression={"zlib": True,
+  "complevel": 9, "shuffle": True}``. Requires ``netCDF4>=1.6.0``
   (https://github.com/PyPSA/atlite/pull/529).
 
 **Future Warning**

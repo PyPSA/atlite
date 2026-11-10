@@ -5,7 +5,7 @@
 """Tests for the compression of prepared cutouts (#508)."""
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import netCDF4
 import numpy as np
@@ -32,14 +32,13 @@ def _fake_features(cutout, module, features, **kwargs):
 
 
 @pytest.mark.parametrize(
-    ("compression", "codec", "quantization"),
-    [(None, "zstd", (14, "BitRound")), (ZLIB, "zlib", None)],
+    ("compression", "quantization"),
+    [(None, (14, "BitRound")), (ZLIB, None)],
 )
 def test_prepare_compresses_all_variables(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     compression: dict[str, Any] | None,
-    codec: Literal["zstd", "zlib"],
     quantization: tuple[int, str] | None,
 ) -> None:
     monkeypatch.setattr(atlite.data, "get_features", _fake_features)
@@ -50,8 +49,8 @@ def test_prepare_compresses_all_variables(
         cutout.prepare(feature, tmpdir=tmp_path, compression=compression)
 
     with netCDF4.Dataset(cutout.path) as nc:
-        assert nc.variables["height"].filters()[codec]
-        assert nc.variables["temperature"].filters()[codec]
+        assert nc.variables["height"].filters()["zlib"]
+        assert nc.variables["temperature"].filters()["zlib"]
         assert nc.variables["temperature"].quantization() == quantization
 
     expected = _fake_features(cutout, "era5", ["temperature"])

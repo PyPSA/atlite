@@ -226,13 +226,13 @@ def cutout_prepare(
         cutout when the file is written. The compression is handled via
         xarray.Dataset.to_netcdf(...), for details see:
         https://docs.xarray.dev/en/stable/generated/xarray.Dataset.to_netcdf.html .
-        The default uses lossless zstd compression after BitRound
-        quantization to 14 mantissa bits (relative error below 2**-15 = 3.1e-5),
-        see Klöwer et al. (2021), https://doi.org/10.1038/s43588-021-00156-2 .
-        For lossless compression, remove 'quantize_mode' and
-        'significant_digits'. For the zlib compression of atlite < v0.8, use
-        {'compression': 'zlib', 'complevel': 9, 'shuffle': True}.
-        Default is {'compression': 'zstd', 'complevel': 3,
+        The default uses zlib compression after BitRound quantization to 14
+        mantissa bits (relative error below 2**-15 = 3.1e-5), see Klöwer et al.
+        (2021), https://doi.org/10.1038/s43588-021-00156-2 . For lossless
+        compression, remove 'quantize_mode' and 'significant_digits'. zstd
+        ({'compression': 'zstd'}) is faster but cannot be read with pip
+        installations of netCDF4 on Windows.
+        Default is {'zlib': True, 'complevel': 1, 'shuffle': True,
         'quantize_mode': 'BitRound', 'significant_digits': 14}.
     show_progress : bool, optional
         If True, a progress bar is shown. The default is False.
@@ -265,8 +265,9 @@ def cutout_prepare(
 
     if compression is None:
         compression = {
-            "compression": "zstd",
-            "complevel": 3,
+            "zlib": True,
+            "complevel": 1,
+            "shuffle": True,
             "quantize_mode": "BitRound",
             "significant_digits": 14,
         }
