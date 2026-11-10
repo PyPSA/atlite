@@ -17,6 +17,16 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Breaking**
+
+* ``Cutout.prepare`` now applies BitRound quantization to 14 mantissa bits
+  (relative error below 3.1e-5) before zlib compression at level 4 instead of 9.
+  Writing is faster and files are smaller. The setting
+  now applies to all variables of the cutout, also to variables prepared
+  earlier. To keep the old behaviour, pass ``compression={"zlib": True,
+  "complevel": 9, "shuffle": True}``. Requires ``netCDF4>=1.6.0``
+  (https://github.com/PyPSA/atlite/pull/529).
+
 **Future Warning**
 
 * Solar panel name: The incorrectly named "KANENA" will be renamed to "KANEKA" in v0.9.0;

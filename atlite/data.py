@@ -222,12 +222,18 @@ def cutout_prepare(
         Whether to overwrite variables which are already included in the
         cutout. The default is False.
     compression : None/dict, optional
-        Compression level to use for all features which are being prepared.
-        The compression is handled via xarray.Dataset.to_netcdf(...), for details see:
+        Variable encoding for compression, applied to all variables of the
+        cutout when the file is written. The compression is handled via
+        xarray.Dataset.to_netcdf(...), for details see:
         https://docs.xarray.dev/en/stable/generated/xarray.Dataset.to_netcdf.html .
-        To efficiently reduce cutout sizes, specify the number of 'least_significant_digits': n here.
-        To disable compression, set "complevel" to None.
-        Default is {'zlib': True, 'complevel': 9, 'shuffle': True}.
+        The default uses zlib compression after BitRound quantization to 14
+        mantissa bits (relative error below 2**-15 = 3.1e-5), see Klöwer et al.
+        (2021), https://doi.org/10.1038/s43588-021-00156-2 . For lossless
+        compression, remove 'quantize_mode' and 'significant_digits'. zstd
+        ({'compression': 'zstd'}) is faster but cannot be read with pip
+        installations of netCDF4 on Windows.
+        Default is {'zlib': True, 'complevel': 4, 'shuffle': True,
+        'quantize_mode': 'BitRound', 'significant_digits': 14}.
     show_progress : bool, optional
         If True, a progress bar is shown. The default is False.
     dask_kwargs : dict, default {}
@@ -258,7 +264,13 @@ def cutout_prepare(
         dask_kwargs = {}
 
     if compression is None:
-        compression = {"zlib": True, "complevel": 9, "shuffle": True}
+        compression = {
+            "zlib": True,
+            "complevel": 4,
+            "shuffle": True,
+            "quantize_mode": "BitRound",
+            "significant_digits": 14,
+        }
 
     if cutout.prepared and not overwrite:
         logger.info("Cutout already prepared.")
@@ -302,11 +314,11 @@ def cutout_prepare(
         attrs = non_bool_dict(cutout.data.attrs)
         attrs.update(ds.attrs)
 
-        if compression:
-            for v in missing_vars:
-                ds[v].encoding.update(compression)
-
         ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
+
+        if compression:
+            for v in ds.data_vars:
+                ds[v].encoding.update(compression)
 
         directory, filename = os.path.split(str(cutout.path))
         fd, tmp = mkstemp(suffix=filename, dir=directory)
