@@ -58,6 +58,8 @@ Upcoming Release
   instead of the cells with value ``0``. Numpy arrays are now accepted as
   ``codes``, and an empty list excludes no cells
   (https://github.com/PyPSA/atlite/pull/525).
+* Fix ``Cutout.hydro`` with pandas 3.1, which failed with a ``KeyError`` for ``hid``
+  (https://github.com/PyPSA/atlite/pull/543).
 
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================
