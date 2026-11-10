@@ -232,7 +232,7 @@ def cutout_prepare(
         compression, remove 'quantize_mode' and 'significant_digits'. zstd
         ({'compression': 'zstd'}) is faster but cannot be read with pip
         installations of netCDF4 on Windows.
-        Default is {'zlib': True, 'complevel': 1, 'shuffle': True,
+        Default is {'zlib': True, 'complevel': 4, 'shuffle': True,
         'quantize_mode': 'BitRound', 'significant_digits': 14}.
     show_progress : bool, optional
         If True, a progress bar is shown. The default is False.
@@ -266,7 +266,7 @@ def cutout_prepare(
     if compression is None:
         compression = {
             "zlib": True,
-            "complevel": 1,
+            "complevel": 4,
             "shuffle": True,
             "quantize_mode": "BitRound",
             "significant_digits": 14,
