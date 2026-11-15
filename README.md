@@ -18,81 +18,135 @@ SPDX-License-Identifier: CC-BY-4.0
 [![JOSS](https://joss.theoj.org/papers/10.21105/joss.03294/status.svg)](https://doi.org/10.21105/joss.03294)
 [![Discord](https://img.shields.io/discord/911692131440148490?logo=discord)](https://discord.gg/AnuJBk23FU)
 
-atlite is a [free software](https://www.gnu.org/philosophy/free-sw.en.html),
-[xarray](https://docs.xarray.dev/en/stable/)-based Python library for
-converting weather data (like wind speeds and solar influx) into energy system
-data. It is lightweight and keeps computing resource requirements (CPU, RAM)
-low. It is therefore well suited for big weather datasets.
+atlite converts weather data into energy system data. It turns wind speed, solar
+radiation, temperature and runoff into time series of wind and solar power, hydro
+inflow, heating demand and more. atlite is free software, built on
+[xarray](https://docs.xarray.dev/en/stable/) and
+[dask](https://www.dask.org/). It processes large weather datasets in chunks
+and therefore needs little memory.
 
-atlite converts the following weather data fields into time series relevant
-for energy systems, for any subset of a full weather database.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/PyPSA/atlite/master/docs/assets/images/workflow_chart-dark.svg">
+  <img alt="The atlite workflow in four steps: weather data, cutout, conversion and aggregation" src="https://raw.githubusercontent.com/PyPSA/atlite/master/docs/assets/images/workflow_chart.svg">
+</picture>
 
-![Weather data fields that atlite processes and the time series it creates](docs/assets/images/workflow_chart.png)
+atlite works in four steps:
 
-atlite was initially developed by the Renewable Energy Group at
-[FIAS](https://fias.institute/) to carry out simulations for the
-[CoNDyNet project (archived)](https://web.archive.org/web/20210420004051/http://condynet.de/),
-financed by the [German Federal Ministry of Education and Research (BMBF)](https://www.bmftr.bund.de/EN/)
-as part of the
-[Stromnetze Research Initiative (archived)](https://web.archive.org/web/20190127192900/http://forschung-stromnetze.info/projekte/grundlagen-und-konzepte-fuer-effiziente-dezentrale-stromnetze/).
+1. **Weather data.** Select one or more datasets, such as the global reanalysis ERA5.
+2. **Cutout.** atlite downloads the data for your region and period once and
+   saves it as a grid of time series in a NetCDF file.
+3. **Conversion.** A physical model converts the weather in each grid cell into
+   energy data, for example with the power curve of a wind turbine.
+4. **Aggregation.** atlite sums the grid cells into regions or network buses.
+   It weights each cell by its overlap with the region and, if you give a
+   capacity layout, by the capacity installed in it.
 
-With atlite, we want to build a bridge between meteorology and energy system
-modelling. Traditionally, the two communities have not interacted much, and the
-results of one reached the other only slowly. atlite makes it easy to use
-meteorological data in energy system models: it offers standard ways to access
-weather and climate datasets and to convert them into weather-dependent inputs.
+The coloured dots show which weather variables each dataset provides and each
+conversion uses.
 
-For the next development goals, see the
-[vision and roadmap project](https://github.com/orgs/PyPSA/projects/12/views/1)
-and the list of open
-[enhancements](https://github.com/PyPSA/atlite/issues/?q=is%3Aissue%20state%3Aopen%20label%3A%22type%3A%20enhancement%22).
+## Example
+
+This example downloads ERA5 data for Germany in January 2023. It then calculates
+hourly wind capacity factors for each region in a file of region shapes:
+
+```python
+import atlite
+import geopandas as gpd
+
+cutout = atlite.Cutout(
+    path="germany-2023-01.nc",
+    module="era5-edh",
+    x=slice(5.5, 15.5),
+    y=slice(47, 55.5),
+    time="2023-01",
+)
+cutout.prepare()
+
+regions = gpd.read_file("regions.geojson").set_index("name")
+wind = cutout.wind(
+    turbine="Vestas_V112_3MW",
+    shapes=regions,
+    per_unit=True,
+    aggregate_time=None,
+)
+```
+
+The result is an `xarray.DataArray` with one time series per region. To download
+ERA5 data, you need a free account; see
+[ERA5 credentials](https://atlite.readthedocs.io/en/latest/home/installation/#era5-credentials).
 
 ## Installation
 
-atlite requires Python 3.11 or newer. Install the current stable version with
-`conda` from [conda-forge](https://anaconda.org/conda-forge/atlite):
+atlite requires Python 3.11 or newer. Install it with `conda` from
+[conda-forge](https://anaconda.org/conda-forge/atlite):
 
-``` shell
+```shell
 conda install -c conda-forge atlite
 ```
 
 or with `pip` from [PyPI](https://pypi.org/project/atlite/):
 
-``` shell
+```shell
 pip install atlite
 ```
 
 To install the latest development version from GitHub:
 
-``` shell
+```shell
 pip install git+https://github.com/PyPSA/atlite.git
 ```
 
 ## Documentation
 
-Read the [documentation](https://atlite.readthedocs.io/en/latest/).
+The [documentation](https://atlite.readthedocs.io/en/latest/) contains an
+[introduction](https://atlite.readthedocs.io/en/latest/home/introduction/),
+[examples](https://atlite.readthedocs.io/en/latest/examples/examples/) as
+Jupyter notebooks and the
+[API reference](https://atlite.readthedocs.io/en/latest/api/cutout/).
 
 ## Support and contributing
 
-- To **discuss** with other PyPSA and atlite users, organise projects, share news, and
-  get in touch with the community, join the [Discord server](https://discord.gg/AnuJBk23FU).
-- For **bugs and feature requests**, use the [issue tracker](https://github.com/PyPSA/atlite/issues).
-- We welcome anyone interested in **contributing** to this project. If you have ideas or
-  suggestions, or encounter problems, please open an issue or a pull request.
-  See the [contributing guidelines](https://atlite.readthedocs.io/en/latest/contributing/contributing/).
+- To ask questions and talk to other users, join the
+  [Discord server](https://discord.gg/AnuJBk23FU).
+- To report bugs or request features, use the
+  [issue tracker](https://github.com/PyPSA/atlite/issues).
+- We welcome contributions. Read the
+  [contributing guidelines](https://atlite.readthedocs.io/en/latest/contributing/contributing/)
+  and open an issue or a pull request.
 
-## Authors and copyright
+For the next development goals, see the
+[roadmap](https://github.com/orgs/PyPSA/projects/12/views/1) and the open
+[enhancements](https://github.com/PyPSA/atlite/issues/?q=is%3Aissue%20state%3Aopen%20label%3A%22type%3A%20enhancement%22).
 
-Copyright (C) Contributors to atlite <https://github.com/pypsa/atlite>
+## Citing
 
-See the [contributors](https://atlite.readthedocs.io/en/latest/contributing/contributors/) for details.
+If you use atlite in your research, please cite the
+[paper in the Journal of Open Source Software](https://doi.org/10.21105/joss.03294).
+The [citing page](https://atlite.readthedocs.io/en/latest/home/citing/) has
+the BibTeX entry.
+
+## Origin
+
+atlite began as a lightweight version of the Aarhus University RE Atlas
+([Andresen et al., 2015](https://doi.org/10.1016/j.energy.2015.09.071)). The
+Renewable Energy Group at [FIAS](https://fias.institute/) developed it for the
+[CoNDyNet project (archived)](https://web.archive.org/web/20210420004051/http://condynet.de/),
+funded by the [German Federal Ministry of Education and Research (BMBF)](https://www.bmftr.bund.de/EN/)
+as part of the
+[Stromnetze Research Initiative (archived)](https://web.archive.org/web/20190127192900/http://forschung-stromnetze.info/projekte/grundlagen-und-konzepte-fuer-effiziente-dezentrale-stromnetze/).
+Today, volunteers from different institutions maintain atlite; see the
+[contributors](https://atlite.readthedocs.io/en/latest/contributing/contributors/).
+
+atlite connects meteorology and energy system modelling, two communities that
+have long worked apart. Models such as [PyPSA-Eur](https://github.com/PyPSA/pypsa-eur)
+use its time series.
 
 ## License
 
-This work is licensed under multiple licenses:
+Copyright (C) Contributors to atlite <https://github.com/pypsa/atlite>
 
-- All original source code is licensed under [MIT](LICENSES/MIT.txt).
+- The source code is licensed under [MIT](LICENSES/MIT.txt).
 - The documentation is licensed under [CC-BY-4.0](LICENSES/CC-BY-4.0.txt).
 - Configuration and data files are mostly licensed under [CC0-1.0](LICENSES/CC0-1.0.txt).
 
-See the individual files for license details.
+See the individual files for details.

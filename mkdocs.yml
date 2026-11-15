@@ -175,6 +175,7 @@ exclude_docs: |
   *.pdf
   examples/profiles_and_efficiencies_from_sam/
   hooks/
+  scripts/
 
 extra:
   social:
