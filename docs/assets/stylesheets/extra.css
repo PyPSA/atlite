@@ -4,14 +4,19 @@
  * SPDX-License-Identifier: MIT
  */
 
-/* PyPSA ecosystem colours */
-:root  > * {
-  --md-primary-fg-color:        #292F36;
-  --md-primary-fg-color--light: #ECB7B7;
-  --md-primary-fg-color--dark:  #90030C;
-  --md-primary-bg-color:           white;
-  --md-accent-fg-color: rgba(209, 10, 73, 0.5);
-  --md-typeset-a-color:    #d10a49;
+/* atlite colours: deep petrol (atmosphere) and teal (wind and water) */
+:root > * {
+  --md-primary-fg-color:        #0D3B4F;
+  --md-primary-fg-color--light: #2C6378;
+  --md-primary-fg-color--dark:  #082A39;
+  --md-primary-bg-color:        #ffffff;
+  --md-accent-fg-color:         #00A3A3;
+  --md-typeset-a-color:         #00787A;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-accent-fg-color:         #7FE3D8;
+  --md-typeset-a-color:         #4FD1C5;
 }
 
 /* Hide In/Out prompts */
