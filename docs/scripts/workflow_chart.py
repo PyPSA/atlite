@@ -29,6 +29,7 @@ PALETTES = {
         "accent": "#00787A",
         "accent-fill": "#00A3A3",
         "hairline": "#C5D3D9",
+        "halo": "#FFFFFF",
         "ramp": ["#E6F4F4", "#B3E0DF", "#66C2C1", "#00A3A3", "#00787A"],
     },
     "dark": {
@@ -36,7 +37,8 @@ PALETTES = {
         "secondary": "#9DB8C1",
         "accent": "#4FD1C5",
         "accent-fill": "#7FE3D8",
-        "hairline": "#2E4A55",
+        "hairline": "#3D5C68",
+        "halo": "#082A39",
         "ramp": ["#16343C", "#1F5A5E", "#2E8C8A", "#4FD1C5", "#7FE3D8"],
     },
 }
@@ -44,21 +46,29 @@ PALETTES = {
 STAGES = [
     (
         "Weather data",
-        ["Reanalysis and satellite", "data, global or regional"],
-        ("Datasets", "ERA5, SARAH, GloFAS, GEBCO"),
+        [
+            "Reanalysis and satellite",
+            "data, global or regional:",
+            "ERA5, SARAH, GloFAS, GEBCO",
+        ],
+        None,
     ),
     (
         "Cutout",
-        ["A region and period, cut", "out as a grid of weather", "time series"],
-        ("Storage", "one NetCDF file, reused"),
+        [
+            "A region and period as a",
+            "grid of weather time series,",
+            "stored in one NetCDF file",
+        ],
+        None,
     ),
     (
         "Conversion",
         [
             "Models per grid cell: wind,",
-            "solar PV, CSP, solar thermal,",
-            "hydro, heat demand, heat",
-            "pumps, line ratings",
+            "solar, hydro, heating and",
+            "cooling demand, heat-pump",
+            "COP, line rating",
         ],
         ("Technology data", "turbines, panels, CSP plants"),
     ),
@@ -77,6 +87,7 @@ WIDTH, COL_W, GUTTER = 880, 204, 21
 HEADER_Y, DESC_Y, LINE_H = 22, 50, 20
 BAND_Y, BAND_H = 132, 124
 MID_Y = BAND_Y + BAND_H / 2
+AXIS_LABEL_Y = MID_Y + 52
 FOOT_Y = BAND_Y + BAND_H + 40
 HEIGHT = FOOT_Y + 30
 CELL_W, CELL_H, NX, NY = 16, 14, 5, 4
@@ -128,7 +139,10 @@ def weather_field() -> list[list[float]]:
     """Return a smooth field of values between 0 and 1, like wind speeds."""
     return [
         [
-            0.5 + 0.45 * math.sin(0.9 * i - 0.7 * j + 0.4) * math.cos(0.5 * j - 0.3 * i)
+            0.22
+            + 0.45 * i / (NX - 1)
+            + 0.3 * j / (NY - 1)
+            - 0.12 * math.cos(1.6 * i - j)
             for i in range(NX)
         ]
         for j in range(NY)
@@ -137,7 +151,7 @@ def weather_field() -> list[list[float]]:
 
 def weather_map(x: float) -> tuple[str, tuple[float, float, float, float]]:
     """Return a map with dataset footprints and the cut-out box."""
-    mx, my, mw, mh = x + 0.5, BAND_Y + 8.5, 184, 108
+    mx, my, mw, mh = x + 0.5, BAND_Y + 8.5, 184, 112
     parts = [
         f'<clipPath id="map"><rect x="{mx}" y="{my}" width="{mw}" height="{mh}"/></clipPath>'
     ]
@@ -145,15 +159,15 @@ def weather_map(x: float) -> tuple[str, tuple[float, float, float, float]]:
         line(mx + k * mw / 8, my, mx + k * mw / 8, my + mh, "hair") for k in range(1, 8)
     ]
     parts += [
-        line(mx, my + k * mh / 4, mx + mw, my + k * mh / 4, "hair") for k in range(1, 4)
+        line(mx, my + k * mh / 7, mx + mw, my + k * mh / 7, "hair") for k in range(1, 7)
     ]
     parts.append(
         f'<circle cx="{mx + 64}" cy="{my + 70}" r="52" class="disk" clip-path="url(#map)"/>'
     )
     parts.append(f'<rect x="{mx}" y="{my}" width="{mw}" height="{mh}" class="frame"/>')
-    parts.append(text(mx + mw - 8, my + mh - 10, "ERA5", "label", "end"))
-    parts.append(text(mx + 64, my + 96, "SARAH", "label", "middle"))
-    cut = (mx + 98, my + 14, 32, 24)
+    parts.append(text(mx + mw - 8, my + mh - 9, "ERA5", "label", "end"))
+    parts.append(text(mx + 64, my + 88, "SARAH", "label", "middle"))
+    cut = (mx + 2 * mw / 8, my + 2 * mh / 7, 2 * mw / 8, 2 * mh / 7)
     parts.append(
         f'<rect x="{cut[0]}" y="{cut[1]}" width="{cut[2]}" height="{cut[3]}" class="cut"/>'
     )
@@ -172,8 +186,8 @@ def cube(x: float) -> tuple[str, tuple[float, float]]:
         (fx + w, fy + h),
     ]
     parts = [
-        f'<polygon points="{points(top)}" class="face"/>',
-        f'<polygon points="{points(side)}" class="face"/>',
+        f'<polygon points="{points(top)}" class="face-top"/>',
+        f'<polygon points="{points(side)}" class="face-side"/>',
     ]
     for k in range(1, 4):
         ox, oy = dx * k / 4, dy * k / 4
@@ -208,12 +222,13 @@ def power_curve(x: float) -> tuple[str, float, float]:
 
     path = " ".join(
         f"{'M' if k == 0 else 'L'}{px + w * v:.1f},{py - (h - 8) * power(v):.1f}"
-        for k, v in enumerate(i / 240 for i in range(241))
+        for k, v in enumerate(0.14 + 0.72 * i / 240 for i in range(241))
     )
+    path += f" V{py}"
     parts = [
         f'<path d="M{px},{py - h} V{py} H{px + w}" class="axis"/>',
         f'<path d="{path}" class="curve"/>',
-        text(px + w / 2, py + 20, "wind speed", "label", "middle"),
+        text(px + w / 2, AXIS_LABEL_Y, "wind speed", "label", "middle"),
         text(
             px - 10,
             py - h / 2,
@@ -255,6 +270,7 @@ def aggregation(x: float) -> tuple[str, float]:
     overlap, outline = region_overlap(gx, gy)
     parts = [
         cells(gx, gy, overlap),
+        f'<polygon points="{points(outline)}" class="region-halo"/>',
         f'<polygon points="{points(outline)}" class="region"/>',
     ]
     sx, sw, sh = x + 136, 68, 56
@@ -274,7 +290,7 @@ def aggregation(x: float) -> tuple[str, float]:
             0.5
             + 0.22 * math.sin(0.19 * t + 2.2 * k)
             + 0.09 * math.sin(0.53 * t + 1.3 + 2 * k)
-            + 0.04 * math.sin(1.7 * t + k)
+            + 0.025 * math.sin(1.7 * t + k)
             for t in range(49)
         ]
         path = " ".join(
@@ -283,23 +299,24 @@ def aggregation(x: float) -> tuple[str, float]:
         )
         parts.append(f'<path d="{path}" class="{cls}"/>')
     parts.append(f'<path d="M{sx},{sy - sh} V{sy} H{sx + sw}" class="axis"/>')
-    parts.append(text(sx + sw / 2, sy + 20, "per region", "label", "middle"))
+    parts.append(text(sx + sw / 2, AXIS_LABEL_Y, "per region", "label", "middle"))
     return "".join(parts), gx
 
 
 def stage_text(i: int) -> str:
     """Return the header, description and footer of stage ``i``."""
-    name, desc, (foot_label, foot_value) = STAGES[i]
+    name, desc, foot = STAGES[i]
     x = col(i)
     parts = [
-        text(x, HEADER_Y, str(i + 1), "num"),
-        text(x + 18, HEADER_Y, name, "stage"),
+        text(x + 11, HEADER_Y, str(i + 1), "num", "end"),
+        text(x + 19, HEADER_Y, name, "stage"),
     ]
     parts += [text(x, DESC_Y + k * LINE_H, s, "desc") for k, s in enumerate(desc)]
-    parts += [
-        text(x, FOOT_Y, foot_label, "foot-label"),
-        text(x, FOOT_Y + 19, foot_value, "desc"),
-    ]
+    if foot:
+        parts += [
+            text(x, FOOT_Y, foot[0], "foot-label"),
+            text(x, FOOT_Y + LINE_H, foot[1], "desc"),
+        ]
     return "".join(parts)
 
 
@@ -331,7 +348,7 @@ def body() -> str:
     for i in (2, 3):
         jx = col(i) + 2.5
         parts.append(
-            line(jx, FOOT_Y - 20, jx, MID_Y + 5, "flow", ' marker-end="url(#head)"')
+            line(jx, FOOT_Y - 20, jx, MID_Y + 0.6, "flow", ' marker-end="url(#head)"')
         )
     parts += [stage_text(i) for i in range(len(STAGES))]
     return "".join(parts)
@@ -355,7 +372,8 @@ def style(palette: dict, fonts: dict[int, str]) -> str:
         f".label{{fill:{c['secondary']};font-size:14px}}"
         f".hair{{stroke:{c['hairline']};stroke-width:1}}"
         f".frame{{fill:none;stroke:{c['ink']};stroke-width:1.25;stroke-linejoin:miter}}"
-        f".face{{fill:{c['ramp'][0]}}}"
+        f".face-top{{fill:{c['ramp'][0]}}}"
+        f".face-side{{fill:{c['ramp'][1]};fill-opacity:0.55}}"
         f".cell{{stroke:{c['hairline']};stroke-width:1}}.empty{{fill:none}}"
         f".disk{{fill:{c['accent-fill']};fill-opacity:0.18;stroke:{c['accent']};stroke-width:1.25;stroke-dasharray:4 3}}"
         f".cut{{fill:{c['accent-fill']};fill-opacity:0.35;stroke:{c['ink']};stroke-width:1.5}}"
@@ -364,6 +382,7 @@ def style(palette: dict, fonts: dict[int, str]) -> str:
         f".axis{{fill:none;stroke:{c['ink']};stroke-width:1.25}}"
         f".curve,.series{{fill:none;stroke:{c['accent']};stroke-width:2;stroke-linejoin:round}}"
         f".series-2{{fill:none;stroke:{c['secondary']};stroke-width:1.5;stroke-linejoin:round}}"
+        f".region-halo{{fill:none;stroke:{c['halo']};stroke-width:4;stroke-linejoin:round}}"
         f".region{{fill:none;stroke:{c['ink']};stroke-width:1.5;stroke-linejoin:round}}"
         f".head{{fill:none;stroke:{c['ink']};stroke-width:1.25}}"
         f"{ramp}"
