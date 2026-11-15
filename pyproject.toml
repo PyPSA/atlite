@@ -112,7 +112,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "test/**" = ["D101", "D102", "D103", "D205"]
-"examples/**" = ["D103"]
+"docs/examples/**" = ["D103"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
