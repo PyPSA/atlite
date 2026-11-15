@@ -28,8 +28,8 @@ dataset. With [ERA5](https://www.ecmwf.int/en/forecasts/datasets/reanalysis-data
 the default dataset, atlite gives hourly time series on a grid of about
 30 km x 30 km.
 
-![The atlite workflow in four steps: weather data, cutout, conversion and aggregation](assets/images/workflow_chart.svg#only-light)
-![The atlite workflow in four steps: weather data, cutout, conversion and aggregation](assets/images/workflow_chart-dark.svg#only-dark)
+![How atlite works: 1 weather data, 2 cutout, 3 conversion per grid cell, 4 aggregation to regions](assets/images/workflow_chart.svg#only-light)
+![How atlite works: 1 weather data, 2 cutout, 3 conversion per grid cell, 4 aggregation to regions](assets/images/workflow_chart-dark.svg#only-dark)
 
 atlite builds a bridge between meteorology and energy system modelling.
 These two communities have traditionally worked apart, and results from one

@@ -27,22 +27,13 @@ and therefore needs little memory.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/PyPSA/atlite/master/docs/assets/images/workflow_chart-dark.svg">
-  <img alt="The atlite workflow in four steps: weather data, cutout, conversion and aggregation" src="https://raw.githubusercontent.com/PyPSA/atlite/master/docs/assets/images/workflow_chart.svg">
+  <img alt="How atlite works: 1 weather data, 2 cutout, 3 conversion per grid cell, 4 aggregation to regions" src="https://raw.githubusercontent.com/PyPSA/atlite/master/docs/assets/images/workflow_chart.svg">
 </picture>
 
-atlite works in four steps:
-
-1. **Weather data.** Select one or more datasets, such as the global reanalysis ERA5.
-2. **Cutout.** atlite downloads the data for your region and period once and
-   saves it as a grid of time series in a NetCDF file.
-3. **Conversion.** A physical model converts the weather in each grid cell into
-   energy data, for example with the power curve of a wind turbine.
-4. **Aggregation.** atlite sums the grid cells into regions or network buses.
-   It weights each cell by its overlap with the region and, if you give a
-   capacity layout, by the capacity installed in it.
-
-The coloured dots show which weather variables each dataset provides and each
-conversion uses.
+A cutout can combine several datasets, for example ERA5 with the
+higher-resolution solar radiation of SARAH. Before aggregation, atlite can also
+exclude land that is not available, such as protected areas, to calculate
+potentials.
 
 ## Example
 
