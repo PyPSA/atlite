@@ -1,0 +1,41 @@
+/*
+ * SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+/* PyPSA ecosystem colours */
+:root  > * {
+  --md-primary-fg-color:        #292F36;
+  --md-primary-fg-color--light: #ECB7B7;
+  --md-primary-fg-color--dark:  #90030C;
+  --md-primary-bg-color:           white;
+  --md-accent-fg-color: rgba(209, 10, 73, 0.5);
+  --md-typeset-a-color:    #d10a49;
+}
+
+/* Hide In/Out prompts */
+.md-typeset .jp-InputPrompt,
+.md-typeset .jp-OutputPrompt,
+.md-typeset .prompt { display: none !important; }
+
+/* Clamp notebook width to Material content width */
+.md-content__inner :is(.jp-Notebook, .nbconvert-document) {
+  max-width: var(--md-typeset-width) !important;
+  margin-inline: auto !important;
+  width: 100% !important;
+}
+
+/* Use Material's code font in notebook code (inputs + outputs) */
+.md-typeset :is(.jp-Notebook, .nbconvert-document) pre {
+  font-family: var(--md-code-font) !important;
+  font-size: 15px !important;
+}
+
+/* Remove the frame around input cells */
+.md-typeset :is(.jp-InputArea, .jp-InputArea-editor, .jp-Cell-inputWrapper, .cell .input_area, .CodeMirror, .cm-editor) {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
+  background: transparent !important;
+}

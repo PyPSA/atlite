@@ -136,8 +136,8 @@ def _process_wind(ds: xr.Dataset, single_precision: bool = False) -> xr.Dataset:
     """
     Derive wind speed, shear exponent, azimuth and roughness from raw components.
 
-    Shared by the CDS (:mod:`atlite.datasets.era5`) and EDH
-    (:mod:`atlite.datasets.era5_edh`) backends. Operates on a dataset carrying
+    Shared by the CDS ([atlite.datasets.era5][]) and EDH
+    ([atlite.datasets.era5_edh][]) backends. Operates on a dataset carrying
     the raw ``u10``/``v10``/``u100``/``v100``/``fsr`` variables.
     ``single_precision`` casts the float64-promoted shear and azimuth back to
     float32 (used by EDH to halve on-disk size).
@@ -221,8 +221,8 @@ def _process_influx(ds: xr.Dataset, single_precision: bool = False) -> xr.Datase
     """
     Derive influx variables and solar position from raw radiation fields.
 
-    Shared by the CDS (:mod:`atlite.datasets.era5`) and EDH
-    (:mod:`atlite.datasets.era5_edh`) backends. Operates on a dataset carrying
+    Shared by the CDS ([atlite.datasets.era5][]) and EDH
+    ([atlite.datasets.era5_edh][]) backends. Operates on a dataset carrying
     the raw ``ssrd``/``ssr``/``fdir``/``tisr`` variables. ``single_precision``
     casts the solar-position fields back to float32 (used by EDH to halve
     on-disk size).

@@ -94,11 +94,11 @@ def _get_edh_auth_header() -> str:
 
     1. ``EARTHDATAHUB_API_KEY`` environment variable (login defaults to ``edh``).
     2. ``./.netrc`` in the current working directory.
-    3. The user's home-directory netrc, resolved by :mod:`netrc` itself
+    3. The user's home-directory netrc, resolved by [netrc][] itself
 
-    Netrc files are parsed with :mod:`netrc`, which requires ``chmod 600`` on
+    Netrc files are parsed with [netrc][], which requires ``chmod 600`` on
     entries that carry a password. Shared by the obstore store opened in
-    :func:`_open_edh` and the connectivity probe in the test suite.
+    `_open_edh` and the connectivity probe in the test suite.
 
     Returns
     -------
@@ -465,10 +465,10 @@ def get_data(
         Feature name to retrieve. Must be one of ``features``.
     tmpdir : str or pathlib.Path, optional
         Unused; accepted for interface compatibility with
-        :func:`atlite.datasets.era5.get_data`.
+        [atlite.datasets.era5.get_data][].
     lock : dask.utils.SerializableLock, optional
         Unused; accepted for interface compatibility with
-        :func:`atlite.datasets.era5.get_data`.
+        [atlite.datasets.era5.get_data][].
     **creation_parameters
         Additional creation parameters. ``sanitize`` controls whether the
         standard atlite sanitizers are applied (default True). CDS-only

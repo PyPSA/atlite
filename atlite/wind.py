@@ -32,7 +32,7 @@ def extrapolate_wind_speed(
     no conversion is done and the wind speeds are directly returned.
 
     Extrapolation of the wind speed can either use the "logarithmic" law as
-    described in [1]_ or the "power" law as described in [2]_. See also discussion
+    described in [1] or the "power" law as described in [2]. See also discussion
     in GH issue: https://github.com/PyPSA/atlite/issues/231 .
 
     Parameters
@@ -66,11 +66,11 @@ def extrapolate_wind_speed(
 
     References
     ----------
-    .. [1] Equation (2) in Andresen, G. et al (2015): 'Validation of Danish
+    [1] Equation (2) in Andresen, G. et al (2015): 'Validation of Danish
        wind time series from a new global renewable energy atlas for energy
        system analysis'.
 
-    .. [2] Gualtieri, G. (2021): 'Reliability of ERA5 Reanalysis Data for
+    [2] Gualtieri, G. (2021): 'Reliability of ERA5 Reanalysis Data for
        Wind Resource Assessment: A Comparison against Tall Towers'
        https://doi.org/10.3390/en14144169 .
     """

@@ -1,104 +1,86 @@
-..
-  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
+<!--
+SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
-  SPDX-License-Identifier: CC-BY-4.0
+SPDX-License-Identifier: CC-BY-4.0
+-->
 
-##############
-Installation
-##############
+# Installation
 
+atlite requires Python 3.11 or newer. We recommend a dedicated environment, for
+example with [conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html),
+[uv](https://docs.astral.sh/uv/) or
+[venv](https://docs.python.org/3/library/venv.html).
 
-Getting Python
-==============
+=== "conda"
 
-If it is your first time with Python, we recommend `conda
-<https://docs.conda.io/en/latest/miniconda.html>`_ or `pip
-<https://pip.pypa.io/en/stable/>`_ as easy-to-use package managers. They are
-available for Windows, Mac OS X and GNU/Linux.
-
-It is always helpful to use dedicated `conda environments 
-<https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html>`_ 
-or `virtual environments <https://pypi.python.org/pypi/virtualenv>`_.
-
-
-Installation with conda
-=======================
-
-If you are using ``conda`` you can install PyPSA with::
-
+    ``` bash
     conda install -c conda-forge atlite
+    ```
 
+=== "pip"
 
-Installing with pip
-===================
-
-If you have the Python package installer ``pip`` then just run::
-
+    ``` bash
     pip install atlite
+    ```
 
-If you're feeling adventurous, you can also install the latest master branch from github with::
+=== "uv"
 
-    pip install git+https://github.com/PyPSA/atlite.git
+    ``` bash
+    uv add atlite
+    ```
 
-ERA5 dataset credentials
-========================
+To install the latest development version from the `master` branch on GitHub:
 
-To download weather data, you need to obtain credentials for a source of ERA5 data. 
+``` bash
+pip install git+https://github.com/PyPSA/atlite.git
+```
 
-We currently support two methods for dataset access.
+## ERA5 credentials
 
-Earth Data Hub (recommended)
------------------------------
+To download weather data, you need credentials for a source of ERA5 data.
+atlite supports two sources. See [Datasets](datasets.md) for how they differ.
 
-1. Create an account at https://earthdatahub.destine.eu
-2. Go to https://earthdatahub.destine.eu/account-settings#my-personal-access-tokens
-3. Click on the "i" icon next to a token in the "My personal access tokens" section
-4. Click on "Download .netrc". Save the resulting file in the project folder or in your home folder (or append to an existing ``.netrc``)
-   Alternatively, you can store the API key in this file as a ``EARTHDATAHUB_API_KEY`` environmental variable
-5. For Linux/Mac users, if using ``.netrc`` in your home folder, ensure that is has ``0600`` (owner read/write only) permissions
-   This doesn't apply if storing the file in your project folder
+### Earth Data Hub (recommended)
 
-Climate data store (fallback)
--------------------------------
+1. Create an account at <https://earthdatahub.destine.eu>.
+2. Go to the [personal access tokens](https://earthdatahub.destine.eu/account-settings#my-personal-access-tokens) in your account settings.
+3. Click on the "i" icon next to a token in the section "My personal access tokens".
+4. Click on "Download .netrc". Save the file in your project folder or in your home
+   folder, or append its content to an existing `.netrc` file.
+   As an alternative, store the API key in the environment variable `EARTHDATAHUB_API_KEY`.
+5. On Linux and macOS, if the `.netrc` file is in your home folder, it must have the
+   permissions `0600` (read and write only for the owner):
 
-1. Create an account at https://cds.climate.copernicus.eu/
-2. Go to https://cds.climate.copernicus.eu/how-to-api
-3. Copy the text inside the code callout in the "Setup the CDS Api key" section
-4. Save it in a file called ``.cdsapirc`` in your home folder
-   Alternatively, you can define ``CDSAPI_URL`` and ``CDSAPI_KEY`` environmental variables based on the
-   contents of the ``.cdsapirc`` file
+    ``` bash
+    chmod 600 ~/.netrc
+    ```
 
-Computational resources
-=======================
+    This does not apply to a `.netrc` file in your project folder.
 
-As for requirements on your computing equipment, we tried to keep
-the resource requirements low.
-The requirements obviously depend on the size of the cutouts and
-datasets your parse and use.
+### Climate Data Store (fallback)
 
-We run our conversions on our laptops and this usually works fine
-and can run in the background without clogging our computers.
+1. Create an account at <https://cds.climate.copernicus.eu/>.
+2. Go to <https://cds.climate.copernicus.eu/how-to-api>.
+3. Copy the text in the code box of the section "Setup the CDS API key".
+4. Save it in a file called `.cdsapirc` in your home folder.
+   As an alternative, set the environment variables `CDSAPI_URL` and `CDSAPI_KEY`
+   to the values in the `.cdsapirc` file.
 
-With regards to
+## Computational resources
 
-* CPU: While atlite does some number crunching, it does not require
-  special or large multicore CPUs
-* Memory: For the ERA5 dataset you should be fine running atlite with
-  even 2-4 GiB.
-  Other datasets can require more memory, as they sometimes need to be
-  loaded fully or partially into memory for creating a cutout.
-* Disk space: Is really all about the cutout and dataset sizes
-  (in time and space) you use.
-  We can only provide two examples for reference:
+atlite keeps resource requirements low. They increase with the size of the
+cutout in space and time. We run conversions on our laptops, and they usually
+run in the background without slowing the computer down.
 
-    - Small cutout (Republic of Ireland + UK + some atlantic ocean),
-      1 month with hourly resolution using ERA5: 60 MiB
-    - Large cutout (Western Asia),
-      1 year with hourly resolution using ERA5: 6 GiB
+- **CPU:** atlite does some number crunching, but does not need large multicore CPUs.
+- **Memory:** For ERA5, 2-4 GiB is usually sufficient. Other datasets can need more
+  memory, as atlite sometimes loads them fully or partially into memory to
+  create a cutout.
+- **Disk space:** Depends on the size of the cutouts and datasets you use.
+  Two examples for reference, both with ERA5 at hourly resolution:
+    - Small cutout (Ireland, United Kingdom and parts of the Atlantic Ocean), 1 month: 60 MiB
+    - Large cutout (Western Asia), 1 year: 6 GiB
 
-We guess you do not need to worry about your computer being able to handle
-common small or medium scenarios.
-
-Rule of thumb:
-    The requirements on your machine are increasing with the
-    size of the cutout (in time and space).
+Common small and medium cutouts are no problem for a normal computer.
+For very large cutouts, see the example on
+[large cutouts with Earth Data Hub](../examples/large_cutouts_with_era5_edh.ipynb).

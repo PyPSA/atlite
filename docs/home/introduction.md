@@ -1,138 +1,93 @@
-..
-  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
+<!--
+SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
-  SPDX-License-Identifier: CC-BY-4.0
+SPDX-License-Identifier: CC-BY-4.0
+-->
 
-############
-Introduction
-############
+# Introduction
 
+atlite converts weather data into quantities that energy system models need.
+It creates time series for:
 
-atlite processes weather data and converts it into energy system
-relevant quantities, mainly you can create data for
+- **Wind** power generation, with predefined or custom turbine properties and
+  optional power curve smoothing for more realistic results. Turbines can also be
+  imported from the
+  [Open Energy Database](https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library).
+- **Solar photovoltaic (PV)** power generation, with predefined or custom panel properties
+  and several tracking options.
+- **Concentrated solar power (CSP)** heat output from parabolic troughs and solar towers.
+- **Solar thermal** heat generation from solar collectors.
+- **Hydro** power generation from runoff or river discharge.
+- **Heating and cooling demand**, based on the degree-day approximation.
+- **Heat pump coefficients of performance**, based on air or soil temperature.
+- **Dynamic line ratings** of overhead transmission lines.
 
+## How it works
 
-* **Wind** power generation: Using predefined or custom turbine properties
-  and smoothing options for modelling more realistic results.
-  *New:* Turbines can also be imported from the
-  `Open Energy Database <https://openenergy-platform.org/dataedit/view/supply/wind_turbine_library>`_.
-* **Solar (PV)** power generation: Using predefined or custom panel properties.
-* **Solar (thermal)** heat generation from solar collectors.
-* **Hydro (run-off / discharge)** power generation.
-* **Heating and cooling demand** (based on degree-day approx.).
+atlite starts from a global weather dataset, for example ERA5 from the
+European Centre for Medium-Range Weather Forecasts (ECMWF).
 
-How it works
-========================
+![Global weather dataset](../assets/images/worldmap.png)
 
-Starting from a global weather dataset, *e.g.* our standard data source ECMWF's ERA5 dataset,
+From this dataset, atlite creates a **cutout**. A cutout is a spatial and temporal
+subset of the original data. It contains all variables that the conversions need,
+for example wind speed, solar radiation and temperature.
 
-.. image:: img/worldmap.png
-    :align: center
-    :alt: alternate text
+![A cutout over the United Kingdom and Ireland](../assets/images/cutout.png)
 
+A cutout consists of grid cells. Each grid cell has its own weather time series.
+The cell size depends on the input data; for ERA5 it is about 30 km x 30 km.
+All further calculations start from the cutout.
 
-atlite enables you to create a **cutout**, a spatial and
-temporal subset of the original data which includes all relevant data
-such as wind velocity, influx, temperature etc.
+From the cutout, you can calculate quantities per grid cell. An example is the
+**capacity factor** of a wind turbine type: the average share of its rated
+capacity that the turbine produces.
 
-.. image:: img/cutout.png
-    :align: center
-    :alt: alternate text
+![Wind capacity factors per grid cell](../assets/images/capfactors.png){ width="600" }
 
-The **cutout** consists of grid cells of a certain resolution (depending on your input data, here 30 km x 30 km)
-each having its own weather timeseries.
-The **cutout** builds the starting point to your calculations.
+You can also place power plants in specific grid cells and calculate their
+power output. The **capacity layout** specifies how much capacity of *one*
+technology each grid cell contains. atlite includes a small
+[library of wind turbine, solar panel and CSP configurations](https://github.com/PyPSA/atlite/tree/master/atlite/resources),
+for example the `Vestas_V112_3MW` wind turbine.
 
-From there, you can extract various quantities and general properties of the data, *e.g.* wind capacity factors per grid cell
+![Capacity layout](../assets/images/layout.png){ width="600" }
 
-.. image:: img/capfactors.png
-    :width: 400pt
-    :align: center
-    :alt: alternate text
+atlite then calculates the power generation for each grid cell and aggregates it
+either to buses
 
-for a specific turbine type (this gives you information on the share of capacity which is in average running and producing power).
+![Power generation aggregated to buses](../assets/images/produced_power.png){ width="600" }
 
-Further, you can set power plants to specific spots and let atlite calculate their actual power production. The **capacity layout**  specifies which grid cell contains what amount of capacity of *one* production type. atlite comes along with a small `library of wind turbine configurations and PV panel configurations <https://github.com/PyPSA/atlite/tree/master/atlite/resources>`_  which you can directly use, *e.g.* 'Vestas_V112_3MW' wind turbines.
+or to geographical shapes.
 
-.. image:: img/layout.png
-    :width: 400pt
-    :align: center
-    :alt: alternate text
+![Power generation aggregated to countries](../assets/images/production_per_country.png)
 
-atlite then calculates the power generation data for each cell and either aggregates them to buses
+To aggregate to buses, you pass a matrix of size $N_{cell} \times N_{bus}$ that
+assigns grid cells to buses. To aggregate to shapes, atlite creates this matrix
+itself. This **indicator matrix** contains the spatial overlap of each grid cell
+with each shape, weighted by the capacity layout if you give one. The shapes can
+therefore be very detailed and even smaller than the grid cells. For the shape of
+the United Kingdom, the indicator matrix without a capacity layout looks like
+this:
 
-.. image:: img/produced_power.png
-    :width: 400pt
-    :align: center
-    :alt: alternate text
+![Indicator matrix for the United Kingdom](../assets/images/indicator_matrix.png){ width="600" }
 
-or to geometrical shapes
+The [plotting example](../examples/plotting_with_atlite.ipynb) creates all
+figures on this page.
 
+## What atlite does not cover
 
-.. image:: img/production_per_country.png
-    :align: center
-
-
-Whereas for the first case, grid cells must directly be assigned to buses by passing a matrix of size :math:`N_{cell} \times N_{bus}`, for the second case, the aggregation to shapes takes place in atlite itself: It creates the mentioned matrix, the so-called **indicator matrix**, which contains the spatial overlap of each grid cell (weighted by the capacity layout if present) with each shape. This is why the shapes can the very refined and even smaller than the grid cells. In our example the **indicator matrix** for the shape of United Kingdom without being weighted by the **capacity layout** looks like this
-
-
-.. image:: img/indicator_matrix.png
-    :align: center
-    :width: 400pt
-
-
-
-Datasets
-==================
-
-The standard data source we currently employ is ECMWF's ERA5 dataset
-(reanalysis weather data in a ca. 30 km x 30 km and hourly resolution).
-This dataset is easily available at no additional costs and requires only
-minimal setup from the user in comparison to other datasets. See  :doc:`installation instructions <installation>` to learn
-how to set it up.
-
-We offer two methods for accessing ERA5.
-
-- Earth Data Hub hosts `a mirror <https://earthdatahub.destine.eu/collections/era5/datasets/reanalysis-era5-single-levels>`_
-  of ERA5 which allows for immediate downloads.
-  It is the most convenient source for most users unless you need
-  to download the data at an unusual resolution. See `this example <https://atlite.readthedocs.io/en/master/examples/comparing_era5_sources_cds_vs_edh.html>`_
-  to learn how to use the EDH mirror and understand where it may not be the best choice.
-
-- ECMWF ADS API (European Centre for Medium-Range Weather Forecasts
-  Climate Data Store) is the original source for ERA5. Unfortunately, CDS 
-  downloads may spend hours in a processing queue on the server, so we only recommend using the CDS source if you really need to. See
-  `this example <https://atlite.readthedocs.io/en/master/examples/create_cutout.html>`_
-  to learn how to create an ERA5 cutout.
-
-For hydro data, `ECMWF's GloFAS dataset <https://ewds.climate.copernicus.eu/datasets/cems-glofas-historical>`_
-is also available. It contains daily river discharge data and can complement the ERA5 dataset for hydro.
-It uses the same API key as ERA5, its api endpoint is automatically set up by atlite.
-It will be used if `cutout.module` contains `"glofas"`.
-
-Previously and in the future other datasets where and (hopefully) will
-again be usable, including
-
-* the *NCEP Climate Forecast System* dataset
-* the *EURO-CORDEX Climate Change Projection* dataset
-* the *CMSAF SARAH-2* dataset
-* Satellite based radiation observations, e.g. SARAH-2.
-* Weather data forecasts from climate models.
-
-Their support however is currently on hold (time limitation on developer
-side).
-
-If you need to process these (or other) data sources, feel free to
-file an issue on our `GitHub <https://github.com/PyPSA/atlite>`_ or (even better) create a pull request!
-
-
-
-
-What atlite does not cover (yet)
-=================================
-
-* atlite does not provide and **graphical user interface** (GUI) and relies on prior knowledge on working with Python commands.
-
-* atlite does not provide **exact prediction** of the time-series generation at high resolution in a **future point** in time. The spatial resolution of the  results is limited by the input data used. The accuracy of the results is in parts limited by the methodologies used for translating weather data into generation and the underlying assumptions. With the current assumptions atlite is not suited for predicting the output of single wind turbines or solar panels.
-
-* As the results of atlite are theoretical and are not validated per se, and while usually a good approximation, can **deviate significantly from reality**. While in the past and also at the moment datasets generate by packages similar to atlite where commonly used without a comparison and validation with reality, there is currently a trend to validate the datasets before using them to make sure that results are at least plausible. The atlite team is planning to include auxiliary functions which help to validate generated datasets.
+- atlite has no **graphical user interface** (GUI). You need basic knowledge of
+  Python to use it.
+- atlite does not **predict** generation at high resolution for a **future point in
+  time**. The input data limits the spatial resolution of the results. The
+  methods that translate weather data into generation, and their assumptions,
+  limit the accuracy. With the current assumptions, atlite is not suited to
+  predict the output of single wind turbines or solar panels.
+- atlite results are theoretical and not validated per se. They are usually a
+  good approximation, but they can **deviate significantly from reality**. In the
+  past, datasets created with tools like atlite were often used without
+  comparison to measured data. Today, it is good practice to validate them
+  first, at least for plausibility. The
+  [historic comparison example](../examples/historic-comparison-germany.ipynb)
+  shows one way to do this.

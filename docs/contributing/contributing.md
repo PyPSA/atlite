@@ -1,105 +1,90 @@
-..
-  SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
+<!--
+SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
 
-  SPDX-License-Identifier: CC-BY-4.0
+SPDX-License-Identifier: CC-BY-4.0
+-->
 
+# Contributing
 
-============
-Contributing
-============
+We welcome anyone interested in contributing to atlite, be it with new ideas,
+suggestions, bug reports or code.
 
-We welcome anyone interested in contributing to this project,
-be it with new ideas, suggestions, by filing bug reports or
-contributing code.
+The [Discord server](https://discord.gg/AnuJBk23FU) of the PyPSA ecosystem has
+public voice and text channels to organise projects, ask questions, share news,
+and chat with the community.
 
-A `Discord server <https://discord.gg/AnuJBk23FU>`_ hosts every tool
-in the PyPSA ecosystem. We have there public voice and text channels
-that are suitable to organise projects, ask questions,
-share news, or chat with the community.
+Please submit issues and pull requests to the
+[GitHub repository](https://github.com/PyPSA/atlite).
+For the next development goals, see the
+[vision and roadmap project](https://github.com/orgs/PyPSA/projects/12/views/1)
+and the list of open
+[enhancements](https://github.com/PyPSA/atlite/issues/?q=is%3Aissue%20state%3Aopen%20label%3A%22type%3A%20enhancement%22).
 
-You are invited to submit pull requests / issues to our
-`Github repository <https://github.com/pypsa/atlite>`_.
+## Development setup
 
-For major next development goals, you can consult our `vision and roadmap project <https://github.com/orgs/PyPSA/projects/12/views/1>`_ 
-or check the list of possible `enhancements <https://github.com/PyPSA/atlite/issues/?q=is%3Aissue%20state%3Aopen%20label%3A%22type%3A%20enhancement%22>`_.
+Clone the repository and install atlite in editable mode with the development
+and documentation dependencies:
 
-For linting, formatting and checking your code contributions
-against our guidelines (e.g. we use `Black <https://github.com/psf/black>`_ as code style
-and aim for `REUSE compliance <https://reuse.software/>`_,
-use `pre-commit <https://pre-commit.com/index.html>`_:
+``` bash
+git clone https://github.com/PyPSA/atlite.git
+cd atlite
+uv sync --extra dev --extra docs
+```
 
-1. Installation ``conda install -c conda-forge pre-commit`` or ``pip install pre-commit``
-2. Usage:
-    * To automatically activate ``pre-commit`` on every ``git commit``: Run ``pre-commit install``
-    * To manually run it: ``pre-commit run --all``
+Run the tests with:
 
-Contributing examples
-=====================
+``` bash
+uv run pytest
+```
 
-Nice examples are always welcome.
+Tests that download weather data need [ERA5 credentials](../home/installation.md#era5-credentials). Without them, pytest skips these tests.
 
-You can even submit your `Jupyter notebook`_ (``.ipynb``) directly
-as an example.
-For contributing notebooks (and working with notebooks in `git`
-in general) we have compiled a workflow for you which we suggest
-you follow:
+## Code style
 
-* Locally install `this precommit hook for git`_
+We use [pre-commit](https://pre-commit.com/) to lint and format code with
+[ruff](https://docs.astral.sh/ruff/), check types with [mypy](https://mypy-lang.org/),
+and check [REUSE compliance](https://reuse.software/).
 
-This obviously has to be done only once.
-The hook checks if any of the notebooks you are including in a commit
-contain a non-empty output cells.
+- To run the hooks on every `git commit`: `pre-commit install`
+- To run the hooks manually: `pre-commit run --all`
 
-Then for every notebook:
+Every pull request that changes functionality should add a note to the
+[release notes](../release-notes.md) under "Upcoming Release".
 
-1. Write the notebook (let's call it ``foo.ipynb``) and place it
-   in ``examples/foo.ipynb``.
-2. Ask yourself: Is the output in each of the notebook's cells
-   relevant for to example?
+## Documentation
 
-    * Yes: Leave it there.
-      Just make sure to keep the amount of pictures/... to a minimum.
-    * No: Clear the output of all cells,
-      e.g. `Edit -> Clear all output` in JupyterLab.
+The documentation uses [MkDocs](https://www.mkdocs.org/) with the
+[Material](https://squidfunk.github.io/mkdocs-material/) theme. The pages are
+Markdown files in `docs/`; the navigation is defined in `mkdocs.yml`.
+The [API reference](../api/cutout.md) is generated from the NumPy-style
+docstrings with [mkdocstrings](https://mkdocstrings.github.io/).
+To preview the documentation locally with live reload, run:
 
-3. Provide a link to the documentation:
-   Include a file ``foo.nblink`` located in ``doc/examples/foo.nblink``
-   with this content
+``` bash
+uv run mkdocs serve
+```
 
-   .. code-block:
-        {
-            'path' : '../../examples/foo.ipynb'
-        }
+To check for broken links and other warnings, run:
 
-    Adjust the path for your file's name.
-    This ``nblink`` allows us to link your notebook into the documentation.
-4. Link your file in the documentation:
+``` bash
+uv run mkdocs build --strict
+```
 
-   Either
+## Contributing examples
 
-    * Include your ``examples/foo.nblink`` directly into one of
-      the documentations toctrees; or
-    * Tell us where in the documentation you want your example to show up
+Examples are always welcome. You can submit a
+[Jupyter notebook](https://docs.jupyter.org/en/latest/) (`.ipynb`) directly
+as an example:
 
-5. Commit your changes.
-   If the precommit hook you installed above kicks in, confirm
-   your decision ('y') or go back ('n') and delete the output
-   of the notebook's cells.
-6. Create a pull request for us to accept your example.
+1. Write the notebook, e.g. `foo.ipynb`, and place it in `docs/examples/`.
+2. Decide for each cell whether its output is relevant for the example.
+   The documentation does not run the notebooks, but shows their stored output.
+   Keep relevant output, but keep the number of figures small.
+   Clear all other output, e.g. with *Edit → Clear Outputs of All Cells* in JupyterLab.
+3. Add the notebook to the `nav` section in `mkdocs.yml`, or tell us in the pull
+   request where it should appear.
+4. Add a short description to the [examples overview](../examples/examples.md).
+5. Open a pull request.
 
-For the reasoning and details behind this workflow, see `atlite/issues#38`_.
-
-The support for the the ``.ipynb`` notebook format in our documentation
-is realised via the extensions `nbsphinx`_ and `nbsphinx_link`_.
-
-.. _Jupyter notebook: https://jupyter-notebook-beginner-guide.readthedocs.io/en/latest/what_is_jupyter.html
-.. _this precommit hook for git: https://jamesfolberth.org/articles/2017/08/07/git-commit-hook-for-jupyter-notebooks/
-.. _atlite/issues#38: https://github.com/PyPSA/atlite/issues/38
-.. _nbsphinx: https://nbsphinx.readthedocs.io/en/0.4.2/installation.html
-.. _nbsphinx_link: https://nbsphinx.readthedocs.io/en/latest/
-
-Authors, Contributions and Copyright
-------------------------------------
-
-.. include:: ../AUTHORS.rst
-    :start-after: headline-marker
+For the reasoning behind this workflow, see
+[atlite#38](https://github.com/PyPSA/atlite/issues/38).
