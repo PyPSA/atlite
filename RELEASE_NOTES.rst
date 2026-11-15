@@ -23,6 +23,65 @@ Upcoming Release
   ``trigon_model="simple"``. Before, cells without data, e.g. north of 65° N in SARAH
   cutouts, returned NaN and made aggregated time series NaN
   (https://github.com/PyPSA/atlite/pull/528).
+**Breaking**
+
+* ``Cutout.prepare`` now applies BitRound quantization to 14 mantissa bits
+  (relative error below 3.1e-5) before zlib compression at level 4 instead of 9.
+  Writing is faster and files are smaller. The setting
+  now applies to all variables of the cutout, also to variables prepared
+  earlier. To keep the old behaviour, pass ``compression={"zlib": True,
+  "complevel": 9, "shuffle": True}``. Requires ``netCDF4>=1.6.0``
+  (https://github.com/PyPSA/atlite/pull/529).
+
+**Future Warning**
+
+* Solar panel name: The incorrectly named "KANENA" will be renamed to "KANEKA" in v0.9.0;
+  see https://github.com/PyPSA/atlite/pull/536 .
+
+**Performance**
+
+* Open existing cutouts with ``chunks="auto"`` by default instead of ``{"time": 100}``,
+  also after ``Cutout.prepare``. Dask chunks are now aligned with the chunks stored in
+  the NetCDF file. Before, dask chunks that split the stored chunks made the compressed
+  data decompress many times. This makes all conversions much faster for cutouts with
+  large stored chunks. An explicit ``chunks`` argument is
+  still respected. An explicit ``chunks="auto"`` now also
+  respects the stored chunks. Larger chunks can increase peak memory. To reduce it,
+  pass ``chunks``
+  (https://github.com/PyPSA/atlite/pull/527).
+* Keep ``csp`` lazy and chunked. The efficiency interpolation previously merged all time
+  steps into one chunk and added the solar position as four extra coordinates
+  (https://github.com/PyPSA/atlite/pull/527).
+* Keep ``pv`` and ``irradiation`` lazy for ``trigon_model="other"`` and
+  ``tracking="tilted_horizontal"``. Both computed intermediate results eagerly before.
+  The check for negative diffuse irradiation now only runs at log level ``DEBUG``
+  (https://github.com/PyPSA/atlite/pull/527).
+* Compute ``line_rating`` for all lines in one vectorised dask operation instead of one
+  task per line. Before, each line read and decompressed the cutout data again
+  (https://github.com/PyPSA/atlite/pull/527).
+**Documentation**
+
+* Fix broken links in docs (https://github.com/PyPSA/atlite/pull/537).
+
+**Features**
+
+* Add support for Python 3.14.
+* Feat: Cutouts data format (schema) is now versioned using the attribute ``atlite_cutout_schema_version``.
+  Newly created cutouts carry the version recommended by the ``atlite`` version used to create them (version 1 at the moment)
+  Old cutouts are still supported but need to be migrated with
+  ``python -m atlite.migrate <path> --output <new path>`` or 
+  ``atlite.migrate.migrate_cutout(path, output=new_path)``.
+  Cutouts that have an incompatible data schema will in the future be rejected and raise a ``IncompatibleCutoutError``.
+  See :doc:`migrating_cutouts` for details (https://github.com/PyPSA/atlite/pull/533).
+
+**Bug fixes**
+
+* Fix ``ExclusionContainer.add_raster`` ignoring ``codes=0``. The code ``0`` was
+  treated like a missing ``codes`` argument, so all non-zero cells were excluded
+  instead of the cells with value ``0``. Numpy arrays are now accepted as
+  ``codes``, and an empty list excludes no cells
+  (https://github.com/PyPSA/atlite/pull/525).
+* Fix ``Cutout.hydro`` failing with ``pandas>=3.1`` (https://github.com/PyPSA/atlite/pull/542).
 
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================

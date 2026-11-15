@@ -304,12 +304,12 @@ def SurfaceOrientation(
         azimuth_difference = xr.where(
             azimuth_difference < -pi, 2 * pi + azimuth_difference, azimuth_difference
         )
-        rotation = np.where(
+        rotation = xr.where(
             logical_and(rotation < 0, azimuth_difference > 0),
             rotation + pi,
             rotation,
         )
-        rotation = np.where(
+        rotation = xr.where(
             logical_and(rotation > 0, azimuth_difference < 0),
             rotation - pi,
             rotation,
