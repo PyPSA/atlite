@@ -17,6 +17,16 @@ Upcoming Release
    To use the features already you have to install the ``master`` branch, e.g.
    ``pip install git+https://github.com/pypsa/atlite``.
 
+**Breaking**
+
+* ``Cutout.prepare`` now applies BitRound quantization to 14 mantissa bits
+  (relative error below 3.1e-5) before zlib compression at level 4 instead of 9.
+  Writing is faster and files are smaller. The setting
+  now applies to all variables of the cutout, also to variables prepared
+  earlier. To keep the old behaviour, pass ``compression={"zlib": True,
+  "complevel": 9, "shuffle": True}``. Requires ``netCDF4>=1.6.0``
+  (https://github.com/PyPSA/atlite/pull/529).
+
 **Future Warning**
 
 * Solar panel name: The incorrectly named "KANENA" will be renamed to "KANEKA" in v0.9.0;
@@ -50,6 +60,13 @@ Upcoming Release
 **Features**
 
 * Add support for Python 3.14.
+* Feat: Cutouts data format (schema) is now versioned using the attribute ``atlite_cutout_schema_version``.
+  Newly created cutouts carry the version recommended by the ``atlite`` version used to create them (version 1 at the moment)
+  Old cutouts are still supported but need to be migrated with
+  ``python -m atlite.migrate <path> --output <new path>`` or 
+  ``atlite.migrate.migrate_cutout(path, output=new_path)``.
+  Cutouts that have an incompatible data schema will in the future be rejected and raise a ``IncompatibleCutoutError``.
+  See :doc:`migrating_cutouts` for details (https://github.com/PyPSA/atlite/pull/533).
 * Add ``sarah_from_api`` option to ``Cutout`` to download SARAH data directly from
   the EUMETSAT Data Store (optional dependency ``eumdac``). The raw files are
   stored temporarily and removed after the cutout is prepared. The number of
@@ -62,6 +79,7 @@ Upcoming Release
   instead of the cells with value ``0``. Numpy arrays are now accepted as
   ``codes``, and an empty list excludes no cells
   (https://github.com/PyPSA/atlite/pull/525).
+* Fix ``Cutout.hydro`` failing with ``pandas>=3.1`` (https://github.com/PyPSA/atlite/pull/542).
 
 `v0.7.0 <https://github.com/PyPSA/atlite/releases/tag/v0.7.0>`__ (3rd October 2026)
 =======================================================================================

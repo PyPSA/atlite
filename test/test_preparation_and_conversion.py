@@ -698,8 +698,10 @@ class TestERA5EDH:
     # Per-variable absolute tolerances measured against CDS across all three
     # EDH fixtures (1-day, 3h-sampled, and 2-day crossing months). Set just
     # above the observed worst-case abs diff so any regression bigger than the
-    # GRIB-pack precision floor is caught. ``rtol`` is held at 0 — these are
-    # pure atol bounds.
+    # GRIB-pack precision floor is caught. ``RTOL`` adds the precision floor of
+    # BitRound quantization to 14 mantissa bits applied by default when writing
+    # cutouts: each value is off by up to 2**-15 relative, so two by 2**-14.
+    RTOL = 2**-14
     TOLERANCES: dict[str, float] = {
         "albedo": 1e-3,
         "dewpoint temperature": 0.13,
@@ -753,25 +755,13 @@ class TestERA5EDH:
         """Assert per-variable closeness."""
         for var in variables:
             v_atol = atol[var] if isinstance(atol, dict) else atol
+            cand = candidate[var]
             if var == "wnd_azimuth":
                 # wind_azimuth is an angle, so it wraps around zero. we must
-                # take the modulo to get an accurate numerical difference
-                diff = abs(
-                    (candidate[var] - reference[var] + np.pi) % (2 * np.pi) - np.pi
-                )
-                xr.testing.assert_allclose(
-                    diff,
-                    xr.zeros_like(diff),
-                    atol=v_atol,
-                    rtol=rtol,
-                )
-            else:
-                xr.testing.assert_allclose(
-                    candidate[var],
-                    reference[var],
-                    atol=v_atol,
-                    rtol=rtol,
-                )
+                # move the candidate onto the branch of the reference
+                ref = reference[var]
+                cand = ref + (cand - ref + np.pi) % (2 * np.pi) - np.pi
+            xr.testing.assert_allclose(cand, reference[var], atol=v_atol, rtol=rtol)
 
     @pytest.mark.parametrize(
         ("era5_fixture", "edh_fixture"),
@@ -798,6 +788,7 @@ class TestERA5EDH:
             candidate.data,
             common,
             atol=self.TOLERANCES,
+            rtol=self.RTOL,
         )
 
     @staticmethod

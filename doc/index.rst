@@ -101,6 +101,7 @@ If you would like to cite the atlite software, please refer to `this paper <http
    introduction
    installation
    conventions
+   migrating_cutouts
 
 .. toctree::
    :hidden:
