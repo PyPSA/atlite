@@ -67,10 +67,11 @@ Upcoming Release
   ``atlite.migrate.migrate_cutout(path, output=new_path)``.
   Cutouts that have an incompatible data schema will in the future be rejected and raise a ``IncompatibleCutoutError``.
   See :doc:`migrating_cutouts` for details (https://github.com/PyPSA/atlite/pull/533).
-* Add ``sarah_from_api`` option to ``Cutout`` to download SARAH data directly from
-  the EUMETSAT Data Store (optional dependency ``eumdac``). The raw files are
-  stored temporarily and removed after the cutout is prepared. The number of
-  parallel downloads is set with ``sarah_api_workers``.
+* Add option to download raw SARAH files using the EUMDAC API.
+  The following arguments for `atlite.Cutout()` are introduced: ``sarah_from_api=True`` to download SARAH data directly from the 
+  EUMETSAT Data Store (optional dependency ``eumdac``). The raw SARAH files are stored temporarily or in a user-provided directory ``sarah_dir``. 
+  The user can also keep the raw SARAH files with ``keep_sarah_files=True``. 
+  The number of parallel downloads is set with ``sarah_api_workers``.
 
 **Bug fixes**
 
