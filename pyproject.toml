@@ -66,6 +66,7 @@ docs = [
     "mkdocs-material",
     "mkdocstrings-python",
     "mkdocs-jupyter",
+    "pillow",
 ]
 
 # Setuptools_scm settings
