@@ -121,8 +121,10 @@ def download_from_api(
         the context manager is returned for cleanup. If keep_files is True
         and target_dir is None, files are saved to a default location.
     keep_files : bool, default False
-        If True, preserve downloaded files. If False, files will be cleaned up
-        when using a temporary directory.
+        If True, preserve downloaded files. If False and target_dir is None,
+        files are cleaned up via the returned temporary directory context.
+        If False and target_dir is provided by the user, caller must manage
+        cleanup via shutil.rmtree if desired.
     max_workers : int, default 15
         Number of parallel downloads.
 
@@ -131,8 +133,9 @@ def download_from_api(
     pathlib.Path
         The directory containing the downloaded files.
     TemporaryDirectory or None
-        If using a temporary directory, returns the context manager for cleanup.
-        Otherwise returns None. Caller must manage the context manager lifecycle.
+        If using a temporary directory (target_dir=None and keep_files=False),
+        returns the context manager for cleanup. Otherwise returns None.
+        Caller must manage the context manager lifecycle.
 
     Raises
     ------
@@ -167,6 +170,7 @@ def download_from_api(
 
     # Setup target directory
     temp_context: TemporaryDirectory[str] | None = None
+    
     if target_dir is None:
         if keep_files:
             # Create a persistent default directory
@@ -429,6 +433,7 @@ def get_data(
     creation_parameters.setdefault("keep_sarah_files", False)
 
     temp_context = None
+    cleanup_user_dir = None
     try:
         if creation_parameters.get("sarah_from_api", False):
             start, end = _api_time_range(coords)
@@ -446,6 +451,10 @@ def get_data(
                     creation_parameters.get("sarah_api_workers", SARAH_API_DEFAULT_WORKERS)
                 ),
             )
+            
+            # Track if we need to cleanup a user-provided directory
+            if sarah_target_dir is not None and not keep_files:
+                cleanup_user_dir = Path(sarah_dir)
         else:
             sarah_dir = creation_parameters["sarah_dir"]
 
@@ -487,7 +496,11 @@ def get_data(
 
         return xr.merge([ds, sp])
     finally:
-        # Clean up temporary directory if it was created and files should not be kept
+        # Clean up temporary directory if it was created
         if temp_context is not None:
             gc.collect()
             temp_context.cleanup()
+        # Clean up user-provided directory if requested
+        if cleanup_user_dir is not None:
+            gc.collect()
+            shutil.rmtree(cleanup_user_dir, ignore_errors=True)
