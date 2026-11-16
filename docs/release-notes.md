@@ -73,6 +73,9 @@ SPDX-License-Identifier: CC-BY-4.0
   `codes`, and an empty list excludes no cells
   ([#525](https://github.com/PyPSA/atlite/pull/525)).
 - Fix `Cutout.hydro` failing with `pandas>=3.1` ([#542](https://github.com/PyPSA/atlite/pull/542)).
+- Fix `compute_indicatormatrix` and `compute_intersectionmatrix` failing with
+  `KeyError` or mixing up shapes when geometries are passed as a series with a
+  non-default index ([#534](https://github.com/PyPSA/atlite/pull/534)).
 
 ## [v0.7.0](https://github.com/PyPSA/atlite/releases/tag/v0.7.0) (3rd October 2026)
 
