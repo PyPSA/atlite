@@ -77,6 +77,9 @@ SPDX-License-Identifier: CC-BY-4.0
   `trigon_model="simple"`. Before, cells without data, e.g. north of 65° N in SARAH
   cutouts, returned NaN and made aggregated time series NaN
   ([#528](https://github.com/PyPSA/atlite/pull/528)).
+- Fix `compute_indicatormatrix` and `compute_intersectionmatrix` failing with
+  `KeyError` or mixing up shapes when geometries are passed as a series with a
+  non-default index ([#534](https://github.com/PyPSA/atlite/pull/534)).
 
 ## [v0.7.0](https://github.com/PyPSA/atlite/releases/tag/v0.7.0) (3rd October 2026)
 
