@@ -394,9 +394,7 @@ def cutout_prepare(
                     cutout.data.attrs["sarah_dir"], cutout.path
                 )
                 sarah_parent.mkdir(parents=True, exist_ok=True)
-            sarah_download_dir = Path(
-                mkdtemp(prefix="atlite-sarah-", dir=sarah_parent)
-            )
+            sarah_download_dir = Path(mkdtemp(prefix="atlite-sarah-", dir=sarah_parent))
             _sarah_cleanup.append((sarah_download_dir, sarah_parent, None))
         logger.info("Calculating and writing with module %s:", module)
         missing_features = missing_vars.index.unique("feature")
