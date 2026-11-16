@@ -438,17 +438,19 @@ def get_data(
         if creation_parameters.get("sarah_from_api", False):
             start, end = _api_time_range(coords)
             keep_files = creation_parameters.get("keep_sarah_files", False)
-            
+
             # If user provided sarah_dir, download into it; otherwise use tempfile
             sarah_target_dir = creation_parameters.get("sarah_dir")
-            
+
             sarah_dir, temp_context = download_from_api(
                 start,
                 end,
                 target_dir=sarah_target_dir,
                 keep_files=keep_files,
                 max_workers=int(
-                    creation_parameters.get("sarah_api_workers", SARAH_API_DEFAULT_WORKERS)
+                    creation_parameters.get(
+                        "sarah_api_workers", SARAH_API_DEFAULT_WORKERS
+                    )
                 ),
             )
             
@@ -460,8 +462,12 @@ def get_data(
 
         files = get_filenames(sarah_dir, coords)
         open_kwargs = {"chunks": chunks, "parallel": creation_parameters["parallel"]}
-        ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)[["SIS"]]
-        ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)[["SID"]]
+        ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)[
+            ["SIS"]
+        ]
+        ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)[
+            ["SID"]
+        ]
         ds = xr.merge([ds_sis, ds_sid])
         ds = ds.sel(lon=as_slice(cutout.extent[:2]), lat=as_slice(cutout.extent[2:]))
         ds = ds.assign_coords(
@@ -470,7 +476,9 @@ def get_data(
 
         ds = cast(
             "xr.Dataset",
-            interpolate(ds) if creation_parameters["sarah_interpolate"] else ds.fillna(0),
+            interpolate(ds)
+            if creation_parameters["sarah_interpolate"]
+            else ds.fillna(0),
         )
 
         if cutout.dt not in ["30min", "30T"]:
