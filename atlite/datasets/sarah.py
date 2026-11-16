@@ -170,7 +170,7 @@ def download_from_api(
 
     # Setup target directory
     temp_context: TemporaryDirectory[str] | None = None
-    
+
     if target_dir is None:
         if keep_files:
             # Create a persistent default directory
@@ -453,7 +453,7 @@ def get_data(
                     )
                 ),
             )
-            
+
             # Track if we need to cleanup a user-provided directory
             if sarah_target_dir is not None and not keep_files:
                 cleanup_user_dir = Path(sarah_dir)
