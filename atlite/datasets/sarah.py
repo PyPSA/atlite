@@ -14,6 +14,7 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -100,9 +101,10 @@ def _download_nc(product: Any, target: Path, retries: int = SARAH_API_RETRIES) -
 def download_from_api(
     start: str,
     end: str,
-    target_dir: PathLike,
+    target_dir: PathLike | None = None,
+    keep_files: bool = False,
     max_workers: int = SARAH_API_DEFAULT_WORKERS,
-) -> Path:
+) -> tuple[Path, TemporaryDirectory[str] | None]:
     """
     Download SARAH SID and SIS NetCDF files from the EUMETSAT Data Store.
 
@@ -113,8 +115,14 @@ def download_from_api(
     ----------
     start, end : str
         ISO timestamps (``YYYY-MM-DDTHH:MM:SSZ``) delimiting the search.
-    target_dir : PathLike
+    target_dir : PathLike, optional
         Directory in which the ``SID`` and ``SIS`` sub-directories are created.
+        If None and keep_files is False, a temporary directory is created and
+        the context manager is returned for cleanup. If keep_files is True
+        and target_dir is None, files are saved to a default location.
+    keep_files : bool, default False
+        If True, preserve downloaded files. If False, files will be cleaned up
+        when using a temporary directory.
     max_workers : int, default 15
         Number of parallel downloads.
 
@@ -122,6 +130,9 @@ def download_from_api(
     -------
     pathlib.Path
         The directory containing the downloaded files.
+    TemporaryDirectory or None
+        If using a temporary directory, returns the context manager for cleanup.
+        Otherwise returns None. Caller must manage the context manager lifecycle.
 
     Raises
     ------
@@ -154,7 +165,20 @@ def download_from_api(
     datastore = eumdac.DataStore(eumdac.AccessToken(credentials))
     collection = datastore.get_collection(SARAH_COLLECTION_ID)
 
-    target_dir = Path(target_dir)
+    # Setup target directory
+    temp_context: TemporaryDirectory[str] | None = None
+    if target_dir is None:
+        if keep_files:
+            # Create a persistent default directory
+            target_dir = Path.home() / ".atlite" / "sarah_raw"
+            target_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            # Create a temporary directory
+            temp_context = TemporaryDirectory()
+            target_dir = Path(temp_context.name)
+    else:
+        target_dir = Path(target_dir)
+
     pending = [
         (var, product, product.size)
         for var, pattern in SARAH_API_PATTERNS.items()
@@ -197,20 +221,11 @@ def download_from_api(
             logger.info("[%d/%d] %s %s -> %s", i, len(pending), var, product, status)
 
     if failed:
+        if temp_context is not None:
+            temp_context.cleanup()
         raise RuntimeError(f"{len(failed)} SARAH products failed to download: {failed}")
-    return target_dir
 
-
-def cleanup(tmpdir: PathLike) -> None:
-    """
-    Remove the raw SARAH files downloaded from the API into ``tmpdir``.
-
-    Called by :func:`atlite.data.cutout_prepare` once the cutout is written.
-    """
-    # Drop lingering references so file handles of the lazily opened NetCDF
-    # files are released (required on Windows before deleting).
-    gc.collect()
-    shutil.rmtree(Path(tmpdir) / SARAH_API_SUBDIR, ignore_errors=True)
+    return target_dir, temp_context
 
 
 def get_filenames(sarah_dir: str | PathLike, coords: dict[str, Any]) -> pd.DataFrame:
@@ -384,7 +399,8 @@ def get_data(
     feature : str
         Feature name (e.g. ``"influx"``).
     tmpdir : PathLike
-        Temporary directory for intermediate files.
+        Temporary directory for intermediate files (not used when sarah_from_api=True,
+        as SARAH manages its own temporary directory).
     lock : lock-like, optional
         Lock for thread-safe file access.
     monthly_requests : bool, default False
@@ -393,8 +409,9 @@ def get_data(
         Either ``sarah_dir`` or ``sarah_from_api=True`` must be given.
         Optional keys: ``parallel`` (bool), ``sarah_interpolate`` (bool),
         ``sarah_from_api`` (bool, default False; downloads the files from the
-        EUMETSAT API into ``tmpdir`` and ignores ``sarah_dir``),
-        ``sarah_api_workers`` (int, default 15).
+        EUMETSAT API and manages them internally),
+        ``sarah_api_workers`` (int, default 15),
+        ``keep_sarah_files`` (bool, default False; if True, keep downloaded files).
 
     Returns
     -------
@@ -409,54 +426,68 @@ def get_data(
 
     creation_parameters.setdefault("parallel", False)
     creation_parameters.setdefault("sarah_interpolate", True)
+    creation_parameters.setdefault("keep_sarah_files", False)
 
-    if creation_parameters.get("sarah_from_api", False):
-        start, end = _api_time_range(coords)
-        sarah_dir = download_from_api(
-            start,
-            end,
-            Path(tmpdir) / SARAH_API_SUBDIR,
-            max_workers=int(
-                creation_parameters.get("sarah_api_workers", SARAH_API_DEFAULT_WORKERS)
-            ),
+    temp_context = None
+    try:
+        if creation_parameters.get("sarah_from_api", False):
+            start, end = _api_time_range(coords)
+            keep_files = creation_parameters.get("keep_sarah_files", False)
+            
+            # If user provided sarah_dir, download into it; otherwise use tempfile
+            sarah_target_dir = creation_parameters.get("sarah_dir")
+            
+            sarah_dir, temp_context = download_from_api(
+                start,
+                end,
+                target_dir=sarah_target_dir,
+                keep_files=keep_files,
+                max_workers=int(
+                    creation_parameters.get("sarah_api_workers", SARAH_API_DEFAULT_WORKERS)
+                ),
+            )
+        else:
+            sarah_dir = creation_parameters["sarah_dir"]
+
+        files = get_filenames(sarah_dir, coords)
+        open_kwargs = {"chunks": chunks, "parallel": creation_parameters["parallel"]}
+        ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)[["SIS"]]
+        ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)[["SID"]]
+        ds = xr.merge([ds_sis, ds_sid])
+        ds = ds.sel(lon=as_slice(cutout.extent[:2]), lat=as_slice(cutout.extent[2:]))
+        ds = ds.assign_coords(
+            lon=ds.lon.astype(float).round(4), lat=ds.lat.astype(float).round(4)
         )
-    else:
-        sarah_dir = creation_parameters["sarah_dir"]
 
-    files = get_filenames(sarah_dir, coords)
-    open_kwargs = {"chunks": chunks, "parallel": creation_parameters["parallel"]}
-    ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)[["SIS"]]
-    ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)[["SID"]]
-    ds = xr.merge([ds_sis, ds_sid])
-    ds = ds.sel(lon=as_slice(cutout.extent[:2]), lat=as_slice(cutout.extent[2:]))
-    ds = ds.assign_coords(
-        lon=ds.lon.astype(float).round(4), lat=ds.lat.astype(float).round(4)
-    )
-
-    ds = cast(
-        "xr.Dataset",
-        interpolate(ds) if creation_parameters["sarah_interpolate"] else ds.fillna(0),
-    )
-
-    if cutout.dt not in ["30min", "30T"]:
-        ds = hourly_mean(ds)
-
-    if (cutout.dx != dx) or (cutout.dy != dy):
         ds = cast(
             "xr.Dataset",
-            regrid(ds, coords["lon"], coords["lat"], resampling=Resampling.average),
+            interpolate(ds) if creation_parameters["sarah_interpolate"] else ds.fillna(0),
         )
 
-    dif_attrs = {"long_name": "Surface Diffuse Shortwave Flux", "units": "W m-2"}
-    ds["influx_diffuse"] = (ds["SIS"] - ds["SID"]).assign_attrs(**dif_attrs)
-    ds = ds.rename({"SID": "influx_direct"}).drop_vars("SIS")
-    ds = ds.assign_coords(x=ds.coords["lon"], y=ds.coords["lat"])
+        if cutout.dt not in ["30min", "30T"]:
+            ds = hourly_mean(ds)
 
-    ds = ds.swap_dims({"lon": "x", "lat": "y"})
+        if (cutout.dx != dx) or (cutout.dy != dy):
+            ds = cast(
+                "xr.Dataset",
+                regrid(ds, coords["lon"], coords["lat"], resampling=Resampling.average),
+            )
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        sp = SolarPosition(ds, time_shift="0H")
-    sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
+        dif_attrs = {"long_name": "Surface Diffuse Shortwave Flux", "units": "W m-2"}
+        ds["influx_diffuse"] = (ds["SIS"] - ds["SID"]).assign_attrs(**dif_attrs)
+        ds = ds.rename({"SID": "influx_direct"}).drop_vars("SIS")
+        ds = ds.assign_coords(x=ds.coords["lon"], y=ds.coords["lat"])
 
-    return xr.merge([ds, sp])
+        ds = ds.swap_dims({"lon": "x", "lat": "y"})
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            sp = SolarPosition(ds, time_shift="0H")
+        sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
+
+        return xr.merge([ds, sp])
+    finally:
+        # Clean up temporary directory if it was created and files should not be kept
+        if temp_context is not None:
+            gc.collect()
+            temp_context.cleanup()
