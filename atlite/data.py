@@ -61,7 +61,19 @@ def _cleanup_sarah_files(cleanup_path: Path) -> None:
 
 
 def _validate_sarah_cleanup_dir(sarah_dir: PathLike, cutout_path: Path) -> Path:
-    """Reject paths whose deletion would remove important directories or the cutout."""
+    """
+    Reject paths whose deletion would remove important directories or the cutout.
+
+    Returns
+    -------
+    pathlib.Path
+        Resolved path to the safe cleanup directory.
+
+    Raises
+    ------
+    ValueError
+        If the directory is a filesystem root or contains a protected path.
+    """
     cleanup_path = Path(sarah_dir).resolve()
     protected_paths = (
         Path.cwd(),

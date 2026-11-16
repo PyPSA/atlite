@@ -54,7 +54,14 @@ SARAH_API_DEFAULT_WORKERS = 15
 
 
 def _api_time_range(coords: dict[str, Any]) -> tuple[str, str]:
-    """Return the ISO start/end strings covering the days of the cutout."""
+    """
+    Return the ISO start/end strings covering the days of the cutout.
+
+    Returns
+    -------
+    tuple of str
+        Start of the first day and 23:30 on the last day, formatted as UTC timestamps.
+    """
     index = coords["time"].to_index()
     start = index[0].floor("D")
     end = index[-1].floor("D") + pd.Timedelta(hours=23, minutes=30)
@@ -63,7 +70,14 @@ def _api_time_range(coords: dict[str, Any]) -> tuple[str, str]:
 
 
 def _download_nc(product: Any, target: Path, retries: int = SARAH_API_RETRIES) -> str:
-    """Download a product ZIP, extract its NetCDF file and remove the ZIP."""
+    """
+    Download a product ZIP, extract its NetCDF file and remove the ZIP.
+
+    Returns
+    -------
+    str
+        ``"file extracted"`` on success or ``"failed"`` after all retries.
+    """
     zip_path = target.with_suffix(".zip")
     # Extract to a temporary name so an interrupted run never leaves a
     # partial ``.nc`` file that looks valid.
