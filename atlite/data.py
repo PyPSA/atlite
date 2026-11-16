@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
+import gc
 import logging
 import os
+import time
 from functools import wraps
 from pathlib import Path
 from shutil import rmtree
-from tempfile import mkdtemp, mkstemp
+from tempfile import gettempdir, mkdtemp, mkstemp
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
@@ -36,6 +38,59 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _cleanup_sarah_files(cleanup_path: Path) -> None:
+    """Remove SARAH files, retrying Windows file-lock errors."""
+    for attempt in range(3):
+        try:
+            rmtree(cleanup_path)
+            logger.info("Successfully cleaned up SARAH files from %s", cleanup_path)
+            return
+        except PermissionError as exc:
+            if attempt < 2:
+                gc.collect()  # Force garbage collection to release file handles
+                time.sleep(0.5 * (attempt + 1))
+            else:
+                logger.warning(
+                    "Could not clean up SARAH files from %s: %s", cleanup_path, exc
+                )
+        except OSError as exc:
+            logger.warning(
+                "Could not clean up SARAH files from %s: %s", cleanup_path, exc
+            )
+            return
+
+
+def _validate_sarah_cleanup_dir(sarah_dir: PathLike, cutout_path: Path) -> Path:
+    """
+    Reject paths whose deletion would remove important directories or the cutout.
+
+    Returns
+    -------
+    pathlib.Path
+        Resolved path to the safe cleanup directory.
+
+    Raises
+    ------
+    ValueError
+        If the directory is a filesystem root or contains a protected path.
+    """
+    cleanup_path = Path(sarah_dir).resolve()
+    protected_paths = (
+        Path.cwd(),
+        Path.home(),
+        Path(gettempdir()),
+        Path(__file__),
+        cutout_path,
+    )
+    if cleanup_path == Path(cleanup_path.anchor) or any(
+        cleanup_path == protected.resolve()
+        or cleanup_path in protected.resolve().parents
+        for protected in protected_paths
+    ):
+        raise ValueError(f"Refusing to delete unsafe SARAH directory: {cleanup_path}")
+    return cleanup_path
+
+
 def get_features(
     cutout: Cutout,
     module: str,
@@ -44,6 +99,7 @@ def get_features(
     tmpdir: PathLike | None = None,
     monthly_requests: bool = False,
     concurrent_requests: bool = False,
+    sarah_download_dir: PathLike | None = None,
 ) -> xr.Dataset:
     """
     Load feature datasets for a cutout module.
@@ -64,13 +120,17 @@ def get_features(
         Whether to split requests into monthly chunks.
     concurrent_requests : bool, optional
         Whether to issue monthly requests concurrently.
+    sarah_download_dir : str or pathlib.Path, optional
+        Temporary SARAH API download directory.
 
     Returns
     -------
     xarray.Dataset
         Merged dataset containing the requested features.
     """
-    parameters = cutout.data.attrs
+    parameters = cutout.data.attrs.copy()
+    if sarah_download_dir is not None:
+        parameters["sarah_download_dir"] = str(sarah_download_dir)
     lock = SerializableLock()
     datasets = []
     get_data = datamodules[module].get_data
@@ -91,6 +151,12 @@ def get_features(
     datasets = dask_compute(*datasets)
 
     ds: xr.Dataset = xr.merge(datasets, compat="equals")
+
+    def close_sources() -> None:
+        for dataset in datasets:
+            dataset.close()
+
+    ds.set_close(close_sources)
     for v in ds:
         da = ds[v]
         da.attrs["module"] = module
@@ -156,31 +222,46 @@ def maybe_remove_tmpdir(
     func: Callable[..., Any],
 ) -> Callable[..., Any]:
     """
-    Wrap a function to manage a temporary directory.
+    Wrap cutout preparation to manage temporary directories.
 
     Parameters
     ----------
     func : callable
-        Function accepting a ``tmpdir`` keyword argument.
+        Function accepting ``tmpdir`` and internal ``_sarah_cleanup`` arguments.
 
     Returns
     -------
     callable
-        Wrapped function that creates and removes a temporary directory when
-        ``tmpdir`` is not provided.
+        Wrapped function that cleans up SARAH files and removes the temporary
+        directory when ``tmpdir`` is not provided.
     """
 
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        if kwargs.get("tmpdir"):
-            res: Any = func(*args, **kwargs)
-        else:
+        created_tmpdir = not kwargs.get("tmpdir")
+        if created_tmpdir:
             kwargs["tmpdir"] = mkdtemp()
-            try:
-                res = func(*args, **kwargs)
-            finally:
+        sarah_cleanup: list[tuple[Path, Path | None, xr.Dataset | None]] = []
+        kwargs["_sarah_cleanup"] = sarah_cleanup
+        succeeded = False
+        try:
+            res: Any = func(*args, **kwargs)
+            succeeded = True
+            return res
+        finally:
+            for temporary, parent, dataset in sarah_cleanup:
+                try:
+                    if dataset is not None:
+                        dataset.close()
+                except OSError as exc:
+                    logger.warning(
+                        "Could not close SARAH files in %s: %s", temporary, exc
+                    )
+                    continue
+                cleanup_path = parent if succeeded and parent is not None else temporary
+                _cleanup_sarah_files(cleanup_path)
+            if created_tmpdir:
                 rmtree(kwargs["tmpdir"])
-        return res
 
     return wrapper
 
@@ -197,6 +278,7 @@ def cutout_prepare(
     dask_kwargs: dict[str, Any] | None = None,
     monthly_requests: bool = False,
     concurrent_requests: bool = False,
+    _sarah_cleanup: list[tuple[Path, Path | None, xr.Dataset | None]] | None = None,
 ) -> Cutout:
     """
     Prepare all or a selection of features in a cutout.
@@ -249,6 +331,8 @@ def cutout_prepare(
     concurrent_requests : bool, optional
         If True, the monthly data requests are posted concurrently.
         Only has an effect if `monthly_requests` is True. The default is False.
+    _sarah_cleanup : list, optional
+        Internal SARAH temporary directory and dataset ownership.
 
     Returns
     -------
@@ -308,9 +392,25 @@ def cutout_prepare(
             missing_vars = missing_vars[lambda v: ~v.isin(cutout.data)]
         if missing_vars.empty:
             continue
+        sarah_download_dir = None
+        sarah_parent = None
+        if (
+            module == "sarah"
+            and cutout.data.attrs.get("sarah_from_api", False)
+            and not cutout.data.attrs.get("sarah_keep_files", False)
+        ):
+            if _sarah_cleanup is None:
+                raise RuntimeError("SARAH temporary cleanup is not configured.")
+            if cutout.data.attrs.get("sarah_dir") is not None:
+                sarah_parent = _validate_sarah_cleanup_dir(
+                    cutout.data.attrs["sarah_dir"], cutout.path
+                )
+                sarah_parent.mkdir(parents=True, exist_ok=True)
+            sarah_download_dir = Path(mkdtemp(prefix="atlite-sarah-", dir=sarah_parent))
+            _sarah_cleanup.append((sarah_download_dir, sarah_parent, None))
         logger.info("Calculating and writing with module %s:", module)
         missing_features = missing_vars.index.unique("feature")
-        ds = get_features(
+        feature_data = get_features(
             cutout,
             module,
             missing_features,
@@ -318,8 +418,12 @@ def cutout_prepare(
             tmpdir=tmpdir,
             monthly_requests=monthly_requests,
             concurrent_requests=concurrent_requests,
+            sarah_download_dir=sarah_download_dir,
         )
-        if SCHEMA_VERSION_ATTR in ds.attrs:
+        if sarah_download_dir is not None:
+            assert _sarah_cleanup is not None
+            _sarah_cleanup[-1] = (sarah_download_dir, sarah_parent, feature_data)
+        if SCHEMA_VERSION_ATTR in feature_data.attrs:
             raise RuntimeError(
                 f"Data of module '{module}' must not contain attribute '{SCHEMA_VERSION_ATTR}'."
             )
@@ -327,9 +431,10 @@ def cutout_prepare(
 
         cutout.data.attrs.update({"prepared_features": list(prepared)})
         attrs = non_bool_dict(cutout.data.attrs)
-        attrs.update(ds.attrs)
+        attrs.update(feature_data.attrs)
 
-        ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
+        ds = cutout.data.merge(feature_data[missing_vars.values]).assign_attrs(**attrs)
+        ds.attrs.pop("_cleanup_sarah_dir", None)
 
         if compression:
             for v in ds.data_vars:
@@ -351,6 +456,8 @@ def cutout_prepare(
             cutout.path.unlink()
         Path(tmp).rename(cutout.path)
 
+        feature_data.close()
         cutout.data = xr.open_dataset(cutout.path, chunks="auto")
+        del ds, write_job, feature_data
 
     return cutout

@@ -149,8 +149,31 @@ class Cutout:
             Whether to sanitize the data when preparing the cutout. Takes
             effect for 'era5' data loading.
         sarah_dir : str, Path
-            Directory of on-disk sarah data. This must be given when using the
-            sarah module.
+            Directory of on-disk sarah data. When ``sarah_from_api=True``,
+            downloaded files are saved here, or in a temporary subdirectory
+            when ``sarah_keep_files=False``. When ``sarah_from_api=False``,
+            this must be given to read existing SARAH data. When downloading
+            with ``sarah_keep_files=False``, this directory and all its contents
+            are deleted after successful preparation. Use a dedicated directory.
+            If preparation fails, only the temporary subdirectory is removed.
+        sarah_from_api : bool, default False
+            Download the SARAH data from the EUMETSAT Data Store API instead of
+            reading it from ``sarah_dir``. The time range is taken from ``time``.
+            If ``sarah_keep_files=False`` (default), files are automatically
+            cleaned up after the cutout is prepared. Requires the ``eumdac``
+            package and credentials set once via
+            ``eumdac set-credentials <consumer_key> <consumer_secret>`` via CLI.
+            The estimated download size is logged before the download starts.
+        sarah_api_workers : int, default 15
+            Number of parallel downloads when ``sarah_from_api=True``.
+            See https://user.eumetsat.int/resources/user-guides/data-store-detailed-guide#ID-Throttling for maximum number.
+        sarah_keep_files : bool, default False
+            If True, preserve downloaded SARAH files after cutout preparation.
+            If False (default), temporary files are automatically deleted.
+            Only has effect when ``sarah_from_api=True``. If ``sarah_dir``
+            is provided, files are saved there; otherwise, persistent files are
+            saved to ``~/.atlite/sarah_raw/`` and temporary files use the
+            system temporary directory.
         sarah_interpolate : bool, default True
             Whether to interpolate NaN's in the SARAH data. This takes effect for
             sarah data which has missing data for areas where dawn and
