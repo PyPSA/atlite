@@ -179,18 +179,14 @@ def compute_indicatormatrix(
     Returns
     -------
     I : sp.sparse.lil_matrix
-      Indicatormatrix
+        Indicatormatrix
 
     """
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
     dest = reproject_shapes(dest, dest_crs, orig_crs)
-    orig_list: list[Any] | pd.Series = (
-        list(orig) if not isinstance(orig, pd.Series) else orig
-    )
-    dest_list: list[Any] | pd.Series = (
-        list(dest) if not isinstance(dest, pd.Series) else dest
-    )
+    orig_list: list[Any] = list(orig)
+    dest_list: list[Any] = list(dest)
     indicator = sp.sparse.lil_matrix((len(dest_list), len(orig_list)), dtype=float)
     tree = STRtree(orig_list)
     idx = {hash(o.wkt): i for i, o in enumerate(orig_list)}
@@ -199,9 +195,11 @@ def compute_indicatormatrix(
         for o in tree.query(d):
             # STRtree query returns a list of indices for shapely >= v2.0
             if isinstance(o, (int | np.integer)):
-                o = orig_list[o]
-            if o.intersects(d):
+                j = int(o)
+                o = orig_list[j]
+            else:
                 j = idx[hash(o.wkt)]
+            if o.intersects(d):
                 area = d.intersection(o).area
                 indicator[i, j] = area / o.area
 
@@ -236,18 +234,14 @@ def compute_intersectionmatrix(
     Returns
     -------
     I : sp.sparse.lil_matrix
-      Intersectionmatrix
+        Intersectionmatrix
 
     """
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
     dest = dest.geometry if isinstance(dest, gpd.GeoDataFrame) else dest
     dest = reproject_shapes(dest, dest_crs, orig_crs)
-    orig_list: list[Any] | pd.Series = (
-        list(orig) if not isinstance(orig, pd.Series) else orig
-    )
-    dest_list: list[Any] | pd.Series = (
-        list(dest) if not isinstance(dest, pd.Series) else dest
-    )
+    orig_list: list[Any] = list(orig)
+    dest_list: list[Any] = list(dest)
     intersection = sp.sparse.lil_matrix((len(dest_list), len(orig_list)), dtype=float)
     tree = STRtree(orig_list)
     idx = {hash(o.wkt): i for i, o in enumerate(orig_list)}
@@ -256,8 +250,10 @@ def compute_intersectionmatrix(
         for o in tree.query(d):
             # STRtree query returns a list of indices for shapely >= v2.0
             if isinstance(o, (int | np.integer)):
-                o = orig_list[o]
-            j = idx[hash(o.wkt)]
+                j = int(o)
+                o = orig_list[j]
+            else:
+                j = idx[hash(o.wkt)]
             intersection[i, j] = o.intersects(d)
 
     return intersection
@@ -608,13 +604,13 @@ class ExclusionContainer:
             when ``buffer > 0``. The default is ``"diamond"``.
 
             * ``"diamond"`` – dilates the mask with
-              :func:`scipy.ndimage.binary_dilation`, expanding it by one pixel
+              [scipy.ndimage.binary_dilation][], expanding it by one pixel
               in the four cardinal directions per iteration. The footprint is a
               diamond (L1 metric), so the buffer distance is only accurate along
               the grid axes and overreaches diagonally. This is the historic
               behaviour.
             * ``"circular"`` – marks every pixel whose exact Euclidean distance
-              to the mask (via :func:`scipy.ndimage.distance_transform_edt`) is
+              to the mask (via [scipy.ndimage.distance_transform_edt][]) is
               within ``buffer``, giving a geometrically accurate circular
               (L2 metric) buffer. Prefer this when diagonal accuracy matters;
               note that in practice it is typically slower than ``"diamond"``.

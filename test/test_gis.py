@@ -29,6 +29,8 @@ from xarray.testing import assert_allclose, assert_equal
 from atlite import Cutout
 from atlite.gis import (
     ExclusionContainer,
+    compute_indicatormatrix,
+    compute_intersectionmatrix,
     pad_extent,
     padded_transform_and_shape,
     regrid,
@@ -721,3 +723,31 @@ class TestRasterBufferGeometry:
         })
         with pytest.raises(ValueError, match="Unsupported buffer geometry"):
             shape_availability(shapes, excluder)
+
+
+def test_compute_indicatormatrix_and_intersectionmatrix_non_default_index():
+    poly1 = box(0, 0, 1, 1)
+    poly2 = box(1, 0, 2, 1)
+    dest_poly = box(0, 0, 1.5, 1)
+
+    orig_default = gpd.GeoSeries([poly1, poly2])
+    dest_default = gpd.GeoSeries([dest_poly])
+    expected_indicator = compute_indicatormatrix(orig_default, dest_default)
+    expected_intersection = compute_intersectionmatrix(orig_default, dest_default)
+
+    orig_custom = gpd.GeoSeries([poly1, poly2], index=[10, 20])
+    dest_custom = gpd.GeoSeries([dest_poly], index=["target"])
+    res_indicator = compute_indicatormatrix(orig_custom, dest_custom)
+    res_intersection = compute_intersectionmatrix(orig_custom, dest_custom)
+
+    assert (res_indicator.toarray() == expected_indicator.toarray()).all()
+    assert (res_intersection.toarray() == expected_intersection.toarray()).all()
+
+    orig_reversed = gpd.GeoSeries([poly2, poly1], index=[1, 0])
+    res_indicator_rev = compute_indicatormatrix(orig_reversed, dest_default)
+    res_intersection_rev = compute_intersectionmatrix(orig_reversed, dest_default)
+
+    assert isclose(res_indicator_rev[0, 0], 0.5)
+    assert isclose(res_indicator_rev[0, 1], 1.0)
+    assert res_intersection_rev[0, 0] == 1.0
+    assert res_intersection_rev[0, 1] == 1.0

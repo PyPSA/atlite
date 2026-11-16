@@ -4,20 +4,24 @@
 """
 Explicit migration of cutouts to the current schema version.
 
-Write the migrated cutout to a new file and keep the original::
+Write the migrated cutout to a new file and keep the original:
 
-    python -m atlite.migrate path/to/cutout.nc --output path/to/migrated.nc
+```bash
+python -m atlite.migrate path/to/cutout.nc --output path/to/migrated.nc
+```
 
-or, from Python::
+or, from Python:
 
-    from atlite.migrate import migrate_cutout
+```python
+from atlite.migrate import migrate_cutout
 
-    migrate_cutout("path/to/cutout.nc", output="path/to/migrated.nc")
+migrate_cutout("path/to/cutout.nc", output="path/to/migrated.nc")
+```
 
 Overwriting the original file requires ``--in-place`` (``in_place=True``).
 
 Each migration step upgrades a cutout file by exactly one schema version and is
-registered in :data:`MIGRATIONS` under the version it upgrades from.
+registered in ``MIGRATIONS`` under the version it upgrades from.
 """
 
 from __future__ import annotations

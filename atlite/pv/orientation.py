@@ -227,7 +227,7 @@ def SurfaceOrientation(
     orientation : callable
         Function returning a dict with ``slope`` and ``azimuth`` (in radians)
         given ``(lon, lat, solar_position)``. Typically produced by
-        :func:`get_orientation`.
+        [get_orientation][atlite.pv.orientation.get_orientation].
     tracking : {None, 'horizontal', 'tilted_horizontal', 'vertical', 'dual'}, optional
         Tracking type. ``None`` for fixed panels, ``'horizontal'`` for 1-axis
         horizontal tracking, ``'tilted_horizontal'`` for 1-axis horizontal

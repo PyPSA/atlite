@@ -9,10 +9,10 @@ attribute :data:`SCHEMA_VERSION_ATTR`. Legacy cutouts written before this attrib
 was introduced are treated as having version ``0``.
 
 atlite does not migrate cutouts between versions automatically.
-Loading a cutout with an older but supported version emits a :class:`OutdatedCutoutWarning`.
-Loading a cutout with an unsupported version raises a :class:`IncompatibleCutoutError`.
+Loading a cutout with an older but supported version emits a [OutdatedCutoutWarning][atlite.schema.OutdatedCutoutWarning].
+Loading a cutout with an unsupported version raises a [IncompatibleCutoutError][atlite.schema.IncompatibleCutoutError].
 Outdated cutouts need to be migrated explicitly with ``python -m atlite.migrate`` or
-:func:`atlite.migrate.migrate_cutout`.
+[atlite.migrate.migrate_cutout][].
 """
 
 from __future__ import annotations
