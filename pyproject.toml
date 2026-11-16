@@ -66,6 +66,7 @@ docs = [
     "mkdocs-material",
     "mkdocstrings-python",
     "mkdocs-jupyter",
+    "pillow",
 ]
 
 # Setuptools_scm settings
@@ -113,6 +114,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "test/**" = ["D101", "D102", "D103", "D205"]
 "docs/examples/**" = ["D103"]
+"docs/scripts/**" = ["DOC201"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

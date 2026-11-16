@@ -167,6 +167,7 @@ plugins:
 
 hooks:
 - docs/hooks/sphinx_redirects.py
+- docs/hooks/notebook_figures.py
 
 exclude_docs: |
   *.license
@@ -175,6 +176,7 @@ exclude_docs: |
   *.pdf
   examples/profiles_and_efficiencies_from_sam/
   hooks/
+  scripts/
 
 extra:
   social:
