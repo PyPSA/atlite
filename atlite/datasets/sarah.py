@@ -433,7 +433,7 @@ def get_data(
     creation_parameters.setdefault("keep_sarah_files", False)
 
     temp_context = None
-    cleanup_user_dir = None
+    cleanup_sarah_dir = None
     try:
         if creation_parameters.get("sarah_from_api", False):
             start, end = _api_time_range(coords)
@@ -453,10 +453,10 @@ def get_data(
                     )
                 ),
             )
-
-            # Track if we need to cleanup a user-provided directory
+            
+            # Track user-provided directory for cleanup after prepare()
             if sarah_target_dir is not None and not keep_files:
-                cleanup_user_dir = Path(sarah_dir)
+                cleanup_sarah_dir = Path(sarah_target_dir)
         else:
             sarah_dir = creation_parameters["sarah_dir"]
 
@@ -502,13 +502,15 @@ def get_data(
             sp = SolarPosition(ds, time_shift="0H")
         sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
-        return xr.merge([ds, sp])
+        result = xr.merge([ds, sp])
+        
+        # Store cleanup path in dataset attributes for use in cutout_prepare()
+        if cleanup_sarah_dir is not None:
+            result.attrs["_cleanup_sarah_dir"] = str(cleanup_sarah_dir)
+        
+        return result
     finally:
         # Clean up temporary directory if it was created
         if temp_context is not None:
             gc.collect()
             temp_context.cleanup()
-        # Clean up user-provided directory if requested
-        if cleanup_user_dir is not None:
-            gc.collect()
-            shutil.rmtree(cleanup_user_dir, ignore_errors=True)

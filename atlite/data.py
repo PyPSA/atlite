@@ -351,6 +351,13 @@ def cutout_prepare(
             cutout.path.unlink()
         Path(tmp).rename(cutout.path)
 
+        # Clean up SARAH raw files if tracked
+        if "_cleanup_sarah_dir" in ds.attrs:
+            cleanup_path = Path(ds.attrs["_cleanup_sarah_dir"])
+            if cleanup_path.exists():
+                logger.debug("Cleaning up SARAH raw files from %s", cleanup_path)
+                rmtree(cleanup_path)
+
         cutout.data = xr.open_dataset(cutout.path, chunks="auto")
         del ds, write_job
 
