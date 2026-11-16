@@ -156,7 +156,7 @@ class Cutout:
         sarah_from_api : bool, default False
             Download the SARAH data from the EUMETSAT Data Store API instead of
             reading it from ``sarah_dir``. The time range is taken from ``time``.
-            If ``keep_sarah_files=False`` (default), files are automatically
+            If ``sarah_keep_files=False`` (default), files are automatically
             cleaned up after the cutout is prepared. Requires the ``eumdac``
             package and credentials set once via
             ``eumdac set-credentials <consumer_key> <consumer_secret>`` via CLI.
@@ -164,7 +164,7 @@ class Cutout:
         sarah_api_workers : int, default 15
             Number of parallel downloads when ``sarah_from_api=True``.
             See https://user.eumetsat.int/resources/user-guides/data-store-detailed-guide#ID-Throttling for maximum number.
-        keep_sarah_files : bool, default False
+        sarah_keep_files : bool, default False
             If True, preserve downloaded SARAH files after cutout preparation.
             If False (default), temporary files are automatically deleted.
             Only has effect when ``sarah_from_api=True``. If ``sarah_dir``

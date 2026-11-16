@@ -5,8 +5,10 @@
 
 from __future__ import annotations
 
+import gc
 import logging
 import os
+import time
 from functools import wraps
 from pathlib import Path
 from shutil import rmtree
@@ -34,6 +36,60 @@ if TYPE_CHECKING:
     from atlite.cutout import Cutout
 
 logger = logging.getLogger(__name__)
+
+
+def _cleanup_sarah_files(cleanup_path: Path, max_retries: int = 3) -> None:
+    """
+    Safely cleanup SARAH raw files with retry logic for Windows file locks.
+
+    On Windows, files may be locked by Dask or xarray even after computation
+    completes. This function retries deletion with increasing wait times to
+    allow OS to release locks.
+
+    Parameters
+    ----------
+    cleanup_path : Path
+        Directory to cleanup
+    max_retries : int, default 3
+        Number of retry attempts
+
+    Notes
+    -----
+    If cleanup fails after all retries, a warning is logged but the function
+    does not raise an error. This ensures prepare() doesn't crash even if
+    cleanup fails (the cutout file has already been successfully created).
+    """
+    if not cleanup_path.exists():
+        return
+
+    for attempt in range(max_retries):
+        try:
+            logger.debug(
+                f"Cleaning up SARAH raw files from {cleanup_path} (attempt {attempt + 1}/{max_retries})"
+            )
+            rmtree(cleanup_path)
+            logger.info(f"Successfully cleaned up SARAH files from {cleanup_path}")
+            return
+        except PermissionError as e:
+            if attempt < max_retries - 1:
+                wait_time = 0.5 * (attempt + 1)  # Exponential backoff: 0.5, 1.0, 1.5 seconds
+                logger.debug(
+                    f"PermissionError on attempt {attempt + 1}/{max_retries}, "
+                    f"waiting {wait_time}s before retry: {e}"
+                )
+                gc.collect()  # Force garbage collection to release file handles
+                time.sleep(wait_time)
+            else:
+                logger.warning(
+                    f"Could not cleanup SARAH raw files from {cleanup_path} after {max_retries} attempts. "
+                    f"Please delete manually if needed. Error: {e}"
+                )
+                return
+        except Exception as e:
+            logger.warning(
+                f"Unexpected error cleaning up SARAH raw files from {cleanup_path}: {e}"
+            )
+            return
 
 
 def get_features(
@@ -352,11 +408,25 @@ def cutout_prepare(
         Path(tmp).rename(cutout.path)
 
         # Clean up SARAH raw files if tracked
+        # Must close all file handles before attempting deletion (especially on Windows)
         if "_cleanup_sarah_dir" in ds.attrs:
+            # Close dataset to release Dask file handles
+            ds.close()
+            
+            # Try to close existing cutout data if it exists
+            if hasattr(cutout, "data") and cutout.data is not None:
+                try:
+                    cutout.data.close()
+                except Exception:
+                    pass
+            
+            # Force garbage collection to release file handles
+            gc.collect()
+            gc.collect()
+            
+            # Cleanup with retry logic (handles Windows file locking)
             cleanup_path = Path(ds.attrs["_cleanup_sarah_dir"])
-            if cleanup_path.exists():
-                logger.debug("Cleaning up SARAH raw files from %s", cleanup_path)
-                rmtree(cleanup_path)
+            _cleanup_sarah_files(cleanup_path)
 
         cutout.data = xr.open_dataset(cutout.path, chunks="auto")
         del ds, write_job

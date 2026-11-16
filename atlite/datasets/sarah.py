@@ -415,7 +415,7 @@ def get_data(
         ``sarah_from_api`` (bool, default False; downloads the files from the
         EUMETSAT API and manages them internally),
         ``sarah_api_workers`` (int, default 15),
-        ``keep_sarah_files`` (bool, default False; if True, keep downloaded files).
+        ``sarah_keep_files`` (bool, default False; if True, keep downloaded files).
 
     Returns
     -------
@@ -430,14 +430,14 @@ def get_data(
 
     creation_parameters.setdefault("parallel", False)
     creation_parameters.setdefault("sarah_interpolate", True)
-    creation_parameters.setdefault("keep_sarah_files", False)
+    creation_parameters.setdefault("sarah_keep_files", False)
 
     temp_context = None
     cleanup_sarah_dir = None
     try:
         if creation_parameters.get("sarah_from_api", False):
             start, end = _api_time_range(coords)
-            keep_files = creation_parameters.get("keep_sarah_files", False)
+            keep_files = creation_parameters["sarah_keep_files"]
 
             # If user provided sarah_dir, download into it; otherwise use tempfile
             sarah_target_dir = creation_parameters.get("sarah_dir")

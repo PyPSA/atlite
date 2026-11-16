@@ -70,7 +70,7 @@ Upcoming Release
 * Add option to download raw SARAH files using the EUMDAC API.
   The following arguments for `atlite.Cutout()` are introduced: ``sarah_from_api=True`` to download SARAH data directly from the 
   EUMETSAT Data Store (optional dependency ``eumdac``). The raw SARAH files are stored temporarily or in a user-provided directory ``sarah_dir``. 
-  The user can also keep the raw SARAH files with ``keep_sarah_files=True``. 
+  The user can also keep the raw SARAH files with ``sarah_keep_files=True``.
   The number of parallel downloads is set with ``sarah_api_workers``.
 
 **Bug fixes**
