@@ -73,6 +73,9 @@ SPDX-License-Identifier: CC-BY-4.0
   `codes`, and an empty list excludes no cells
   ([#525](https://github.com/PyPSA/atlite/pull/525)).
 - Fix `Cutout.hydro` failing with `pandas>=3.1` ([#542](https://github.com/PyPSA/atlite/pull/542)).
+- Fix `pad_extent` failing with `cannot convert float NaN to integer` for rasters
+  in a CRS like `ESRI:54009` whose corner lies outside the projection domain, e.g.
+  regions crossing the dateline ([#541](https://github.com/PyPSA/atlite/pull/541)).
 
 ## [v0.7.0](https://github.com/PyPSA/atlite/releases/tag/v0.7.0) (3rd October 2026)
 
