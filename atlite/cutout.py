@@ -562,7 +562,7 @@ class Cutout:
         Returns
         -------
         I : sp.sparse.lil_matrix
-          Indicatormatrix
+            Indicatormatrix
 
         """
         return compute_indicatormatrix(self.grid, shapes, self.crs, shapes_crs)
@@ -588,7 +588,7 @@ class Cutout:
         Returns
         -------
         I : sp.sparse.lil_matrix
-          Intersectionmatrix
+            Intersectionmatrix
 
         """
         return compute_intersectionmatrix(self.grid, shapes, self.crs, shapes_crs)
