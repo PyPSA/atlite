@@ -167,6 +167,7 @@ plugins:
 
 hooks:
 - docs/hooks/sphinx_redirects.py
+- docs/hooks/notebook_figures.py
 
 exclude_docs: |
   *.license
