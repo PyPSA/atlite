@@ -16,10 +16,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import xarray as xr
-from dask import compute, delayed
 from dask.array import absolute, arccos, cos, maximum, mod, radians, sin, sqrt
 from dask.diagnostics import ProgressBar
 from numpy import pi
+from scipy.interpolate import RegularGridInterpolator
 from scipy.sparse import csr_matrix
 
 from atlite import hydro as hydrom
@@ -351,7 +351,7 @@ def temperature(cutout: Cutout, **params: Any) -> ConvertResult:
         The cutout to process.
     **params : Any
         Additional keyword arguments passed to
-        :py:func:`convert_and_aggregate`.
+        [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     Returns
     -------
@@ -361,7 +361,7 @@ def temperature(cutout: Cutout, **params: Any) -> ConvertResult:
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
     """
     return cutout.convert_and_aggregate(convert_func=convert_temperature, **params)
 
@@ -402,7 +402,7 @@ def soil_temperature(cutout: Cutout, **params: Any) -> ConvertResult:
         The cutout to process.
     **params : Any
         Additional keyword arguments passed to
-        :py:func:`convert_and_aggregate`.
+        [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     Returns
     -------
@@ -412,7 +412,7 @@ def soil_temperature(cutout: Cutout, **params: Any) -> ConvertResult:
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
     """
     return cutout.convert_and_aggregate(convert_func=convert_soil_temperature, **params)
 
@@ -446,7 +446,7 @@ def dewpoint_temperature(cutout: Cutout, **params: Any) -> ConvertResult:
         The cutout to process.
     **params : Any
         Additional keyword arguments passed to
-        :py:func:`convert_and_aggregate`.
+        [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     Returns
     -------
@@ -456,7 +456,7 @@ def dewpoint_temperature(cutout: Cutout, **params: Any) -> ConvertResult:
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
     """
     return cutout.convert_and_aggregate(
         convert_func=convert_dewpoint_temperature, **params
@@ -551,7 +551,7 @@ def coefficient_of_performance(
         Quadratic regression coefficient. If ``None``, uses source default.
     **params : Any
         Additional keyword arguments passed to
-        :py:func:`convert_and_aggregate`.
+        [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     Returns
     -------
@@ -565,7 +565,7 @@ def coefficient_of_performance(
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     References
     ----------
@@ -668,7 +668,7 @@ def heat_demand(
         Time shift in hours relative to UTC for daily averaging.
     **params : Any
         Additional keyword arguments passed to
-        :py:func:`convert_and_aggregate`.
+        [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     Returns
     -------
@@ -689,7 +689,7 @@ def heat_demand(
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
     """
     return cutout.convert_and_aggregate(
         convert_func=convert_heat_demand,
@@ -787,7 +787,7 @@ def cooling_demand(
         Time shift in hours relative to UTC for daily averaging.
     **params : Any
         Additional keyword arguments passed to
-        :py:func:`convert_and_aggregate`.
+        [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     Returns
     -------
@@ -808,7 +808,7 @@ def cooling_demand(
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
     """
     return cutout.convert_and_aggregate(
         convert_func=convert_cooling_demand,
@@ -919,7 +919,7 @@ def solar_thermal(
         Storage temperature in °C.
     **params : Any
         Additional keyword arguments passed to
-        :py:func:`convert_and_aggregate`.
+        [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     Returns
     -------
@@ -934,7 +934,7 @@ def solar_thermal(
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     References
     ----------
@@ -1041,7 +1041,7 @@ def wind(
         False.
     interpolation_method : {"logarithmic", "power"}
         Law to interpolate wind speed to turbine hub height. Refer to
-        :py:func:`atlite.wind.extrapolate_wind_speed`.
+        [atlite.wind.extrapolate_wind_speed][].
     **params : Any
         Additional keyword arguments passed to `convert_and_aggregate`.
 
@@ -1050,7 +1050,7 @@ def wind(
     resource : xr.DataArray
         Wind generation time-series. Without aggregation, values are capacity
         factors (MWh/MWp). With aggregation and ``per_unit=False``, values are
-        in MW. See :py:func:`convert_and_aggregate` for details.
+        in MW. See [convert_and_aggregate][atlite.convert.convert_and_aggregate] for details.
 
     See Also
     --------
@@ -1059,11 +1059,11 @@ def wind(
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     References
     ----------
-    .. [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
+    [1] Andresen G B, Søndergaard A A and Greiner M 2015 Energy 93, Part 1
        1074 – 1088. doi:10.1016/j.energy.2015.09.071
 
     Examples
@@ -1201,7 +1201,7 @@ def irradiation(
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     References
     ----------
@@ -1284,7 +1284,7 @@ def pv(
     panel : str or dict
         Panel config dictionary with the parameters for the electrical
         model in [3]. Alternatively, a name accepted by
-        :py:func:`atlite.resource.get_solarpanelconfig`.
+        [atlite.resource.get_solarpanelconfig][].
     orientation : str, dict or callback
         Panel orientation can be chosen from either
         'latitude_optimal', a constant orientation {'slope': 0.0,
@@ -1310,7 +1310,7 @@ def pv(
     pv : xr.DataArray
         PV generation time-series. Without aggregation, values are capacity
         factors (unitless, 0–1). With aggregation and ``per_unit=False``,
-        values are in MW. See :py:func:`convert_and_aggregate` for details.
+        values are in MW. See [convert_and_aggregate][atlite.convert.convert_and_aggregate] for details.
 
     See Also
     --------
@@ -1321,7 +1321,7 @@ def pv(
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     References
     ----------
@@ -1415,8 +1415,18 @@ def convert_csp(ds, installation):
         raise ValueError(f'Unknown CSP technology option "{tech}".')
 
     # Determine solar_position dependend efficiency for each grid cell and time step
-    efficiency = installation["efficiency"].interp(
-        altitude=solar_position["altitude"], azimuth=solar_position["azimuth"]
+    eff = installation["efficiency"].transpose("altitude", "azimuth")
+    interp = RegularGridInterpolator(
+        (eff["altitude"].values, eff["azimuth"].values),
+        eff.values,
+        bounds_error=False,
+    )
+    efficiency = xr.apply_ufunc(
+        lambda alt, az: interp((alt, az)),
+        solar_position["altitude"],
+        solar_position["azimuth"],
+        dask="parallelized",
+        output_dtypes=[eff.dtype],
     )
 
     # Thermal system output
@@ -1451,7 +1461,7 @@ def csp(
     installation : str or xr.DataArray
         CSP installation details determining the solar field efficiency
         dependent on the local solar position. Can be a name accepted by
-        :py:func:`atlite.resource.get_cspinstallationconfig` or an
+        [atlite.resource.get_cspinstallationconfig][] or an
         ``xr.DataArray`` with ``'azimuth'`` (rad) and ``'altitude'`` (rad)
         coordinates and an ``'efficiency'`` (p.u.) entry.
     technology : {"parabolic trough", "solar tower"} or None
@@ -1465,13 +1475,13 @@ def csp(
     -------
     csp : xr.DataArray
         CSP generation time-series in specific yield (kWh/kW_ref), clipped
-        to [0, 1]. See :py:func:`convert_and_aggregate` for details on
+        to [0, 1]. See [convert_and_aggregate][atlite.convert.convert_and_aggregate] for details on
         aggregation behaviour.
 
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     References
     ----------
@@ -1732,8 +1742,8 @@ def convert_line_rating(
     -------
     xr.DataArray or numpy.ndarray
         Maximum current per time step in ampere. When *ds* is an
-        ``xr.Dataset`` the result is aggregated across intersecting cells
-        via ``.min("spatial")``.
+        ``xr.Dataset`` with a ``spatial`` dimension, the result is aggregated
+        across intersecting cells via ``.min("spatial")``.
     """
     Ta = ds["temperature"]
     Tfilm = (Ta + Ts) / 2
@@ -1791,7 +1801,9 @@ def convert_line_rating(
     qs = alpha * Q * A * sin(Phi_s)
 
     Imax = sqrt((qc + qr - qs) / R)
-    return Imax.min("spatial") if isinstance(Imax, xr.DataArray) else Imax
+    if isinstance(Imax, xr.DataArray) and "spatial" in Imax.dims:
+        return Imax.min("spatial")
+    return Imax
 
 
 def line_azimuth_degrees(shape: Any) -> float:
@@ -1855,7 +1867,7 @@ def line_rating(
         Conductor absorptivity (dimensionless).
     **params : Any
         Additional keyword arguments passed to
-        :py:func:`convert_line_rating`.
+        [convert_line_rating][atlite.convert.convert_line_rating].
 
     Returns
     -------
@@ -1866,7 +1878,7 @@ def line_rating(
     Note
     ----
     This function also accepts all keyword arguments of
-    :py:func:`convert_and_aggregate`.
+    [convert_and_aggregate][atlite.convert.convert_and_aggregate].
 
     Example
     -------
@@ -1900,7 +1912,8 @@ def line_rating(
     if not isinstance(shapes, gpd.GeoSeries):
         shapes = gpd.GeoSeries(shapes).rename_axis("dim_0")
 
-    I = cutout.intersectionmatrix(shapes)
+    # CSR format orders the (line, cell) pairs by line
+    I = cutout.intersectionmatrix(shapes).tocsr()
     rows, cols = I.nonzero()
 
     data = cutout.data.stack(spatial=["y", "x"])
@@ -1918,19 +1931,31 @@ def line_rating(
     assert df.notnull().all().all(), "Nan values encountered."
     assert df.columns.equals(pd.Index(["psi", "R", "D", "Ts", "epsilon", "alpha"]))
 
-    dummy = xr.DataArray(np.full(len(data.time), np.nan), coords=(data.time,))
-    res = []
-    for i in range(len(df)):
-        cells_i = cols[rows == i]
-        if cells_i.size:
-            ds = data.isel(spatial=cells_i)
-            res.append(delayed(convert_line_rating)(ds, *df.iloc[i].values))
-        else:
-            res.append(dummy)
-    if show_progress:
-        with ProgressBar(minimum=2):
-            (computed,) = compute(res, **dask_kwargs)
-    else:
-        (computed,) = compute(res, **dask_kwargs)
+    # Compute the rating of each (line, cell) pair
+    pairs = data.isel(spatial=cols).rename(spatial="pair").chunk(pair=-1, time=100)
+    pair_params = {
+        k: xr.DataArray(v.values, dims="pair") for k, v in df.iloc[rows].items()
+    }
+    Imax = convert_line_rating(pairs, **pair_params)
 
-    return xr.concat(computed, dim=df.index).assign_attrs(units="A")
+    # Take the minimum over the cells of each line, ignoring NaN like ``.min()``.
+    # The pairs of each line are contiguous and start at ``starts``.
+    lines, starts = np.unique(rows, return_index=True)
+    Imax = xr.apply_ufunc(
+        lambda a: np.fmin.reduceat(a, starts, axis=-1),
+        Imax,
+        input_core_dims=[["pair"]],
+        output_core_dims=[["line"]],
+        dask="parallelized",
+        output_dtypes=[Imax.dtype],
+        dask_gufunc_kwargs={
+            "output_sizes": {"line": len(lines)},
+            "allow_rechunk": False,
+        },
+    )
+
+    # Lines without intersecting cells get NaN
+    Imax = Imax.assign_coords(line=lines).reindex(line=range(len(df)))
+    dim = df.index.name or "concat_dim"
+    Imax = Imax.rename(line=dim).assign_coords({dim: df.index}).transpose(dim, "time")
+    return maybe_progressbar(Imax, show_progress, **dask_kwargs).assign_attrs(units="A")

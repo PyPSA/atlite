@@ -179,7 +179,7 @@ def compute_indicatormatrix(
     Returns
     -------
     I : sp.sparse.lil_matrix
-      Indicatormatrix
+        Indicatormatrix
 
     """
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
@@ -234,7 +234,7 @@ def compute_intersectionmatrix(
     Returns
     -------
     I : sp.sparse.lil_matrix
-      Intersectionmatrix
+        Intersectionmatrix
 
     """
     orig = orig.geometry if isinstance(orig, gpd.GeoDataFrame) else orig
@@ -604,13 +604,13 @@ class ExclusionContainer:
             when ``buffer > 0``. The default is ``"diamond"``.
 
             * ``"diamond"`` – dilates the mask with
-              :func:`scipy.ndimage.binary_dilation`, expanding it by one pixel
+              [scipy.ndimage.binary_dilation][], expanding it by one pixel
               in the four cardinal directions per iteration. The footprint is a
               diamond (L1 metric), so the buffer distance is only accurate along
               the grid axes and overreaches diagonally. This is the historic
               behaviour.
             * ``"circular"`` – marks every pixel whose exact Euclidean distance
-              to the mask (via :func:`scipy.ndimage.distance_transform_edt`) is
+              to the mask (via [scipy.ndimage.distance_transform_edt][]) is
               within ``buffer``, giving a geometrically accurate circular
               (L2 metric) buffer. Prefer this when diagonal accuracy matters;
               note that in practice it is typically slower than ``"diamond"``.

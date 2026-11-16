@@ -9,11 +9,14 @@ Created on Mon Oct 18 15:11:42 2021.
 @author: fabian
 """
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+import xarray as xr
 from shapely.geometry import LineString, Point
 
+from atlite import Cutout
 from atlite.convert import convert_line_rating, line_azimuth_degrees
 
 
@@ -194,3 +197,62 @@ def test_line_azimuth_degrees(start, end, expected):
     """`line_azimuth_degrees` returns degrees consistent with `convert_line_rating`'s `psi`."""
     shape = LineString([Point(*start), Point(*end)])
     assert np.isclose(line_azimuth_degrees(shape), expected)
+
+
+@pytest.fixture
+def cutout(tmp_path):
+    rng = np.random.default_rng(0)
+    coords = {
+        "time": pd.date_range("2013-06-01", periods=24, freq="h"),
+        "y": [50.0, 50.25, 50.5],
+        "x": [5.0, 5.25, 5.5, 5.75],
+    }
+
+    def var(low, high, dims=("time", "y", "x")):
+        return (dims, rng.uniform(low, high, [len(coords[d]) for d in dims]))
+
+    ds = xr.Dataset(
+        {
+            "temperature": var(270, 300),
+            "wnd100m": var(0, 15),
+            "wnd_azimuth": var(0, 2 * np.pi),
+            "influx_direct": var(0, 800),
+            "solar_altitude": var(0, 1.2),
+            "solar_azimuth": var(0, 2 * np.pi),
+            "height": var(0, 500, ("y", "x")),
+        },
+        coords=coords,
+        attrs={"module": "era5"},
+    )
+    ds["influx_direct"][:, 0, 0] = np.nan
+    ds.to_netcdf(tmp_path / "cutout.nc")
+    return Cutout(tmp_path / "cutout.nc")
+
+
+def test_line_rating_is_minimum_over_intersected_cells(cutout):
+    shapes = gpd.GeoSeries([
+        LineString([(5.0, 50.0), (5.5, 50.5)]),
+        LineString([(5.75, 50.25), (5.25, 50.25)]),
+        LineString([(9.0, 40.0), (9.5, 40.0)]),
+    ])
+    R = pd.Series([3e-5, 4e-5, 5e-5])
+    res = cutout.line_rating(shapes, R)
+
+    data = cutout.data.stack(spatial=["y", "x"])
+    cells = cutout.intersectionmatrix(shapes).tocsr()
+    for i, shape in enumerate(shapes):
+        if not cells[i].nnz:
+            assert res[i].isnull().all()
+            continue
+        psi = line_azimuth_degrees(shape)
+        psi = psi if psi >= 0 else psi + 180
+        ds = data.isel(spatial=cells[i].indices)
+        expected = convert_line_rating(ds, psi, R[i])
+        np.testing.assert_allclose(res[i], expected)
+
+
+def test_line_rating_without_intersections_is_nan(cutout):
+    shapes = gpd.GeoSeries([LineString([(9.0, 40.0), (9.5, 40.0)])])
+    res = cutout.line_rating(shapes, 3e-5)
+    assert res.shape == (1, 24)
+    assert res.isnull().all()
