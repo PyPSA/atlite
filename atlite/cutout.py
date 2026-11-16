@@ -150,9 +150,12 @@ class Cutout:
             effect for 'era5' data loading.
         sarah_dir : str, Path
             Directory of on-disk sarah data. When ``sarah_from_api=True``,
-            downloaded files are saved to this directory instead of a
-            temporary location. When ``sarah_from_api=False``, this must be
-            given to read existing SARAH data.
+            downloaded files are saved here, or in a temporary subdirectory
+            when ``sarah_keep_files=False``. When ``sarah_from_api=False``,
+            this must be given to read existing SARAH data. When downloading
+            with ``sarah_keep_files=False``, this directory and all its contents
+            are deleted after successful preparation. Use a dedicated directory.
+            If preparation fails, only the temporary subdirectory is removed.
         sarah_from_api : bool, default False
             Download the SARAH data from the EUMETSAT Data Store API instead of
             reading it from ``sarah_dir``. The time range is taken from ``time``.
@@ -168,8 +171,9 @@ class Cutout:
             If True, preserve downloaded SARAH files after cutout preparation.
             If False (default), temporary files are automatically deleted.
             Only has effect when ``sarah_from_api=True``. If ``sarah_dir``
-            is provided, files are saved there; otherwise, files are saved
-            to ``~/.atlite/sarah_raw/``.
+            is provided, files are saved there; otherwise, persistent files are
+            saved to ``~/.atlite/sarah_raw/`` and temporary files use the
+            system temporary directory.
         sarah_interpolate : bool, default True
             Whether to interpolate NaN's in the SARAH data. This takes effect for
             sarah data which has missing data for areas where dawn and

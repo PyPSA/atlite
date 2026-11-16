@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import gc
 import logging
 import shutil
 import time
@@ -116,15 +115,12 @@ def download_from_api(
     start, end : str
         ISO timestamps (``YYYY-MM-DDTHH:MM:SSZ``) delimiting the search.
     target_dir : PathLike, optional
-        Directory in which the ``SID`` and ``SIS`` sub-directories are created.
-        If None and keep_files is False, a temporary directory is created and
-        the context manager is returned for cleanup. If keep_files is True
-        and target_dir is None, files are saved to a default location.
+        Directory for downloaded files. If keep_files is False, a temporary
+        subdirectory is created here (or in the system temporary directory if
+        None). Otherwise, files are saved here or to a default location.
     keep_files : bool, default False
-        If True, preserve downloaded files. If False and target_dir is None,
-        files are cleaned up via the returned temporary directory context.
-        If False and target_dir is provided by the user, caller must manage
-        cleanup via shutil.rmtree if desired.
+        If True, preserve downloaded files. If False, the caller must clean up
+        the returned temporary directory context after the files are no longer used.
     max_workers : int, default 15
         Number of parallel downloads.
 
@@ -133,9 +129,7 @@ def download_from_api(
     pathlib.Path
         The directory containing the downloaded files.
     TemporaryDirectory or None
-        If using a temporary directory (target_dir=None and keep_files=False),
-        returns the context manager for cleanup. Otherwise returns None.
-        Caller must manage the context manager lifecycle.
+        The temporary directory context, or None for persistent files.
 
     Raises
     ------
@@ -168,20 +162,19 @@ def download_from_api(
     datastore = eumdac.DataStore(eumdac.AccessToken(credentials))
     collection = datastore.get_collection(SARAH_COLLECTION_ID)
 
-    # Setup target directory
     temp_context: TemporaryDirectory[str] | None = None
-
-    if target_dir is None:
-        if keep_files:
-            # Create a persistent default directory
-            target_dir = Path.home() / ".atlite" / "sarah_raw"
-            target_dir.mkdir(parents=True, exist_ok=True)
-        else:
-            # Create a temporary directory
-            temp_context = TemporaryDirectory()
-            target_dir = Path(temp_context.name)
+    if keep_files:
+        target_dir = (
+            Path(target_dir)
+            if target_dir is not None
+            else Path.home() / ".atlite" / SARAH_API_SUBDIR
+        )
+        target_dir.mkdir(parents=True, exist_ok=True)
     else:
-        target_dir = Path(target_dir)
+        if target_dir is not None:
+            Path(target_dir).mkdir(parents=True, exist_ok=True)
+        temp_context = TemporaryDirectory(dir=target_dir, prefix="atlite-sarah-")
+        target_dir = Path(temp_context.name)
 
     pending = [
         (var, product, product.size)
@@ -391,6 +384,7 @@ def get_data(
     tmpdir: PathLike,
     lock: Any = None,
     monthly_requests: bool = False,
+    sarah_download_dir: PathLike | None = None,
     **creation_parameters: Any,
 ) -> xr.Dataset:
     """
@@ -403,12 +397,14 @@ def get_data(
     feature : str
         Feature name (e.g. ``"influx"``).
     tmpdir : PathLike
-        Temporary directory for intermediate files (not used when sarah_from_api=True,
-        as SARAH manages its own temporary directory).
+        Temporary directory for intermediate files. SARAH API temporary files
+        are managed separately by cutout preparation.
     lock : lock-like, optional
         Lock for thread-safe file access.
     monthly_requests : bool, default False
         Whether to split requests by month.
+    sarah_download_dir : PathLike, optional
+        Temporary download directory owned by cutout preparation.
     **creation_parameters
         Either ``sarah_dir`` or ``sarah_from_api=True`` must be given.
         Optional keys: ``parallel`` (bool), ``sarah_interpolate`` (bool),
@@ -433,42 +429,40 @@ def get_data(
     creation_parameters.setdefault("sarah_keep_files", False)
 
     temp_context = None
-    cleanup_sarah_dir = None
+    ds_sis = None
+    ds_sid = None
+    success = False
     try:
         if creation_parameters.get("sarah_from_api", False):
             start, end = _api_time_range(coords)
             keep_files = creation_parameters["sarah_keep_files"]
 
-            # If user provided sarah_dir, download into it; otherwise use tempfile
-            sarah_target_dir = creation_parameters.get("sarah_dir")
+            sarah_target_dir = (
+                sarah_download_dir
+                if sarah_download_dir is not None
+                else creation_parameters.get("sarah_dir")
+            )
 
             sarah_dir, temp_context = download_from_api(
                 start,
                 end,
                 target_dir=sarah_target_dir,
-                keep_files=keep_files,
+                # Cutout preparation owns and removes its download directory.
+                keep_files=keep_files or sarah_download_dir is not None,
                 max_workers=int(
                     creation_parameters.get(
                         "sarah_api_workers", SARAH_API_DEFAULT_WORKERS
                     )
                 ),
             )
-
-            # Track user-provided directory for cleanup after prepare()
-            if sarah_target_dir is not None and not keep_files:
-                cleanup_sarah_dir = Path(sarah_target_dir)
         else:
             sarah_dir = creation_parameters["sarah_dir"]
 
         files = get_filenames(sarah_dir, coords)
         open_kwargs = {"chunks": chunks, "parallel": creation_parameters["parallel"]}
-        ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)[
-            ["SIS"]
-        ]
-        ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)[
-            ["SID"]
-        ]
-        ds = xr.merge([ds_sis, ds_sid])
+        ds_sis = xr.open_mfdataset(files.sis, combine="by_coords", **open_kwargs)
+        ds_sid = xr.open_mfdataset(files.sid, combine="by_coords", **open_kwargs)
+        ds = xr.merge([ds_sis[["SIS"]], ds_sid[["SID"]]])
         ds = ds.sel(lon=as_slice(cutout.extent[:2]), lat=as_slice(cutout.extent[2:]))
         ds = ds.assign_coords(
             lon=ds.lon.astype(float).round(4), lat=ds.lat.astype(float).round(4)
@@ -504,13 +498,24 @@ def get_data(
 
         result = xr.merge([ds, sp])
 
-        # Store cleanup path in dataset attributes for use in cutout_prepare()
-        if cleanup_sarah_dir is not None:
-            result.attrs["_cleanup_sarah_dir"] = str(cleanup_sarah_dir)
+        def close_sources(
+            sis: xr.Dataset = ds_sis,
+            sid: xr.Dataset = ds_sid,
+            temporary: TemporaryDirectory[str] | None = temp_context,
+        ) -> None:
+            sis.close()
+            sid.close()
+            if temporary is not None:
+                temporary.cleanup()
 
+        result.set_close(close_sources)
+        success = True
         return result
     finally:
-        # Clean up temporary directory if it was created
-        if temp_context is not None:
-            gc.collect()
-            temp_context.cleanup()
+        if not success:
+            if ds_sis is not None:
+                ds_sis.close()
+            if ds_sid is not None:
+                ds_sid.close()
+            if temp_context is not None:
+                temp_context.cleanup()
