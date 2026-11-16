@@ -1,0 +1,202 @@
+# SPDX-FileCopyrightText: Contributors to atlite <https://github.com/pypsa/atlite>
+#
+# SPDX-License-Identifier: CC-BY-4.0
+
+site_name: atlite
+site_url: !ENV [READTHEDOCS_CANONICAL_URL, "https://atlite.readthedocs.io/en/latest/"]
+repo_url: https://github.com/PyPSA/atlite
+repo_name: PyPSA/atlite
+edit_uri: edit/master/docs/
+
+nav:
+- Home:
+  - Home: index.md
+  - Getting Started:
+    - Introduction: home/introduction.md
+    - Installation: home/installation.md
+    - Datasets: home/datasets.md
+    - Conventions: home/conventions.md
+    - Migrating Cutouts: home/migrating-cutouts.md
+  - About:
+    - Release Notes: release-notes.md
+    - Citing: home/citing.md
+    - License: home/license.md
+    - Support: home/support.md
+
+- Examples:
+  - Overview: examples/examples.md
+  - Creating Cutouts:
+    - examples/create_cutout.ipynb
+    - examples/comparing_era5_sources_cds_vs_edh.ipynb
+    - examples/large_cutouts_with_era5_edh.ipynb
+    - examples/create_cutout_SARAH.ipynb
+  - Conversion:
+    - examples/historic-comparison-germany.ipynb
+    - examples/solarpv_tracking_options.ipynb
+    - examples/working-with-csp.ipynb
+    - examples/glofas_hydro_inflow.ipynb
+    - examples/building_stock_weather_aggregation.ipynb
+  - Geospatial Analysis:
+    - examples/landuse-availability.ipynb
+    - examples/using_gebco_heightmap.ipynb
+    - examples/plotting_with_atlite.ipynb
+  - Utilities:
+    - examples/logfiles_and_messages.ipynb
+
+- API Reference:
+  - Cutout: api/cutout.md
+  - Conversion: api/convert.md
+  - Resources: api/resource.md
+  - Wind: api/wind.md
+  - GIS: api/gis.md
+  - Data: api/data.md
+  - Schema and Migration: api/schema.md
+  - Utilities: api/utils.md
+
+- Contributing:
+  - Instructions: contributing/contributing.md
+  - Contributors: contributing/contributors.md
+
+theme:
+  name: material
+  custom_dir: docs/assets/overrides
+  icon:
+    logo: material/weather-windy
+  font:
+    text: Overpass
+  features:
+  - navigation.tabs
+  - navigation.tabs.sticky
+  - navigation.sections
+  - navigation.tracking
+  - navigation.indexes
+  - navigation.top
+  - header.autohide
+  - content.action.edit
+  - content.action.view
+  - content.code.copy
+  - toc.follow
+  - search.suggest
+  - search.highlight
+  - search.share
+  palette:
+  - media: "(prefers-color-scheme: light)"
+    primary: custom
+    accent: custom
+    scheme: default
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to dark mode
+  - media: "(prefers-color-scheme: dark)"
+    primary: custom
+    accent: custom
+    scheme: slate
+    toggle:
+      icon: material/weather-night
+      name: Switch to light mode
+
+extra_css:
+- assets/stylesheets/extra.css
+
+extra_javascript:
+- assets/javascripts/readthedocs.js
+- assets/javascripts/mathjax.js
+- https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+markdown_extensions:
+- admonition
+- pymdownx.details
+- pymdownx.superfences
+- md_in_html
+- attr_list
+- footnotes
+- toc:
+    title: On this page
+    permalink: true
+    toc_depth: 3
+- pymdownx.arithmatex:
+    generic: true
+- pymdownx.tabbed:
+    alternate_style: true
+- pymdownx.emoji:
+    emoji_index: !!python/name:material.extensions.emoji.twemoji
+    emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+- search
+- mkdocstrings:
+    default_handler: python
+    handlers:
+      python:
+        inventories:
+        - https://docs.python.org/3/objects.inv
+        - https://numpy.org/doc/stable/objects.inv
+        - https://pandas.pydata.org/docs/objects.inv
+        - https://docs.xarray.dev/en/stable/objects.inv
+        - https://geopandas.org/en/stable/objects.inv
+        - https://docs.scipy.org/doc/scipy/objects.inv
+        options:
+          docstring_style: numpy
+          extensions:
+          - docs/hooks/cutout_methods.py:CutoutMethods
+          docstring_options:
+            warn_unknown_params: false  # parameters passed via **kwargs are documented
+          docstring_section_style: list
+          filters:
+          - "!^_[^_]"
+          - "!logger"
+          heading_level: 2
+          members_order: source
+          merge_init_into_class: true
+          parameter_headings: false
+          separate_signature: true
+          show_root_heading: true
+          show_root_full_path: false
+          show_source: false
+          show_symbol_type_heading: true
+          show_symbol_type_toc: true
+          show_signature_annotations: true
+          signature_crossrefs: true
+          summary: true
+# Notebooks are stored with outputs and are not executed during the build.
+- mkdocs-jupyter:
+    execute: false
+    include: ["*.ipynb"]
+    include_source: true
+    ignore_h1_titles: false
+
+hooks:
+- docs/hooks/sphinx_redirects.py
+- docs/hooks/notebook_figures.py
+
+exclude_docs: |
+  *.license
+  *.odp
+  *.dia
+  *.pdf
+  examples/profiles_and_efficiencies_from_sam/
+  hooks/
+  scripts/
+
+extra:
+  social:
+  - icon: fontawesome/brands/discord
+    link: https://discord.gg/AnuJBk23FU
+  - icon: fontawesome/brands/github
+    link: https://github.com/PyPSA/atlite
+  - icon: fontawesome/solid/globe
+    link: https://pypsa.org
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
+copyright: >-
+  &copy; Contributors to atlite | CC-BY-4.0

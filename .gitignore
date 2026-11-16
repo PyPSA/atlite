@@ -7,7 +7,7 @@
 .~*
 __pycache__
 .ipynb_checkpoints
-doc/_build/
+site/
 build/
 dist/
 .eggs
@@ -15,10 +15,10 @@ atlite.egg-info/
 test/*.nc
 dev-scripts/
 dev/
-examples/*.nc
-examples/*.csv
-examples/*.zip
-examples/*.tif
+docs/examples/*.nc
+docs/examples/*.csv
+docs/examples/*.zip
+docs/examples/*.tif
 benchmarks/
 atlite/version.py
 paper
@@ -30,3 +30,4 @@ paper
 .vscode
 AGENTS.md
 uv.lock
+.cache/

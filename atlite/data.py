@@ -22,6 +22,10 @@ from dask.utils import SerializableLock
 from numpy import atleast_1d
 
 from atlite.datasets import modules as datamodules
+from atlite.schema import (
+    SCHEMA_VERSION_ATTR,
+    require_current_schema_version,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
@@ -222,12 +226,18 @@ def cutout_prepare(
         Whether to overwrite variables which are already included in the
         cutout. The default is False.
     compression : None/dict, optional
-        Compression level to use for all features which are being prepared.
-        The compression is handled via xarray.Dataset.to_netcdf(...), for details see:
+        Variable encoding for compression, applied to all variables of the
+        cutout when the file is written. The compression is handled via
+        xarray.Dataset.to_netcdf(...), for details see:
         https://docs.xarray.dev/en/stable/generated/xarray.Dataset.to_netcdf.html .
-        To efficiently reduce cutout sizes, specify the number of 'least_significant_digits': n here.
-        To disable compression, set "complevel" to None.
-        Default is {'zlib': True, 'complevel': 9, 'shuffle': True}.
+        The default uses zlib compression after BitRound quantization to 14
+        mantissa bits (relative error below 2**-15 = 3.1e-5), see Klöwer et al.
+        (2021), https://doi.org/10.1038/s43588-021-00156-2 . For lossless
+        compression, remove 'quantize_mode' and 'significant_digits'. zstd
+        ({'compression': 'zstd'}) is faster but cannot be read with pip
+        installations of netCDF4 on Windows.
+        Default is {'zlib': True, 'complevel': 4, 'shuffle': True,
+        'quantize_mode': 'BitRound', 'significant_digits': 14}.
     show_progress : bool, optional
         If True, a progress bar is shown. The default is False.
     dask_kwargs : dict, default {}
@@ -252,17 +262,30 @@ def cutout_prepare(
         If ``tmpdir`` is None.
     FileNotFoundError
         If ``tmpdir`` does not exist.
+    atlite.schema.IncompatibleCutoutError
+        If features is to be added to an existing cutout that is not the recommended
+        schema version of the installed version of ``atlite``.
+    RuntimeError
+        If the data of a module sets the cutout's schema version attribute.
 
-    """
+    """  # noqa: DOC502 (IncompatibleCutoutError is raised by require_current_schema_version)
     if dask_kwargs is None:
         dask_kwargs = {}
 
     if compression is None:
-        compression = {"zlib": True, "complevel": 9, "shuffle": True}
+        compression = {
+            "zlib": True,
+            "complevel": 4,
+            "shuffle": True,
+            "quantize_mode": "BitRound",
+            "significant_digits": 14,
+        }
 
     if cutout.prepared and not overwrite:
         logger.info("Cutout already prepared.")
         return cutout
+
+    require_current_schema_version(cutout.schema_version, cutout.path)
 
     if tmpdir is None:
         raise ValueError("tmpdir cannot be None")
@@ -296,17 +319,21 @@ def cutout_prepare(
             monthly_requests=monthly_requests,
             concurrent_requests=concurrent_requests,
         )
+        if SCHEMA_VERSION_ATTR in ds.attrs:
+            raise RuntimeError(
+                f"Data of module '{module}' must not contain attribute '{SCHEMA_VERSION_ATTR}'."
+            )
         prepared |= set(missing_features)
 
         cutout.data.attrs.update({"prepared_features": list(prepared)})
         attrs = non_bool_dict(cutout.data.attrs)
         attrs.update(ds.attrs)
 
-        if compression:
-            for v in missing_vars:
-                ds[v].encoding.update(compression)
-
         ds = cutout.data.merge(ds[missing_vars.values]).assign_attrs(**attrs)
+
+        if compression:
+            for v in ds.data_vars:
+                ds[v].encoding.update(compression)
 
         directory, filename = os.path.split(str(cutout.path))
         fd, tmp = mkstemp(suffix=filename, dir=directory)
