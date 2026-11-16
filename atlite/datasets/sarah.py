@@ -453,7 +453,7 @@ def get_data(
                     )
                 ),
             )
-            
+
             # Track user-provided directory for cleanup after prepare()
             if sarah_target_dir is not None and not keep_files:
                 cleanup_sarah_dir = Path(sarah_target_dir)
@@ -503,11 +503,11 @@ def get_data(
         sp = sp.rename({v: f"solar_{v}" for v in sp.data_vars})
 
         result = xr.merge([ds, sp])
-        
+
         # Store cleanup path in dataset attributes for use in cutout_prepare()
         if cleanup_sarah_dir is not None:
             result.attrs["_cleanup_sarah_dir"] = str(cleanup_sarah_dir)
-        
+
         return result
     finally:
         # Clean up temporary directory if it was created
