@@ -388,15 +388,41 @@ def pad_extent(
     -------
     tuple
         Padded array and updated affine transform.
+
+    Raises
+    ------
+    ValueError
+        If the source array is empty or if a finite, positive resolution cannot
+        be estimated for raster padding.
     """
     if src.size == 0:
         return src, src_transform
 
-    left, top = src_transform * (0, 0)
-    right, bottom = src_transform * (1, 1)
-    covered = transform_bounds(src_crs, dst_crs, left, bottom, right, top)
-    covered_res = min(abs(covered[2] - covered[0]), abs(covered[3] - covered[1]))
-    pad = int(dst_transform[0] // covered_res * 1.1)
+    rows, cols = src.shape[-2:]
+    left, top = src_transform * (cols // 2, rows // 2)
+    right, bottom = src_transform * (cols // 2 + 1, rows // 2 + 1)
+    covered = transform_bounds(
+        src_crs,
+        dst_crs,
+        min(left, right),
+        min(bottom, top),
+        max(left, right),
+        max(bottom, top),
+    )
+    covered_res = min(covered[2] - covered[0], covered[3] - covered[1])
+    dst_res = abs(dst_transform.a)
+    if (
+        not np.isfinite(covered).all()
+        or covered_res <= 0
+        or not np.isfinite(dst_res)
+        or dst_res <= 0
+    ):
+        bounds = rio.transform.array_bounds(rows, cols, src_transform)
+        raise ValueError(
+            "Cannot estimate a finite, positive resolution for raster padding; "
+            f"source bounds={bounds}, source shape={src.shape[-2:]}.",
+        )
+    pad = int(dst_res // covered_res * 1.1)
 
     kwargs.setdefault("mode", "constant")
 
