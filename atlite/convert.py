@@ -1226,7 +1226,7 @@ def convert_pv(
     ds: xr.Dataset,
     panel: dict[str, Any],
     orientation: Callable,
-    tracking: TrackingType,
+    tracking: TrackingType | None,
     trigon_model: TrigonModel = "simple",
     clearsky_model: ClearskyModel | None = "simple",
     dc_ac_ratio: float | None = None,
