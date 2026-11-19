@@ -61,6 +61,18 @@ def test_convert_pv_is_lazy(ds, kwargs):
     assert isinstance(da.data, dask.array.Array)
 
 
+@pytest.mark.parametrize("dc_ac_ratio", [1.0, 1.25, 2.0])
+def test_convert_pv_dc_ac_ratio(ds, dc_ac_ratio):
+    panel = dict(get_solarpanelconfig("CSi"))
+    orientation = get_orientation({"slope": 30.0, "azimuth": 180.0})
+    dc = convert_pv(ds, panel, orientation, tracking=None)
+    ac = convert_pv(ds, panel, orientation, tracking=None, dc_ac_ratio=dc_ac_ratio)
+    efficiency = panel["inverter_efficiency"]
+    expected = efficiency * (dc_ac_ratio * dc / efficiency).clip(max=1.0)
+    xr.testing.assert_allclose(ac, expected)
+    assert ac.name == dc.name
+
+
 def test_convert_csp_keeps_chunks_and_coords(ds):
     installation = get_cspinstallationconfig("SAM_solar_tower")
     da = convert_csp(ds, installation)
