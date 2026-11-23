@@ -14,7 +14,7 @@ SPDX-License-Identifier: CC-BY-4.0
     To use the features already you have to install the `master` branch, e.g.
     `pip install git+https://github.com/pypsa/atlite`.
 
-## [v0.8.0](https://github.com/PyPSA/atlite/releases/tag/v0.8.0) (16th November 2026)
+## [v0.8.0](https://github.com/PyPSA/atlite/releases/tag/v0.8.0) (23rd November 2026)
 
 ### Breaking
 
@@ -39,6 +39,10 @@ SPDX-License-Identifier: CC-BY-4.0
 ### Features
 
 - Add support for Python 3.14 ([#532](https://github.com/PyPSA/atlite/pull/532)).
+- Add `dc_ac_ratio` argument to `Cutout.pv` to size the inverter below the module
+  capacity. The output is then given per unit of AC capacity and clipped at the
+  inverter capacity in each grid cell before aggregation
+  ([#550](https://github.com/PyPSA/atlite/pull/550)).
 
 ### Performance
 
