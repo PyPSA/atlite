@@ -78,6 +78,12 @@ SPDX-License-Identifier: CC-BY-4.0
   `codes`, and an empty list excludes no cells
   ([#525](https://github.com/PyPSA/atlite/pull/525)).
 - Fix `Cutout.hydro` failing with `pandas>=3.1` ([#542](https://github.com/PyPSA/atlite/pull/542)).
+- Fill missing irradiation data with zero for `trigon_model="other"`, as for
+  `trigon_model="simple"`. Before, cells without data, e.g. north of 65° N in SARAH
+  cutouts, returned NaN and made aggregated time series NaN
+  ([#528](https://github.com/PyPSA/atlite/pull/528)).
+- `Cutout.hydro` now raises a clear `ValueError` if a plant is not in any basin,
+  instead of an `IndexError` ([#548](https://github.com/PyPSA/atlite/pull/548)).
 - Fix `compute_indicatormatrix` and `compute_intersectionmatrix` failing with
   `KeyError` or mixing up shapes when geometries are passed as a series with a
   non-default index ([#534](https://github.com/PyPSA/atlite/pull/534)).
