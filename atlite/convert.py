@@ -1226,9 +1226,10 @@ def convert_pv(
     ds: xr.Dataset,
     panel: dict[str, Any],
     orientation: Callable,
-    tracking: TrackingType,
+    tracking: TrackingType | None,
     trigon_model: TrigonModel = "simple",
     clearsky_model: ClearskyModel | None = "simple",
+    dc_ac_ratio: float | None = None,
 ) -> xr.DataArray:
     """
     Convert weather data to photovoltaic specific generation.
@@ -1247,6 +1248,9 @@ def convert_pv(
         Trigonometric irradiation model.
     clearsky_model : str or None, default "simple"
         Clear-sky model used for diffuse irradiation.
+    dc_ac_ratio : float, optional
+        Ratio of module (DC) capacity to inverter (AC) capacity. See
+        [pv][atlite.convert.pv].
 
     Returns
     -------
@@ -1263,7 +1267,10 @@ def convert_pv(
         clearsky_model=clearsky_model,
         tracking=tracking,
     )
-    return SolarPanelModel(ds, irradiation, panel)
+    da = SolarPanelModel(ds, irradiation, panel)
+    if dc_ac_ratio is not None:
+        da = (dc_ac_ratio * da).clip(max=1.0)
+    return da
 
 
 def pv(
@@ -1272,6 +1279,7 @@ def pv(
     orientation: OrientationName | dict[str, float] | Callable,
     tracking: TrackingType | None = None,
     clearsky_model: ClearskyModel | None = None,
+    dc_ac_ratio: float | None = None,
     **params: Any,
 ) -> ConvertResult:
     """
@@ -1302,6 +1310,15 @@ def pv(
         model. The default choice of None will choose dependending on
         data availability, since the 'enhanced' model also
         incorporates ambient air temperature and relative humidity.
+    dc_ac_ratio : float, optional
+        Ratio of module (DC) capacity to inverter (AC) capacity. If given,
+        the output of each grid cell is expressed per unit of AC capacity
+        and clipped at the inverter capacity before any aggregation. The
+        `inverter_efficiency` of the panel applies before the clipping, as
+        in [4]. Capacities in `layout` and the returned capacity then refer
+        to AC capacity, and so must cost assumptions used with the output.
+        The default None returns the output per unit of DC capacity without
+        an inverter limit.
     **params : Any
         Additional keyword arguments passed to `convert_and_aggregate`.
 
@@ -1336,6 +1353,9 @@ def pv(
     the Performance Check of Grid Connected Systems, Freiburg, June 2004.
     Eurosun (ISES Europe Solar Congress).
 
+    [4] Aron P. Dobos. PVWatts Version 5 Manual. NREL/TP-6A20-62641, 2014.
+    https://doi.org/10.2172/1158421
+
 
     Examples
     --------
@@ -1361,6 +1381,7 @@ def pv(
         orientation=orientation,
         tracking=tracking,
         clearsky_model=clearsky_model,
+        dc_ac_ratio=dc_ac_ratio,
         **params,
     )
 
