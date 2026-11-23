@@ -41,8 +41,18 @@ def find_basin(
     -------
     int
         Basin id containing the point.
+
+    Raises
+    ------
+    ValueError
+        If the point is not in any basin.
     """
     hids = shapes.index[shapes.intersects(Point(lon, lat))]
+    if len(hids) == 0:
+        raise ValueError(
+            f"The point ({lon}, {lat}) is not in any basin. Check that all plants "
+            "lie within the hydrobasins."
+        )
     if len(hids) > 1:
         logger.warning(
             "The point (%s, %s) is in several basins: %s. Assuming the first one.",

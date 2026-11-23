@@ -362,7 +362,7 @@ def TiltedIrradiation(
             ds, solar_position, surface_orientation, direct + diffuse
         )
 
-        total_t = direct_t + diffuse_t + ground_t
+        total_t = direct_t.fillna(0.0) + diffuse_t.fillna(0.0) + ground_t.fillna(0.0)
 
     result: xr.DataArray
     if irradiation == "total":
