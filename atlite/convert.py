@@ -1269,8 +1269,7 @@ def convert_pv(
     )
     da = SolarPanelModel(ds, irradiation, panel)
     if dc_ac_ratio is not None:
-        # clip the DC power at the inverter capacity before inverter losses
-        da = (dc_ac_ratio * da).clip(max=panel.get("inverter_efficiency", 1.0))
+        da = (dc_ac_ratio * da).clip(max=1.0)
     return da
 
 
@@ -1313,12 +1312,13 @@ def pv(
         incorporates ambient air temperature and relative humidity.
     dc_ac_ratio : float, optional
         Ratio of module (DC) capacity to inverter (AC) capacity. If given,
-        the output of each grid cell is expressed per unit of AC capacity.
-        The DC power is clipped at the inverter capacity before any
-        aggregation, and the `inverter_efficiency` of the panel applies
-        after the clipping. Capacities in `layout` and the returned
-        capacity then refer to AC capacity. The default None returns the
-        output per unit of DC capacity without an inverter limit.
+        the output of each grid cell is expressed per unit of AC capacity
+        and clipped at the inverter capacity before any aggregation. The
+        `inverter_efficiency` of the panel applies before the clipping, as
+        in [4]. Capacities in `layout` and the returned capacity then refer
+        to AC capacity, and so must cost assumptions used with the output.
+        The default None returns the output per unit of DC capacity without
+        an inverter limit.
     **params : Any
         Additional keyword arguments passed to `convert_and_aggregate`.
 
@@ -1352,6 +1352,9 @@ def pv(
     for the MPP Performance of Different Types of PV-Modules Applied for
     the Performance Check of Grid Connected Systems, Freiburg, June 2004.
     Eurosun (ISES Europe Solar Congress).
+
+    [4] Aron P. Dobos. PVWatts Version 5 Manual. NREL/TP-6A20-62641, 2014.
+    https://doi.org/10.2172/1158421
 
 
     Examples

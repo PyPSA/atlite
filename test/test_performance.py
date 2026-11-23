@@ -67,9 +67,13 @@ def test_convert_pv_dc_ac_ratio(ds, dc_ac_ratio):
     orientation = get_orientation({"slope": 30.0, "azimuth": 180.0})
     dc = convert_pv(ds, panel, orientation, tracking=None)
     ac = convert_pv(ds, panel, orientation, tracking=None, dc_ac_ratio=dc_ac_ratio)
-    efficiency = panel["inverter_efficiency"]
-    expected = efficiency * (dc_ac_ratio * dc / efficiency).clip(max=1.0)
-    xr.testing.assert_allclose(ac, expected)
+    unclipped = dc_ac_ratio * dc
+    assert ac.max() <= 1.0
+    assert (ac <= unclipped).all()
+    xr.testing.assert_allclose(
+        ac.where(unclipped < 1.0), unclipped.where(unclipped < 1.0)
+    )
+    assert (ac.where(unclipped >= 1.0, 1.0) == 1.0).all()
     assert ac.name == dc.name
 
 

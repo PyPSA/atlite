@@ -57,9 +57,8 @@ SPDX-License-Identifier: CC-BY-4.0
 ### Features
 
 - Add `dc_ac_ratio` argument to `Cutout.pv` to size the inverter below the module
-  capacity. The output is then given per unit of AC capacity. The DC power is
-  clipped at the inverter capacity in each grid cell before aggregation and before
-  the inverter efficiency applies
+  capacity. The output is then given per unit of AC capacity and clipped at the
+  inverter capacity in each grid cell before aggregation
   ([#550](https://github.com/PyPSA/atlite/pull/550)).
 - Add support for Python 3.14.
 - Feat: Cutouts data format (schema) is now versioned using the attribute `atlite_cutout_schema_version`.
