@@ -82,6 +82,9 @@ SPDX-License-Identifier: CC-BY-4.0
 - Fix `compute_indicatormatrix` and `compute_intersectionmatrix` failing with
   `KeyError` or mixing up shapes when geometries are passed as a series with a
   non-default index ([#534](https://github.com/PyPSA/atlite/pull/534)).
+- Fix `pad_extent` failing with `cannot convert float NaN to integer` for rasters
+  in a CRS like `ESRI:54009` whose corner lies outside the projection domain, e.g.
+  regions crossing the dateline ([#541](https://github.com/PyPSA/atlite/pull/541)).
 
 ## [v0.7.0](https://github.com/PyPSA/atlite/releases/tag/v0.7.0) (3rd October 2026)
 

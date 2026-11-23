@@ -317,6 +317,33 @@ def test_pad_extent():
     assert trans_r == dst_trans
 
 
+@pytest.mark.parametrize("longitude", [-179.99, 178])
+@pytest.mark.parametrize("leading_shape", [(), (2,)])
+def test_pad_extent_mollweide(longitude, leading_shape):
+    """Pad rasters whose corner lies outside the Mollweide domain."""
+    geometry = gpd.GeoSeries(
+        [box(longitude, 64, longitude + 1.99, 67)], crs=4326
+    ).to_crs("ESRI:54009")
+    transform, shape = padded_transform_and_shape(geometry.total_bounds, 10000)
+    src = np.ones(leading_shape + shape, dtype=np.uint8)
+    target = rio.Affine(0.3, 0, -180, 0, -0.3, 68)
+
+    padded, padded_transform = pad_extent(src, transform, target, "ESRI:54009", 4326)
+    pad_y = (padded.shape[-2] - src.shape[-2]) // 2
+    pad_x = (padded.shape[-1] - src.shape[-1]) // 2
+    assert pad_x == pad_y > 0
+    assert padded_transform * (pad_x, pad_y) == transform * (0, 0)
+    np.testing.assert_array_equal(padded[..., pad_y:-pad_y, pad_x:-pad_x], src)
+    assert padded.sum() == src.sum()
+
+
+def test_pad_extent_untransformable():
+    transform = rio.Affine(100, 0, 1e9, 0, -100, 1e9)
+    target = rio.Affine(0.3, 0, -180, 0, -0.3, 68)
+    with pytest.raises(ValueError, match="Cannot estimate the resolution"):
+        pad_extent(np.zeros((3, 4)), transform, target, "ESRI:54009", 4326)
+
+
 def test_indicator_matrix(ref):
     # This should be the grid cell at the lower left corner
     cell = ref.grid.geometry[0]
