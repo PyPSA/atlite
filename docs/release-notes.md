@@ -14,6 +14,12 @@ SPDX-License-Identifier: CC-BY-4.0
     To use the features already you have to install the `master` branch, e.g.
     `pip install git+https://github.com/pypsa/atlite`.
 
+### Bug fixes
+
+- With `add_cutout_windspeed=True`, the zero-power cut-out is now added just above the
+  highest wind speed of the power curve instead of at it, so the power listed for that
+  wind speed still applies ([#522](https://github.com/PyPSA/atlite/issues/522)).
+
 ## [v0.8.0](https://github.com/PyPSA/atlite/releases/tag/v0.8.0) (23rd November 2026)
 
 ### Breaking

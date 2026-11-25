@@ -90,7 +90,7 @@ def get_windturbineconfig(
             equal length.
     add_cutout_windspeed : bool = True
         If True and in case the power curve does not end with a zero, will add zero power
-        output at the highest wind speed in the power curve. If False, a warning will be
+        output just above the highest wind speed in the power curve. If False, a warning will be
         raised if the power curve does not have a cut-out wind speed.
 
     Returns
@@ -369,7 +369,7 @@ def _validate_turbine_config_dict(
         Values for "V" and "POW" need to be list or np.ndarray.
     add_cutout_windspeed : bool
         If True and in case the power curve does not end with a zero, will add zero power
-        output at the highest wind speed in the power curve. If False, a warning will be
+        output just above the highest wind speed in the power curve. If False, a warning will be
         raised if the power curve does not have a cut-out wind speed.
 
     Returns
@@ -414,11 +414,15 @@ def _validate_turbine_config_dict(
     if add_cutout_windspeed is True and not _max_v_is_zero_pow(
         cast("TurbineConfig", turbine)
     ):
-        turbine["V"] = np.pad(turbine["V"], (0, 1), "maximum")
-        turbine["POW"] = np.pad(turbine["POW"], (0, 1), "constant", constant_values=0)
+        # Append the zero just above the highest wind speed, so that the power
+        # listed for that wind speed still applies at it
+        v_max = turbine["V"][-1]
+        turbine["V"] = np.append(turbine["V"], np.nextafter(v_max, np.inf))
+        turbine["POW"] = np.append(turbine["POW"], 0.0)
         logger.info(
-            "adding a cut-out wind speed to the turbine power curve at V=%s m/s.",
-            turbine["V"][-1],
+            "adding a cut-out wind speed to the turbine power curve just above "
+            "V=%s m/s.",
+            v_max,
         )
 
     if not _max_v_is_zero_pow(cast("TurbineConfig", turbine)):
