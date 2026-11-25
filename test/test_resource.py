@@ -11,6 +11,7 @@ Created on Tue Jun 22 10:46:27 2021.
 
 import json
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -75,3 +76,25 @@ def test_windturbineconfig_add_cutout(add_cutout, last_pow):
         add_cutout_windspeed=add_cutout,
     )
     assert t["POW"][-1] == last_pow
+
+
+def test_windturbineconfig_add_cutout_keeps_last_power():
+    t = get_windturbineconfig(
+        {"V": [0, 25], "POW": [0.0, 1.0], "hub_height": 1.0, "P": 1.0},
+        add_cutout_windspeed=True,
+    )
+    # The power listed for the highest wind speed still applies at that wind
+    # speed, and the output is zero above it.
+    assert np.interp(25.0, t["V"], t["POW"]) == 1.0
+    assert np.interp(np.float32(25.0), t["V"], t["POW"]) == 1.0
+    assert np.interp(np.nextafter(25.0, np.inf), t["V"], t["POW"]) == 0.0
+    assert np.interp(25.1, t["V"], t["POW"]) == 0.0
+
+
+def test_windturbineconfig_add_cutout_keeps_explicit_cutout():
+    t = get_windturbineconfig(
+        {"V": [0, 25, 25], "POW": [0.0, 1.0, 0.0], "hub_height": 1.0, "P": 1.0},
+        add_cutout_windspeed=True,
+    )
+    np.testing.assert_array_equal(t["V"], [0, 25, 25])
+    np.testing.assert_array_equal(t["POW"], [0.0, 1.0, 0.0])

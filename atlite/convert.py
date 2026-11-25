@@ -1036,7 +1036,7 @@ def wind(
         sigma = 2.29. A dict allows to tune these values.
     add_cutout_windspeed : bool
         If True and in case the power curve does not end with a zero, will add zero power
-        output at the highest wind speed in the power curve. If False, a warning will be
+        output just above the highest wind speed in the power curve. If False, a warning will be
         raised if the power curve does not have a cut-out wind speed. The default is
         False.
     interpolation_method : {"logarithmic", "power"}
