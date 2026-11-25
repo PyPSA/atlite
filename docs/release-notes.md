@@ -14,81 +14,70 @@ SPDX-License-Identifier: CC-BY-4.0
     To use the features already you have to install the `master` branch, e.g.
     `pip install git+https://github.com/pypsa/atlite`.
 
+## [v0.8.0](https://github.com/PyPSA/atlite/releases/tag/v0.8.0) (23rd November 2026)
+
 ### Breaking
 
-- `Cutout.prepare` now applies BitRound quantization to 14 mantissa bits
-  (relative error below 3.1e-5) before zlib compression at level 4 instead of 9.
-  Writing is faster and files are smaller. The setting
-  now applies to all variables of the cutout, also to variables prepared
-  earlier. To keep the old behaviour, pass `compression={"zlib": True,
-  "complevel": 9, "shuffle": True}`. Requires `netCDF4>=1.6.0`
-  ([#529](https://github.com/PyPSA/atlite/pull/529)).
+- `Cutout.prepare` now quantizes all variables with BitRound to 14 mantissa bits
+  (relative error below 3.1e-5) and compresses with zlib at level 4 instead of 9.
+  This includes variables prepared earlier. To keep the old behaviour, pass
+  `compression={"zlib": True, "complevel": 9, "shuffle": True}`. Requires
+  `netCDF4>=1.6.0` ([#529](https://github.com/PyPSA/atlite/pull/529)).
+- Version the cutout data format with the attribute `atlite_cutout_schema_version`.
+  Older cutouts still load with a warning, but must be migrated before
+  `Cutout.prepare` can add features or cutouts of different versions can be merged.
+  See [Migrating Cutouts](home/migrating-cutouts.md)
+  ([#533](https://github.com/PyPSA/atlite/pull/533)).
 
-### Future Warning
+### Deprecations
 
-- Solar panel name: The incorrectly named "KANENA" will be renamed to "KANEKA" in v0.9.0;
-  see [#536](https://github.com/PyPSA/atlite/pull/536) .
-
-### Performance
-
-- Open existing cutouts with `chunks="auto"` by default instead of `{"time": 100}`,
-  also after `Cutout.prepare`. Dask chunks are now aligned with the chunks stored in
-  the NetCDF file. Before, dask chunks that split the stored chunks made the compressed
-  data decompress many times. This makes all conversions much faster for cutouts with
-  large stored chunks. An explicit `chunks` argument is
-  still respected. An explicit `chunks="auto"` now also
-  respects the stored chunks. Larger chunks can increase peak memory. To reduce it,
-  pass `chunks`
-  ([#527](https://github.com/PyPSA/atlite/pull/527)).
-- Keep `csp` lazy and chunked. The efficiency interpolation previously merged all time
-  steps into one chunk and added the solar position as four extra coordinates
-  ([#527](https://github.com/PyPSA/atlite/pull/527)).
-- Keep `pv` and `irradiation` lazy for `trigon_model="other"` and
-  `tracking="tilted_horizontal"`. Both computed intermediate results eagerly before.
-  The check for negative diffuse irradiation now only runs at log level `DEBUG`
-  ([#527](https://github.com/PyPSA/atlite/pull/527)).
-- Compute `line_rating` for all lines in one vectorised dask operation instead of one
-  task per line. Before, each line read and decompressed the cutout data again
-  ([#527](https://github.com/PyPSA/atlite/pull/527)).
-### Documentation
-
-- Fix broken links in docs ([#537](https://github.com/PyPSA/atlite/pull/537)).
+- The misnamed solar panel `KANENA` will be renamed to `KANEKA` in v0.9.0
+  ([#536](https://github.com/PyPSA/atlite/pull/536)).
 
 ### Features
 
-- Add `dc_ac_ratio` argument to `Cutout.pv` to size the inverter below the module
-  capacity. The output is then given per unit of AC capacity and clipped at the
-  inverter capacity in each grid cell before aggregation
+- Add support for Python 3.14 ([#532](https://github.com/PyPSA/atlite/pull/532)).
+- Add `dc_ac_ratio` argument to `Cutout.pv` to clip the output at the inverter
+  capacity in each grid cell. The output is then per unit of AC capacity
   ([#550](https://github.com/PyPSA/atlite/pull/550)).
-- Add support for Python 3.14.
-- Feat: Cutouts data format (schema) is now versioned using the attribute `atlite_cutout_schema_version`.
-  Newly created cutouts carry the version recommended by the `atlite` version used to create them (version 1 at the moment)
-  Old cutouts are still supported but need to be migrated with
-  `python -m atlite.migrate <path> --output <new path>` or
-  `atlite.migrate.migrate_cutout(path, output=new_path)`.
-  Cutouts that have an incompatible data schema will in the future be rejected and raise a `IncompatibleCutoutError`.
-  See [Migrating Cutouts](home/migrating-cutouts.md) for details ([#533](https://github.com/PyPSA/atlite/pull/533)).
+
+### Performance
+
+- Open cutouts with `chunks="auto"` by default instead of `{"time": 100}`, so that
+  dask chunks align with the chunks stored in the file. This speeds up conversions
+  but can increase peak memory; pass `chunks` to reduce it
+  ([#527](https://github.com/PyPSA/atlite/pull/527)).
+- Keep `csp` lazy and chunked, as well as `pv` and `irradiation` for
+  `trigon_model="other"` and `tracking="tilted_horizontal"`. The check for negative
+  diffuse irradiation now only runs at log level `DEBUG`
+  ([#527](https://github.com/PyPSA/atlite/pull/527)).
+- Compute `line_rating` for all lines in one vectorised dask operation instead of one
+  task per line ([#527](https://github.com/PyPSA/atlite/pull/527)).
 
 ### Bug fixes
 
-- Fix `ExclusionContainer.add_raster` ignoring `codes=0`. The code `0` was
-  treated like a missing `codes` argument, so all non-zero cells were excluded
-  instead of the cells with value `0`. Numpy arrays are now accepted as
-  `codes`, and an empty list excludes no cells
-  ([#525](https://github.com/PyPSA/atlite/pull/525)).
-- Fix `Cutout.hydro` failing with `pandas>=3.1` ([#542](https://github.com/PyPSA/atlite/pull/542)).
-- Fill missing irradiation data with zero for `trigon_model="other"`, as for
-  `trigon_model="simple"`. Before, cells without data, e.g. north of 65° N in SARAH
-  cutouts, returned NaN and made aggregated time series NaN
+- Fix `trigon_model="other"` returning NaN in cells without irradiation data, e.g.
+  north of 65° N in SARAH cutouts. Such cells now count as zero
   ([#528](https://github.com/PyPSA/atlite/pull/528)).
-- `Cutout.hydro` now raises a clear `ValueError` if a plant is not in any basin,
-  instead of an `IndexError` ([#548](https://github.com/PyPSA/atlite/pull/548)).
-- Fix `compute_indicatormatrix` and `compute_intersectionmatrix` failing with
-  `KeyError` or mixing up shapes when geometries are passed as a series with a
-  non-default index ([#534](https://github.com/PyPSA/atlite/pull/534)).
-- Fix `pad_extent` failing with `cannot convert float NaN to integer` for rasters
-  in a CRS like `ESRI:54009` whose corner lies outside the projection domain, e.g.
-  regions crossing the dateline ([#541](https://github.com/PyPSA/atlite/pull/541)).
+- Fix `compute_indicatormatrix` and `compute_intersectionmatrix` for geometries with
+  a non-default index ([#534](https://github.com/PyPSA/atlite/pull/534)).
+- Fix `pad_extent` failing for rasters whose corner lies outside the projection
+  domain, e.g. in `ESRI:54009` ([#541](https://github.com/PyPSA/atlite/pull/541)).
+- Fix `ExclusionContainer.add_raster` ignoring `codes=0`. `codes` now also accepts
+  numpy arrays, and an empty list excludes no cells
+  ([#525](https://github.com/PyPSA/atlite/pull/525)).
+- Fix `Cutout.hydro` failing with `pandas>=3.1`
+  ([#542](https://github.com/PyPSA/atlite/pull/542)).
+- `Cutout.hydro` now raises a clear `ValueError` if a plant lies outside all basins
+  ([#548](https://github.com/PyPSA/atlite/pull/548)).
+
+### Documentation
+
+- Migrate the documentation from Sphinx to MkDocs Material and move the examples
+  to `docs/examples` ([#544](https://github.com/PyPSA/atlite/pull/544)).
+- Rewrite the README and replace the workflow chart
+  ([#545](https://github.com/PyPSA/atlite/pull/545)).
+- Fix broken links ([#537](https://github.com/PyPSA/atlite/pull/537)).
 
 ## [v0.7.0](https://github.com/PyPSA/atlite/releases/tag/v0.7.0) (3rd October 2026)
 
@@ -280,7 +269,7 @@ SPDX-License-Identifier: CC-BY-4.0
 - Use `dask.array` functions in favour of `numpy` functions.
   ([#367](https://github.com/PyPSA/atlite/pull/367),
 
-## [v0.2.14](https://github.com/PyPSA/atlite/release/tag/v0.2.14) (23rd August 2024)
+## [v0.2.14](https://github.com/PyPSA/atlite/releases/tag/v0.2.14) (23rd August 2024)
 
 - Compatibility with new CDS infrastructure for ERA5 cutouts. Update your API
   key at <https://cds-beta.climate.copernicus.eu/how-to-api> and use the new API
