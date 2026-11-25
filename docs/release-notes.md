@@ -18,7 +18,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 - With `add_cutout_windspeed=True`, the zero-power cut-out is now added just above the
   highest wind speed of the power curve instead of at it, so the power listed for that
-  wind speed still applies ([#522](https://github.com/PyPSA/atlite/issues/522)).
+  wind speed still applies ([#554](https://github.com/PyPSA/atlite/pull/554)).
 
 ## [v0.8.0](https://github.com/PyPSA/atlite/releases/tag/v0.8.0) (23rd November 2026)
 
