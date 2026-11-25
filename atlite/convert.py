@@ -584,6 +584,29 @@ def coefficient_of_performance(
     )
 
 
+def _resample_temperature(
+    ds: xr.Dataset, freq: str | None, hour_shift: float
+) -> xr.DataArray:
+    """
+    Average temperature over periods of ``freq`` after shifting the time axis.
+
+    With ``freq=None`` the temperature is returned at the native temporal
+    resolution of the cutout and ``hour_shift`` has no effect.
+
+    Returns
+    -------
+    xr.DataArray
+        Temperature in Kelvin at the requested temporal resolution.
+    """
+    T = ds["temperature"]
+    if freq is None:
+        return T
+    T = T.assign_coords(
+        time=(T.coords["time"] + np.timedelta64(dt.timedelta(hours=hour_shift)))
+    )
+    return T.resample(time=freq).mean(dim="time")
+
+
 # heat demand
 def convert_heat_demand(
     ds: xr.Dataset,
@@ -591,6 +614,7 @@ def convert_heat_demand(
     a: float,
     constant: float,
     hour_shift: float,
+    freq: str | None = "1D",
 ) -> xr.DataArray:
     """
     Convert ambient temperature to daily heat demand by degree days.
@@ -606,25 +630,24 @@ def convert_heat_demand(
     constant : float
         Constant demand component added to the result.
     hour_shift : float
-        Time shift in hours applied before daily averaging.
+        Time shift in hours applied before averaging.
+    freq : str or None, default "1D"
+        Period over which temperature is averaged before applying the
+        threshold. ``None`` keeps the native resolution of the cutout.
 
     Returns
     -------
     xr.DataArray
-        Daily heat demand in degree-day-like units.
+        Heat demand in degree-day-like units (degree-hour-like for hourly
+        resolution).
 
     Notes
     -----
-    The formula is ``max(0, a * (threshold - T_daily_mean)) + constant``
-    where ``T_daily_mean`` is the daily-averaged temperature.
+    The formula is ``max(0, a * (threshold - T)) + constant`` where ``T`` is
+    the temperature averaged over ``freq`` (daily by default).
     """
-    # Temperature is in Kelvin; take daily average
-    T = ds["temperature"]
-    T = T.assign_coords(
-        time=(T.coords["time"] + np.timedelta64(dt.timedelta(hours=hour_shift)))
-    )
-
-    T = T.resample(time="1D").mean(dim="time")
+    # Temperature is in Kelvin
+    T = _resample_temperature(ds, freq, hour_shift)
     threshold += 273.15
     heat_demand = a * (threshold - T)
 
@@ -639,14 +662,18 @@ def heat_demand(
     a: float = 1.0,
     constant: float = 0.0,
     hour_shift: float = 0.0,
+    freq: str | None = "1D",
     **params: Any,
 ) -> ConvertResult:
     """
-    Convert outside temperature into daily heat demand using degree-day approximation.
+    Convert outside temperature into heat demand using degree-day approximation.
 
     The formula is ``max(0, a * (threshold - T_daily_mean)) + constant``
     where ``T_daily_mean`` is the daily-averaged temperature. Output is in
-    degree-day-like units (scaled by *a*).
+    degree-day-like units (scaled by *a*). With *freq* the temperature can
+    instead be averaged over shorter periods, or not at all (``freq=None``),
+    to obtain sub-daily degree hours. The threshold is applied per grid cell
+    before any spatial aggregation.
 
     Since "daily average temperature" means different things in different time
     zones, you can provide *hour_shift* to redefine when the day starts.
@@ -666,6 +693,12 @@ def heat_demand(
         (e.g. water heating).
     hour_shift : float, default 0.0
         Time shift in hours relative to UTC for daily averaging.
+    freq : str or None, default "1D"
+        Period over which the temperature is averaged before the threshold is
+        applied, as a pandas frequency string. The default ``"1D"`` gives
+        degree days. ``"3h"`` gives three-hourly values, and ``None`` keeps
+        the native resolution of the cutout (hourly for ERA5), giving degree
+        hours. With ``None``, ``hour_shift`` has no effect.
     **params : Any
         Additional keyword arguments passed to
         [convert_and_aggregate][atlite.convert.convert_and_aggregate].
@@ -673,7 +706,7 @@ def heat_demand(
     Returns
     -------
     xr.DataArray
-        Daily heat demand time-series in degree-day-like units.
+        Heat demand time-series in degree-day-like units (daily by default).
 
     Warnings
     --------
@@ -697,6 +730,7 @@ def heat_demand(
         a=a,
         constant=constant,
         hour_shift=hour_shift,
+        freq=freq,
         **params,
     )
 
@@ -708,6 +742,7 @@ def convert_cooling_demand(
     a: float,
     constant: float,
     hour_shift: float,
+    freq: str | None = "1D",
 ) -> xr.DataArray:
     """
     Convert ambient temperature to daily cooling demand by degree days.
@@ -723,25 +758,24 @@ def convert_cooling_demand(
     constant : float
         Constant demand component added to the result.
     hour_shift : float
-        Time shift in hours applied before daily averaging.
+        Time shift in hours applied before averaging.
+    freq : str or None, default "1D"
+        Period over which temperature is averaged before applying the
+        threshold. ``None`` keeps the native resolution of the cutout.
 
     Returns
     -------
     xr.DataArray
-        Daily cooling demand in degree-day-like units.
+        Cooling demand in degree-day-like units (degree-hour-like for hourly
+        resolution).
 
     Notes
     -----
-    The formula is ``max(0, a * (T_daily_mean - threshold)) + constant``
-    where ``T_daily_mean`` is the daily-averaged temperature.
+    The formula is ``max(0, a * (T - threshold)) + constant`` where ``T`` is
+    the temperature averaged over ``freq`` (daily by default).
     """
-    # Temperature is in Kelvin; take daily average
-    T = ds["temperature"]
-    T = T.assign_coords(
-        time=(T.coords["time"] + np.timedelta64(dt.timedelta(hours=hour_shift)))
-    )
-
-    T = T.resample(time="1D").mean(dim="time")
+    # Temperature is in Kelvin
+    T = _resample_temperature(ds, freq, hour_shift)
     threshold += 273.15
     cooling_demand = a * (T - threshold)
 
@@ -756,14 +790,19 @@ def cooling_demand(
     a: float = 1.0,
     constant: float = 0.0,
     hour_shift: float = 0.0,
+    freq: str | None = "1D",
     **params: Any,
 ) -> ConvertResult:
     """
-    Convert outside temperature into daily cooling demand using degree-day approximation.
+    Convert outside temperature into cooling demand using degree-day approximation.
 
     The formula is ``max(0, a * (T_daily_mean - threshold)) + constant``
     where ``T_daily_mean`` is the daily-averaged temperature. Output is in
-    degree-day-like units (scaled by *a*).
+    degree-day-like units (scaled by *a*). With *freq* the temperature can
+    instead be averaged over shorter periods, or not at all (``freq=None``),
+    to obtain sub-daily degree hours, e.g. to capture the afternoon peak of
+    cooling demand. The threshold is applied per grid cell before any spatial
+    aggregation.
 
     Since "daily average temperature" means different things in different time
     zones, you can provide *hour_shift* to redefine when the day starts.
@@ -785,6 +824,12 @@ def cooling_demand(
         (e.g. ventilation).
     hour_shift : float, default 0.0
         Time shift in hours relative to UTC for daily averaging.
+    freq : str or None, default "1D"
+        Period over which the temperature is averaged before the threshold is
+        applied, as a pandas frequency string. The default ``"1D"`` gives
+        degree days. ``"3h"`` gives three-hourly values, and ``None`` keeps
+        the native resolution of the cutout (hourly for ERA5), giving degree
+        hours. With ``None``, ``hour_shift`` has no effect.
     **params : Any
         Additional keyword arguments passed to
         [convert_and_aggregate][atlite.convert.convert_and_aggregate].
@@ -792,7 +837,7 @@ def cooling_demand(
     Returns
     -------
     xr.DataArray
-        Daily cooling demand time-series in degree-day-like units.
+        Cooling demand time-series in degree-day-like units (daily by default).
 
     Warnings
     --------
@@ -816,6 +861,7 @@ def cooling_demand(
         a=a,
         constant=constant,
         hour_shift=hour_shift,
+        freq=freq,
         **params,
     )
 
