@@ -45,6 +45,7 @@ jobs:
     name: Test package
     needs: [build]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -61,14 +62,14 @@ jobs:
     - name: Setup cache and secrets (Linux & MacOS)
       if: runner.os != 'Windows'
       run: |
-        echo "CACHE_PATH=$HOME/.atlite_cache" >> $GITHUB_ENV
+        echo "CACHE_PATH=.atlite_cache" >> $GITHUB_ENV
         echo "today=$(date +'%Y-%m-%d')"  >> $GITHUB_ENV
       shell: bash
 
     - name: Setup cache and secrets (Windows)
       if: runner.os == 'Windows'
       run: |
-        echo "CACHE_PATH=$env:USERPROFILE\.atlite_cache" >> $env:GITHUB_ENV
+        echo "CACHE_PATH=.atlite_cache" >> $env:GITHUB_ENV
         echo "today=$(Get-Date -Format 'yyyy-MM-dd')" >> $env:GITHUB_ENV
       shell: pwsh
 

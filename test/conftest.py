@@ -24,7 +24,7 @@ BOUNDS = (-4, 56, 1.5, 62)
 SARAH_DIR = os.getenv("SARAH_DIR", "/home/vres/climate-data/sarah_v2")
 GEBCO_PATH = os.getenv("GEBCO_PATH", "/home/vres/climate-data/GEBCO_2014_2D.nc")
 
-CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL"))
+CDS_API_CONFIGURED = bool(os.environ.get("CDSAPI_URL") and os.environ.get("CDSAPI_KEY"))
 
 
 def _edh_reachable(max_attempts: int = 8) -> bool:
