@@ -17,10 +17,8 @@ SPDX-License-Identifier: CC-BY-4.0
 ### Features
 
 - Add argument `freq` to `Cutout.heat_demand` and `Cutout.cooling_demand` to set
-  the period over which temperature is averaged before applying the threshold.
-  The default `"1D"` keeps the daily degree days; `freq=None` returns degree
-  hours at the native resolution of the cutout, and e.g. `"3h"` three-hourly
-  values ([#553](https://github.com/PyPSA/atlite/pull/553)).
+  the temperature averaging period (default `"1D"`; `None` gives degree hours)
+  ([#553](https://github.com/PyPSA/atlite/pull/553)).
 
 ## [v0.8.0](https://github.com/PyPSA/atlite/releases/tag/v0.8.0) (23rd November 2026)
 
