@@ -597,10 +597,26 @@ def _resample_temperature(
     -------
     xr.DataArray
         Temperature in Kelvin at the requested temporal resolution.
+
+    Raises
+    ------
+    ValueError
+        If ``freq`` is finer than the temporal resolution of the cutout.
     """
     T = ds["temperature"]
     if freq is None:
         return T
+    offset = pd.tseries.frequencies.to_offset(freq)
+    # Calendar offsets (e.g. "W", "MS") are not Ticks and are always coarser
+    # than any cutout resolution, so only fixed-length frequencies are checked.
+    if isinstance(offset, pd.offsets.Tick) and T.sizes["time"] > 1:
+        resolution = pd.Timedelta(np.diff(T.coords["time"].values).min())
+        if pd.Timedelta(offset) < resolution:
+            raise ValueError(
+                f"freq={freq!r} is finer than the temporal resolution of the "
+                f"cutout ({resolution}). Use freq=None to keep the native "
+                "resolution."
+            )
     T = T.assign_coords(
         time=(T.coords["time"] + np.timedelta64(dt.timedelta(hours=hour_shift)))
     )
@@ -693,10 +709,13 @@ def heat_demand(
         Time shift in hours relative to UTC for daily averaging.
     freq : str or None, default "1D"
         Period over which the temperature is averaged before the threshold is
-        applied, as a pandas frequency string. The default ``"1D"`` gives
-        degree days. ``"3h"`` gives three-hourly values, and ``None`` keeps
-        the native resolution of the cutout, giving degree
-        hours. With ``None``, ``hour_shift`` has no effect.
+        applied, as a [pandas offset alias](https://pandas.pydata.org/docs/user_guide/timeseries.html#offset-aliases)
+        (passed to ``xarray.DataArray.resample``). The default ``"1D"`` gives
+        degree days, ``"3h"`` three-hourly values, and coarser periods such
+        as ``"W"`` or ``"MS"`` weekly or monthly values. ``None`` keeps the
+        native resolution of the cutout, giving degree hours; then
+        ``hour_shift`` has no effect. A frequency finer than the cutout
+        resolution (e.g. ``"30min"`` for hourly data) raises a ``ValueError``.
     **params : Any
         Additional keyword arguments passed to
         [convert_and_aggregate][atlite.convert.convert_and_aggregate].
@@ -824,10 +843,14 @@ def cooling_demand(
         Time shift in hours relative to UTC for daily averaging.
     freq : str or None, default "1D"
         Period over which the temperature is averaged before the threshold is
-        applied, as a pandas frequency string. The default ``"1D"`` gives
-        degree days. ``"3h"`` gives three-hourly values, and ``None`` keeps
-        the native resolution of the cutout (hourly for ERA5), giving degree
-        hours. With ``None``, ``hour_shift`` has no effect.
+        applied, as a [pandas offset alias](https://pandas.pydata.org/docs/user_guide/timeseries.html#offset-aliases)
+        (passed to ``xarray.DataArray.resample``). The default ``"1D"`` gives
+        degree days, ``"3h"`` three-hourly values, and coarser periods such
+        as ``"W"`` or ``"MS"`` weekly or monthly values. ``None`` keeps the
+        native resolution of the cutout, giving degree
+        hours; then ``hour_shift`` has no effect. A frequency finer than the
+        cutout resolution (e.g. ``"30min"`` for hourly data) raises a
+        ``ValueError``.
     **params : Any
         Additional keyword arguments passed to
         [convert_and_aggregate][atlite.convert.convert_and_aggregate].

@@ -120,3 +120,31 @@ def test_aggregation_with_freq(temperature: xr.Dataset, func: Any) -> None:
     assert isinstance(result, xr.DataArray)
     assert set(result.dims) == {"time", "region"}
     assert result.sizes["time"] == 48
+
+
+@pytest.mark.parametrize(("freq", "expected_steps"), [("W", 1), ("MS", 1)])
+def test_coarser_than_daily(
+    temperature: xr.Dataset, freq: str, expected_steps: int
+) -> None:
+    hdd = convert_heat_demand(
+        temperature, threshold=25.0, a=1.0, constant=0.0, hour_shift=0.0, freq=freq
+    )
+    assert hdd.sizes["time"] == expected_steps
+    expected = (25.0 - celsius(temperature).mean("time")).clip(min=0.0)
+    np.testing.assert_allclose(hdd.isel(time=0).values, expected.values)
+
+
+@pytest.mark.parametrize("freq", ["30min", "1min"])
+@pytest.mark.parametrize("func", [convert_heat_demand, convert_cooling_demand])
+def test_freq_finer_than_resolution_raises(
+    temperature: xr.Dataset, func: Any, freq: str
+) -> None:
+    with pytest.raises(ValueError, match="finer than the temporal resolution"):
+        func(
+            temperature,
+            threshold=15.0,
+            a=1.0,
+            constant=0.0,
+            hour_shift=0.0,
+            freq=freq,
+        )
