@@ -670,10 +670,8 @@ def heat_demand(
 
     The formula is ``max(0, a * (threshold - T_daily_mean)) + constant``
     where ``T_daily_mean`` is the daily-averaged temperature. Output is in
-    degree-day-like units (scaled by *a*). With *freq* the temperature can
-    instead be averaged over shorter periods, or not at all (``freq=None``),
-    to obtain sub-daily degree hours. The threshold is applied per grid cell
-    before any spatial aggregation.
+    degree-day-like units by defalt (scaled by *a*). With *freq* the temperature can
+    instead be averaged over different periods, e.g. to obtain sub-daily degree hours with `freq="1h"`. The threshold is applied per grid cell before any spatial aggregation.
 
     Since "daily average temperature" means different things in different time
     zones, you can provide *hour_shift* to redefine when the day starts.
@@ -697,7 +695,7 @@ def heat_demand(
         Period over which the temperature is averaged before the threshold is
         applied, as a pandas frequency string. The default ``"1D"`` gives
         degree days. ``"3h"`` gives three-hourly values, and ``None`` keeps
-        the native resolution of the cutout (hourly for ERA5), giving degree
+        the native resolution of the cutout, giving degree
         hours. With ``None``, ``hour_shift`` has no effect.
     **params : Any
         Additional keyword arguments passed to
